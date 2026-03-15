@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #08080f;
+    color: #e2e8f0;
+    font-family: var(--font-inter), system-ui, sans-serif;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0f0f1a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #22d3ee;
+  }
+
+  /* Selection */
+  ::selection {
+    background: rgba(34, 211, 238, 0.2);
+    color: #22d3ee;
+  }
+}
+
+@layer components {
+  .terminal-prompt::before {
+    content: '> ';
+    color: #4ade80;
+    font-family: var(--font-mono), monospace;
+  }
+
+  .glow-green {
+    text-shadow: 0 0 20px rgba(74, 222, 128, 0.5);
+  }
+
+  .glow-cyan {
+    text-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+  }
+
+  .card-hover {
+    @apply border border-slate-800 rounded-xl transition-all duration-300;
+  }
+  .card-hover:hover {
+    @apply border-green-500/50;
+    box-shadow: 0 0 20px rgba(74, 222, 128, 0.08);
+  }
+}
+
+/* Blinking cursor */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* Rehype Pretty Code — kod blokları */
+[data-rehype-pretty-code-figure] {
+  margin: 1.5rem 0;
+  border-radius: 0.75rem;
+  border: 1px solid #1e293b;
+  overflow: hidden;
+}
+
+[data-rehype-pretty-code-figure] pre {
+  overflow-x: auto;
+  padding: 1.25rem 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  background: #0d1117 !important;
+}
+
+[data-rehype-pretty-code-figure] code {
+  font-family: var(--font-mono), monospace;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+  border-radius: 0;
+}
+
+[data-rehype-pretty-code-title] {
+  background: #0d1117;
+  border-bottom: 1px solid #1e293b;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.75rem;
+  font-family: var(--font-mono), monospace;
+  color: #64748b;
+}
+
+[data-line] {
+  padding: 0 0.25rem;
+}
+
+[data-highlighted-line] {
+  background: rgba(34, 211, 238, 0.06);
+  border-left: 2px solid #22d3ee;
+  padding-left: calc(0.25rem - 2px);
+}

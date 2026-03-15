@@ -1,0 +1,200 @@
+---
+title: "Wireshark ile Ağ Trafiği Analizi"
+date: "2026-03-12"
+description: "Wireshark'ın temel filtrelerinden gelişmiş protokol analizine, CTF'lerde PCAP dosyalarından gizli veri çıkarmaya kadar kapsamlı bir rehber."
+tags: ["Ağ Güvenliği", "CTF"]
+---
+
+## Wireshark Nedir?
+
+Wireshark, ağ trafiğini gerçek zamanlı yakalayan ve analiz eden açık kaynaklı bir paket analizörüdür. SOC analistleri için şüpheli trafiği incelemek, pentest uzmanları için kimlik bilgisi avlamak ve CTF oyuncuları için PCAP dosyalarından flag çıkarmak amacıyla kullanılır.
+
+> Ağı anlamak istiyorsanız paketi okuyun. Her şey orada.
+
+## Temel Filtreler
+
+Wireshark'ın gücü display filter'larından gelir. Doğru filtreyle milyonlarca paket arasından istediğinizi saniyede bulursunuz.
+
+```wireshark
+# Protokol bazlı
+http
+dns
+ftp
+ssh
+tcp
+udp
+icmp
+
+# IP bazlı
+ip.addr == 192.168.1.1
+ip.src == 10.10.10.5
+ip.dst == 8.8.8.8
+
+# Port bazlı
+tcp.port == 80
+tcp.dstport == 443
+udp.port == 53
+
+# Kombinasyon
+ip.src == 10.10.10.5 && tcp.port == 80
+http || dns
+!(arp || icmp)
+```
+
+## HTTP Trafiğini Okumak
+
+```wireshark
+# Sadece GET istekleri
+http.request.method == "GET"
+
+# POST — form verileri burada
+http.request.method == "POST"
+
+# Belirli host
+http.host == "target.com"
+
+# Yetkilendirme başlığı içerenler
+http.authorization
+```
+
+Bir HTTP isteğine sağ tıklayıp **Follow → HTTP Stream** seçeneğiyle tam oturumu okuyabilirsiniz. Cleartext kimlik bilgileri, cookie'ler ve form verileri burada görünür.
+
+## DNS Analizi
+
+```wireshark
+# Tüm DNS sorguları
+dns
+
+# Belirli domain sorguları
+dns.qry.name contains "google"
+
+# Yanıt koduna göre (NXDOMAIN = 3)
+dns.flags.rcode == 3
+
+# Uzun DNS sorguları — DNS tüneli işareti
+dns.qry.name.len > 50
+```
+
+DNS tüneli tespiti için:
+
+```bash
+# tshark ile komut satırından analiz
+tshark -r capture.pcap -Y "dns" \
+  -T fields -e dns.qry.name \
+  | sort | uniq -c | sort -rn | head -20
+```
+
+## Kimlik Bilgisi Avlama
+
+```wireshark
+# FTP — cleartext parola
+ftp.request.command == "PASS"
+
+# Telnet oturumu
+telnet
+
+# HTTP Basic Auth
+http.authorization contains "Basic"
+```
+
+HTTP Basic Auth'u decode etmek için:
+
+```python
+import base64
+
+encoded = "dXNlcjpwYXNzd29yZA=="
+decoded = base64.b64decode(encoded).decode()
+print(decoded)  # user:password
+```
+
+## CTF: PCAP'tan Veri Çıkarma
+
+### tshark ile Otomatik Analiz
+
+```bash
+# Tüm HTTP objeleri kaydet
+tshark -r traffic.pcap --export-objects http,./output/
+
+# Belirli alanı çıkar
+tshark -r traffic.pcap -Y "http.request" \
+  -T fields -e http.host -e http.request.uri
+
+# TCP stream'i text olarak al
+tshark -r traffic.pcap -q -z follow,tcp,ascii,0
+```
+
+### Gizli Dosya Arama
+
+```bash
+# Wireshark File → Export Objects → HTTP/FTP/SMB
+# Veya tshark ile:
+
+tshark -r capture.pcap --export-objects http,http_files/
+
+# Dosya tiplerini kontrol et
+file http_files/*
+
+# Steganografi için resim dosyalarını incele
+ls http_files/*.png http_files/*.jpg 2>/dev/null
+```
+
+### ICMP Data Exfiltration
+
+```wireshark
+# Büyük ICMP paketleri şüpheli
+icmp && data.len > 100
+```
+
+```bash
+# ICMP data alanını çıkar
+tshark -r capture.pcap -Y "icmp.type == 8" \
+  -T fields -e data.data \
+  | xxd -r -p
+```
+
+## Şifreli Trafik — TLS Analizi
+
+HTTPS trafiğini decrypt etmek için tarayıcının oturum anahtarlarına ihtiyaç vardır:
+
+```bash
+# Chrome / Firefox için SSLKEYLOGFILE ayarla
+export SSLKEYLOGFILE=~/ssl-keys.log
+chromium &
+
+# Wireshark'ta:
+# Edit → Preferences → Protocols → TLS
+# (Pre)-Master-Secret log filename: ~/ssl-keys.log
+```
+
+Bu sayede HTTPS trafiği de HTTP gibi okunabilir hale gelir.
+
+## Komut Satırı: tshark Hızlı Başvuru
+
+```bash
+# Arayüzleri listele
+tshark -D
+
+# Belirli arayüzden yakala
+tshark -i eth0 -w capture.pcap
+
+# Canlı filtreli görüntüle
+tshark -i eth0 -Y "http || dns"
+
+# İstatistikler
+tshark -r capture.pcap -q -z io,phs       # protokol hiyerarşisi
+tshark -r capture.pcap -q -z conv,tcp     # TCP konuşmaları
+tshark -r capture.pcap -q -z endpoints,ip # IP endpoint'leri
+```
+
+## Şüpheli Trafik İşaretleri
+
+| Bulgu | Açıklama |
+|---|---|
+| Düzenli aralıklı beacon | C2 iletişimi |
+| Uzun DNS sorgu isimleri | DNS tüneli |
+| ICMP'de büyük data | ICMP exfiltration |
+| Cleartext kimlik bilgisi | Güvensiz protokol |
+| Port tarama paterni | Keşif aktivitesi |
+| Anormal veri transferi | Veri sızıntısı |
+
+Bir sonraki yazıda **aktif ağ keşfi** ve `nmap` scriptlerini derinlemesine ele alacağım.

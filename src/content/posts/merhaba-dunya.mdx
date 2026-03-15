@@ -1,0 +1,55 @@
+---
+title: "Merhaba Dünya — Blogu Açıyorum"
+date: "2026-03-16"
+description: "Siber güvenlik blog yolculuğumun ilk yazısı. Ne yazacağımı ve neden bu platformu kurduğumu anlattım."
+tags: ["genel", "CTF"]
+---
+
+## Neden Bu Blog?
+
+Uzun zamandır siber güvenlik alanında öğrendiklerimi, CTF çözümlerimi ve araştırma notlarımı bir yerde toplamak istiyordum. Artık o yer burada.
+
+> "The quieter you become, the more you can hear." — Kali Linux motto
+
+## Ne Bulacaksınız?
+
+Burada şunları paylaşacağım:
+
+- CTF writeup'ları ve çözüm yaklaşımları
+- Penetrasyon testi notları
+- Malware analiz raporları
+- Araç incelemeleri ve kurulum rehberleri
+
+## Bir Örnek
+
+Klasik bir nmap taraması nasıl yapılır:
+
+```bash
+# Temel servis ve versiyon taraması
+nmap -sV -sC -oN scan.txt 10.10.10.1
+
+# Tüm port taraması
+nmap -p- --min-rate 5000 10.10.10.1
+```
+
+Python ile basit bir port tarayıcı:
+
+```python
+import socket
+
+def scan_port(host: str, port: int) -> bool:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.5)
+            return s.connect_ex((host, port)) == 0
+    except Exception:
+        return False
+
+for port in range(1, 1025):
+    if scan_port("127.0.0.1", port):
+        print(f"[+] Port {port} açık")
+```
+
+## Sonraki Yazı
+
+Bir sonraki yazıda bir CTF makinesinin çözümünü adım adım anlatacağım. Takipte kalın.
