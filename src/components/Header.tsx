@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const navLinks = [
-  { href: '/blog',      label: 'Blog'      },
-  { href: '/portfolio', label: 'Portfolio' },
-  { href: '/about',     label: 'Hakkımda'  },
+  { href: '/blog',      label: 'Blog'       },
+  { href: '/portfolio', label: 'Portfolio'  },
+  { href: '/roadmap',   label: '~/roadmap'  },
+  { href: '/about',     label: 'Hakkımda'   },
 ];
 
 export default function Header() {

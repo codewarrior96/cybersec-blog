@@ -5,6 +5,7 @@ import MatrixRain from '@/components/MatrixRain';
 import CountUp from '@/components/CountUp';
 import BootSequence from '@/components/BootSequence';
 import InteractiveTerminal from '@/components/InteractiveTerminal';
+import ThreatFeed from '@/components/ThreatFeed';
 
 const categories = [
   { name: 'CTF Writeups',    abbr: 'CTF', desc: 'Yarışma çözümleri' },
@@ -48,6 +49,19 @@ export default async function HomePage() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* ══════════════════ THREAT FEED ══════════════════ */}
+        <section className="max-w-5xl mx-auto px-6 py-10">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-mono text-slate-300 text-sm">
+              <span className="text-amber-400">// </span>tehdit istihbaratı
+            </h2>
+            <span className="font-mono text-[10px] text-amber-400/50 border border-amber-400/20 px-2 py-0.5">
+              CANLI
+            </span>
+          </div>
+          <ThreatFeed />
         </section>
 
         {/* ══════════════════ CATEGORIES ══════════════════ */}
