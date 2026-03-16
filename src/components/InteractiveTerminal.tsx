@@ -40,17 +40,17 @@ const SKILLS = [
 
 const COMMANDS: Record<string, () => TerminalLine[]> = {
   help: () => [
-    { kind: 'info', text: 'Available: whoami | skills | blog | portfolio | contact | clear | hack' },
+    { kind: 'info' as const, text: 'Available: whoami | skills | blog | portfolio | contact | clear | hack' },
   ],
   whoami: () => [
-    { kind: 'output', text: 'codewarrior96 — Security Researcher | CTF Player | Malware Analyst' },
+    { kind: 'output' as const, text: 'codewarrior96 — Security Researcher | CTF Player | Malware Analyst' },
   ],
-  skills: () => SKILLS.map((s) => ({ kind: 'output' as LineKind, text: s })),
+  skills: () => SKILLS.map((s) => ({ kind: 'output' as const, text: s })),
   contact: () => [
-    { kind: 'output', text: 'Email: contact@codewarrior96.dev' },
+    { kind: 'output' as const, text: 'Email: contact@codewarrior96.dev' },
   ],
   hack: () => [
-    { kind: 'error', text: 'Nice try. Already inside.' },
+    { kind: 'error' as const, text: 'Nice try. Already inside.' },
   ],
 };
 
@@ -120,8 +120,8 @@ export default function InteractiveTerminal() {
       await typeCmd(cmd1);
       if (cancelled) return;
       addLines(
-        { kind: 'cmd',    text: cmd1 },
-        { kind: 'output', text: 'codewarrior96 — Security Researcher | CTF Player | Malware Analyst' },
+        { kind: 'cmd' as const,    text: cmd1 },
+        { kind: 'output' as const, text: 'codewarrior96 — Security Researcher | CTF Player | Malware Analyst' },
       );
       await wait(STAGE_PAUSE);
 
@@ -129,11 +129,11 @@ export default function InteractiveTerminal() {
       const cmd2 = `${PROMPT}cat skills.txt`;
       await typeCmd(cmd2);
       if (cancelled) return;
-      addLines({ kind: 'cmd', text: cmd2 });
+      addLines({ kind: 'cmd' as const, text: cmd2 });
 
       for (const skill of SKILLS) {
         if (cancelled) return;
-        setPreLines((prev) => [...prev, { kind: 'output', text: skill }]);
+        setPreLines((prev) => [...prev, { kind: 'output' as const, text: skill }]);
         await wait(SKILL_DELAY);
       }
       await wait(STAGE_PAUSE);
@@ -172,13 +172,13 @@ export default function InteractiveTerminal() {
     }
 
     if (cmd === 'blog') {
-      setHistory((prev) => [...prev, inputLine, { kind: 'output', text: 'Navigating to /blog...' }].slice(-20));
+      setHistory((prev) => [...prev, inputLine, { kind: 'output' as const, text: 'Navigating to /blog...' }].slice(-20));
       window.location.href = '/blog';
       return;
     }
 
     if (cmd === 'portfolio') {
-      setHistory((prev) => [...prev, inputLine, { kind: 'output', text: 'Navigating to /portfolio...' }].slice(-20));
+      setHistory((prev) => [...prev, inputLine, { kind: 'output' as const, text: 'Navigating to /portfolio...' }].slice(-20));
       window.location.href = '/portfolio';
       return;
     }
@@ -190,7 +190,7 @@ export default function InteractiveTerminal() {
       setHistory((prev) => [
         ...prev,
         inputLine,
-        { kind: 'error', text: `command not found: ${cmd}. Try 'help'` },
+        { kind: 'error' as const, text: `command not found: ${cmd}. Try 'help'` },
       ].slice(-20));
     }
   };
