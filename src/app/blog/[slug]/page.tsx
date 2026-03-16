@@ -44,8 +44,12 @@ const prettyCodeOptions = {
 };
 
 export default async function PostPage({ params }: { params: { slug: string } }) {
-  const post = await getPostBySlug(params.slug);
+  const [post, allPosts] = await Promise.all([getPostBySlug(params.slug), getAllPosts()]);
   if (!post) notFound();
+
+  const currentIndex = allPosts.findIndex((p) => p.slug === params.slug);
+  const prevPost = currentIndex < allPosts.length - 1 ? allPosts[currentIndex + 1] : null;
+  const nextPost = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
 
   const formattedDate = post.date
     ? new Date(post.date).toLocaleDateString('tr-TR', {
@@ -95,6 +99,12 @@ export default async function PostPage({ params }: { params: { slug: string } })
 
           <div className="flex items-center gap-4 text-sm text-slate-500 font-mono pb-8 border-b border-slate-800">
             <time>{formattedDate}</time>
+            {post.readingTime && (
+              <span className="text-slate-600">·</span>
+            )}
+            {post.readingTime && (
+              <span>{post.readingTime} dk okuma</span>
+            )}
           </div>
 
           {/* İçerik */}
@@ -110,8 +120,32 @@ export default async function PostPage({ params }: { params: { slug: string } })
             />
           </article>
 
-          {/* Geri */}
-          <div className="mt-16 pt-8 border-t border-slate-800">
+          {/* Prev / Next */}
+          <div className="mt-16 pt-8 border-t border-slate-800 space-y-6">
+            {(prevPost || nextPost) && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  {prevPost && (
+                    <Link href={`/blog/${prevPost.slug}`} className="group flex flex-col">
+                      <span className="text-xs text-slate-600 font-mono mb-1">← önceki yazı</span>
+                      <span className="text-sm text-slate-400 group-hover:text-green-400 transition-colors line-clamp-2">
+                        {prevPost.title}
+                      </span>
+                    </Link>
+                  )}
+                </div>
+                <div className="text-right">
+                  {nextPost && (
+                    <Link href={`/blog/${nextPost.slug}`} className="group flex flex-col items-end">
+                      <span className="text-xs text-slate-600 font-mono mb-1">sonraki yazı →</span>
+                      <span className="text-sm text-slate-400 group-hover:text-green-400 transition-colors line-clamp-2">
+                        {nextPost.title}
+                      </span>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
             <Link
               href="/blog"
               className="font-mono text-sm text-slate-400 hover:text-green-400 transition-colors"

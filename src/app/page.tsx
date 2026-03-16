@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getAllPosts } from '@/lib/posts';
 import BlogCard from '@/components/BlogCard';
+import TypingText from '@/components/TypingText';
 
 export default async function HomePage() {
   const posts = await getAllPosts();
@@ -24,7 +25,7 @@ export default async function HomePage() {
             <h1 className="text-3xl md:text-5xl font-bold text-slate-100 leading-tight pl-4">
               Siber Güvenlik
               <br />
-              <span className="text-green-400 glow-green">Araştırmacısı</span>
+              <TypingText text="Araştırmacısı" className="text-green-400 glow-green" />
             </h1>
           </div>
 
