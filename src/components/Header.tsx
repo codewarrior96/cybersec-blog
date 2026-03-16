@@ -4,22 +4,27 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const navLinks = [
-  { href: '/blog', label: 'Blog' },
-  { href: '/about', label: 'Hakkımda' },
+  { href: '/blog',      label: 'Blog'      },
+  { href: '/portfolio', label: 'Portfolio' },
+  { href: '/about',     label: 'Hakkımda'  },
 ];
 
 export default function Header() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-800/60 backdrop-blur-md bg-[#08080f]/80">
-      <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+    <header className="sticky top-0 z-50 border-b border-green-400/10 backdrop-blur-md bg-[#08080f]/85">
+      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 group">
-          <span className="font-mono text-green-400 text-lg font-bold group-hover:glow-green transition-all">
+        <Link href="/" className="flex items-center gap-1.5 group">
+          <span className="font-mono text-green-400 text-base font-bold transition-all duration-300 group-hover:text-shadow-green"
+            style={{ transition: 'text-shadow 0.3s ease' }}
+          >
+            <span className="text-slate-500">[</span>
             ~/cybersec
+            <span className="text-slate-500">]</span>
           </span>
-          <span className="font-mono text-slate-500 cursor-blink">_</span>
+          <span className="font-mono text-green-400 cursor-blink text-sm">_</span>
         </Link>
 
         {/* Nav */}
@@ -30,18 +35,22 @@ export default function Header() {
               <Link
                 key={href}
                 href={href}
-                className={`px-4 py-1.5 rounded-lg font-mono text-sm transition-all duration-200 ${
+                className={`px-3 py-1.5 rounded-lg font-mono text-xs transition-all duration-200 ${
                   isActive
-                    ? 'text-green-400 bg-green-400/10'
-                    : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/50'
+                    ? 'text-green-400 bg-green-400/10 border border-green-400/20 shadow-[0_0_8px_rgba(0,255,65,0.2)]'
+                    : 'text-slate-400 hover:text-green-400 hover:bg-green-400/5 border border-transparent hover:border-green-400/15'
                 }`}
               >
+                {isActive && <span className="mr-1 opacity-60">›</span>}
                 {label}
               </Link>
             );
           })}
         </nav>
       </div>
+
+      {/* Bottom accent line */}
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/20 to-transparent" />
     </header>
   );
 }
