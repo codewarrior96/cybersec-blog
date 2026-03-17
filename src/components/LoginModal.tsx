@@ -221,8 +221,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       </button>
 
       {/* ── TOP: SKULL + TITLE ── */}
-      <div style={{ position: 'absolute', top: '12%', left: '50%', transform: 'translateX(-50%)', zIndex: 10, textAlign: 'center', width: '100%' }}>
-        <div style={{ margin: '0 auto', position: 'relative', width: '7rem', height: '7rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ position: 'absolute', top: '18%', left: '50%', transform: 'translateX(-50%)', zIndex: 10, textAlign: 'center', width: '100%' }}>
+        <div style={{ margin: '0 auto', position: 'relative', width: '9rem', height: '9rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div
             className="lm-ring"
             style={{
@@ -236,7 +236,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           <img
             src="/skull.jpg"
             alt="skull"
-            style={{ width: '4.5rem', height: '4.5rem', borderRadius: '9999px', objectFit: 'cover', animation: 'skullFloat 3s ease-in-out infinite' }}
+            style={{ width: '6rem', height: '6rem', borderRadius: '9999px', objectFit: 'cover', animation: 'skullFloat 3s ease-in-out infinite' }}
           />
         </div>
         <p style={{ color: '#00ff41', fontWeight: 700, letterSpacing: '0.3em', fontSize: '0.75rem', textAlign: 'center', marginTop: '0.75rem', fontFamily: 'monospace' }}>
