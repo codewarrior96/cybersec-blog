@@ -111,7 +111,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
         .lm-field {
           position: relative;
-          border: 1px solid rgba(0,255,65,0.2);
+          border: 1px solid rgba(0,255,65,0.25);
+          background: rgba(0,0,0,0.4);
           transition: border-color 0.2s, box-shadow 0.2s;
         }
         .lm-field:focus-within {
@@ -269,9 +270,9 @@ export default function LoginModal({ onClose }: LoginModalProps) {
             margin: '0 1rem',
             padding: '2.5rem',
             position: 'relative',
-            background: 'rgba(0, 0, 0, 0)',
-            backdropFilter: 'blur(0px)',
-            WebkitBackdropFilter: 'blur(0px)',
+            background: 'rgba(0, 0, 0, 0.45)',
+            backdropFilter: 'blur(12px) saturate(150%)',
+            WebkitBackdropFilter: 'blur(12px) saturate(150%)',
             border: '1px solid rgba(0, 255, 65, 0.3)',
             boxShadow:
               '0 0 100px rgba(0,255,65,0.15), 0 0 40px rgba(0,255,65,0.08), inset 0 0 60px rgba(0,255,65,0.04)',
@@ -363,7 +364,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
                 className="lm-input"
                 style={{
                   width: '100%',
-                  background: 'transparent',
+                  background: 'rgba(0,0,0,0.5)',
                   paddingLeft: '1.75rem',
                   paddingRight: '1rem',
                   paddingTop: '0.625rem',
@@ -391,7 +392,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
                 className="lm-input"
                 style={{
                   width: '100%',
-                  background: 'transparent',
+                  background: 'rgba(0,0,0,0.5)',
                   paddingLeft: '1.75rem',
                   paddingRight: '2.5rem',
                   paddingTop: '0.625rem',
