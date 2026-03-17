@@ -243,7 +243,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
       {/* ── LAYER 5: LOGIN CARD ── */}
       <div
-        style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '35vh' }}
+        style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: '55vh' }}
       >
         <div
           className={`lm-slide${error ? ' lm-shake' : ''}`}
