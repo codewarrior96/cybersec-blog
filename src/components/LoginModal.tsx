@@ -59,7 +59,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           50%     { box-shadow: 0 0 30px rgba(0,255,65,0.9), 0 0 60px rgba(0,255,65,0.4); }
         }
         @keyframes skullFloat {
-          0%,100% { transform: translateY(0) scale(1);    filter: drop-shadow(0 0 6px rgba(0,255,65,0.8)); }
+          0%,100% { transform: translateY(0) scale(1);       filter: drop-shadow(0 0 6px rgba(0,255,65,0.8)); }
           50%     { transform: translateY(-4px) scale(1.05); filter: drop-shadow(0 0 16px #00ff41); }
         }
         @keyframes statusBlink {
@@ -73,12 +73,11 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           60%     { transform: translateX(-5px); }
           80%     { transform: translateX(5px); }
         }
-        .lm-eye       { animation: eyePulse    2s   ease-in-out infinite; }
-        .lm-ring      { animation: ringPulse   2.5s ease-in-out infinite; }
-        .lm-skull     { animation: skullFloat  3s   ease-in-out infinite; }
-        .lm-blink     { animation: statusBlink 1.5s ease-in-out infinite; }
-        .lm-slide     { animation: fadeSlideDown 0.9s cubic-bezier(0.16,1,0.3,1) forwards; }
-        .lm-shake     { animation: shake 0.4s ease-in-out; }
+        .lm-eye   { animation: eyePulse    2s   ease-in-out infinite; }
+        .lm-ring  { animation: ringPulse   2.5s ease-in-out infinite; }
+        .lm-blink { animation: statusBlink 1.5s ease-in-out infinite; }
+        .lm-slide { animation: fadeSlideDown 0.9s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .lm-shake { animation: shake 0.4s ease-in-out; }
 
         .lm-input::placeholder { color: rgba(0,255,65,0.2); }
         .lm-input:focus        { outline: none; }
@@ -111,8 +110,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
         .lm-field {
           position: relative;
-          border: 1px solid rgba(0,255,65,0.25);
-          background: rgba(0,0,0,0.4);
+          border: 1px solid rgba(0,255,65,0.35);
+          background: rgba(0,0,0,0.7);
           transition: border-color 0.2s, box-shadow 0.2s;
         }
         .lm-field:focus-within {
@@ -257,9 +256,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           inset: 0,
           zIndex: 10,
           display: 'flex',
-          alignItems: 'flex-start',
+          alignItems: 'center',
           justifyContent: 'center',
-          paddingTop: '5vh',
         }}
       >
         <div
@@ -270,31 +268,13 @@ export default function LoginModal({ onClose }: LoginModalProps) {
             margin: '0 1rem',
             padding: '2.5rem',
             position: 'relative',
-            background: 'rgba(0, 0, 0, 0.45)',
-            backdropFilter: 'blur(12px) saturate(150%)',
-            WebkitBackdropFilter: 'blur(12px) saturate(150%)',
-            border: '1px solid rgba(0, 255, 65, 0.3)',
-            boxShadow:
-              '0 0 100px rgba(0,255,65,0.15), 0 0 40px rgba(0,255,65,0.08), inset 0 0 60px rgba(0,255,65,0.04)',
+            background: 'transparent',
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
+            border: 'none',
+            boxShadow: 'none',
           }}
         >
-          {/* Corner brackets */}
-          {(['top-2.5 left-3', 'top-2.5 right-3', 'bottom-2.5 left-3', 'bottom-2.5 right-3'] as const).map((pos, i) => (
-            <span
-              key={i}
-              style={{
-                position: 'absolute',
-                ...(pos.includes('top') ? { top: '0.625rem' } : { bottom: '0.625rem' }),
-                ...(pos.includes('left') ? { left: '0.75rem' } : { right: '0.75rem' }),
-                fontFamily: 'monospace',
-                fontSize: '10px',
-                color: 'rgba(0,255,65,0.2)',
-              }}
-            >
-              {i === 0 ? '┌──' : i === 1 ? '──┐' : i === 2 ? '└──' : '──┘'}
-            </span>
-          ))}
-
           {/* Version */}
           <span style={{ position: 'absolute', bottom: '0.75rem', left: '0.75rem', fontFamily: 'monospace', fontSize: '8px', color: 'rgba(0,255,65,0.15)' }}>
             v2.0.26
@@ -339,7 +319,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
               top: '-9px',
               left: '50%',
               transform: 'translateX(-50%)',
-              background: 'rgba(0,0,0,0.65)',
+              background: 'transparent',
               padding: '0 0.75rem',
               color: 'rgba(0,255,65,0.3)',
               fontSize: '9px',
@@ -364,7 +344,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
                 className="lm-input"
                 style={{
                   width: '100%',
-                  background: 'rgba(0,0,0,0.5)',
+                  background: 'rgba(0,0,0,0.7)',
                   paddingLeft: '1.75rem',
                   paddingRight: '1rem',
                   paddingTop: '0.625rem',
@@ -392,7 +372,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
                 className="lm-input"
                 style={{
                   width: '100%',
-                  background: 'rgba(0,0,0,0.5)',
+                  background: 'rgba(0,0,0,0.7)',
                   paddingLeft: '1.75rem',
                   paddingRight: '2.5rem',
                   paddingTop: '0.625rem',
