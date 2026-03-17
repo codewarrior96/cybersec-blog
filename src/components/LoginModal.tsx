@@ -268,9 +268,9 @@ export default function LoginModal({ onClose }: LoginModalProps) {
             margin: '0 1rem',
             padding: '2.5rem',
             position: 'relative',
-            background: 'rgba(0, 0, 0, 0.65)',
-            backdropFilter: 'blur(30px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+            background: 'rgba(0, 0, 0, 0)',
+            backdropFilter: 'blur(0px)',
+            WebkitBackdropFilter: 'blur(0px)',
             border: '1px solid rgba(0, 255, 65, 0.3)',
             boxShadow:
               '0 0 100px rgba(0,255,65,0.15), 0 0 40px rgba(0,255,65,0.08), inset 0 0 60px rgba(0,255,65,0.04)',
