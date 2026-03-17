@@ -286,7 +286,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           </span>
 
           {/* ── SKULL LOGO ── */}
-          <div style={{ margin: '0 auto', position: 'relative', width: '5rem', height: '5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ margin: '0 auto', position: 'relative', width: '7rem', height: '7rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div
               className="lm-ring"
               style={{
@@ -300,7 +300,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
             <img
               src="/skull.jpg"
               alt="skull"
-              style={{ width: '2.75rem', height: '2.75rem', borderRadius: '9999px', objectFit: 'cover', animation: 'skullFloat 3s ease-in-out infinite' }}
+              style={{ width: '4.5rem', height: '4.5rem', borderRadius: '9999px', objectFit: 'cover', animation: 'skullFloat 3s ease-in-out infinite' }}
             />
           </div>
 
@@ -414,20 +414,6 @@ export default function LoginModal({ onClose }: LoginModalProps) {
             </div>
           </div>
 
-          {/* ── REMEMBER ME ── */}
-          <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <input
-              id="lm-remember"
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-              className="lm-checkbox"
-            />
-            <label htmlFor="lm-remember" style={{ color: 'rgba(0,255,65,0.4)', fontSize: '9px', fontFamily: 'monospace', cursor: 'pointer' }}>
-              OTURUMU AÇIK TUT
-            </label>
-          </div>
-
           {/* ── ERROR ── */}
           {error && (
             <div className="lm-shake" style={{ marginTop: '0.75rem', textAlign: 'center' }}>
@@ -437,14 +423,29 @@ export default function LoginModal({ onClose }: LoginModalProps) {
             </div>
           )}
 
-          {/* ── LOGIN BUTTON ── */}
-          <button
-            onClick={handleLogin}
-            className="lm-btn-login"
-            style={{ marginTop: '1rem' }}
-          >
-            [ INITIATE ACCESS ]
-          </button>
+          {/* ── REMEMBER ME + LOGIN BUTTON ── */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', gap: '1rem' }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                id="lm-remember"
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="lm-checkbox"
+              />
+              <label htmlFor="lm-remember" style={{ color: 'rgba(0,255,65,0.4)', fontSize: '9px', fontFamily: 'monospace', cursor: 'pointer' }}>
+                OTURUMU AÇIK TUT
+              </label>
+            </div>
+            <button
+              onClick={handleLogin}
+              style={{ padding: '0.5rem 1.25rem', whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: '0.7rem', fontWeight: 'bold', letterSpacing: '0.1em', cursor: 'pointer', transition: 'all 0.2s', background: 'rgba(0,255,65,0.08)', border: '1px solid rgba(0,255,65,0.5)', color: '#00ff41' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,255,65,0.18)'; e.currentTarget.style.borderColor = 'rgba(0,255,65,0.8)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,255,65,0.08)'; e.currentTarget.style.borderColor = 'rgba(0,255,65,0.5)' }}
+            >
+              [ ACCESS ]
+            </button>
+          </div>
 
           {/* ── FORGOT PASSWORD ── */}
           <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
