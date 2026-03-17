@@ -221,7 +221,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       </button>
 
       {/* ── TOP: SKULL + TITLE ── */}
-      <div style={{ position: 'absolute', top: '22%', left: '50%', transform: 'translateX(-50%)', zIndex: 10, textAlign: 'center', width: '100%' }}>
+      <div style={{ position: 'absolute', top: '26%', left: '50%', transform: 'translateX(-50%)', zIndex: 10, textAlign: 'center', width: '100%' }}>
         <div style={{ margin: '0 auto', position: 'relative', width: '10rem', height: '10rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div
             className="lm-ring"
