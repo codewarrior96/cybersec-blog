@@ -409,8 +409,8 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           )}
 
           {/* ── REMEMBER ME + LOGIN BUTTON ── */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', gap: '1rem' }}>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1rem', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <input
                 id="lm-remember"
                 type="checkbox"
@@ -424,7 +424,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
             </div>
             <button
               onClick={handleLogin}
-              style={{ padding: '0.5rem 1.25rem', whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: '0.7rem', fontWeight: 'bold', letterSpacing: '0.1em', cursor: 'pointer', transition: 'all 0.2s', background: 'rgba(0,255,65,0.08)', border: '1px solid rgba(0,255,65,0.5)', color: '#00ff41' }}
+              style={{ padding: '0.4rem 2rem', fontFamily: 'monospace', fontSize: '0.65rem', fontWeight: 'bold', letterSpacing: '0.15em', cursor: 'pointer', transition: 'all 0.2s', background: 'rgba(0,255,65,0.08)', border: '1px solid rgba(0,255,65,0.5)', color: '#00ff41' }}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,255,65,0.18)'; e.currentTarget.style.borderColor = 'rgba(0,255,65,0.8)' }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(0,255,65,0.08)'; e.currentTarget.style.borderColor = 'rgba(0,255,65,0.5)' }}
             >
