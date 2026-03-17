@@ -256,8 +256,9 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           inset: 0,
           zIndex: 10,
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'center',
+          paddingTop: '5vh',
         }}
       >
         <div
@@ -315,15 +316,11 @@ export default function LoginModal({ onClose }: LoginModalProps) {
                 boxShadow: '0 0 20px rgba(0,255,65,0.7), 0 0 40px rgba(0,255,65,0.3)',
               }}
             />
-            <svg
-              viewBox="0 0 100 120"
-              fill="#00ff41"
-              xmlns="http://www.w3.org/2000/svg"
-              className="lm-skull"
-              style={{ width: '2.75rem', height: '2.75rem' }}
-            >
-              <path d="M50 8 C28 8 12 24 12 46 C12 58 17 68 26 75 L26 95 C26 98 29 100 32 100 L44 100 L44 88 L56 88 L56 100 L68 100 C71 100 74 98 74 95 L74 75 C83 68 88 58 88 46 C88 24 72 8 50 8 Z M37 60 C32 60 28 56 28 51 C28 46 32 42 37 42 C42 42 46 46 46 51 C46 56 42 60 37 60 Z M63 60 C58 60 54 56 54 51 C54 46 58 42 63 42 C68 42 72 46 72 51 C72 56 68 60 63 60 Z M42 72 L42 78 L36 78 L36 72 Z M52 72 L52 78 L48 72 Z M64 72 L64 78 L58 78 L58 72 Z" />
-            </svg>
+            <img
+              src="/skull.jpg"
+              alt="skull"
+              style={{ width: '2.75rem', height: '2.75rem', borderRadius: '9999px', objectFit: 'cover', animation: 'skullFloat 3s ease-in-out infinite' }}
+            />
           </div>
 
           {/* Title */}
