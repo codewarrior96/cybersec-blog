@@ -180,12 +180,12 @@ export default function LoginModal({ onClose }: LoginModalProps) {
             key={i}
             style={{
               width: '3.5rem',
-              height: '1.25rem',
-              borderRadius: '50%',
-              backgroundColor: '#00ff41',
-              opacity: 0.9,
-              boxShadow: '0 0 15px #00ff41, 0 0 40px #00ff41, 0 0 80px rgba(0,255,65,0.7), 0 0 120px rgba(0,255,65,0.4)',
+              height: '1.2rem',
+              background: 'radial-gradient(ellipse at center, #ffffff 0%, #00ff41 40%, rgba(0,255,65,0.3) 100%)',
+              borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%',
+              boxShadow: '0 0 10px #00ff41, 0 0 25px #00ff41, 0 0 50px rgba(0,255,65,0.7)',
               animation: 'eyePulse 2s ease-in-out infinite',
+              transform: 'skewX(-5deg)',
             }}
           />
         ))}
