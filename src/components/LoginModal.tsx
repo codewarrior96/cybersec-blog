@@ -142,8 +142,9 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
       {/* ── LAYER 1: HACKER IMAGE ── */}
       <img
-        src="/login-hacker.jpg"
+        src="/hacker.jpg"
         alt=""
+        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
         style={{
           position: 'absolute',
           bottom: 0,
