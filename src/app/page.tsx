@@ -41,6 +41,7 @@ export default function HomePage() {
   return (
     <>
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
+      <div style={{ visibility: showLogin ? 'hidden' : 'visible' }}>
       <BootSequence>
         <div>
           {/* ══════════════════ HERO ══════════════════ */}
@@ -128,6 +129,7 @@ export default function HomePage() {
           )}
         </div>
       </BootSequence>
+      </div>
     </>
   );
 }
