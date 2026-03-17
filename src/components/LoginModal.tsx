@@ -194,27 +194,19 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
       {/* ── LAYER 4: EYE GLOW ── */}
       <div
-        style={{
-          position: 'absolute',
-          bottom: '44%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 5,
-          display: 'flex',
-          gap: '3.5rem',
-          pointerEvents: 'none',
-        }}
+        style={{ position: 'absolute', bottom: '38%', left: '50%', transform: 'translateX(-50%)', zIndex: 6, display: 'flex', gap: '4.5rem', pointerEvents: 'none' }}
       >
         {[0, 1].map((i) => (
           <div
             key={i}
-            className="lm-eye"
             style={{
-              width: '2rem',
-              height: '0.625rem',
-              borderRadius: '9999px',
+              width: '3.5rem',
+              height: '1.25rem',
+              borderRadius: '50%',
               backgroundColor: '#00ff41',
-              boxShadow: '0 0 10px #00ff41, 0 0 30px #00ff41, 0 0 60px rgba(0,255,65,0.6)',
+              opacity: 0.9,
+              boxShadow: '0 0 15px #00ff41, 0 0 40px #00ff41, 0 0 80px rgba(0,255,65,0.7), 0 0 120px rgba(0,255,65,0.4)',
+              animation: 'eyePulse 2s ease-in-out infinite',
             }}
           />
         ))}
@@ -251,14 +243,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
       {/* ── LAYER 5: LOGIN CARD ── */}
       <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 10,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
+        style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '3vh' }}
       >
         <div
           className={`lm-slide${error ? ' lm-shake' : ''}`}
