@@ -147,17 +147,17 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
         style={{
           position: 'absolute',
-          bottom: 0,
+          bottom: '0',
           left: '50%',
           transform: visible
             ? 'translateX(-50%) translateY(0)'
             : 'translateX(-50%) translateY(100%)',
           transition: 'transform 1.4s cubic-bezier(0.16,1,0.3,1)',
           width: '100%',
-          maxWidth: '600px',
-          height: '85vh',
+          maxWidth: '700px',
+          height: '90vh',
           objectFit: 'cover',
-          objectPosition: 'top',
+          objectPosition: 'top center',
           zIndex: 1,
         }}
       />
@@ -196,12 +196,12 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       <div
         style={{
           position: 'absolute',
-          bottom: '28%',
+          bottom: '44%',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 5,
           display: 'flex',
-          gap: '3rem',
+          gap: '3.5rem',
           pointerEvents: 'none',
         }}
       >
