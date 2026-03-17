@@ -12,8 +12,8 @@ interface LoginModalProps {
 
 export default function LoginModal({ onClose }: LoginModalProps) {
   const [visible, setVisible] = useState(false)
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
+  const [username, setUsername] = useState('ghost')
+  const [password, setPassword] = useState('demo_pass')
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState(false)
   const [remember, setRemember] = useState(false)
