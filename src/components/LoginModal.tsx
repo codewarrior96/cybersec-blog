@@ -221,7 +221,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       </button>
 
       {/* ── TOP: SKULL + TITLE ── */}
-      <div style={{ position: 'absolute', top: '8%', left: '50%', transform: 'translateX(-50%)', zIndex: 10, textAlign: 'center', width: '100%' }}>
+      <div style={{ position: 'absolute', top: '12%', left: '50%', transform: 'translateX(-50%)', zIndex: 10, textAlign: 'center', width: '100%' }}>
         <div style={{ margin: '0 auto', position: 'relative', width: '7rem', height: '7rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div
             className="lm-ring"
@@ -248,7 +248,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       </div>
 
       {/* ── BOTTOM: LOGIN FORM ── */}
-      <div style={{ position: 'absolute', bottom: '5%', left: '50%', transform: 'translateX(-50%)', zIndex: 10, width: '100%', maxWidth: '380px', padding: '0 1rem' }}>
+      <div style={{ position: 'absolute', bottom: '-5%', left: '50%', transform: 'translateX(-50%)', zIndex: 10, width: '100%', maxWidth: '380px', padding: '0 1rem' }}>
 
         {/* Divider */}
         <div style={{ borderTop: '1px solid rgba(0,255,65,0.1)', marginBottom: '1.25rem', position: 'relative' }}>
