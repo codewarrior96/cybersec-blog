@@ -5,6 +5,8 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SearchModal from '@/components/SearchModal';
 import PageTransition from '@/components/PageTransition';
+import OperatorSidebar from '@/components/OperatorSidebar';
+import MobileNav from '@/components/MobileNav';
 import { getAllPosts } from '@/lib/posts';
 
 const inter = Inter({
@@ -28,6 +30,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="tr" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen flex flex-col">
         <Header />
+        <OperatorSidebar />
+        <MobileNav />
         <PageTransition>
           <main className="flex-1">{children}</main>
         </PageTransition>

@@ -20,9 +20,10 @@ https://cybersec-blog-pi.vercel.app
 - /cve-radar → Live CVE feed from NVD API
 - /breach-timeline → Interactive timeline of 40 major cyber incidents (2000-2024)
 - /about → About page
+- /community → Community posts, likes, comments (localStorage)
 
 ## Components
-BootSequence, InteractiveTerminal, MatrixRain, BlogCard, CountUp, Header, Footer, ThreatFeed, SearchModal, PageTransition, ReadingProgress, BackToTop, CodeBlock, MDXComponents, TypingText, LoginModal
+BootSequence, InteractiveTerminal, MatrixRain, BlogCard, CountUp, Header, Footer, ThreatFeed, SearchModal, PageTransition, ReadingProgress, BackToTop, CodeBlock, MDXComponents, TypingText, LoginModal, OperatorSidebar, MobileNav, CommunityPage
 
 ## API Routes
 - /api/cybernews → RSS aggregator
@@ -52,3 +53,4 @@ Black bg, neon green #00ff41, scanlines, font-mono, CRT terminal aesthetic.
 - Blog card redesign
 - Mobile responsive düzeltmeleri
 - Header/Footer redesign
+- Supabase migration for community data
