@@ -20,6 +20,10 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   const [hexVal, setHexVal] = useState('0000')
 
   useEffect(() => {
+    if (localStorage.getItem('auth_user') === 'ghost') {
+      onClose()
+      return
+    }
     const t = setTimeout(() => setVisible(true), 100)
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handleKey)
@@ -36,6 +40,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   const handleLogin = () => {
     if (username === DEMO_USER && password === DEMO_PASS) {
       localStorage.setItem('auth_user', username)
+      document.dispatchEvent(new CustomEvent('auth_changed'))
       onClose()
     } else {
       setError(true)

@@ -30,7 +30,14 @@ export default function OperatorSidebar() {
   const [logoutHover, setLogoutHover] = useState(false)
 
   useEffect(() => {
-    setLoggedIn(localStorage.getItem('auth_user') === 'ghost')
+    const check = () => setLoggedIn(localStorage.getItem('auth_user') === 'ghost')
+    check()
+    window.addEventListener('storage', check)
+    document.addEventListener('auth_changed', check)
+    return () => {
+      window.removeEventListener('storage', check)
+      document.removeEventListener('auth_changed', check)
+    }
   }, [])
 
   useEffect(() => {
