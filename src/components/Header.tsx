@@ -16,17 +16,15 @@ const navLinks = [
 
 export default function Header() {
   const pathname = usePathname();
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(
+    typeof window !== 'undefined' && localStorage.getItem('auth_user') === 'ghost'
+  );
 
   useEffect(() => {
     const check = () => setLoggedIn(localStorage.getItem('auth_user') === 'ghost');
     check();
     window.addEventListener('storage', check);
-    window.addEventListener('auth_changed', check);
-    return () => {
-      window.removeEventListener('storage', check);
-      window.removeEventListener('auth_changed', check);
-    };
+    return () => window.removeEventListener('storage', check);
   }, []);
 
   if (loggedIn) return null;

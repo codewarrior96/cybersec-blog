@@ -113,7 +113,7 @@ export default function InteractiveTerminal() {
     };
 
     const run = async () => {
-      await wait(200);
+      await wait(300);
 
       // ── Stage 1: whoami ──
       const cmd1 = `${PROMPT}whoami`;
