@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 
 const navLinks = [
   { href: '/blog',             label: 'Blog'           },
@@ -15,6 +16,16 @@ const navLinks = [
 
 export default function Header() {
   const pathname = usePathname();
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setLoggedIn(localStorage.getItem('auth_user') === 'ghost');
+    const handler = () => setLoggedIn(localStorage.getItem('auth_user') === 'ghost');
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
+
+  if (loggedIn) return null;
 
   return (
     <header className="sticky top-0 z-50 border-b border-green-400/10 backdrop-blur-md bg-[#08080f]/85">

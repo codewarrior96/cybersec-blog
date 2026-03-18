@@ -7,7 +7,6 @@ import SearchModal from '@/components/SearchModal';
 import PageTransition from '@/components/PageTransition';
 import OperatorSidebar from '@/components/OperatorSidebar';
 import MobileNav from '@/components/MobileNav';
-import MainContent from '@/components/MainContent';
 import { getAllPosts } from '@/lib/posts';
 
 const inter = Inter({
@@ -30,15 +29,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="tr" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen flex flex-col">
-        <Header />
         <OperatorSidebar />
         <MobileNav />
-        <MainContent>
+        <div className="lg:pl-[220px] transition-all duration-300 flex flex-col flex-1">
+          <Header />
           <PageTransition>
             <main className="flex-1">{children}</main>
           </PageTransition>
-        </MainContent>
-        <Footer />
+          <Footer />
+        </div>
         <SearchModal posts={posts} />
       </body>
     </html>
