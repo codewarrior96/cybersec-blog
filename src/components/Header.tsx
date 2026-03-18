@@ -19,10 +19,14 @@ export default function Header() {
   const [loggedIn, setLoggedIn] = useState(false);
 
   useEffect(() => {
-    setLoggedIn(localStorage.getItem('auth_user') === 'ghost');
-    const handler = () => setLoggedIn(localStorage.getItem('auth_user') === 'ghost');
-    window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
+    const check = () => setLoggedIn(localStorage.getItem('auth_user') === 'ghost');
+    check();
+    window.addEventListener('storage', check);
+    window.addEventListener('auth_changed', check);
+    return () => {
+      window.removeEventListener('storage', check);
+      window.removeEventListener('auth_changed', check);
+    };
   }, []);
 
   if (loggedIn) return null;

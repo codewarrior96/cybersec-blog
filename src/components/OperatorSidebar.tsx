@@ -136,7 +136,7 @@ export default function OperatorSidebar() {
                   ONLINE
                 </span>
               </div>
-              <div style={{ fontSize: '8px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.2)', marginTop: '3px', letterSpacing: '0.1em' }}>
+              <div style={{ fontSize: '8px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.35)', marginTop: '3px', letterSpacing: '0.1em' }}>
                 [ SEC_RESEARCHER ]
               </div>
             </div>
@@ -177,7 +177,7 @@ export default function OperatorSidebar() {
 
         {/* ── NAVIGATION ── */}
         <nav className="op-nav" style={{ flex: 1, overflowY: 'auto', padding: '8px 0', position: 'relative', zIndex: 1 }}>
-          <div style={{ padding: '8px 16px 4px', fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.2)', letterSpacing: '0.2em' }}>
+          <div style={{ padding: '8px 16px 4px', fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.4)', letterSpacing: '0.2em' }}>
             // NAVIGATION
           </div>
 
@@ -196,7 +196,7 @@ export default function OperatorSidebar() {
                   padding: active ? '9px 16px 9px 14px' : '9px 16px',
                   cursor: 'pointer', textDecoration: 'none', transition: 'all 0.2s ease',
                   position: 'relative',
-                  color: active ? '#00ff41' : hovered ? 'rgba(0,255,65,0.7)' : 'rgba(100,116,139,0.5)',
+                  color: active ? '#00ff41' : hovered ? 'rgba(0,255,65,0.7)' : 'rgba(148,163,184,0.8)',
                   background: active ? 'rgba(0,255,65,0.05)' : hovered ? 'rgba(0,255,65,0.02)' : 'transparent',
                   borderLeft: active ? '2px solid #00ff41' : '2px solid transparent',
                 }}
@@ -235,12 +235,12 @@ export default function OperatorSidebar() {
 
         {/* ── QUICK INTEL ── */}
         <div style={{ padding: '4px 0 8px', position: 'relative', zIndex: 1 }}>
-          <div style={{ padding: '4px 16px 8px', fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.2)', letterSpacing: '0.2em' }}>
+          <div style={{ padding: '4px 16px 8px', fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.4)', letterSpacing: '0.2em' }}>
             // QUICK INTEL
           </div>
           {quickIntel.map((item) => (
             <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 16px' }}>
-              <span style={{ fontSize: '8px', fontFamily: 'monospace', color: 'rgba(100,116,139,0.4)', letterSpacing: '0.1em' }}>
+              <span style={{ fontSize: '8px', fontFamily: 'monospace', color: 'rgba(148,163,184,0.6)', letterSpacing: '0.1em' }}>
                 {item.label}
               </span>
               <span style={{ fontSize: '10px', fontFamily: 'monospace', fontWeight: 'bold', color: item.color }}>
@@ -273,7 +273,7 @@ export default function OperatorSidebar() {
             [ LOGOUT ]
           </button>
           <div style={{
-            fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.08)',
+            fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.2)',
             textAlign: 'center', marginTop: '8px', letterSpacing: '0.1em',
           }}>
             BREACH TERMINAL v2.0.26
