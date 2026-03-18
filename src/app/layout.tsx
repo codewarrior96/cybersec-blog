@@ -7,6 +7,7 @@ import SearchModal from '@/components/SearchModal';
 import PageTransition from '@/components/PageTransition';
 import OperatorSidebar from '@/components/OperatorSidebar';
 import MobileNav from '@/components/MobileNav';
+import MainContent from '@/components/MainContent';
 import { getAllPosts } from '@/lib/posts';
 
 const inter = Inter({
@@ -32,9 +33,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Header />
         <OperatorSidebar />
         <MobileNav />
-        <PageTransition>
-          <main className="flex-1">{children}</main>
-        </PageTransition>
+        <MainContent>
+          <PageTransition>
+            <main className="flex-1">{children}</main>
+          </PageTransition>
+        </MainContent>
         <Footer />
         <SearchModal posts={posts} />
       </body>

@@ -1196,7 +1196,6 @@ export default function CommunityPage() {
         minHeight: '100vh',
         background: '#08080f',
         fontFamily: 'monospace',
-        paddingLeft: isLoggedIn && isDesktop ? 220 : 0,
       }}
     >
       {/* Page Header */}
