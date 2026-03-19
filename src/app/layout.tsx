@@ -70,8 +70,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <OperatorSidebar initialAuth={isAuthedFromCookie} />
         <MobileNav initialAuth={isAuthedFromCookie} />
         <div
-          className="transition-all duration-300 flex flex-col flex-1"
-          style={{ paddingLeft: 'var(--operator-shell-offset, 0px)' }}
+          className={`transition-all duration-300 flex flex-col flex-1 app-shell ${showOperatorShell ? 'app-shell--sidebar' : ''}`}
         >
           {showPublicHeader && <Header initialAuth={isAuthedFromCookie} />}
           <PageTransition>

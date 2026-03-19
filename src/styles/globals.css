@@ -9,6 +9,7 @@
 
   html {
     scroll-behavior: smooth;
+    scrollbar-gutter: stable;
   }
 
   body {
@@ -190,6 +191,16 @@
   .sidebar-card-title::before {
     content: '//';
     opacity: 0.6;
+  }
+}
+
+.app-shell {
+  padding-left: 0;
+}
+
+@media (min-width: 1024px) {
+  .app-shell.app-shell--sidebar {
+    padding-left: 280px;
   }
 }
 

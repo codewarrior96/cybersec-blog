@@ -57,6 +57,32 @@ export default function LoginModal({ onClose }: LoginModalProps) {
     >
       <div
         style={{
+          position: 'absolute',
+          top: '12%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          textAlign: 'center',
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          className="glitch-text"
+          data-text="COEACH"
+          style={{
+            color: '#00ff41',
+            fontFamily: 'var(--font-mono), monospace',
+            fontSize: 'clamp(40px, 8vw, 72px)',
+            letterSpacing: '0.04em',
+            lineHeight: 1,
+            textShadow: '0 0 18px rgba(0,255,65,0.25)',
+          }}
+        >
+          COEACH
+        </div>
+      </div>
+
+      <div
+        style={{
           width: '100%',
           maxWidth: 420,
           border: '1px solid rgba(0,255,65,0.35)',

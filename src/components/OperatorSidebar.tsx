@@ -67,21 +67,6 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
   const user = session?.user
 
   useEffect(() => {
-    const applyShellOffset = () => {
-      const isDesktop = window.innerWidth >= 1024
-      const shouldOffset = isAuthed && !isLoginRoute && isDesktop
-      document.documentElement.style.setProperty('--operator-shell-offset', shouldOffset ? '280px' : '0px')
-    }
-
-    applyShellOffset()
-    window.addEventListener('resize', applyShellOffset)
-    return () => {
-      window.removeEventListener('resize', applyShellOffset)
-      document.documentElement.style.setProperty('--operator-shell-offset', '0px')
-    }
-  }, [isAuthed, isLoginRoute])
-
-  useEffect(() => {
     if (!isAuthed || isLoginRoute) return
 
     let alive = true
