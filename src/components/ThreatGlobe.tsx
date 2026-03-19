@@ -587,15 +587,15 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
           to { transform: rotate(360deg); }
         }
         @keyframes tgBreath {
-          0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.78; }
-          50% { transform: translate(-50%, -50%) scale(1.06); opacity: 1; }
+          0%, 100% { transform: translate(-50%, -50%); opacity: 0.82; }
+          50% { transform: translate(-50%, -50%); opacity: 1; }
         }
       `}</style>
 
       <div
         style={{
           position: 'absolute',
-          left: '38%',
+          left: '50%',
           top: '50%',
           width: 'clamp(150px, 14vw, 230px)',
           height: 'clamp(150px, 14vw, 230px)',
@@ -607,7 +607,7 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
           boxShadow: '0 0 24px rgba(0,255,65,0.45), inset 0 0 34px rgba(0,255,65,0.2)',
           pointerEvents: 'none',
           animation: 'tgBreath 2.8s ease-in-out infinite',
-          zIndex: 1,
+          zIndex: 4,
         }}
       >
         <div
@@ -635,7 +635,18 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
         />
       </div>
 
-      <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+      <canvas
+        ref={canvasRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'block',
+          position: 'absolute',
+          inset: 0,
+          zIndex: 2,
+          opacity: 0.82,
+        }}
+      />
 
       <div
         style={{
@@ -647,6 +658,7 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
           color: '#4d7c4d',
           letterSpacing: '0.12em',
           pointerEvents: 'none',
+          zIndex: 6,
         }}
       >
         THREAT GLOBE v3
@@ -662,6 +674,7 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
           color: '#00ff41',
           letterSpacing: '0.12em',
           pointerEvents: 'none',
+          zIndex: 6,
         }}
       >
         LIVE DENSITY {density}%
@@ -705,6 +718,7 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
           color: 'rgba(148,163,184,0.82)',
           letterSpacing: '0.08em',
           pointerEvents: 'none',
+          zIndex: 6,
         }}
       >
         TAP HOTSPOT FOR DETAILS
@@ -720,6 +734,7 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
           color: 'rgba(0,255,65,0.68)',
           letterSpacing: '0.09em',
           pointerEvents: 'none',
+          zIndex: 6,
         }}
       >
         MODE: HYBRID RENDER

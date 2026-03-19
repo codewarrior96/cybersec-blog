@@ -31,11 +31,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const cookieStore = cookies();
   const headerStore = headers();
 
-  const pathname = headerStore.get('x-pathname') ?? '';
+  const rawPathname =
+    headerStore.get('x-pathname') ??
+    headerStore.get('next-url') ??
+    headerStore.get('x-matched-path') ??
+    '';
+  const pathname = rawPathname.split('?')[0];
+  const hasReliablePath = pathname.length > 0;
   const isLoginRoute = pathname === '/login';
   const isAuthedFromCookie = cookieStore.get(AUTH_STORAGE_KEY)?.value === AUTH_USER;
-  const showOperatorShell = isAuthedFromCookie && !isLoginRoute;
-  const showPublicHeader = !showOperatorShell && !isLoginRoute;
+  // If path headers are unavailable, hide chrome on first paint to prevent refresh flicker.
+  const showOperatorShell = hasReliablePath && isAuthedFromCookie && !isLoginRoute;
+  const showPublicHeader = hasReliablePath && !showOperatorShell && !isLoginRoute;
+  const showGlobalTools = hasReliablePath && !isLoginRoute;
 
   return (
     <html lang="tr" className={`${inter.variable} ${jetbrainsMono.variable}`}>
@@ -47,9 +55,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <PageTransition>
             <main className="flex-1">{children}</main>
           </PageTransition>
-          {!isLoginRoute && <Footer />}
+          {showGlobalTools && <Footer />}
         </div>
-        {!isLoginRoute && <SearchModal posts={posts} />}
+        {showGlobalTools && <SearchModal posts={posts} />}
       </body>
     </html>
   );
