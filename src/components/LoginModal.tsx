@@ -25,9 +25,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
       return
     }
     const t = setTimeout(() => setVisible(true), 100)
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handleKey)
-    return () => { clearTimeout(t); window.removeEventListener('keydown', handleKey) }
+    return () => { clearTimeout(t) }
   }, [onClose])
 
   useEffect(() => {
@@ -195,35 +193,6 @@ export default function LoginModal({ onClose }: LoginModalProps) {
           />
         ))}
       </div>
-
-      {/* ── ESC BUTTON ── */}
-      <button
-        onClick={onClose}
-        style={{
-          position: 'absolute',
-          top: '1.25rem',
-          right: '1.25rem',
-          zIndex: 50,
-          fontFamily: 'monospace',
-          fontSize: '10px',
-          color: 'rgba(0,255,65,0.3)',
-          border: '1px solid rgba(0,255,65,0.15)',
-          padding: '0.25rem 0.625rem',
-          background: 'transparent',
-          cursor: 'pointer',
-          transition: 'color 0.2s, border-color 0.2s',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = 'rgba(0,255,65,0.7)'
-          e.currentTarget.style.borderColor = 'rgba(0,255,65,0.4)'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = 'rgba(0,255,65,0.3)'
-          e.currentTarget.style.borderColor = 'rgba(0,255,65,0.15)'
-        }}
-      >
-        [ ESC ]
-      </button>
 
       {/* ── TOP: SKULL + TITLE ── */}
       <div style={{ position: 'absolute', top: '26%', left: '50%', transform: 'translateX(-50%)', zIndex: 10, textAlign: 'center', width: '100%' }}>
