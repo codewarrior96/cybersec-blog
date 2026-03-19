@@ -59,8 +59,8 @@ export default function OperatorSidebar() {
     <>
       <style>{`
         @keyframes avatarPulse {
-          0%,100% { box-shadow: 0 0 15px rgba(0,255,65,0.25), inset 0 0 10px rgba(0,255,65,0.05); }
-          50%     { box-shadow: 0 0 25px rgba(0,255,65,0.5),  inset 0 0 15px rgba(0,255,65,0.1); }
+          0%,100% { box-shadow: 0 0 15px rgba(0,255,65,0.6), inset 0 0 10px rgba(0,255,65,0.05); }
+          50%     { box-shadow: 0 0 25px rgba(0,255,65,0.5),  inset 0 0 15px rgba(0,255,65,0.4); }
         }
         @keyframes shimmer {
           0%   { transform: translateX(-100%); }
@@ -81,8 +81,8 @@ export default function OperatorSidebar() {
           zIndex: 50,
           flexDirection: 'column',
           overflow: 'hidden',
-          background: 'linear-gradient(180deg, #050508 0%, #070710 100%)',
-          borderRight: '1px solid rgba(0,255,65,0.08)',
+          background: '#0a0a12',
+          borderRight: '1px solid rgba(0,255,65,0.15)',
           boxShadow: '4px 0 30px rgba(0,0,0,0.5), inset -1px 0 0 rgba(0,255,65,0.05)',
         }}
       >
@@ -109,8 +109,8 @@ export default function OperatorSidebar() {
             {/* Avatar */}
             <div style={{
               width: 44, height: 44, borderRadius: 9999,
-              border: '2px solid rgba(0,255,65,0.3)',
-              background: 'radial-gradient(circle, rgba(0,255,65,0.1) 0%, rgba(0,0,0,0.8) 100%)',
+              border: '2px solid rgba(0,255,65,0.7)',
+              background: 'radial-gradient(circle, rgba(0,255,65,0.4) 0%, rgba(0,0,0,0.8) 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               animation: 'avatarPulse 3s ease-in-out infinite',
             }}>
@@ -152,23 +152,23 @@ export default function OperatorSidebar() {
           {/* Shimmer line */}
           <div style={{
             position: 'absolute', top: 0, left: 0, right: 0, height: '1px',
-            background: 'linear-gradient(90deg, transparent, rgba(0,255,65,0.3), transparent)',
+            background: 'linear-gradient(90deg, transparent, rgba(0,255,65,0.7), transparent)',
             animation: 'shimmer 3s ease-in-out infinite',
           }} />
 
           {/* SESSION */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 3, paddingBottom: 3 }}>
-            <span style={{ fontSize: '8px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.25)', letterSpacing: '0.12em' }}>SESSION</span>
+            <span style={{ fontSize: '8px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.6)', letterSpacing: '0.12em' }}>SESSION</span>
             <span style={{ fontSize: '9px', fontFamily: 'monospace', fontWeight: 'bold', color: '#00ff41' }}>{formatTime(elapsed)}</span>
           </div>
           {/* THREAT_LVL */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 3, paddingBottom: 3 }}>
-            <span style={{ fontSize: '8px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.25)', letterSpacing: '0.12em' }}>THREAT_LVL</span>
+            <span style={{ fontSize: '8px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.6)', letterSpacing: '0.12em' }}>THREAT_LVL</span>
             <span style={{ fontSize: '9px', fontFamily: 'monospace', fontWeight: 'bold', color: '#f59e0b' }}>ELEVATED</span>
           </div>
           {/* SYS */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 3, paddingBottom: 3 }}>
-            <span style={{ fontSize: '8px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.25)', letterSpacing: '0.12em' }}>SYS</span>
+            <span style={{ fontSize: '8px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.6)', letterSpacing: '0.12em' }}>SYS</span>
             <span style={{ fontSize: '9px', fontFamily: 'monospace', fontWeight: 'bold', color: '#00ff41' }}>
               <span style={{ color: '#00ff41' }}>● </span>ACTIVE
             </span>
@@ -177,7 +177,7 @@ export default function OperatorSidebar() {
 
         {/* ── NAVIGATION ── */}
         <nav className="op-nav" style={{ flex: 1, overflowY: 'auto', padding: '8px 0', position: 'relative', zIndex: 1 }}>
-          <div style={{ padding: '8px 16px 4px', fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.4)', letterSpacing: '0.2em' }}>
+          <div style={{ padding: '8px 16px 4px', fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.6)', letterSpacing: '0.2em' }}>
             // NAVIGATION
           </div>
 
@@ -196,7 +196,7 @@ export default function OperatorSidebar() {
                   padding: active ? '9px 16px 9px 14px' : '9px 16px',
                   cursor: 'pointer', textDecoration: 'none', transition: 'all 0.2s ease',
                   position: 'relative',
-                  color: active ? '#00ff41' : hovered ? 'rgba(0,255,65,0.7)' : 'rgba(148,163,184,0.8)',
+                  color: active ? '#00ff41' : hovered ? 'rgba(0,255,65,0.7)' : '#94a3b8',
                   background: active ? 'rgba(0,255,65,0.05)' : hovered ? 'rgba(0,255,65,0.02)' : 'transparent',
                   borderLeft: active ? '2px solid #00ff41' : '2px solid transparent',
                 }}
@@ -230,17 +230,17 @@ export default function OperatorSidebar() {
         {/* ── DIVIDER ── */}
         <div style={{
           margin: '8px 16px', height: '1px', position: 'relative', zIndex: 1,
-          background: 'linear-gradient(90deg, transparent, rgba(0,255,65,0.08), transparent)',
+          background: 'linear-gradient(90deg, transparent, rgba(0,255,65,0.4), transparent)',
         }} />
 
         {/* ── QUICK INTEL ── */}
         <div style={{ padding: '4px 0 8px', position: 'relative', zIndex: 1 }}>
-          <div style={{ padding: '4px 16px 8px', fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.4)', letterSpacing: '0.2em' }}>
+          <div style={{ padding: '4px 16px 8px', fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.6)', letterSpacing: '0.2em' }}>
             // QUICK INTEL
           </div>
           {quickIntel.map((item) => (
             <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 16px' }}>
-              <span style={{ fontSize: '8px', fontFamily: 'monospace', color: 'rgba(148,163,184,0.6)', letterSpacing: '0.1em' }}>
+              <span style={{ fontSize: '8px', fontFamily: 'monospace', color: '#94a3b8', letterSpacing: '0.1em' }}>
                 {item.label}
               </span>
               <span style={{ fontSize: '10px', fontFamily: 'monospace', fontWeight: 'bold', color: item.color }}>
@@ -273,7 +273,7 @@ export default function OperatorSidebar() {
             [ LOGOUT ]
           </button>
           <div style={{
-            fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.2)',
+            fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.4)',
             textAlign: 'center', marginTop: '8px', letterSpacing: '0.1em',
           }}>
             BREACH TERMINAL v2.0.26
