@@ -406,7 +406,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
           display: grid;
           grid-template-columns: 1fr;
           gap: 12px;
-          align-items: stretch;
+          align-items: start;
         }
         .soc-workflow-grid {
           display: grid;
@@ -586,7 +586,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
             </div>
           </div>
 
-          <div className="soc-frame" id="alert-workflow-panel" style={{ display: 'grid', gridTemplateRows: 'minmax(220px, 1fr) minmax(360px, 1.2fr)' }}>
+          <div className="soc-frame" id="alert-workflow-panel" style={{ display: 'grid', gridTemplateRows: 'auto auto' }}>
             <div style={{ borderBottom: '1px solid #102018' }}>
               <div className="soc-head">
                 <span className="soc-head-title">// CANLI SALDIRI AKISI</span>

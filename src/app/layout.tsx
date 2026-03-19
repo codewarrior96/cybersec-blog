@@ -62,7 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const isAuthGatewayRoute = isLoginRoute || (!isAuthedFromCookie && isRootRoute);
   const showOperatorShell = isAuthedFromCookie && !isLoginRoute;
   const showPublicHeader = !showOperatorShell && !isAuthGatewayRoute;
-  const showGlobalTools = !isAuthGatewayRoute;
+  const showGlobalTools = !isAuthGatewayRoute && !showOperatorShell;
 
   return (
     <html lang="tr" className={`${inter.variable} ${jetbrainsMono.variable}`}>
