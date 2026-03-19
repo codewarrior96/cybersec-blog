@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 interface ThreatCountry {
   name: string
@@ -150,6 +150,8 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
   const pulseSeqRef = useRef(1)
   const latestAttackRef = useRef<string | null>(null)
   const hotspotHitboxesRef = useRef<HotspotHitbox[]>([])
+  const hasRenderedFrameRef = useRef(false)
+  const [fallbackMode, setFallbackMode] = useState(false)
 
   const hotspots = useMemo<Hotspot[]>(() => {
     if (!countries.length) return []
@@ -291,6 +293,8 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
     if (!canvas || !wrap) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+    hasRenderedFrameRef.current = false
+    setFallbackMode(false)
 
     const resize = () => {
       const rect = wrap.getBoundingClientRect()
@@ -309,6 +313,11 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
     const observer = new ResizeObserver(resize)
     observer.observe(wrap)
     window.addEventListener('resize', resize)
+    const fallbackWatchdog = window.setTimeout(() => {
+      if (!hasRenderedFrameRef.current) {
+        setFallbackMode(true)
+      }
+    }, 1600)
 
     const drawParallel = (rotation: number, lat: number, cx: number, cy: number, radius: number) => {
       ctx.beginPath()
@@ -544,12 +553,14 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
       ctx.restore()
 
       drawHub(rotation, cx, cy, radius, ts)
+      hasRenderedFrameRef.current = true
       frameRef.current = window.requestAnimationFrame(render)
     }
 
     frameRef.current = window.requestAnimationFrame(render)
 
     return () => {
+      window.clearTimeout(fallbackWatchdog)
       window.removeEventListener('resize', resize)
       observer.disconnect()
       if (frameRef.current !== null) {
@@ -584,7 +595,7 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
           pointerEvents: 'none',
         }}
       >
-        THREAT GLOBE
+        THREAT GLOBE v3
       </div>
 
       <div
@@ -644,6 +655,44 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
       >
         TAP HOTSPOT FOR DETAILS
       </div>
+
+      {fallbackMode && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: 180,
+              height: 180,
+              borderRadius: '50%',
+              border: '2px solid rgba(0,255,65,0.65)',
+              background: 'radial-gradient(circle at 30% 25%, rgba(92,255,144,0.52), rgba(7,20,13,0.98))',
+              boxShadow: '0 0 28px rgba(0,255,65,0.45), inset 0 0 24px rgba(0,255,65,0.2)',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, 110px)',
+              color: '#f59e0b',
+              fontSize: 10,
+              fontFamily: 'monospace',
+              letterSpacing: '0.09em',
+            }}
+          >
+            FALLBACK MODE ACTIVE
+          </div>
+        </div>
+      )}
 
       {hotspots.length === 0 && (
         <div
