@@ -418,44 +418,63 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
 
       ctx.clearRect(0, 0, width, height)
 
-      const cx = width * 0.5
-      const cy = height * 0.54
-      const radius = Math.min(width, height) * 0.32
+      const cx = width >= 1200 ? width * 0.38 : width * 0.5
+      const cy = height * 0.5
+      const radius = Math.max(82, Math.min(height * 0.42, width * 0.18))
       const rotation = ts * 0.00025
 
-      const bg = ctx.createRadialGradient(cx, cy, radius * 0.15, cx, cy, radius * 1.7)
-      bg.addColorStop(0, 'rgba(8,28,18,0.9)')
+      const bg = ctx.createRadialGradient(cx, cy, radius * 0.12, cx, cy, radius * 2.1)
+      bg.addColorStop(0, 'rgba(6,48,26,0.5)')
+      bg.addColorStop(0.6, 'rgba(3,16,10,0.2)')
       bg.addColorStop(1, 'rgba(5,8,8,0)')
       ctx.fillStyle = bg
       ctx.fillRect(0, 0, width, height)
 
-      const halo = ctx.createRadialGradient(cx, cy, radius * 0.9, cx, cy, radius * 1.45)
-      halo.addColorStop(0, 'rgba(0,255,65,0.14)')
+      const halo = ctx.createRadialGradient(cx, cy, radius * 0.75, cx, cy, radius * 1.55)
+      halo.addColorStop(0, 'rgba(0,255,65,0.28)')
       halo.addColorStop(1, 'rgba(0,255,65,0)')
       ctx.fillStyle = halo
       ctx.beginPath()
       ctx.arc(cx, cy, radius * 1.45, 0, Math.PI * 2)
       ctx.fill()
 
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.rotate(-0.2)
+      ctx.scale(1, 0.38)
+      ctx.strokeStyle = 'rgba(0,255,65,0.26)'
+      ctx.lineWidth = 1.2
+      ctx.beginPath()
+      ctx.arc(0, 0, radius * 1.48, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.restore()
+
       const globe = ctx.createRadialGradient(
-        cx - radius * 0.3,
-        cy - radius * 0.45,
-        radius * 0.1,
+        cx - radius * 0.34,
+        cy - radius * 0.5,
+        radius * 0.05,
         cx,
         cy,
-        radius * 1.05,
+        radius * 1.12,
       )
-      globe.addColorStop(0, 'rgba(16,50,30,0.95)')
-      globe.addColorStop(1, 'rgba(4,10,8,0.98)')
+      globe.addColorStop(0, 'rgba(20,100,52,0.98)')
+      globe.addColorStop(0.65, 'rgba(8,42,25,0.96)')
+      globe.addColorStop(1, 'rgba(3,12,8,0.99)')
       ctx.fillStyle = globe
       ctx.beginPath()
       ctx.arc(cx, cy, radius, 0, Math.PI * 2)
       ctx.fill()
 
-      ctx.strokeStyle = 'rgba(0,255,65,0.3)'
-      ctx.lineWidth = 1
+      ctx.strokeStyle = 'rgba(0,255,65,0.58)'
+      ctx.lineWidth = 1.4
       ctx.beginPath()
       ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+      ctx.stroke()
+
+      ctx.strokeStyle = 'rgba(0,255,65,0.22)'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.arc(cx, cy, radius * 1.08, 0, Math.PI * 2)
       ctx.stroke()
 
       ctx.save()
@@ -463,13 +482,13 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
       ctx.arc(cx, cy, radius, 0, Math.PI * 2)
       ctx.clip()
 
-      ctx.strokeStyle = 'rgba(0,255,65,0.16)'
+      ctx.strokeStyle = 'rgba(0,255,65,0.28)'
       ctx.lineWidth = 0.8
       for (let lat = -60; lat <= 60; lat += 20) {
         drawParallel(rotation, lat, cx, cy, radius)
       }
 
-      ctx.strokeStyle = 'rgba(0,255,65,0.11)'
+      ctx.strokeStyle = 'rgba(0,255,65,0.18)'
       for (let lon = -160; lon <= 160; lon += 20) {
         drawMeridian(rotation, lon, cx, cy, radius)
       }
@@ -544,7 +563,7 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
       ref={wrapRef}
       style={{
         position: 'relative',
-        height: 250,
+        height: 300,
         borderRadius: 8,
         border: '1px solid #15301f',
         background: 'radial-gradient(circle at 50% 35%, rgba(0,255,65,0.07), rgba(4,8,8,0.95))',
@@ -587,23 +606,8 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
         style={{
           position: 'absolute',
           right: 10,
-          bottom: 24,
-          fontSize: 9,
-          fontFamily: 'monospace',
-          color: 'rgba(148,163,184,0.8)',
-          letterSpacing: '0.08em',
-          pointerEvents: 'none',
-        }}
-      >
-        TAP HOTSPOT FOR DETAILS
-      </div>
-
-      <div
-        style={{
-          position: 'absolute',
-          left: 10,
-          right: 10,
           bottom: 12,
+          width: 'min(260px, 44%)',
           pointerEvents: 'none',
         }}
       >
@@ -625,6 +629,39 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
           />
         </div>
       </div>
+
+      <div
+        style={{
+          position: 'absolute',
+          right: 10,
+          bottom: 24,
+          fontSize: 9,
+          fontFamily: 'monospace',
+          color: 'rgba(148,163,184,0.82)',
+          letterSpacing: '0.08em',
+          pointerEvents: 'none',
+        }}
+      >
+        TAP HOTSPOT FOR DETAILS
+      </div>
+
+      {hotspots.length === 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            fontSize: 10,
+            fontFamily: 'monospace',
+            color: '#64748b',
+            letterSpacing: '0.1em',
+            pointerEvents: 'none',
+          }}
+        >
+          NO GEO HOTSPOT DATA
+        </div>
+      )}
     </div>
   )
 }
