@@ -1,27 +1,142 @@
-import * as sqliteStore from '@/lib/soc-store'
 import * as memoryStore from '@/lib/soc-store-memory'
+import { getSupabaseAttackMetrics, isSupabaseAttackStoreEnabled, recordAttackEventToSupabase } from '@/lib/supabase-attack-metrics'
+import type { AttackEventInput, LiveMetrics } from '@/lib/soc-store-memory'
 
 const USE_MEMORY_STORE = process.env.SOC_STORAGE === 'memory' || process.env.VERCEL === '1'
+type StoreModule = typeof import('@/lib/soc-store-memory')
 
-const activeStore = USE_MEMORY_STORE ? memoryStore : sqliteStore
+let sqliteStorePromise: Promise<StoreModule> | null = null
 
-export const writeAuditLog = activeStore.writeAuditLog
-export const cleanupExpiredSessions = activeStore.cleanupExpiredSessions
-export const authenticateUser = activeStore.authenticateUser
-export const createSession = activeStore.createSession
-export const deleteSession = activeStore.deleteSession
-export const getSessionByToken = activeStore.getSessionByToken
-export const listAssignableUsers = activeStore.listAssignableUsers
-export const listAlerts = activeStore.listAlerts
-export const createAlert = activeStore.createAlert
-export const patchAlert = activeStore.patchAlert
-export const purgeOldAttackEvents = activeStore.purgeOldAttackEvents
-export const recordAttackEvent = activeStore.recordAttackEvent
-export const getLiveMetrics = activeStore.getLiveMetrics
-export const listReports = activeStore.listReports
-export const createReport = activeStore.createReport
-export const deleteReport = activeStore.deleteReport
-export const createUser = activeStore.createUser
+async function getActiveStore(): Promise<StoreModule> {
+  if (USE_MEMORY_STORE) return memoryStore
+  if (!sqliteStorePromise) {
+    sqliteStorePromise = import('@/lib/soc-store').then((mod) => mod as unknown as StoreModule)
+  }
+  return sqliteStorePromise
+}
+
+export async function writeAuditLog(...args: Parameters<StoreModule['writeAuditLog']>) {
+  const store = await getActiveStore()
+  return store.writeAuditLog(...args)
+}
+
+export async function cleanupExpiredSessions(
+  ...args: Parameters<StoreModule['cleanupExpiredSessions']>
+) {
+  const store = await getActiveStore()
+  return store.cleanupExpiredSessions(...args)
+}
+
+export async function authenticateUser(
+  ...args: Parameters<StoreModule['authenticateUser']>
+) {
+  const store = await getActiveStore()
+  return store.authenticateUser(...args)
+}
+
+export async function createSession(...args: Parameters<StoreModule['createSession']>) {
+  const store = await getActiveStore()
+  return store.createSession(...args)
+}
+
+export async function deleteSession(...args: Parameters<StoreModule['deleteSession']>) {
+  const store = await getActiveStore()
+  return store.deleteSession(...args)
+}
+
+export async function getSessionByToken(
+  ...args: Parameters<StoreModule['getSessionByToken']>
+) {
+  const store = await getActiveStore()
+  return store.getSessionByToken(...args)
+}
+
+export async function listAssignableUsers(
+  ...args: Parameters<StoreModule['listAssignableUsers']>
+) {
+  const store = await getActiveStore()
+  return store.listAssignableUsers(...args)
+}
+
+export async function listAlerts(...args: Parameters<StoreModule['listAlerts']>) {
+  const store = await getActiveStore()
+  return store.listAlerts(...args)
+}
+
+export async function createAlert(...args: Parameters<StoreModule['createAlert']>) {
+  const store = await getActiveStore()
+  return store.createAlert(...args)
+}
+
+export async function patchAlert(...args: Parameters<StoreModule['patchAlert']>) {
+  const store = await getActiveStore()
+  return store.patchAlert(...args)
+}
+
+export async function purgeOldAttackEvents(
+  ...args: Parameters<StoreModule['purgeOldAttackEvents']>
+) {
+  const store = await getActiveStore()
+  return store.purgeOldAttackEvents(...args)
+}
+
+export async function recordAttackEvent(input: AttackEventInput): Promise<void> {
+  const store = await getActiveStore()
+  await store.recordAttackEvent(input)
+
+  if (!isSupabaseAttackStoreEnabled()) {
+    return
+  }
+
+  try {
+    await recordAttackEventToSupabase(input)
+  } catch (error) {
+    console.warn('[soc-store-adapter] Supabase attack insert failed:', error)
+  }
+}
+
+export async function getLiveMetrics(): Promise<LiveMetrics> {
+  const store = await getActiveStore()
+  const baseMetrics = await store.getLiveMetrics()
+
+  if (!isSupabaseAttackStoreEnabled()) {
+    return baseMetrics
+  }
+
+  try {
+    const supabaseAttackMetrics = await getSupabaseAttackMetrics()
+    if (!supabaseAttackMetrics) {
+      return baseMetrics
+    }
+    return {
+      ...baseMetrics,
+      attack: supabaseAttackMetrics,
+    }
+  } catch (error) {
+    console.warn('[soc-store-adapter] Supabase attack metrics read failed:', error)
+    return baseMetrics
+  }
+}
+
+export async function listReports(...args: Parameters<StoreModule['listReports']>) {
+  const store = await getActiveStore()
+  return store.listReports(...args)
+}
+
+export async function createReport(...args: Parameters<StoreModule['createReport']>) {
+  const store = await getActiveStore()
+  return store.createReport(...args)
+}
+
+export async function deleteReport(...args: Parameters<StoreModule['deleteReport']>) {
+  const store = await getActiveStore()
+  return store.deleteReport(...args)
+}
+
+export async function createUser(...args: Parameters<StoreModule['createUser']>) {
+  const store = await getActiveStore()
+  return store.createUser(...args)
+}
 
 export type {
   RequestMetadata,
@@ -35,4 +150,3 @@ export type {
   LiveMetrics,
   ReportRecord,
 } from '@/lib/soc-store-memory'
-

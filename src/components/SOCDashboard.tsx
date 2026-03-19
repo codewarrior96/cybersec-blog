@@ -130,6 +130,17 @@ function attackSeverityColor(value: AttackEvent['severity']) {
   return '#00ff41'
 }
 
+function mapAttackTypeToTag(attackType: string) {
+  const value = attackType.toLowerCase()
+  if (value.includes('port')) return 'scanner'
+  if (value.includes('ssh')) return 'bruteforce'
+  if (value.includes('sql')) return 'sqli'
+  if (value.includes('rce')) return 'exploit'
+  if (value.includes('ddos')) return 'botnet'
+  if (value.includes('phishing')) return 'phishing'
+  return 'threat'
+}
+
 function priorityColor(value: AlertPriority) {
   if (value === 'P1') return '#ef4444'
   if (value === 'P2') return '#f59e0b'
@@ -180,15 +191,21 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
   const [createTitle, setCreateTitle] = useState('')
   const [createDescription, setCreateDescription] = useState('')
   const [createPriority, setCreatePriority] = useState<AlertPriority>('P2')
-  const [liveAttackStats, setLiveAttackStats] = useState<{ attacksPerMinute: number; activeIps: number } | null>(null)
+  const [liveAttackProjection, setLiveAttackProjection] = useState<WorkflowMetrics['attack'] | null>(null)
   const [stickyAttackPanel, setStickyAttackPanel] = useState<WorkflowMetrics['attack'] | null>(null)
 
   const startedAtRef = useRef(Date.now())
   const metricsRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const attackFeedRef = useRef<HTMLDivElement | null>(null)
-  const liveAttackWindowRef = useRef<Array<{ ts: number; ip: string }>>([])
+  const liveAttackWindowRef = useRef<Array<{
+    ts: number
+    ip: string
+    country: string
+    type: string
+    severity: AttackEvent['severity']
+  }>>([])
 
-  const recomputeLiveAttackStats = useCallback(() => {
+  const recomputeLiveAttackProjection = useCallback(() => {
     const nowTs = Date.now()
     const cutoff15m = nowTs - 15 * 60 * 1000
     const cutoff1m = nowTs - 60 * 1000
@@ -196,10 +213,49 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     const pruned = liveAttackWindowRef.current.filter((item) => item.ts >= cutoff15m)
     liveAttackWindowRef.current = pruned
 
+    if (pruned.length === 0) {
+      setLiveAttackProjection(null)
+      return
+    }
+
     const attacksPerMinute = pruned.filter((item) => item.ts >= cutoff1m).length
     const activeIps = new Set(pruned.map((item) => item.ip)).size
+    const countryMap = new Map<string, number>()
+    const tagMap = new Map<string, number>()
+    let pressure = 0
 
-    setLiveAttackStats({ attacksPerMinute, activeIps })
+    for (const attack of pruned) {
+      countryMap.set(attack.country, (countryMap.get(attack.country) ?? 0) + 1)
+      const tag = mapAttackTypeToTag(attack.type)
+      tagMap.set(tag, (tagMap.get(tag) ?? 0) + 1)
+      pressure += attack.severity === 'critical' ? 4 : attack.severity === 'high' ? 2 : 1
+    }
+
+    const topCountries = Array.from(countryMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .slice(0, 5)
+
+    const topTags = Array.from(tagMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .slice(0, 5)
+
+    const uniqueCountries = topCountries.length
+    const totalWindow = pruned.length
+    const liveDensity = Math.min(
+      100,
+      Math.max(6, Math.round(Math.sqrt(totalWindow + 1) * 8 + uniqueCountries * 4 + attacksPerMinute * 2 + pressure * 0.25)),
+    )
+
+    setLiveAttackProjection({
+      topCountries,
+      topTags,
+      attacksPerMinute,
+      activeIps,
+      liveDensity,
+      totalLast24h: totalWindow,
+    })
   }, [])
 
   const fetchCorePanels = useCallback(async () => {
@@ -289,6 +345,9 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
   }, [metrics])
 
   const attackPanel = useMemo(() => {
+    if (liveAttackProjection && (liveAttackProjection.topCountries.length > 0 || liveAttackProjection.topTags.length > 0)) {
+      return liveAttackProjection
+    }
     const current = metrics?.attack ?? null
     if (!current) return stickyAttackPanel
     if (current.topCountries.length === 0 && current.topTags.length === 0 && stickyAttackPanel) {
@@ -300,7 +359,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
       }
     }
     return current
-  }, [metrics, stickyAttackPanel])
+  }, [liveAttackProjection, metrics, stickyAttackPanel])
 
   const countryBars = attackPanel?.topCountries ?? []
   const tagBars = attackPanel?.topTags ?? []
@@ -406,8 +465,11 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         liveAttackWindowRef.current.push({
           ts: Number.isFinite(parsedTs) ? parsedTs : Date.now(),
           ip: payload.sourceIP,
+          country: payload.sourceCountry,
+          type: payload.type,
+          severity: payload.severity,
         })
-        recomputeLiveAttackStats()
+        recomputeLiveAttackProjection()
 
         if (metricsRefreshTimerRef.current) {
           clearTimeout(metricsRefreshTimerRef.current)
@@ -432,15 +494,15 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
       }
       source.close()
     }
-  }, [recomputeLiveAttackStats, refreshWorkflow])
+  }, [recomputeLiveAttackProjection, refreshWorkflow])
 
   useEffect(() => {
     const interval = setInterval(() => {
       if (liveAttackWindowRef.current.length === 0) return
-      recomputeLiveAttackStats()
+      recomputeLiveAttackProjection()
     }, 2_000)
     return () => clearInterval(interval)
-  }, [recomputeLiveAttackStats])
+  }, [recomputeLiveAttackProjection])
 
   useEffect(() => {
     const feed = attackFeedRef.current
@@ -467,8 +529,9 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     return () => window.removeEventListener('soc_quick_filter', handler)
   }, [])
 
-  const effectiveActiveIps = liveAttackStats?.activeIps ?? metrics?.attack.activeIps ?? 0
-  const effectiveAttacksPerMinute = liveAttackStats?.attacksPerMinute ?? metrics?.attack.attacksPerMinute ?? 0
+  const effectiveActiveIps = liveAttackProjection?.activeIps ?? attackPanel?.activeIps ?? metrics?.attack.activeIps ?? 0
+  const effectiveAttacksPerMinute =
+    liveAttackProjection?.attacksPerMinute ?? attackPanel?.attacksPerMinute ?? metrics?.attack.attacksPerMinute ?? 0
 
   return (
     <div style={{ minHeight: '100vh', background: '#06070d' }}>
