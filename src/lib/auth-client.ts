@@ -116,15 +116,22 @@ export function useAuthStatus(initialAuth: boolean | null = null) {
     sync()
 
     const onAuthChanged = () => {
+      // Use the already-updated cache — no extra API call needed
+      if (!cancelled) {
+        setAuthStatus(authCache?.authenticated ?? false)
+      }
+    }
+
+    const onFocus = () => {
       void sync()
     }
 
-    window.addEventListener('focus', onAuthChanged)
+    window.addEventListener('focus', onFocus)
     document.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged)
 
     return () => {
       cancelled = true
-      window.removeEventListener('focus', onAuthChanged)
+      window.removeEventListener('focus', onFocus)
       document.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged)
     }
   }, [initialAuth])
@@ -154,15 +161,24 @@ export function useAuthSession(initialAuth: boolean | null = null) {
     sync()
 
     const onAuthChanged = () => {
+      // Use the already-updated cache — no extra API call needed
+      if (!cancelled && authCache !== null) {
+        setSession(authCache)
+      } else if (!cancelled) {
+        void sync()
+      }
+    }
+
+    const onFocus = () => {
       void sync()
     }
 
-    window.addEventListener('focus', onAuthChanged)
+    window.addEventListener('focus', onFocus)
     document.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged)
 
     return () => {
       cancelled = true
-      window.removeEventListener('focus', onAuthChanged)
+      window.removeEventListener('focus', onFocus)
       document.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged)
     }
   }, [initialAuth])
