@@ -581,6 +581,60 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
         overflow: 'hidden',
       }}
     >
+      <style>{`
+        @keyframes tgSpin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes tgBreath {
+          0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.78; }
+          50% { transform: translate(-50%, -50%) scale(1.06); opacity: 1; }
+        }
+      `}</style>
+
+      <div
+        style={{
+          position: 'absolute',
+          left: '38%',
+          top: '50%',
+          width: 'clamp(150px, 14vw, 230px)',
+          height: 'clamp(150px, 14vw, 230px)',
+          borderRadius: '50%',
+          transform: 'translate(-50%, -50%)',
+          background:
+            'radial-gradient(circle at 28% 24%, rgba(110,255,160,0.9), rgba(12,70,36,0.95) 40%, rgba(5,20,12,0.98) 72%)',
+          border: '2px solid rgba(0,255,65,0.75)',
+          boxShadow: '0 0 24px rgba(0,255,65,0.45), inset 0 0 34px rgba(0,255,65,0.2)',
+          pointerEvents: 'none',
+          animation: 'tgBreath 2.8s ease-in-out infinite',
+          zIndex: 1,
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 10,
+            borderRadius: '50%',
+            border: '1px solid rgba(0,255,65,0.38)',
+            background:
+              'repeating-linear-gradient(0deg, rgba(0,255,65,0.14) 0px, rgba(0,255,65,0.14) 1px, transparent 1px, transparent 14px)',
+            opacity: 0.85,
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 16,
+            borderRadius: '50%',
+            border: '1px solid rgba(0,255,65,0.3)',
+            background:
+              'repeating-linear-gradient(90deg, rgba(0,255,65,0.11) 0px, rgba(0,255,65,0.11) 1px, transparent 1px, transparent 18px)',
+            animation: 'tgSpin 14s linear infinite',
+            opacity: 0.8,
+          }}
+        />
+      </div>
+
       <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
 
       <div
@@ -654,6 +708,21 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
         }}
       >
         TAP HOTSPOT FOR DETAILS
+      </div>
+
+      <div
+        style={{
+          position: 'absolute',
+          left: 10,
+          bottom: 12,
+          fontSize: 9,
+          fontFamily: 'monospace',
+          color: 'rgba(0,255,65,0.68)',
+          letterSpacing: '0.09em',
+          pointerEvents: 'none',
+        }}
+      >
+        MODE: HYBRID RENDER
       </div>
 
       {fallbackMode && (

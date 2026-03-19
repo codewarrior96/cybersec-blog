@@ -680,6 +680,9 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
           .soc-threat-globe > div {
             height: 240px !important;
           }
+          .soc-threat-globe > div > div:first-child {
+            left: 50% !important;
+          }
           .soc-threat-row > span:first-child {
             width: 54px !important;
             font-size: 10px !important;
