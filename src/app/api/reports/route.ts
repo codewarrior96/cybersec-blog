@@ -21,8 +21,13 @@ export async function GET(request: NextRequest) {
   const guard = await requireSession(request)
   if (guard.response) return guard.response
 
-  const reports = await listReports()
-  return NextResponse.json({ reports })
+  const { searchParams } = new URL(request.url)
+  const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') ?? 20)))
+  const cursorParam = searchParams.get('cursor')
+  const cursor = cursorParam != null ? Number(cursorParam) : undefined
+
+  const result = await listReports({ limit, cursor })
+  return NextResponse.json(result)
 }
 
 export async function POST(request: NextRequest) {

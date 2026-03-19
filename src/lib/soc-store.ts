@@ -1189,8 +1189,22 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
   }
 }
 
-export async function listReports(): Promise<ReportRecord[]> {
+export async function listReports(
+  filters: { limit?: number; cursor?: number } = {},
+): Promise<{ reports: ReportRecord[]; hasNext: boolean; nextCursor: number | null }> {
+  const limit = Math.min(50, Math.max(1, filters.limit ?? 20))
   const db = await getDb()
+
+  const whereClauses: string[] = []
+  const params: unknown[] = []
+
+  if (filters.cursor != null) {
+    whereClauses.push('id < ?')
+    params.push(filters.cursor)
+  }
+
+  const where = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
+
   const rows = await db.all<{
     id: number
     title: string
@@ -1202,11 +1216,16 @@ export async function listReports(): Promise<ReportRecord[]> {
     `
       SELECT id, title, content, severity, tags_json, created_at
       FROM reports
+      ${where}
       ORDER BY datetime(created_at) DESC, id DESC
+      LIMIT ?
     `,
+    ...params,
+    limit + 1,
   )
 
-  return rows.map((row) => ({
+  const hasNext = rows.length > limit
+  const page = rows.slice(0, limit).map((row) => ({
     id: row.id,
     title: row.title,
     content: row.content,
@@ -1214,6 +1233,12 @@ export async function listReports(): Promise<ReportRecord[]> {
     tags: parseTags(row.tags_json),
     createdAt: row.created_at,
   }))
+
+  return {
+    reports: page,
+    hasNext,
+    nextCursor: hasNext ? page[page.length - 1].id : null,
+  }
 }
 
 export async function createReport(input: {

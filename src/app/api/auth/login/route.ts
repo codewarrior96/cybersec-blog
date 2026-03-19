@@ -11,7 +11,36 @@ interface LoginBody {
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+// In-memory rate limiter: IP -> { count, resetAt }
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT_MAX = 10
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000 // 5 dakika
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+    return true
+  }
+  if (entry.count >= RATE_LIMIT_MAX) return false
+  entry.count++
+  return true
+}
+
 export async function POST(request: NextRequest) {
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
+    request.headers.get('x-real-ip') ??
+    'unknown'
+
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json(
+      { error: 'Cok fazla basarisiz deneme. Lutfen 5 dakika bekleyin.' },
+      { status: 429 }
+    )
+  }
+
   const body = (await request.json().catch(() => ({}))) as LoginBody
   const username = typeof body.username === 'string' ? body.username.trim() : ''
   const password = typeof body.password === 'string' ? body.password : ''

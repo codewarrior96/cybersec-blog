@@ -17,19 +17,19 @@ const DEMO_USERS = [
     username: 'ghost',
     displayName: 'Ghost Admin',
     role: 'admin' as const,
-    password: 'demo_pass',
+    password: process.env.DEMO_ADMIN_PASS ?? 'demo_pass',
   },
   {
     username: 'analyst1',
     displayName: 'SOC Analyst 1',
     role: 'analyst' as const,
-    password: 'analyst_pass',
+    password: process.env.DEMO_ANALYST_PASS ?? 'analyst_pass',
   },
   {
     username: 'viewer1',
     displayName: 'SOC Viewer 1',
     role: 'viewer' as const,
-    password: 'viewer_pass',
+    password: process.env.DEMO_VIEWER_PASS ?? 'viewer_pass',
   },
 ]
 
@@ -832,23 +832,41 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
   }
 }
 
-export async function listReports(): Promise<ReportRecord[]> {
+export async function listReports(
+  filters: { limit?: number; cursor?: number } = {},
+): Promise<{ reports: ReportRecord[]; hasNext: boolean; nextCursor: number | null }> {
+  const limit = Math.min(50, Math.max(1, filters.limit ?? 20))
   const store = getStore()
-  return [...store.reports]
-    .sort((a, b) => {
-      const aTime = new Date(a.createdAt).getTime()
-      const bTime = new Date(b.createdAt).getTime()
-      if (aTime !== bTime) return bTime - aTime
-      return b.id - a.id
-    })
-    .map((report) => ({
-      id: report.id,
-      title: report.title,
-      content: report.content,
-      severity: report.severity,
-      tags: report.tags,
-      createdAt: report.createdAt,
-    }))
+  const sorted = [...store.reports].sort((a, b) => {
+    const aTime = new Date(a.createdAt).getTime()
+    const bTime = new Date(b.createdAt).getTime()
+    if (aTime !== bTime) return bTime - aTime
+    return b.id - a.id
+  })
+
+  // Cursor: id of the last item from the previous page — skip until past it
+  let startIndex = 0
+  if (filters.cursor != null) {
+    const cursorPos = sorted.findIndex((r) => r.id === filters.cursor)
+    startIndex = cursorPos === -1 ? sorted.length : cursorPos + 1
+  }
+
+  const slice = sorted.slice(startIndex, startIndex + limit + 1)
+  const hasNext = slice.length > limit
+  const page = slice.slice(0, limit).map((report) => ({
+    id: report.id,
+    title: report.title,
+    content: report.content,
+    severity: report.severity,
+    tags: report.tags,
+    createdAt: report.createdAt,
+  }))
+
+  return {
+    reports: page,
+    hasNext,
+    nextCursor: hasNext ? page[page.length - 1].id : null,
+  }
 }
 
 export async function createReport(input: {
