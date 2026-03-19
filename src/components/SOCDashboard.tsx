@@ -142,7 +142,7 @@ function PanelHeader({ title, right }: { title: string; right?: ReactNode }) {
       alignItems: 'center',
     }}>
       <span style={{
-        color: '#336633', fontSize: 8,
+        color: '#4d7c4d', fontSize: 12,
         fontFamily: 'monospace', letterSpacing: '0.2em',
       }}>
         {title}
@@ -156,7 +156,7 @@ function SeverityBadge({ severity }: { severity: string | null }) {
   const color = severityColor(severity)
   return (
     <span style={{
-      fontSize: 8, fontFamily: 'monospace', fontWeight: 'bold',
+      fontSize: 12, fontFamily: 'monospace', fontWeight: 'bold',
       color, border: `1px solid ${color}50`,
       padding: '1px 5px', letterSpacing: '0.08em', flexShrink: 0,
     }}>
@@ -304,7 +304,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     * { box-sizing: border-box; }
     body { font-family: monospace; background: #000; color: #00ff41; padding: 48px; margin: 0; }
     h1 { font-size: 13px; font-weight: bold; letter-spacing: 0.2em; border-bottom: 1px solid #1a2a1a; padding-bottom: 12px; margin-bottom: 16px; }
-    .meta { font-size: 10px; color: #336633; margin-bottom: 24px; }
+    .meta { font-size: 10px; color: #4d7c4d; margin-bottom: 24px; }
     .severity { color: ${severityColor(report.severity)}; font-weight: bold; }
     h2 { font-size: 16px; color: #e2e8f0; margin-bottom: 16px; }
     .content { font-size: 12px; line-height: 1.8; color: #94a3b8; white-space: pre-wrap; border: 1px solid #1a2a1a; padding: 16px; }
@@ -385,6 +385,30 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         }
         .soc-input::placeholder { color: #1a3a1a; }
         .soc-input:focus { border-color: rgba(0,255,65,0.35); }
+        .soc-top-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 14px;
+          padding: 14px;
+          align-items: start;
+        }
+        .soc-card {
+          background: #07070f;
+          border: 1px solid #12301c;
+          border-radius: 10px;
+          overflow: hidden;
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+        }
+        .soc-card:hover {
+          border-color: rgba(0, 255, 65, 0.35);
+          box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), 0 0 16px rgba(0, 255, 65, 0.08);
+        }
+        @media (max-width: 1300px) {
+          .soc-top-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 900px) {
+          .soc-top-grid { grid-template-columns: 1fr; }
+        }
       `}</style>
 
       {/* ══════════════════ TICKER BAR ══════════════════ */}
@@ -396,7 +420,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
       }}>
         <span style={{
           flexShrink: 0, padding: '0 12px',
-          color: '#f59e0b', fontSize: 8, fontFamily: 'monospace',
+          color: '#f59e0b', fontSize: 12, fontFamily: 'monospace',
           letterSpacing: '0.15em', fontWeight: 'bold',
           borderRight: '1px solid #1a2a1a',
           height: '100%', display: 'flex', alignItems: 'center',
@@ -408,7 +432,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
             display: 'inline-block', whiteSpace: 'nowrap',
             animation: 'tickerScroll 80s linear infinite',
           }}>
-            <span style={{ color: 'rgba(0,255,65,0.55)', fontSize: 9, fontFamily: 'monospace', paddingLeft: 16 }}>
+            <span style={{ color: 'rgba(0,255,65,0.55)', fontSize: 11, fontFamily: 'monospace', paddingLeft: 16 }}>
               {tickerText}&nbsp;&nbsp;&nbsp;&nbsp;{tickerText}
             </span>
           </div>
@@ -448,11 +472,11 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
               OPERATOR DASHBOARD
             </div>
           </div>
-          <div style={{ color: '#336633', fontSize: 11, fontFamily: 'monospace', marginTop: 2, letterSpacing: '0.04em' }}>
+          <div style={{ color: '#4d7c4d', fontSize: 11, fontFamily: 'monospace', marginTop: 2, letterSpacing: '0.04em' }}>
             {now !== null ? formatClock(now) : ''}
           </div>
           <div style={{ color: '#00ff41', fontSize: 11, fontFamily: 'monospace', marginTop: 4 }}>
-            <span style={{ color: '#336633' }}>ghost@breach-terminal</span>
+            <span style={{ color: '#4d7c4d' }}>ghost@breach-terminal</span>
             <span style={{ color: '#1a3a1a' }}>:</span>
             <span style={{ color: '#00ff41' }}>~$</span>
             <span style={{
@@ -475,7 +499,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
             ].map(p => (
               <span key={p.label} style={{
                 border: `1px solid ${p.color}55`,
-                color: p.color, fontSize: 10,
+                color: p.color, fontSize: 12,
                 fontFamily: 'monospace', padding: '4px 12px',
                 letterSpacing: '0.05em',
               }}>
@@ -497,7 +521,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                 className="soc-action"
                 style={{
                   border: '1px solid rgba(0,255,65,0.25)',
-                  color: 'rgba(0,255,65,0.65)', fontSize: 10,
+                  color: 'rgba(0,255,65,0.65)', fontSize: 12,
                   fontFamily: 'monospace', padding: '4px 10px',
                   textDecoration: 'none', transition: 'all 0.15s ease',
                   letterSpacing: '0.04em',
@@ -511,16 +535,13 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
       </div>
 
       {/* ══════════════════ MAIN GRID (3 columns) ══════════════════ */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
-        gap: 1, background: '#1a2a1a',
-      }}>
+      <div className="soc-top-grid">
         {/* PANEL A — Son Yazılar */}
-        <div style={{ background: '#07070f' }}>
+        <div className="soc-card">
           <PanelHeader
             title="// SON YAZILAR"
             right={
-              <Link href="/blog" style={{ color: '#336633', fontSize: 8, fontFamily: 'monospace', textDecoration: 'none', letterSpacing: '0.1em' }}>
+              <Link href="/blog" style={{ color: '#4d7c4d', fontSize: 12, fontFamily: 'monospace', textDecoration: 'none', letterSpacing: '0.1em' }}>
                 TÜMÜ →
               </Link>
             }
@@ -539,7 +560,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                     {post.tags?.[0] && (
                       <span style={{
-                        fontSize: 7, fontFamily: 'monospace',
+                        fontSize: 11, fontFamily: 'monospace',
                         color: '#00cc44', border: '1px solid rgba(0,255,65,0.18)',
                         padding: '1px 5px', letterSpacing: '0.1em',
                       }}>
@@ -562,11 +583,11 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                     {post.title}
                   </div>
                   <div style={{ display: 'flex', gap: 10, marginTop: 5 }}>
-                    <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#334155' }}>
+                    <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748b' }}>
                       {post.date}
                     </span>
                     {post.readingTime && (
-                      <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#334155' }}>
+                      <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748b' }}>
                         {post.readingTime} dk
                       </span>
                     )}
@@ -575,7 +596,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
               </Link>
             ))}
             {(posts || []).length === 0 && (
-              <div style={{ padding: '24px 16px', color: '#334155', fontSize: 10, fontFamily: 'monospace' }}>
+              <div style={{ padding: '24px 16px', color: '#64748b', fontSize: 12, fontFamily: 'monospace' }}>
                 Henüz yazı yok.
               </div>
             )}
@@ -583,11 +604,11 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         </div>
 
         {/* PANEL B — CVE Radar */}
-        <div style={{ background: '#07070f' }}>
+        <div className="soc-card">
           <PanelHeader
             title="// CVE RADAR"
             right={
-              <Link href="/cve-radar" style={{ color: '#336633', fontSize: 8, fontFamily: 'monospace', textDecoration: 'none', letterSpacing: '0.1em' }}>
+              <Link href="/cve-radar" style={{ color: '#4d7c4d', fontSize: 12, fontFamily: 'monospace', textDecoration: 'none', letterSpacing: '0.1em' }}>
                 TÜM CVE&apos;LER →
               </Link>
             }
@@ -630,7 +651,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                       </div>
                     </div>
                     <div style={{
-                      color: '#475569', fontSize: 9, fontFamily: 'monospace',
+                      color: '#475569', fontSize: 11, fontFamily: 'monospace',
                       overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
                     }}>
                       {cve.description}
@@ -642,18 +663,18 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         </div>
 
         {/* PANEL C — Community */}
-        <div style={{ background: '#07070f' }}>
+        <div className="soc-card">
           <PanelHeader
             title="// COMMUNITY"
             right={
-              <Link href="/community" style={{ color: '#336633', fontSize: 8, fontFamily: 'monospace', textDecoration: 'none', letterSpacing: '0.1em' }}>
+              <Link href="/community" style={{ color: '#4d7c4d', fontSize: 12, fontFamily: 'monospace', textDecoration: 'none', letterSpacing: '0.1em' }}>
                 TÜM POSTLAR →
               </Link>
             }
           />
           <div>
             {communityPosts.length === 0 ? (
-              <div style={{ padding: '24px 16px', color: '#334155', fontSize: 10, fontFamily: 'monospace' }}>
+              <div style={{ padding: '24px 16px', color: '#64748b', fontSize: 12, fontFamily: 'monospace' }}>
                 Henüz community post yok.
               </div>
             ) : communityPosts.map(cp => (
@@ -668,23 +689,23 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                   {cp.title}
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span style={{ color: '#00ff41', fontSize: 9, fontFamily: 'monospace' }}>
+                  <span style={{ color: '#00ff41', fontSize: 11, fontFamily: 'monospace' }}>
                     {cp.author ?? 'anon'}
                   </span>
                   {cp.likes !== undefined && (
-                    <span style={{ color: '#334155', fontSize: 9, fontFamily: 'monospace' }}>
+                    <span style={{ color: '#64748b', fontSize: 11, fontFamily: 'monospace' }}>
                       ♥ {cp.likes?.length || 0}
                     </span>
                   )}
                   {cp.comments !== undefined && (
-                    <span style={{ color: '#334155', fontSize: 9, fontFamily: 'monospace' }}>
+                    <span style={{ color: '#64748b', fontSize: 11, fontFamily: 'monospace' }}>
                       ▸ {cp.comments?.length || 0}
                     </span>
                   )}
                   {cp.category && (
                     <span style={{
-                      fontSize: 7, fontFamily: 'monospace',
-                      color: '#336633', border: '1px solid #1a3a1a',
+                      fontSize: 11, fontFamily: 'monospace',
+                      color: '#4d7c4d', border: '1px solid #1a3a1a',
                       padding: '1px 5px',
                     }}>
                       {cp.category}
@@ -714,7 +735,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                       display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7,
                     }}>
                       <span style={{
-                        fontSize: 9, fontFamily: 'monospace', color: '#94a3b8',
+                        fontSize: 11, fontFamily: 'monospace', color: '#94a3b8',
                         width: 68, flexShrink: 0,
                       }}>
                         {c.name}
@@ -729,7 +750,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                         }} />
                       </div>
                       <span style={{
-                        fontSize: 9, fontFamily: 'monospace', color: '#00ff41',
+                        fontSize: 11, fontFamily: 'monospace', color: '#00ff41',
                         width: 36, textAlign: 'right', flexShrink: 0,
                       }}>
                         {c.count}
@@ -740,7 +761,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {(greynoise.tags || []).slice(0, 3).map(tag => (
                     <span key={tag.name} style={{
-                      fontSize: 8, fontFamily: 'monospace',
+                      fontSize: 12, fontFamily: 'monospace',
                       color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)',
                       padding: '2px 8px', letterSpacing: '0.08em',
                     }}>
@@ -750,7 +771,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                 </div>
               </>
             ) : (
-              <div style={{ color: '#334155', fontSize: 10, fontFamily: 'monospace' }}>
+              <div style={{ color: '#64748b', fontSize: 12, fontFamily: 'monospace' }}>
                 Yükleniyor...
               </div>
             )}
@@ -763,7 +784,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
             title="// CANLI SALDIRI AKIŞI"
             right={
               <span style={{
-                fontSize: 7, fontFamily: 'monospace', color: '#ef4444',
+                fontSize: 11, fontFamily: 'monospace', color: '#ef4444',
                 border: '1px solid rgba(239,68,68,0.3)', padding: '1px 6px',
                 animation: 'liveBlink 1.2s ease-in-out infinite',
               }}>
@@ -784,18 +805,18 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                   display: 'flex', alignItems: 'center', gap: 7,
                   padding: '5px 16px',
                   borderBottom: '1px solid #0a0a14',
-                  fontSize: 9, fontFamily: 'monospace',
+                  fontSize: 11, fontFamily: 'monospace',
                   animation: idx === 0 ? 'slideIn 0.3s ease-out' : undefined,
                 }}>
-                  <span style={{ color: '#334155', flexShrink: 0, minWidth: 56 }}>{atk.time}</span>
+                  <span style={{ color: '#64748b', flexShrink: 0, minWidth: 56 }}>{atk.time}</span>
                   <span style={{
-                    color: sColor, flexShrink: 0, fontSize: 8,
+                    color: sColor, flexShrink: 0, fontSize: 12,
                     border: `1px solid ${sBorder}`, padding: '1px 4px',
                   }}>
                     {atk.type}
                   </span>
                   <span style={{ color: '#64748b', flexShrink: 0 }}>{atk.sourceIP}</span>
-                  <span style={{ color: '#334155' }}>→ :{atk.targetPort}</span>
+                  <span style={{ color: '#64748b' }}>→ :{atk.targetPort}</span>
                   <div style={{
                     width: 5, height: 5, borderRadius: 9999, marginLeft: 'auto', flexShrink: 0,
                     background: sColor, boxShadow: `0 0 4px ${sColor}`,
@@ -831,7 +852,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
               {stat.value.toLocaleString()}
             </div>
             <div style={{
-              fontSize: 8, color: '#336633',
+              fontSize: 12, color: '#4d7c4d',
               fontFamily: 'monospace', letterSpacing: '0.15em', marginTop: 4,
             }}>
               {stat.label}
@@ -846,7 +867,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         padding: '12px 16px 16px',
       }}>
         <div style={{
-          fontSize: 7, fontFamily: 'monospace', color: '#336633',
+          fontSize: 11, fontFamily: 'monospace', color: '#4d7c4d',
           letterSpacing: '0.2em', marginBottom: 10,
         }}>
           // HAFTALIK AKTİVİTE
@@ -870,8 +891,8 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                     : '0 0 3px rgba(0,255,65,0.3)',
                 }} />
                 <div style={{
-                  fontSize: 7, fontFamily: 'monospace',
-                  color: isToday ? '#f59e0b' : '#336633',
+                  fontSize: 11, fontFamily: 'monospace',
+                  color: isToday ? '#f59e0b' : '#4d7c4d',
                 }}>
                   {day}
                 </div>
@@ -893,7 +914,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
           alignItems: 'center', marginBottom: 16,
         }}>
           <span style={{
-            color: '#336633', fontSize: 8,
+            color: '#4d7c4d', fontSize: 12,
             fontFamily: 'monospace', letterSpacing: '0.2em',
           }}>
             // SALDIRI NOTLARI &amp; RAPORLAR
@@ -901,7 +922,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
           <button
             onClick={() => setShowForm(v => !v)}
             style={{
-              fontSize: 9, fontFamily: 'monospace', cursor: 'pointer',
+              fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
               color: '#00ff41', border: '1px solid rgba(0,255,65,0.3)',
               padding: '4px 12px',
               background: showForm ? 'rgba(0,255,65,0.05)' : 'transparent',
@@ -918,7 +939,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
           <div>
             {reports.length === 0 ? (
               <div style={{
-                color: '#334155', fontSize: 11, fontFamily: 'monospace',
+                color: '#64748b', fontSize: 11, fontFamily: 'monospace',
                 padding: '24px 0',
               }}>
                 Henüz not yok. İlk notunu ekle.
@@ -947,7 +968,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                         onClick={() => handleDeleteReport(report.id)}
                         style={{
                           background: 'transparent', border: 'none',
-                          color: '#334155', cursor: 'pointer',
+                          color: '#64748b', cursor: 'pointer',
                           fontSize: 14, padding: '0 4px', lineHeight: 1,
                           flexShrink: 0,
                         }}
@@ -956,7 +977,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                       </button>
                     </div>
                     <div style={{
-                      color: '#475569', fontSize: 10, fontFamily: 'monospace',
+                      color: '#475569', fontSize: 12, fontFamily: 'monospace',
                       lineHeight: 1.5,
                       overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
                     }}>
@@ -969,7 +990,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         {(report.tags || []).map(tag => (
                           <span key={tag} style={{
-                            fontSize: 7, fontFamily: 'monospace',
+                            fontSize: 11, fontFamily: 'monospace',
                             color: '#446644', border: '1px solid #1a3a1a',
                             padding: '1px 4px',
                           }}>
@@ -978,14 +999,14 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                         ))}
                       </div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <span style={{ fontSize: 8, fontFamily: 'monospace', color: '#334155' }}>
+                        <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#64748b' }}>
                           {new Date(report.createdAt).toLocaleDateString('tr-TR')}
                         </span>
                         <button
                           onClick={() => handlePrintPDF(report)}
                           style={{
-                            fontSize: 8, fontFamily: 'monospace', cursor: 'pointer',
-                            color: '#336633', border: '1px solid #1a3a1a',
+                            fontSize: 12, fontFamily: 'monospace', cursor: 'pointer',
+                            color: '#4d7c4d', border: '1px solid #1a3a1a',
                             padding: '2px 7px', background: 'transparent',
                           }}
                         >
@@ -1006,7 +1027,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
               alignSelf: 'start',
             }}>
               <div style={{
-                fontSize: 8, fontFamily: 'monospace', color: '#336633',
+                fontSize: 12, fontFamily: 'monospace', color: '#4d7c4d',
                 letterSpacing: '0.2em', marginBottom: 14,
               }}>
                 // YENİ RAPOR
@@ -1014,7 +1035,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
 
               {/* Title */}
               <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 8, fontFamily: 'monospace', color: '#446644', marginBottom: 4, letterSpacing: '0.1em' }}>
+                <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#446644', marginBottom: 4, letterSpacing: '0.1em' }}>
                   BAŞLIK:
                 </div>
                 <input
@@ -1028,7 +1049,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
 
               {/* Severity */}
               <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 8, fontFamily: 'monospace', color: '#446644', marginBottom: 4, letterSpacing: '0.1em' }}>
+                <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#446644', marginBottom: 4, letterSpacing: '0.1em' }}>
                   ŞİDDET:
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -1037,8 +1058,8 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                       key={s}
                       onClick={() => setFormSeverity(s)}
                       style={{
-                        fontSize: 8, fontFamily: 'monospace', cursor: 'pointer',
-                        color: formSeverity === s ? '#00ff41' : '#336633',
+                        fontSize: 12, fontFamily: 'monospace', cursor: 'pointer',
+                        color: formSeverity === s ? '#00ff41' : '#4d7c4d',
                         border: `1px solid ${formSeverity === s ? 'rgba(0,255,65,0.45)' : '#1a2a1a'}`,
                         padding: '3px 7px',
                         background: formSeverity === s ? 'rgba(0,255,65,0.05)' : 'transparent',
@@ -1053,7 +1074,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
 
               {/* Content */}
               <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 8, fontFamily: 'monospace', color: '#446644', marginBottom: 4, letterSpacing: '0.1em' }}>
+                <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#446644', marginBottom: 4, letterSpacing: '0.1em' }}>
                   İÇERİK:
                 </div>
                 <textarea
@@ -1068,7 +1089,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
 
               {/* Tags */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 8, fontFamily: 'monospace', color: '#446644', marginBottom: 4, letterSpacing: '0.1em' }}>
+                <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#446644', marginBottom: 4, letterSpacing: '0.1em' }}>
                   ETİKETLER: (virgülle)
                 </div>
                 <input
@@ -1085,7 +1106,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                 <button
                   onClick={handleCreateReport}
                   style={{
-                    flex: 1, fontSize: 9, fontFamily: 'monospace', cursor: 'pointer',
+                    flex: 1, fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
                     color: '#00ff41', border: '1px solid rgba(0,255,65,0.35)',
                     padding: '7px 0', background: 'rgba(0,255,65,0.04)',
                     letterSpacing: '0.1em',
@@ -1107,8 +1128,8 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                     }
                   }}
                   style={{
-                    fontSize: 9, fontFamily: 'monospace', cursor: 'pointer',
-                    color: '#336633', border: '1px solid #1a3a1a',
+                    fontSize: 11, fontFamily: 'monospace', cursor: 'pointer',
+                    color: '#4d7c4d', border: '1px solid #1a3a1a',
                     padding: '7px 10px', background: 'transparent',
                     letterSpacing: '0.1em',
                   }}
