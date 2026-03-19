@@ -105,6 +105,7 @@ const ATTACK_FEED_LIMIT = 8
 const DAY_LABELS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 const STATUS_OPTIONS: AlertStatus[] = ['new', 'in_progress', 'blocked', 'resolved']
 const PRIORITY_OPTIONS: AlertPriority[] = ['P1', 'P2', 'P3', 'P4']
+const ATTACK_PANEL_COUNTRY_ROWS = 5
 
 function formatClock(date: Date) {
   const pad = (value: number) => String(value).padStart(2, '0')
@@ -180,6 +181,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
   const [createDescription, setCreateDescription] = useState('')
   const [createPriority, setCreatePriority] = useState<AlertPriority>('P2')
   const [liveAttackStats, setLiveAttackStats] = useState<{ attacksPerMinute: number; activeIps: number } | null>(null)
+  const [stickyAttackPanel, setStickyAttackPanel] = useState<WorkflowMetrics['attack'] | null>(null)
 
   const startedAtRef = useRef(Date.now())
   const metricsRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -278,8 +280,42 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     ? newsItems.slice(0, 10).map((item) => `[${item.source}] ${item.title}`).join('   |   ')
     : 'LIVE INTEL FEED INITIALIZING...'
 
-  const countryBars = metrics?.attack.topCountries ?? []
-  const tagBars = metrics?.attack.topTags ?? []
+  useEffect(() => {
+    const attack = metrics?.attack
+    if (!attack) return
+    if (attack.topCountries.length > 0 || attack.topTags.length > 0) {
+      setStickyAttackPanel(attack)
+    }
+  }, [metrics])
+
+  const attackPanel = useMemo(() => {
+    const current = metrics?.attack ?? null
+    if (!current) return stickyAttackPanel
+    if (current.topCountries.length === 0 && current.topTags.length === 0 && stickyAttackPanel) {
+      return {
+        ...stickyAttackPanel,
+        attacksPerMinute: current.attacksPerMinute,
+        activeIps: current.activeIps,
+        totalLast24h: current.totalLast24h,
+      }
+    }
+    return current
+  }, [metrics, stickyAttackPanel])
+
+  const countryBars = attackPanel?.topCountries ?? []
+  const tagBars = attackPanel?.topTags ?? []
+  const renderedCountryBars = useMemo(() => {
+    if (countryBars.length >= ATTACK_PANEL_COUNTRY_ROWS) {
+      return countryBars.slice(0, ATTACK_PANEL_COUNTRY_ROWS)
+    }
+    return [
+      ...countryBars,
+      ...Array.from({ length: ATTACK_PANEL_COUNTRY_ROWS - countryBars.length }, (_, index) => ({
+        name: `-${index}`,
+        count: 0,
+      })),
+    ]
+  }, [countryBars])
   const streamLabel = streamModeLabel(streamMode)
   const streamColor = streamMode === 'live' ? '#00ff41' : streamMode === 'degraded' ? '#f59e0b' : '#64748b'
 
@@ -608,29 +644,34 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
               <div className="soc-head">
                 <span className="soc-head-title">// SALDIRI ISTIHBARATI</span>
                 <span style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 10 }}>
-                  LIVE DENSITY {metrics?.attack.liveDensity ?? 0}%
+                  LIVE DENSITY {attackPanel?.liveDensity ?? metrics?.attack.liveDensity ?? 0}%
                 </span>
               </div>
               <div style={{ padding: 10 }}>
                 <ThreatGlobe countries={countryBars} attacks={attacks} />
 
-                <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
-                  {countryBars.map((country) => {
+                <div style={{ marginTop: 10, display: 'grid', gap: 6, minHeight: 112 }}>
+                  {renderedCountryBars.map((country) => {
                     const max = Math.max(...countryBars.map((row) => row.count), 1)
                     const width = `${Math.max(6, (country.count / max) * 100)}%`
+                    const isPlaceholder = country.count === 0
                     return (
-                      <div key={country.name} style={{ display: 'grid', gridTemplateColumns: '60px 1fr 34px', gap: 8, alignItems: 'center' }}>
-                        <span style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 11 }}>{country.name}</span>
+                      <div key={country.name} style={{ display: 'grid', gridTemplateColumns: '60px 1fr 34px', gap: 8, alignItems: 'center', opacity: isPlaceholder ? 0.26 : 1 }}>
+                        <span style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 11 }}>
+                          {isPlaceholder ? '-' : country.name}
+                        </span>
                         <div style={{ height: 8, border: '1px solid #132014', background: '#0a1410' }}>
                           <div style={{ width, height: '100%', background: 'linear-gradient(90deg, #00ff41, #f59e0b)' }} />
                         </div>
-                        <span style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 11 }}>{country.count}</span>
+                        <span style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 11 }}>
+                          {isPlaceholder ? '' : country.count}
+                        </span>
                       </div>
                     )
                   })}
                 </div>
 
-                <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap', minHeight: 26 }}>
                   {tagBars.map((tag) => (
                     <span
                       key={tag.name}
