@@ -182,6 +182,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
 
   const startedAtRef = useRef(Date.now())
   const metricsRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const attackFeedRef = useRef<HTMLDivElement | null>(null)
 
   const fetchCorePanels = useCallback(async () => {
     const [metricsResponse, usersResponse] = await Promise.all([
@@ -330,7 +331,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
       if (disposed) return
       try {
         const payload = JSON.parse((event as MessageEvent<string>).data) as AttackEvent
-        setAttacks((prev) => [payload, ...prev].slice(0, ATTACK_FEED_LIMIT))
+        setAttacks((prev) => [...prev, payload].slice(-ATTACK_FEED_LIMIT))
         setStreamMode('live')
 
         if (metricsRefreshTimerRef.current) {
@@ -359,11 +360,25 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
   }, [refreshWorkflow])
 
   useEffect(() => {
+    const feed = attackFeedRef.current
+    if (!feed) return
+    feed.scrollTop = feed.scrollHeight
+  }, [attacks])
+
+  useEffect(() => {
     const handler = (event: Event) => {
-      const detail = (event as CustomEvent<{ assignee?: 'me' | 'unassigned'; priority?: AlertPriority }>).detail
+      const detail = (event as CustomEvent<{
+        assignee?: 'all' | 'me' | 'unassigned'
+        priority?: AlertPriority | 'all'
+        scrollTo?: 'alert-queue'
+      }>).detail
       if (!detail) return
       if (detail.assignee) setAlertAssigneeFilter(detail.assignee)
       if (detail.priority) setAlertPriorityFilter(detail.priority)
+      if (detail.scrollTo === 'alert-queue') {
+        const queue = document.getElementById('alert-queue')
+        queue?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
     }
     window.addEventListener('soc_quick_filter', handler)
     return () => window.removeEventListener('soc_quick_filter', handler)
@@ -538,56 +553,53 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         </div>
 
         <div className="soc-split-grid">
-          <div className="soc-frame">
-            <div className="soc-head">
-              <span className="soc-head-title">// SALDIRI ISTIHBARATI</span>
-              <span style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 10 }}>
-                LIVE DENSITY {metrics?.attack.liveDensity ?? 0}%
-              </span>
-            </div>
-            <div style={{ padding: 10 }}>
-              <ThreatGlobe
-                countries={countryBars}
-                attacks={attacks}
-              />
+          <div style={{ display: 'grid', gap: 12, alignContent: 'start' }}>
+            <div className="soc-frame">
+              <div className="soc-head">
+                <span className="soc-head-title">// SALDIRI ISTIHBARATI</span>
+                <span style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 10 }}>
+                  LIVE DENSITY {metrics?.attack.liveDensity ?? 0}%
+                </span>
+              </div>
+              <div style={{ padding: 10 }}>
+                <ThreatGlobe countries={countryBars} attacks={attacks} />
 
-              <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
-                {countryBars.map((country) => {
-                  const max = Math.max(...countryBars.map((row) => row.count), 1)
-                  const width = `${Math.max(6, (country.count / max) * 100)}%`
-                  return (
-                    <div key={country.name} style={{ display: 'grid', gridTemplateColumns: '60px 1fr 34px', gap: 8, alignItems: 'center' }}>
-                      <span style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 11 }}>{country.name}</span>
-                      <div style={{ height: 8, border: '1px solid #132014', background: '#0a1410' }}>
-                        <div style={{ width, height: '100%', background: 'linear-gradient(90deg, #00ff41, #f59e0b)' }} />
+                <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
+                  {countryBars.map((country) => {
+                    const max = Math.max(...countryBars.map((row) => row.count), 1)
+                    const width = `${Math.max(6, (country.count / max) * 100)}%`
+                    return (
+                      <div key={country.name} style={{ display: 'grid', gridTemplateColumns: '60px 1fr 34px', gap: 8, alignItems: 'center' }}>
+                        <span style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 11 }}>{country.name}</span>
+                        <div style={{ height: 8, border: '1px solid #132014', background: '#0a1410' }}>
+                          <div style={{ width, height: '100%', background: 'linear-gradient(90deg, #00ff41, #f59e0b)' }} />
+                        </div>
+                        <span style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 11 }}>{country.count}</span>
                       </div>
-                      <span style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 11 }}>{country.count}</span>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
 
-              <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {tagBars.map((tag) => (
-                  <span
-                    key={tag.name}
-                    style={{
-                      color: '#f59e0b',
-                      border: '1px solid rgba(245,158,11,0.4)',
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      padding: '2px 6px',
-                    }}
-                  >
-                    {tag.name} ({tag.count})
-                  </span>
-                ))}
+                <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {tagBars.map((tag) => (
+                    <span
+                      key={tag.name}
+                      style={{
+                        color: '#f59e0b',
+                        border: '1px solid rgba(245,158,11,0.4)',
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        padding: '2px 6px',
+                      }}
+                    >
+                      {tag.name} ({tag.count})
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="soc-frame" id="alert-workflow-panel" style={{ display: 'grid', gridTemplateRows: 'auto auto' }}>
-            <div style={{ borderBottom: '1px solid #102018' }}>
+            <div className="soc-frame">
               <div className="soc-head">
                 <span className="soc-head-title">// CANLI SALDIRI AKISI</span>
                 <span
@@ -602,7 +614,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                   {streamLabel}
                 </span>
               </div>
-              <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+              <div ref={attackFeedRef} style={{ height: 275, overflowY: 'auto' }}>
                 {attacks.length === 0 && (
                   <div style={{ padding: 12, color: '#64748b', fontFamily: 'monospace', fontSize: 11 }}>
                     Canli akis bekleniyor...
@@ -618,7 +630,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                       gap: 6,
                       alignItems: 'center',
                       borderBottom: '1px solid #0d1410',
-                      animation: index === 0 ? 'slideIn 0.25s ease-out' : undefined,
+                      animation: index === attacks.length - 1 ? 'slideIn 0.25s ease-out' : undefined,
                     }}
                   >
                     <span style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 11 }}>{attack.time}</span>
@@ -641,7 +653,9 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                 ))}
               </div>
             </div>
+          </div>
 
+          <div className="soc-frame" id="alert-workflow-panel">
             <div className="soc-workflow-grid">
               <div className="soc-workflow-card alert-queue" id="alert-queue">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>

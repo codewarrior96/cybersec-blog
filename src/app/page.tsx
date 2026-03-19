@@ -1,13 +1,10 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import InteractiveTerminal from '@/components/InteractiveTerminal'
+import React, { useEffect, useState } from 'react'
+import EmbeddedLogin from '@/components/EmbeddedLogin'
 import SOCDashboard from '@/components/SOCDashboard'
-import LoginModal from '@/components/LoginModal'
 import type { PostMeta } from '@/components/SOCDashboard'
 import { useAuthStatus } from '@/lib/auth-client'
-
-// ─── Error Boundary ───────────────────────────────────────────────────────────
 
 interface EBProps {
   children: React.ReactNode
@@ -38,8 +35,6 @@ class ErrorBoundary extends React.Component<EBProps, EBState> {
   }
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
 export default function HomePage() {
   const authStatus = useAuthStatus()
   const [posts, setPosts] = useState<PostMeta[]>([])
@@ -49,13 +44,14 @@ export default function HomePage() {
       setPosts([])
       return
     }
+
     fetch('/api/posts')
-      .then(r => r.json())
-      .then((d: unknown) => {
-        if (Array.isArray(d)) {
-          setPosts(d as PostMeta[])
-        } else if (d && typeof d === 'object' && 'posts' in d) {
-          setPosts((d as { posts: PostMeta[] }).posts ?? [])
+      .then((response) => response.json())
+      .then((payload: unknown) => {
+        if (Array.isArray(payload)) {
+          setPosts(payload as PostMeta[])
+        } else if (payload && typeof payload === 'object' && 'posts' in payload) {
+          setPosts((payload as { posts: PostMeta[] }).posts ?? [])
         }
       })
       .catch(() => {})
@@ -66,7 +62,7 @@ export default function HomePage() {
       <ErrorBoundary
         fallback={
           <div style={{ color: 'red', padding: '20px', fontFamily: 'monospace' }}>
-            SOC Dashboard Error — Check Console
+            SOC Dashboard Error - Check Console
           </div>
         }
       >
@@ -75,10 +71,5 @@ export default function HomePage() {
     )
   }
 
-  return (
-    <div>
-      <InteractiveTerminal />
-      <LoginModal onClose={() => {}} />
-    </div>
-  )
+  return <EmbeddedLogin />
 }

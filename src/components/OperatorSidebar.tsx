@@ -18,6 +18,14 @@ interface SidebarMetrics {
     role: 'admin' | 'analyst' | 'viewer'
     activeWorkload: number
   }>
+  alertQueue: Array<{
+    id: number
+    title: string
+    status: 'new' | 'in_progress' | 'blocked' | 'resolved'
+    priority: 'P1' | 'P2' | 'P3' | 'P4'
+    ageMinutes: number
+    assignee: { id: number; username: string } | null
+  }>
 }
 
 const navItems = [
@@ -35,12 +43,6 @@ interface OperatorSidebarProps {
   initialAuth?: boolean | null
 }
 
-const QUICK_ACTIONS = [
-  { label: 'Unassigned', payload: { assignee: 'unassigned' } },
-  { label: 'P1 Filter', payload: { priority: 'P1' } },
-  { label: 'My Alerts', payload: { assignee: 'me' } },
-]
-
 async function fetchSidebarMetrics(): Promise<SidebarMetrics | null> {
   try {
     const response = await fetch('/api/metrics/live', { cache: 'no-store' })
@@ -55,6 +57,31 @@ function roleLabel(role: string) {
   if (role === 'admin') return 'ADMIN'
   if (role === 'analyst') return 'ANALYST'
   return 'VIEWER'
+}
+
+function workloadColor(load: number) {
+  if (load >= 8) return '#ef4444'
+  if (load >= 5) return '#f59e0b'
+  return '#00ff41'
+}
+
+function slaRisk(metrics: SidebarMetrics | null): { label: 'LOW' | 'MED' | 'HIGH'; color: string } {
+  if (!metrics) return { label: 'LOW', color: '#64748b' }
+  const breaches = metrics.shiftSnapshot.slaBreaches
+  const criticalOpen = metrics.shiftSnapshot.openCritical
+  const unassigned = metrics.shiftSnapshot.unassigned
+
+  if (breaches > 0 || criticalOpen >= 4) return { label: 'HIGH', color: '#ef4444' }
+  if (criticalOpen > 0 || unassigned > 0) return { label: 'MED', color: '#f59e0b' }
+  return { label: 'LOW', color: '#00ff41' }
+}
+
+function dispatchQuickFilter(payload: {
+  assignee?: 'all' | 'me' | 'unassigned'
+  priority?: 'all' | 'P1' | 'P2' | 'P3' | 'P4'
+  scrollTo?: 'alert-queue'
+}) {
+  window.dispatchEvent(new CustomEvent('soc_quick_filter', { detail: payload }))
 }
 
 export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarProps) {
@@ -77,7 +104,7 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
       }
     }
 
-    load()
+    void load()
     const interval = setInterval(load, 8000)
 
     return () => {
@@ -86,10 +113,18 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
     }
   }, [isAuthed, isLoginRoute])
 
-  const onCall = useMemo(() => {
-    const rows = metrics?.assignment ?? []
-    return rows.filter((row) => row.role !== 'viewer').slice(0, 4)
+  const escalationQueue = useMemo(() => {
+    if (!metrics) return []
+    return metrics.alertQueue.filter((row) => row.status !== 'resolved').slice(0, 3)
   }, [metrics])
+
+  const analystCapacity = useMemo(() => {
+    if (!metrics) return []
+    return metrics.assignment.filter((row) => row.role !== 'viewer')
+  }, [metrics])
+
+  const overloadedCount = useMemo(() => analystCapacity.filter((row) => row.activeWorkload >= 8).length, [analystCapacity])
+  const risk = slaRisk(metrics)
 
   if (isLoginRoute) return null
   if (!isAuthed) return null
@@ -113,9 +148,7 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
       }}
     >
       <div style={{ padding: '20px 16px', borderBottom: '1px solid #1a2a1a' }}>
-        <div style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 14, letterSpacing: '0.12em' }}>
-          OPERATOR
-        </div>
+        <div style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 14, letterSpacing: '0.12em' }}>OPERATOR</div>
         <div style={{ marginTop: 8, color: '#4d7c4d', fontFamily: 'monospace', fontSize: 11 }}>
           {user?.displayName ?? 'Unknown'}
         </div>
@@ -156,7 +189,7 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
         <div style={{ color: '#4d7c4d', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em', marginBottom: 8 }}>
           // SHIFT SNAPSHOT
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 6 }}>
+        <div style={{ display: 'grid', gap: 6 }}>
           <SnapshotRow label="CRITICAL OPEN" value={metrics?.shiftSnapshot.openCritical ?? 0} color="#ef4444" />
           <SnapshotRow label="UNASSIGNED" value={metrics?.shiftSnapshot.unassigned ?? 0} color="#f59e0b" />
           <SnapshotRow label="SLA BREACH" value={metrics?.shiftSnapshot.slaBreaches ?? 0} color="#00ff41" />
@@ -164,61 +197,104 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
       </div>
 
       <div style={{ padding: '10px 12px', borderBottom: '1px solid #111a11' }}>
-        <div style={{ color: '#4d7c4d', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em', marginBottom: 8 }}>
-          // ON-CALL
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ color: '#4d7c4d', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em' }}>
+            // ESCALATION QUEUE
+          </div>
+          <div
+            style={{
+              border: `1px solid ${risk.color}66`,
+              color: risk.color,
+              fontFamily: 'monospace',
+              fontSize: 10,
+              padding: '2px 6px',
+            }}
+          >
+            SLA RISK: {risk.label}
+          </div>
         </div>
+
         <div style={{ display: 'grid', gap: 6 }}>
-          {onCall.length === 0 && (
-            <div style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 11 }}>Analist yuku bekleniyor...</div>
+          {escalationQueue.length === 0 && (
+            <div style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 11 }}>Escalation queue sakin.</div>
           )}
-          {onCall.map((analyst) => (
+          {escalationQueue.map((alert) => (
             <div
-              key={analyst.id}
+              key={alert.id}
               style={{
                 border: '1px solid #1a2a1a',
                 padding: '6px 8px',
                 display: 'grid',
                 gridTemplateColumns: '1fr auto',
-                alignItems: 'center',
                 gap: 8,
               }}
             >
-              <div style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 11 }}>{analyst.username}</div>
-              <div style={{ color: '#f59e0b', fontFamily: 'monospace', fontSize: 11 }}>{analyst.activeWorkload}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {alert.title}
+                </div>
+                <div style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 10, marginTop: 2 }}>
+                  age {alert.ageMinutes}m {alert.assignee ? `| ${alert.assignee.username}` : '| unassigned'}
+                </div>
+              </div>
+              <div style={{ color: alert.priority === 'P1' ? '#ef4444' : '#f59e0b', fontFamily: 'monospace', fontSize: 11 }}>
+                {alert.priority}
+              </div>
             </div>
           ))}
+        </div>
+
+        <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+          <button
+            onClick={() => dispatchQuickFilter({ priority: 'P1', assignee: 'unassigned', scrollTo: 'alert-queue' })}
+            style={quickActionButtonStyle}
+          >
+            [ P1+UNASSIGNED ]
+          </button>
+          <button
+            onClick={() => dispatchQuickFilter({ priority: 'P1', assignee: 'me', scrollTo: 'alert-queue' })}
+            style={quickActionButtonStyle}
+          >
+            [ MY P1 ]
+          </button>
+          <button
+            onClick={() => dispatchQuickFilter({ priority: 'all', assignee: 'all', scrollTo: 'alert-queue' })}
+            style={quickActionButtonStyle}
+          >
+            [ OPEN QUEUE ]
+          </button>
         </div>
       </div>
 
       <div style={{ padding: '10px 12px' }}>
         <div style={{ color: '#4d7c4d', fontFamily: 'monospace', fontSize: 10, letterSpacing: '0.1em', marginBottom: 8 }}>
-          // QUICK ACTIONS
+          // ANALYST CAPACITY
         </div>
-        <div style={{ display: 'grid', gap: 6 }}>
-          {QUICK_ACTIONS.map((action) => (
-            <button
-              key={action.label}
-              onClick={() => {
-                window.dispatchEvent(
-                  new CustomEvent('soc_quick_filter', {
-                    detail: action.payload,
-                  }),
-                )
-              }}
-              style={{
-                border: '1px solid rgba(0,255,65,0.3)',
-                background: 'rgba(0,255,65,0.04)',
-                color: '#00ff41',
-                fontFamily: 'monospace',
-                fontSize: 11,
-                padding: '7px 8px',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
-            >
-              [ {action.label} ]
-            </button>
-          ))}
+        <div style={{ display: 'grid', gap: 8 }}>
+          {analystCapacity.length === 0 && (
+            <div style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 11 }}>Kapasite verisi bekleniyor...</div>
+          )}
+          {analystCapacity.map((analyst) => {
+            const barColor = workloadColor(analyst.activeWorkload)
+            const barWidth = `${Math.min(100, Math.max(8, (analyst.activeWorkload / 10) * 100))}%`
+            return (
+              <div key={analyst.id} style={{ border: '1px solid #1a2a1a', padding: '6px 8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, marginBottom: 5 }}>
+                  <span style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 11 }}>
+                    {analyst.username} ({analyst.role})
+                  </span>
+                  <span style={{ color: barColor, fontFamily: 'monospace', fontSize: 11 }}>{analyst.activeWorkload}</span>
+                </div>
+                <div style={{ height: 4, border: '1px solid #132014', background: '#0a1410' }}>
+                  <div style={{ width: barWidth, height: '100%', background: barColor }} />
+                </div>
+              </div>
+            )
+          })}
+
+          <div style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 10 }}>
+            Overloaded Analysts: <span style={{ color: overloadedCount > 0 ? '#ef4444' : '#00ff41' }}>{overloadedCount}</span>
+          </div>
         </div>
       </div>
 
@@ -262,4 +338,15 @@ function SnapshotRow({ label, value, color }: { label: string; value: number; co
       <span style={{ color, fontFamily: 'monospace', fontSize: 12, fontWeight: 'bold' }}>{value}</span>
     </div>
   )
+}
+
+const quickActionButtonStyle = {
+  border: '1px solid rgba(0,255,65,0.3)',
+  background: 'rgba(0,255,65,0.04)',
+  color: '#00ff41',
+  fontFamily: 'monospace',
+  fontSize: 11,
+  padding: '7px 8px',
+  cursor: 'pointer',
+  textAlign: 'left' as const,
 }
