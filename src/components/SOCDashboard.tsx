@@ -68,8 +68,8 @@ interface CommunityPost {
   title: string
   author?: string
   category?: string
-  likes?: number
-  comments?: number
+  likes?: unknown[]
+  comments?: unknown[]
   createdAt?: string
 }
 
@@ -673,12 +673,12 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                   </span>
                   {cp.likes !== undefined && (
                     <span style={{ color: '#334155', fontSize: 9, fontFamily: 'monospace' }}>
-                      ♥ {cp.likes}
+                      ♥ {cp.likes?.length || 0}
                     </span>
                   )}
                   {cp.comments !== undefined && (
                     <span style={{ color: '#334155', fontSize: 9, fontFamily: 'monospace' }}>
-                      ▸ {cp.comments}
+                      ▸ {cp.comments?.length || 0}
                     </span>
                   )}
                   {cp.category && (
