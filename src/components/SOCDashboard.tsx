@@ -338,7 +338,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     ? newsItems.slice(0, 10).map(n => `[${n.source}] ${n.title}`).join('   ◈   ')
     : 'LOADING THREAT FEED...'
 
-  const maxCountry = greynoise?.countries[0]?.count ?? 1
+  const maxCountry = greynoise?.countries?.[0]?.count ?? 1
   // Derived from `now` state (client-only) to avoid SSR↔client mismatch
   // Sunday=0 → index 6 in MON…SUN array
   const todayIdx = now !== null ? (now.getDay() + 6) % 7 : -1
@@ -526,7 +526,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
             }
           />
           <div>
-            {posts.slice(0, 4).map(post => (
+            {(posts || []).slice(0, 4).map(post => (
               <Link key={post.slug} href={`/blog/${post.slug}`} style={{ display: 'block', textDecoration: 'none' }}>
                 <div
                   className="soc-post-card"
@@ -574,7 +574,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                 </div>
               </Link>
             ))}
-            {posts.length === 0 && (
+            {(posts || []).length === 0 && (
               <div style={{ padding: '24px 16px', color: '#334155', fontSize: 10, fontFamily: 'monospace' }}>
                 Henüz yazı yok.
               </div>
@@ -709,7 +709,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
             {greynoise ? (
               <>
                 <div style={{ marginBottom: 14 }}>
-                  {greynoise.countries.slice(0, 5).map(c => (
+                  {(greynoise.countries || []).slice(0, 5).map(c => (
                     <div key={c.name} style={{
                       display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7,
                     }}>
@@ -738,7 +738,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {greynoise.tags.slice(0, 3).map(tag => (
+                  {(greynoise.tags || []).slice(0, 3).map(tag => (
                     <span key={tag.name} style={{
                       fontSize: 8, fontFamily: 'monospace',
                       color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)',
@@ -772,7 +772,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
             }
           />
           <div style={{ height: 200, overflowY: 'hidden' }}>
-            {attacks.map((atk, idx) => {
+            {(attacks || []).map((atk, idx) => {
               const sColor =
                 atk.severity === 'critical' ? '#ef4444' :
                 atk.severity === 'high'     ? '#f59e0b' : '#00ff41'
@@ -925,7 +925,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {reports.map(report => (
+                {(reports || []).map(report => (
                   <div key={report.id} style={{
                     border: '1px solid #1a2a1a', background: '#07070f',
                     padding: '12px 14px',
@@ -967,7 +967,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                       alignItems: 'center', marginTop: 9,
                     }}>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        {report.tags.map(tag => (
+                        {(report.tags || []).map(tag => (
                           <span key={tag} style={{
                             fontSize: 7, fontFamily: 'monospace',
                             color: '#446644', border: '1px solid #1a3a1a',
