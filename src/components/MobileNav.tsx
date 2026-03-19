@@ -49,10 +49,14 @@ const mobileItems = [
   },
 ]
 
-export default function MobileNav() {
+interface MobileNavProps {
+  initialAuth?: boolean | null
+}
+
+export default function MobileNav({ initialAuth = null }: MobileNavProps) {
   const pathname = usePathname()
   const [visible, setVisible] = useState<boolean | null>(null)
-  const authStatus = useAuthStatus()
+  const authStatus = useAuthStatus(initialAuth)
 
   useEffect(() => {
     const check = () => {

@@ -14,9 +14,13 @@ const navLinks = [
   { href: '/about',            label: 'Hakkımda'       },
 ];
 
-export default function Header() {
+interface HeaderProps {
+  initialAuth?: boolean | null
+}
+
+export default function Header({ initialAuth = null }: HeaderProps) {
   const pathname = usePathname();
-  const authStatus = useAuthStatus()
+  const authStatus = useAuthStatus(initialAuth)
 
   if (pathname === '/login') return null
   if (authStatus === null) return null

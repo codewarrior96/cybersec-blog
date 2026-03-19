@@ -52,9 +52,13 @@ const quickIntel = [
   { label: 'CTF',       value: '6',  color: '#00ff41' },
 ]
 
-export default function OperatorSidebar() {
+interface OperatorSidebarProps {
+  initialAuth?: boolean | null
+}
+
+export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarProps) {
   const pathname = usePathname()
-  const authStatus = useAuthStatus()
+  const authStatus = useAuthStatus(initialAuth)
 
   if (pathname === '/login') return null
   if (authStatus !== true) return null

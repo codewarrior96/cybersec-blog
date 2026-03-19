@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
+import ThreatGlobe from '@/components/ThreatGlobe'
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -129,6 +130,14 @@ function fmtSession(s: number) {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
 
+function normalizeCountry(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z]/g, '')
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function PanelHeader({ title, right }: { title: string; right?: ReactNode }) {
@@ -175,6 +184,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
   const [greynoise, setGreynoise] = useState<GreyNoiseData | null>(null)
   const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([])
   const [attacks, setAttacks] = useState<AttackEvent[]>([])
+  const [selectedThreatCountry, setSelectedThreatCountry] = useState<CountryThreat | null>(null)
   const [reports, setReports] = useState<Report[]>([])
 
   const [showForm, setShowForm] = useState(false)
@@ -339,6 +349,22 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     : 'LOADING THREAT FEED...'
 
   const maxCountry = greynoise?.countries?.[0]?.count ?? 1
+  const selectedCountryAttacks = useMemo(() => {
+    if (!selectedThreatCountry) return []
+    const countryKey = normalizeCountry(selectedThreatCountry.name)
+    return attacks.filter((attack) => normalizeCountry(attack.sourceCountry) === countryKey).slice(0, 6)
+  }, [attacks, selectedThreatCountry])
+
+  const selectedCountrySeverity = useMemo(() => {
+    return selectedCountryAttacks.reduce(
+      (acc, attack) => {
+        acc[attack.severity] += 1
+        return acc
+      },
+      { critical: 0, high: 0, low: 0 },
+    )
+  }, [selectedCountryAttacks])
+
   // Derived from `now` state (client-only) to avoid SSR↔client mismatch
   // Sunday=0 → index 6 in MON…SUN array
   const todayIdx = now !== null ? (now.getDay() + 6) % 7 : -1
@@ -523,6 +549,47 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
           display: flex;
           gap: 6px;
         }
+        .soc-threat-globe {
+          margin-bottom: 14px;
+        }
+        .soc-threat-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 7px;
+        }
+        .soc-threat-drawer {
+          margin-top: 10px;
+          border: 1px solid #1a2a1a;
+          background: rgba(6, 10, 12, 0.82);
+          animation: slideIn 0.2s ease-out;
+        }
+        .soc-threat-drawer-head {
+          padding: 8px 10px;
+          border-bottom: 1px solid #1a2a1a;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .soc-threat-drawer-meta {
+          padding: 7px 10px;
+          border-bottom: 1px solid #112215;
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .soc-threat-drawer-list {
+          max-height: 160px;
+          overflow-y: auto;
+        }
+        .soc-threat-drawer-list::-webkit-scrollbar {
+          width: 6px;
+        }
+        .soc-threat-drawer-list::-webkit-scrollbar-thumb {
+          background: #1a3a1a;
+        }
         .soc-attack-feed {
           height: 200px;
           overflow-y: hidden;
@@ -606,6 +673,24 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
           .soc-attack-feed {
             height: 220px;
             overflow-y: auto;
+          }
+          .soc-threat-globe {
+            margin-bottom: 12px;
+          }
+          .soc-threat-row > span:first-child {
+            width: 54px !important;
+            font-size: 10px !important;
+          }
+          .soc-threat-row > span:last-child {
+            width: 30px !important;
+            font-size: 10px !important;
+          }
+          .soc-threat-drawer-head,
+          .soc-threat-drawer-meta {
+            padding: 7px 8px;
+          }
+          .soc-threat-drawer-list {
+            max-height: 200px;
           }
           .soc-attack-row {
             display: flex !important;
@@ -953,13 +1038,18 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         <div style={{ background: '#07070f' }}>
           <PanelHeader title="// SALDIRI İSTİHBARATI" />
           <div style={{ padding: '14px 16px' }}>
+            <div className="soc-threat-globe">
+              <ThreatGlobe
+                countries={greynoise?.countries || []}
+                attacks={attacks}
+                onCountrySelect={(country) => setSelectedThreatCountry(country)}
+              />
+            </div>
             {greynoise ? (
               <>
                 <div style={{ marginBottom: 14 }}>
                   {(greynoise.countries || []).slice(0, 5).map(c => (
-                    <div key={c.name} style={{
-                      display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7,
-                    }}>
+                    <div key={c.name} className="soc-threat-row">
                       <span style={{
                         fontSize: 11, fontFamily: 'monospace', color: '#94a3b8',
                         width: 68, flexShrink: 0,
@@ -995,6 +1085,103 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                     </span>
                   ))}
                 </div>
+
+                {selectedThreatCountry && (
+                  <div className="soc-threat-drawer">
+                    <div className="soc-threat-drawer-head">
+                      <span style={{
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                        color: '#00ff41',
+                        letterSpacing: '0.08em',
+                      }}>
+                        DETAIL // {selectedThreatCountry.name.toUpperCase()}
+                      </span>
+                      <button
+                        onClick={() => setSelectedThreatCountry(null)}
+                        style={{
+                          fontSize: 10,
+                          fontFamily: 'monospace',
+                          color: '#64748b',
+                          border: '1px solid #1a2a1a',
+                          background: 'transparent',
+                          padding: '2px 8px',
+                          cursor: 'pointer',
+                          letterSpacing: '0.06em',
+                        }}
+                      >
+                        [ CLOSE ]
+                      </button>
+                    </div>
+                    <div className="soc-threat-drawer-meta">
+                      <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#94a3b8' }}>
+                        SIGNAL: {selectedThreatCountry.count}
+                      </span>
+                      <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#ef4444' }}>
+                        CRIT: {selectedCountrySeverity.critical}
+                      </span>
+                      <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#f59e0b' }}>
+                        HIGH: {selectedCountrySeverity.high}
+                      </span>
+                      <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#00ff41' }}>
+                        LOW: {selectedCountrySeverity.low}
+                      </span>
+                    </div>
+                    <div className="soc-threat-drawer-list">
+                      {selectedCountryAttacks.length === 0 ? (
+                        <div style={{
+                          padding: '10px',
+                          color: '#64748b',
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                        }}>
+                          Son olay akisinda bu ulkeye ait kayit bulunamadi.
+                        </div>
+                      ) : (
+                        selectedCountryAttacks.map((attack) => {
+                          const badgeColor =
+                            attack.severity === 'critical'
+                              ? '#ef4444'
+                              : attack.severity === 'high'
+                                ? '#f59e0b'
+                                : '#00ff41'
+                          return (
+                            <div
+                              key={attack.id}
+                              style={{
+                                padding: '7px 10px',
+                                borderBottom: '1px solid #101a13',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              <span style={{ color: '#64748b', fontSize: 10, fontFamily: 'monospace' }}>
+                                {attack.time}
+                              </span>
+                              <span style={{
+                                color: badgeColor,
+                                border: `1px solid ${badgeColor}44`,
+                                padding: '1px 6px',
+                                fontSize: 10,
+                                fontFamily: 'monospace',
+                              }}>
+                                {attack.type}
+                              </span>
+                              <span style={{ color: '#94a3b8', fontSize: 10, fontFamily: 'monospace' }}>
+                                {attack.sourceIP}
+                              </span>
+                              <span style={{ color: '#4d7c4d', fontSize: 10, fontFamily: 'monospace' }}>
+                                :{attack.targetPort}
+                              </span>
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <div style={{ color: '#64748b', fontSize: 12, fontFamily: 'monospace' }}>
