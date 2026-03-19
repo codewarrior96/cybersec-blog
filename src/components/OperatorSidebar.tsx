@@ -100,7 +100,7 @@ export default function OperatorSidebar() {
 
         {/* ── PROFILE ── */}
         <div style={{
-          padding: '20px 16px 16px',
+          padding: '14px 12px',
           borderBottom: '1px solid rgba(0,255,65,0.06)',
           background: 'rgba(0,255,65,0.015)',
           position: 'relative', zIndex: 1,
@@ -145,7 +145,7 @@ export default function OperatorSidebar() {
 
         {/* ── SESSION MONITOR ── */}
         <div style={{
-          margin: '12px', padding: '10px 12px',
+          margin: '8px', padding: '8px 10px',
           background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(0,255,65,0.07)',
           borderRadius: '2px', position: 'relative', overflow: 'hidden', zIndex: 1,
         }}>
@@ -175,80 +175,84 @@ export default function OperatorSidebar() {
           </div>
         </div>
 
-        {/* ── NAVIGATION ── */}
-        <nav className="op-nav" style={{ flex: 1, overflowY: 'auto', padding: '8px 0', position: 'relative', zIndex: 1 }}>
-          <div style={{ padding: '8px 16px 4px', fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.6)', letterSpacing: '0.2em' }}>
-            // NAVIGATION
-          </div>
-
-          {navItems.map((item) => {
-            const active = isActive(item.href)
-            const hovered = hoverItem === item.href
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onMouseEnter={() => setHoverItem(item.href)}
-                onMouseLeave={() => setHoverItem(null)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '10px',
-                  padding: active ? '9px 16px 9px 14px' : '9px 16px',
-                  cursor: 'pointer', textDecoration: 'none', transition: 'all 0.2s ease',
-                  position: 'relative',
-                  color: active ? '#00ff41' : hovered ? 'rgba(0,255,65,0.7)' : '#94a3b8',
-                  background: active ? 'rgba(0,255,65,0.05)' : hovered ? 'rgba(0,255,65,0.02)' : 'transparent',
-                  borderLeft: active ? '2px solid #00ff41' : '2px solid transparent',
-                }}
-              >
-                <svg
-                  width="13" height="13" viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor" strokeWidth="1.5"
-                  strokeLinecap="round" strokeLinejoin="round"
-                >
-                  {item.icon.split(' M').map((d, i) => (
-                    <path key={i} d={(i === 0 ? '' : ' M') + d} />
-                  ))}
-                </svg>
-                <span style={{ fontSize: '11px', fontFamily: 'monospace', letterSpacing: '0.03em' }}>
-                  ~/{item.label}
-                </span>
-
-                {/* Active indicator dot */}
-                {active && (
-                  <div style={{
-                    position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                    width: 4, height: 4, borderRadius: 9999,
-                    background: '#00ff41', boxShadow: '0 0 6px #00ff41',
-                  }} />
-                )}
-              </Link>
-            )
-          })}
-        </nav>
-
-        {/* ── DIVIDER ── */}
-        <div style={{
-          margin: '8px 16px', height: '1px', position: 'relative', zIndex: 1,
-          background: 'linear-gradient(90deg, transparent, rgba(0,255,65,0.4), transparent)',
-        }} />
-
-        {/* ── QUICK INTEL ── */}
-        <div style={{ padding: '4px 0 8px', position: 'relative', zIndex: 1 }}>
-          <div style={{ padding: '4px 16px 8px', fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.6)', letterSpacing: '0.2em' }}>
-            // QUICK INTEL
-          </div>
-          {quickIntel.map((item) => (
-            <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 16px' }}>
-              <span style={{ fontSize: '8px', fontFamily: 'monospace', color: '#94a3b8', letterSpacing: '0.1em' }}>
-                {item.label}
-              </span>
-              <span style={{ fontSize: '10px', fontFamily: 'monospace', fontWeight: 'bold', color: item.color }}>
-                {item.value}
-              </span>
+        {/* ── NAVIGATION + QUICK INTEL ── */}
+        <nav className="op-nav" style={{
+          flex: 1, overflowY: 'auto', padding: '8px 0',
+          position: 'relative', zIndex: 1,
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        }}>
+          {/* Nav items group */}
+          <div>
+            <div style={{ padding: '8px 16px 4px', fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.6)', letterSpacing: '0.2em' }}>
+              // NAVIGATION
             </div>
-          ))}
-        </div>
+
+            {navItems.map((item) => {
+              const active = isActive(item.href)
+              const hovered = hoverItem === item.href
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onMouseEnter={() => setHoverItem(item.href)}
+                  onMouseLeave={() => setHoverItem(null)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: active ? '7px 14px 7px 12px' : '7px 14px',
+                    cursor: 'pointer', textDecoration: 'none', transition: 'all 0.2s ease',
+                    position: 'relative',
+                    color: active ? '#00ff41' : hovered ? 'rgba(0,255,65,0.7)' : '#94a3b8',
+                    background: active ? 'rgba(0,255,65,0.05)' : hovered ? 'rgba(0,255,65,0.02)' : 'transparent',
+                    borderLeft: active ? '2px solid #00ff41' : '2px solid transparent',
+                  }}
+                >
+                  <svg
+                    width="13" height="13" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" strokeWidth="1.5"
+                    strokeLinecap="round" strokeLinejoin="round"
+                  >
+                    {item.icon.split(' M').map((d, i) => (
+                      <path key={i} d={(i === 0 ? '' : ' M') + d} />
+                    ))}
+                  </svg>
+                  <span style={{ fontSize: '12px', fontFamily: 'monospace', letterSpacing: '0.03em' }}>
+                    ~/{item.label}
+                  </span>
+
+                  {/* Active indicator dot */}
+                  {active && (
+                    <div style={{
+                      position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                      width: 4, height: 4, borderRadius: 9999,
+                      background: '#00ff41', boxShadow: '0 0 6px #00ff41',
+                    }} />
+                  )}
+                </Link>
+              )
+            })}
+          </div>
+
+          {/* ── QUICK INTEL ── */}
+          <div style={{
+            borderTop: '1px solid rgba(0,255,65,0.06)',
+            marginTop: '8px', paddingTop: '8px',
+          }}>
+            <div style={{ padding: '4px 16px 8px', fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,65,0.6)', letterSpacing: '0.2em' }}>
+              // QUICK INTEL
+            </div>
+            {quickIntel.map((item) => (
+              <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 16px' }}>
+                <span style={{ fontSize: '10px', fontFamily: 'monospace', color: '#94a3b8', letterSpacing: '0.1em' }}>
+                  {item.label}
+                </span>
+                <span style={{ fontSize: '12px', fontFamily: 'monospace', fontWeight: 'bold', color: item.color }}>
+                  {item.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </nav>
 
         {/* ── BOTTOM ── */}
         <div style={{
