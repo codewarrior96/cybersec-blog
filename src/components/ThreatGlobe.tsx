@@ -147,6 +147,7 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
   const frameRef = useRef<number | null>(null)
   const sizeRef = useRef({ width: 0, height: 0, dpr: 1 })
   const pulsesRef = useRef<ArcPulse[]>([])
+  const hotspotsRef = useRef<Hotspot[]>([])
   const pulseSeqRef = useRef(1)
   const latestAttackRef = useRef<string | null>(null)
   const hotspotHitboxesRef = useRef<HotspotHitbox[]>([])
@@ -177,6 +178,10 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
     const max = Math.max(...countries.map((country) => country.count), 1)
     return Math.min(100, Math.round((total / (max * countries.length)) * 100))
   }, [countries])
+
+  useEffect(() => {
+    hotspotsRef.current = hotspots
+  }, [hotspots])
 
   useEffect(() => {
     const latest = attacks[0]
@@ -505,7 +510,8 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
       drawPulses(rotation, cx, cy, radius, ts)
 
       const hitboxes: HotspotHitbox[] = []
-      hotspots.forEach((spot, index) => {
+      const activeHotspots = hotspotsRef.current
+      activeHotspots.forEach((spot, index) => {
         const vec = geoToVector(spot.coord, rotation)
         const point = projectPoint(vec, cx, cy, radius)
         if (point.z <= -0.08) return
@@ -567,7 +573,7 @@ export default function ThreatGlobe({ countries, attacks, onCountrySelect }: Thr
         window.cancelAnimationFrame(frameRef.current)
       }
     }
-  }, [hotspots])
+  }, [])
 
   return (
     <div

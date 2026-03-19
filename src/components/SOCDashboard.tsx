@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import ThreatGlobe from '@/components/ThreatGlobe'
 
-// ─── Interfaces ───────────────────────────────────────────────────────────────
+// i  "?i  "?i  "? Interfaces i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?
 
 export interface PostMeta {
   slug: string
@@ -48,6 +48,7 @@ interface GreyNoiseData {
 interface AttackEvent {
   id: number
   time: string
+  createdAt: string
   sourceIP: string
   sourceCountry: string
   targetPort: number
@@ -78,7 +79,7 @@ interface SOCDashboardProps {
   posts: PostMeta[]
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// i  "?i  "?i  "? Constants i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?
 
 const ATTACK_TYPES = [
   'SSH Brute Force',
@@ -93,8 +94,21 @@ const COUNTRIES = ['China', 'Russia', 'Brazil', 'Germany', 'Iran', 'USA'] as con
 const PORTS = [22, 80, 443, 3306, 5432, 8080, 8443, 6379]
 const DAY_LABELS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 const ACTIVITY_HEIGHTS = [75, 45, 88, 60, 92, 30, 55]
+const ATTACK_FEED_LIMIT = 8
+const ATTACK_HISTORY_LIMIT = 4000
+const ATTACK_HISTORY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+const METRIC_WINDOW_MS = 15 * 60 * 1000
+const ATTACKS_PER_MINUTE_WINDOW_MS = 60 * 1000
+const ATTACK_TAG_MAP: Record<string, string> = {
+  'Port Scan': 'scanner',
+  'SSH Brute Force': 'bruteforce',
+  'SQL Injection': 'sqli',
+  'RCE Attempt': 'exploit',
+  DDoS: 'botnet',
+  Phishing: 'phishing',
+}
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// i  "?i  "?i  "? Helpers i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?
 
 function rnd(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min
@@ -109,8 +123,41 @@ function generateAttack(id: number): AttackEvent {
   const port = PORTS[rnd(0, PORTS.length - 1)]
   const ip = `${rnd(1, 223)}.${rnd(0, 255)}.${rnd(0, 255)}.${rnd(1, 254)}`
   const now = new Date()
+  const createdAt = now.toISOString()
   const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-  return { id, time, sourceIP: ip, sourceCountry: country, targetPort: port, type, severity }
+  return { id, time, createdAt, sourceIP: ip, sourceCountry: country, targetPort: port, type, severity }
+}
+
+function parseIncomingAttack(value: unknown): AttackEvent | null {
+  if (typeof value !== 'object' || value === null) return null
+  const raw = value as Partial<AttackEvent>
+  if (typeof raw.id !== 'number' || !Number.isFinite(raw.id)) return null
+  if (typeof raw.sourceIP !== 'string' || typeof raw.sourceCountry !== 'string') return null
+  if (typeof raw.targetPort !== 'number' || !Number.isFinite(raw.targetPort)) return null
+  if (typeof raw.type !== 'string') return null
+
+  const severity: AttackEvent['severity'] =
+    raw.severity === 'critical' || raw.severity === 'high' || raw.severity === 'low'
+      ? raw.severity
+      : 'low'
+
+  const parsedCreatedAt = typeof raw.createdAt === 'string' ? new Date(raw.createdAt) : new Date()
+  const safeDate = Number.isNaN(parsedCreatedAt.getTime()) ? new Date() : parsedCreatedAt
+  const time =
+    typeof raw.time === 'string' && raw.time.length > 0
+      ? raw.time
+      : `${String(safeDate.getHours()).padStart(2, '0')}:${String(safeDate.getMinutes()).padStart(2, '0')}:${String(safeDate.getSeconds()).padStart(2, '0')}`
+
+  return {
+    id: raw.id,
+    time,
+    createdAt: safeDate.toISOString(),
+    sourceIP: raw.sourceIP,
+    sourceCountry: raw.sourceCountry,
+    targetPort: raw.targetPort,
+    type: raw.type,
+    severity,
+  }
 }
 
 function severityColor(s: string | null): string {
@@ -138,7 +185,7 @@ function normalizeCountry(value: string) {
     .replace(/[^a-z]/g, '')
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// i  "?i  "?i  "? Sub-components i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?
 
 function PanelHeader({ title, right }: { title: string; right?: ReactNode }) {
   return (
@@ -174,7 +221,7 @@ function SeverityBadge({ severity }: { severity: string | null }) {
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// i  "?i  "?i  "? Main Component i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?
 
 export default function SOCDashboard({ posts }: SOCDashboardProps) {
   const [now, setNow] = useState<Date | null>(null)
@@ -184,7 +231,9 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
   const [greynoise, setGreynoise] = useState<GreyNoiseData | null>(null)
   const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([])
   const [attacks, setAttacks] = useState<AttackEvent[]>([])
+  const [attackHistory, setAttackHistory] = useState<AttackEvent[]>([])
   const [selectedThreatCountry, setSelectedThreatCountry] = useState<CountryThreat | null>(null)
+  const [streamMode, setStreamMode] = useState<'connecting' | 'sse-live' | 'local-fallback'>('connecting')
   const [reports, setReports] = useState<Report[]>([])
 
   const [showForm, setShowForm] = useState(false)
@@ -195,8 +244,34 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
 
   const attackCounter = useRef(0)
   const sessionStart = useRef(Date.now())
+  const fallbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // ── Clock & session timer ───────────────────────────────────────────────────
+  const pushAttack = useCallback((incoming: AttackEvent | AttackEvent[]) => {
+    const batch = Array.isArray(incoming) ? incoming : [incoming]
+    if (batch.length === 0) return
+
+    setAttacks((prev) => [...batch, ...prev].slice(0, ATTACK_FEED_LIMIT))
+    setAttackHistory((prev) => {
+      const nowTs = Date.now()
+      const seen = new Set<number>()
+      const merged = [...batch, ...prev]
+        .filter((attack) => {
+          const ts = new Date(attack.createdAt).getTime()
+          return Number.isFinite(ts) && nowTs - ts <= ATTACK_HISTORY_WINDOW_MS
+        })
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      const deduped: AttackEvent[] = []
+      for (const attack of merged) {
+        if (seen.has(attack.id)) continue
+        seen.add(attack.id)
+        deduped.push(attack)
+        if (deduped.length >= ATTACK_HISTORY_LIMIT) break
+      }
+      return deduped
+    })
+  }, [])
+
+  // i  "?i  "? Clock & session timer i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?
   useEffect(() => {
     setNow(new Date())
     setElapsed(0)
@@ -207,7 +282,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     return () => clearInterval(iv)
   }, [])
 
-  // ── Cybernews ──────────────────────────────────────────────────────────────
+  // i  "?i  "? Cybernews i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?
   useEffect(() => {
     fetch('/api/cybernews')
       .then(r => r.json())
@@ -215,7 +290,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
       .catch(() => {})
   }, [])
 
-  // ── CVEs ───────────────────────────────────────────────────────────────────
+  // i  "?i  "? CVEs i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?
   useEffect(() => {
     fetch('/api/cves?days=1')
       .then(r => r.json())
@@ -223,7 +298,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
       .catch(() => {})
   }, [])
 
-  // ── GreyNoise ──────────────────────────────────────────────────────────────
+  // i  "?i  "? GreyNoise i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?
   useEffect(() => {
     fetch('/api/greynoise')
       .then(r => r.json())
@@ -231,7 +306,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
       .catch(() => {})
   }, [])
 
-  // ── Community posts from localStorage ─────────────────────────────────────
+  // i  "?i  "? Community posts from localStorage i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?
   useEffect(() => {
     try {
       const raw = localStorage.getItem('community_posts')
@@ -246,24 +321,96 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     }
   }, [])
 
-  // ── Live attack feed ───────────────────────────────────────────────────────
+  // i  "?i  "? Live attack feed i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?
   useEffect(() => {
-    const seed = Array.from({ length: 5 }, (_, i) => {
-      attackCounter.current = i
-      return generateAttack(i)
+    let disposed = false
+    let hasSseSignal = false
+    let source: EventSource | null = null
+
+    const stopFallback = () => {
+      if (fallbackIntervalRef.current !== null) {
+        clearInterval(fallbackIntervalRef.current)
+        fallbackIntervalRef.current = null
+      }
+    }
+
+    const runFallbackBatch = () => {
+      const burst = Math.random() < 0.2 ? rnd(2, 4) : 1
+      const generated: AttackEvent[] = []
+      for (let i = 0; i < burst; i += 1) {
+        attackCounter.current += 1
+        generated.push(generateAttack(attackCounter.current))
+      }
+      pushAttack(generated)
+    }
+
+    const startFallback = () => {
+      if (disposed) return
+      if (fallbackIntervalRef.current !== null) return
+      setStreamMode('local-fallback')
+      runFallbackBatch()
+      fallbackIntervalRef.current = setInterval(runFallbackBatch, 1500)
+    }
+
+    const handleSseAttack = (payload: unknown) => {
+      const parsed = parseIncomingAttack(payload)
+      if (!parsed) return
+      hasSseSignal = true
+      attackCounter.current = Math.max(attackCounter.current, parsed.id)
+      setStreamMode('sse-live')
+      stopFallback()
+      pushAttack(parsed)
+    }
+
+    setStreamMode('connecting')
+    source = new EventSource('/api/live-attacks')
+
+    source.addEventListener('ready', () => {
+      if (disposed) return
+      hasSseSignal = true
+      setStreamMode('sse-live')
+      stopFallback()
     })
-    setAttacks(seed)
 
-    const iv = setInterval(() => {
-      attackCounter.current += 1
-      const next = generateAttack(attackCounter.current)
-      setAttacks(prev => [next, ...prev].slice(0, 8))
-    }, 3000)
+    source.addEventListener('attack', (event) => {
+      if (disposed) return
+      try {
+        const payload = JSON.parse((event as MessageEvent<string>).data)
+        handleSseAttack(payload)
+      } catch {
+        // ignore malformed event
+      }
+    })
 
-    return () => clearInterval(iv)
-  }, [])
+    source.onmessage = (event) => {
+      if (disposed) return
+      try {
+        const payload = JSON.parse(event.data)
+        handleSseAttack(payload)
+      } catch {
+        // keep stream alive on parse errors
+      }
+    }
 
-  // ── Reports ────────────────────────────────────────────────────────────────
+    source.onerror = () => {
+      if (disposed) return
+      startFallback()
+    }
+
+    const connectTimeout = setTimeout(() => {
+      if (disposed || hasSseSignal) return
+      startFallback()
+    }, 2600)
+
+    return () => {
+      disposed = true
+      clearTimeout(connectTimeout)
+      stopFallback()
+      if (source) source.close()
+    }
+  }, [pushAttack])
+
+  // i  "?i  "? Reports i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?
   const fetchReports = useCallback(() => {
     fetch('/api/reports')
       .then(r => r.json())
@@ -273,7 +420,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
 
   useEffect(() => { fetchReports() }, [fetchReports])
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // i  "?i  "? Handlers i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?
   const handleCreateReport = async () => {
     if (!formTitle.trim() || !formContent.trim()) return
     await fetch('/api/reports', {
@@ -309,7 +456,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     win.document.write(`<!DOCTYPE html>
 <html>
 <head>
-  <title>${report.title} — BREACH TERMINAL</title>
+  <title>${report.title} - BREACH TERMINAL</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: monospace; background: #000; color: #00ff41; padding: 48px; margin: 0; }
@@ -324,7 +471,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
   </style>
 </head>
 <body>
-  <h1>◈ BREACH TERMINAL — SECURITY REPORT</h1>
+  <h1>BREACH TERMINAL - SECURITY REPORT</h1>
   <div class="meta">
     <span class="severity">[${report.severity}]</span>
     &nbsp;|&nbsp; ${new Date(report.createdAt).toLocaleString()}
@@ -332,10 +479,10 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
   </div>
   <h2>${report.title}</h2>
   <div class="content">${report.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-  <div class="tags">TAGS: ${report.tags.join(', ') || '—'}</div>
+  <div class="tags">TAGS: ${report.tags.join(', ') || '-'}</div>
   <div class="footer">
     <span>BREACH TERMINAL v2.0.26</span>
-    <span>CONFIDENTIAL — SECURITY USE ONLY</span>
+    <span>CONFIDENTIAL - SECURITY USE ONLY</span>
   </div>
 </body>
 </html>`)
@@ -343,17 +490,72 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     win.print()
   }
 
-  // ── Derived values ─────────────────────────────────────────────────────────
+  // i  "?i  "? Derived values i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?i  "?
   const tickerText = newsItems.length > 0
-    ? newsItems.slice(0, 10).map(n => `[${n.source}] ${n.title}`).join('   ◈   ')
+    ? newsItems.slice(0, 10).map(n => `[${n.source}] ${n.title}`).join('   |   ')
     : 'LOADING THREAT FEED...'
 
-  const maxCountry = greynoise?.countries?.[0]?.count ?? 1
+  const liveCountries = useMemo<CountryThreat[]>(() => {
+    const counts = new Map<string, number>()
+    for (const attack of attackHistory) {
+      const country = attack.sourceCountry.trim() || 'Unknown'
+      counts.set(country, (counts.get(country) ?? 0) + 1)
+    }
+    const rows = Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+    if (rows.length > 0) return rows
+    return (greynoise?.countries ?? []).slice(0, 5)
+  }, [attackHistory, greynoise])
+
+  const liveTags = useMemo<TagThreat[]>(() => {
+    const counts = new Map<string, number>()
+    for (const attack of attackHistory) {
+      const mapped = ATTACK_TAG_MAP[attack.type] ?? attack.type.toLowerCase().replace(/\s+/g, '-')
+      counts.set(mapped, (counts.get(mapped) ?? 0) + 1)
+    }
+    const rows = Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3)
+    if (rows.length > 0) return rows
+    return (greynoise?.tags ?? []).slice(0, 3)
+  }, [attackHistory, greynoise])
+
+  const streamInfo = useMemo(() => {
+    if (streamMode === 'sse-live') {
+      return {
+        label: 'STREAM: SSE LIVE',
+        compactLabel: 'LIVE',
+        color: '#00ff41',
+        border: 'rgba(0,255,65,0.3)',
+      }
+    }
+    if (streamMode === 'local-fallback') {
+      return {
+        label: 'STREAM: FALLBACK',
+        compactLabel: 'FALLBACK',
+        color: '#f59e0b',
+        border: 'rgba(245,158,11,0.3)',
+      }
+    }
+    return {
+      label: 'STREAM: CONNECTING',
+      compactLabel: 'CONNECTING',
+      color: '#94a3b8',
+      border: 'rgba(148,163,184,0.3)',
+    }
+  }, [streamMode])
+
+  const maxCountry = liveCountries[0]?.count ?? 1
   const selectedCountryAttacks = useMemo(() => {
     if (!selectedThreatCountry) return []
     const countryKey = normalizeCountry(selectedThreatCountry.name)
-    return attacks.filter((attack) => normalizeCountry(attack.sourceCountry) === countryKey).slice(0, 6)
-  }, [attacks, selectedThreatCountry])
+    return attackHistory
+      .filter((attack) => normalizeCountry(attack.sourceCountry) === countryKey)
+      .slice(0, 6)
+  }, [attackHistory, selectedThreatCountry])
 
   const selectedCountrySeverity = useMemo(() => {
     return selectedCountryAttacks.reduce(
@@ -365,11 +567,48 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     )
   }, [selectedCountryAttacks])
 
-  // Derived from `now` state (client-only) to avoid SSR↔client mismatch
-  // Sunday=0 → index 6 in MON…SUN array
+  const activeIps = useMemo(() => {
+    const cutoff = Date.now() - METRIC_WINDOW_MS
+    const ips = new Set<string>()
+    for (const attack of attackHistory) {
+      if (new Date(attack.createdAt).getTime() >= cutoff) {
+        ips.add(attack.sourceIP)
+      }
+    }
+    return ips.size
+  }, [attackHistory])
+
+  const attacksPerMinute = useMemo(() => {
+    const cutoff = Date.now() - ATTACKS_PER_MINUTE_WINDOW_MS
+    return attackHistory.reduce((count, attack) => {
+      return new Date(attack.createdAt).getTime() >= cutoff ? count + 1 : count
+    }, 0)
+  }, [attackHistory])
+
+  const weeklyHeights = useMemo(() => {
+    const weekAgo = Date.now() - ATTACK_HISTORY_WINDOW_MS
+    const counts = Array.from({ length: 7 }, () => 0)
+
+    for (const attack of attackHistory) {
+      const ts = new Date(attack.createdAt).getTime()
+      if (!Number.isFinite(ts) || ts < weekAgo) continue
+      const idx = (new Date(ts).getDay() + 6) % 7
+      counts[idx] += 1
+    }
+
+    const max = Math.max(...counts, 0)
+    if (max === 0) return ACTIVITY_HEIGHTS
+    return counts.map((count) => {
+      if (count === 0) return 18
+      return Math.max(20, Math.round((count / max) * 100))
+    })
+  }, [attackHistory])
+
+  // Derived from `now` state (client-only) to avoid SSR/client mismatch.
+  // Sunday=0 maps to index 6 in MON..SUN array.
   const todayIdx = now !== null ? (now.getDay() + 6) % 7 : -1
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // Render
   return (
     <div className="soc-shell" style={{ background: '#070710', minHeight: '100vh', fontFamily: 'monospace' }}>
       <style>{`
@@ -733,7 +972,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         }
       `}</style>
 
-      {/* ══════════════════ TICKER BAR ══════════════════ */}
+      {/* i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i   TICKER BAR i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i   */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 30,
         background: '#050508', borderBottom: '1px solid #1a2a1a',
@@ -747,7 +986,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
           borderRight: '1px solid #1a2a1a',
           height: '100%', display: 'flex', alignItems: 'center',
         }}>
-          ◈ LIVE INTEL
+          LIVE INTEL
         </span>
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <div style={{
@@ -761,7 +1000,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         </div>
       </div>
 
-      {/* ══════════════════ HERO STATUS BAR ══════════════════ */}
+      {/* i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i   HERO STATUS BAR i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i   */}
       <div className="soc-hero">
         {/* Left */}
         <div className="soc-hero-left">
@@ -809,9 +1048,9 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
           {/* Status pills */}
           <div className="soc-status-row">
             {[
-              { label: '● ONLINE',            color: '#00ff41' },
-              { label: '⚠ THREAT: ELEVATED',  color: '#f59e0b' },
-              { label: '14 CVE TODAY',         color: '#ef4444' },
+              { label: 'ONLINE', color: '#00ff41' },
+              { label: streamInfo.label, color: streamInfo.color },
+              { label: `${cves.length} CVE TODAY`, color: '#ef4444' },
               { label: `SESSION: ${fmtSession(elapsed)}`, color: '#00ff41' },
             ].map(p => (
               <span key={p.label} style={{
@@ -829,8 +1068,8 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
             {[
               { label: '[+ WRITEUP]',   href: '/blog'             },
               { label: '[+ COMMUNITY]', href: '/community'        },
-              { label: '[→ CVE RADAR]', href: '/cve-radar'        },
-              { label: '[→ TIMELINE]',  href: '/breach-timeline'  },
+              { label: '[-> CVE RADAR]', href: '/cve-radar'        },
+              { label: '[-> TIMELINE]',  href: '/breach-timeline'  },
             ].map(btn => (
               <Link
                 key={btn.href}
@@ -851,15 +1090,15 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         </div>
       </div>
 
-      {/* ══════════════════ MAIN GRID (3 columns) ══════════════════ */}
+      {/* i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i   MAIN GRID (3 columns) i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i   */}
       <div className="soc-top-grid">
-        {/* PANEL A — Son Yazılar */}
+        {/* PANEL A i  ?" Son YazA lar */}
         <div className="soc-card">
           <PanelHeader
             title="// SON YAZILAR"
             right={
               <Link href="/blog" style={{ color: '#4d7c4d', fontSize: 12, fontFamily: 'monospace', textDecoration: 'none', letterSpacing: '0.1em' }}>
-                TÜMÜ →
+                TUMU
               </Link>
             }
           />
@@ -914,19 +1153,19 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
             ))}
             {(posts || []).length === 0 && (
               <div style={{ padding: '24px 16px', color: '#64748b', fontSize: 12, fontFamily: 'monospace' }}>
-                Henüz yazı yok.
+                Henuz yazi yok.
               </div>
             )}
           </div>
         </div>
 
-        {/* PANEL B — CVE Radar */}
+        {/* PANEL B i  ?" CVE Radar */}
         <div className="soc-card">
           <PanelHeader
             title="// CVE RADAR"
             right={
               <Link href="/cve-radar" style={{ color: '#4d7c4d', fontSize: 12, fontFamily: 'monospace', textDecoration: 'none', letterSpacing: '0.1em' }}>
-                TÜM CVE&apos;LER →
+                TUM CVELER
               </Link>
             }
           />
@@ -979,20 +1218,20 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
           </div>
         </div>
 
-        {/* PANEL C — Community */}
+        {/* PANEL C i  ?" Community */}
         <div className="soc-card">
           <PanelHeader
             title="// COMMUNITY"
             right={
               <Link href="/community" style={{ color: '#4d7c4d', fontSize: 12, fontFamily: 'monospace', textDecoration: 'none', letterSpacing: '0.1em' }}>
-                TÜM POSTLAR →
+                TUM POSTLAR
               </Link>
             }
           />
           <div>
             {communityPosts.length === 0 ? (
               <div style={{ padding: '24px 16px', color: '#64748b', fontSize: 12, fontFamily: 'monospace' }}>
-                Henüz community post yok.
+                Henuz community post yok.
               </div>
             ) : communityPosts.map(cp => (
               <div key={String(cp.id)} style={{
@@ -1011,12 +1250,12 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                   </span>
                   {cp.likes !== undefined && (
                     <span style={{ color: '#64748b', fontSize: 11, fontFamily: 'monospace' }}>
-                      ♥ {cp.likes?.length || 0}
+                      LIKE {cp.likes?.length || 0}
                     </span>
                   )}
                   {cp.comments !== undefined && (
                     <span style={{ color: '#64748b', fontSize: 11, fontFamily: 'monospace' }}>
-                      ▸ {cp.comments?.length || 0}
+                      CMT {cp.comments?.length || 0}
                     </span>
                   )}
                   {cp.category && (
@@ -1035,23 +1274,23 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         </div>
       </div>
 
-      {/* ══════════════════ ATTACK INTELLIGENCE ROW ══════════════════ */}
+      {/* i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i   ATTACK INTELLIGENCE ROW i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i   */}
       <div className="soc-split-grid">
-        {/* PANEL D — Saldırı İstihbaratı */}
+        {/* PANEL D i  ?" SaldA rA  A stihbaratA  */}
         <div style={{ background: '#07070f' }}>
-          <PanelHeader title="// SALDIRI İSTİHBARATI" />
+          <PanelHeader title="// SALDIRI A STA HBARATI" />
           <div style={{ padding: '14px 16px' }}>
             <div className="soc-threat-globe">
               <ThreatGlobe
-                countries={greynoise?.countries || []}
+                countries={liveCountries}
                 attacks={attacks}
                 onCountrySelect={(country) => setSelectedThreatCountry(country)}
               />
             </div>
-            {greynoise ? (
+            {liveCountries.length > 0 ? (
               <>
                 <div style={{ marginBottom: 14 }}>
-                  {(greynoise.countries || []).slice(0, 5).map(c => (
+                  {liveCountries.map(c => (
                     <div key={c.name} className="soc-threat-row">
                       <span style={{
                         fontSize: 11, fontFamily: 'monospace', color: '#94a3b8',
@@ -1078,7 +1317,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {(greynoise.tags || []).slice(0, 3).map(tag => (
+                  {liveTags.map(tag => (
                     <span key={tag.name} style={{
                       fontSize: 12, fontFamily: 'monospace',
                       color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)',
@@ -1188,27 +1427,37 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
               </>
             ) : (
               <div style={{ color: '#64748b', fontSize: 12, fontFamily: 'monospace' }}>
-                Yükleniyor...
+                Yukleniyor...
               </div>
             )}
           </div>
         </div>
 
-        {/* PANEL E — Canlı Saldırı Akışı */}
+        {/* PANEL E i  ?" CanlA  SaldA rA  AkA i  YA  */}
         <div style={{ background: '#07070f' }}>
           <PanelHeader
-            title="// CANLI SALDIRI AKIŞI"
+            title="// CANLI SALDIRI AKISI"
             right={
               <span style={{
-                fontSize: 11, fontFamily: 'monospace', color: '#ef4444',
-                border: '1px solid rgba(239,68,68,0.3)', padding: '1px 6px',
+                fontSize: 11, fontFamily: 'monospace', color: streamInfo.color,
+                border: `1px solid ${streamInfo.border}`, padding: '1px 6px',
                 animation: 'liveBlink 1.2s ease-in-out infinite',
               }}>
-                ● LIVE
+                {streamInfo.compactLabel}
               </span>
             }
           />
           <div className="soc-attack-feed">
+            {attacks.length === 0 && (
+              <div style={{
+                padding: '14px 16px',
+                color: '#64748b',
+                fontSize: 11,
+                fontFamily: 'monospace',
+              }}>
+                Canli akis bekleniyor... ({streamInfo.compactLabel})
+              </div>
+            )}
             {(attacks || []).map((atk, idx) => {
               const sColor =
                 atk.severity === 'critical' ? '#ef4444' :
@@ -1232,7 +1481,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                     {atk.type}
                   </span>
                   <span style={{ color: '#64748b', flexShrink: 0 }}>{atk.sourceIP}</span>
-                  <span style={{ color: '#64748b' }}>→ :{atk.targetPort}</span>
+                  <span style={{ color: '#64748b' }}>: {atk.targetPort}</span>
                   <div style={{
                     width: 5, height: 5, borderRadius: 9999, marginLeft: 'auto', flexShrink: 0,
                     background: sColor, boxShadow: `0 0 4px ${sColor}`,
@@ -1244,13 +1493,13 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         </div>
       </div>
 
-      {/* ══════════════════ STATS + CHARTS ══════════════════ */}
+      {/* i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i   STATS + CHARTS i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i   */}
       <div className="soc-stats-grid">
         {[
-          { label: 'WRITEUP',    value: posts.length || 8, color: '#00ff41' },
-          { label: 'CVE BUGÜN', value: 14,                 color: '#ef4444' },
-          { label: 'CTF ÇÖZÜM', value: 6,                  color: '#00ff41' },
-          { label: 'KOD SATIRI', value: 1337,              color: '#f59e0b' },
+          { label: 'WRITEUP', value: posts.length, color: '#00ff41' },
+          { label: 'CVE BUGUN', value: cves.length, color: '#ef4444' },
+          { label: 'AKTIF IP', value: activeIps, color: '#00ff41' },
+          { label: 'ATAK / DK', value: attacksPerMinute, color: '#f59e0b' },
         ].map(stat => (
           <div key={stat.label} style={{
             padding: '20px 16px', background: '#08080f',
@@ -1280,7 +1529,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
           fontSize: 11, fontFamily: 'monospace', color: '#4d7c4d',
           letterSpacing: '0.2em', marginBottom: 10,
         }}>
-          // HAFTALIK AKTİVİTE
+          // HAFTALIK AKTA VA TE
         </div>
         <div className="soc-weekly-scroll">
           <div className="soc-weekly-track">
@@ -1294,7 +1543,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
               }}>
                 <div style={{
                   width: '100%',
-                  height: `${ACTIVITY_HEIGHTS[i]}%`,
+                  height: `${weeklyHeights[i]}%`,
                   background: isToday ? '#f59e0b' : '#00ff41',
                   opacity: isToday ? 1 : 0.45,
                   boxShadow: isToday
@@ -1314,7 +1563,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         </div>
       </div>
 
-      {/* ══════════════════ NOTES & REPORTS ══════════════════ */}
+      {/* i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i   NOTES & REPORTS i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i  i  .i   */}
       <div className="soc-notes-wrap">
         {/* Header row */}
         <div className="soc-notes-header">
@@ -1334,20 +1583,20 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
               letterSpacing: '0.1em',
             }}
           >
-            [ + YENİ NOT ]
+            [ + YENI NOT ]
           </button>
         </div>
 
         {/* Two-column layout */}
         <div className="soc-notes-grid">
-          {/* LEFT — Notes list */}
+          {/* LEFT i  ?" Notes list */}
           <div>
             {reports.length === 0 ? (
               <div style={{
                 color: '#64748b', fontSize: 11, fontFamily: 'monospace',
                 padding: '24px 0',
               }}>
-                Henüz not yok. İlk notunu ekle.
+                Henuz not yok. Ilk notunu ekle.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1372,7 +1621,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                           flexShrink: 0,
                         }}
                       >
-                        ×
+                        x
                       </button>
                     </div>
                     <div style={{
@@ -1416,7 +1665,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
             )}
           </div>
 
-          {/* RIGHT — New Note Form */}
+          {/* RIGHT i  ?" New Note Form */}
           {showForm && (
             <div style={{
               border: '1px solid #1a2a1a', background: '#07070f', padding: '16px',
@@ -1426,27 +1675,27 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                 fontSize: 12, fontFamily: 'monospace', color: '#4d7c4d',
                 letterSpacing: '0.2em', marginBottom: 14,
               }}>
-                // YENİ RAPOR
+                // YENI RAPOR
               </div>
 
               {/* Title */}
               <div style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#446644', marginBottom: 4, letterSpacing: '0.1em' }}>
-                  BAŞLIK:
+                  BASLIK:
                 </div>
                 <input
                   type="text"
                   className="soc-input"
                   value={formTitle}
                   onChange={e => setFormTitle(e.target.value)}
-                  placeholder="Rapor başlığı..."
+                  placeholder="Rapor basligi..."
                 />
               </div>
 
               {/* Severity */}
               <div style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#446644', marginBottom: 4, letterSpacing: '0.1em' }}>
-                  ŞİDDET:
+                  SIDDET:
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(s => (
@@ -1471,14 +1720,14 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
               {/* Content */}
               <div style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#446644', marginBottom: 4, letterSpacing: '0.1em' }}>
-                  İÇERİK:
+                  ICERIK:
                 </div>
                 <textarea
                   rows={4}
                   className="soc-input"
                   value={formContent}
                   onChange={e => setFormContent(e.target.value)}
-                  placeholder="Rapor içeriği..."
+                  placeholder="Rapor icerigi..."
                   style={{ resize: 'vertical' }}
                 />
               </div>
@@ -1486,7 +1735,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
               {/* Tags */}
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontFamily: 'monospace', color: '#446644', marginBottom: 4, letterSpacing: '0.1em' }}>
-                  ETİKETLER: (virgülle)
+                  ETIKETLER: (virgulle)
                 </div>
                 <input
                   type="text"
@@ -1508,7 +1757,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                     letterSpacing: '0.1em',
                   }}
                 >
-                  [ RAPOR OLUŞTUR ]
+                  [ RAPOR OLUSTUR ]
                 </button>
                 <button
                   onClick={() => {
