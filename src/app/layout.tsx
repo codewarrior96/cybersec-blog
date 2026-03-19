@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+﻿import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { cookies, headers } from 'next/headers';
 import '@/styles/globals.css';
@@ -22,9 +22,27 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: 'CyberSec Blog', template: '%s · CyberSec' },
-  description: 'Siber güvenlik, CTF writeup ve araştırma yazıları.',
+  title: { default: 'CyberSec Blog', template: '%s Â· CyberSec' },
+  description: 'Siber gÃ¼venlik, CTF writeup ve araÅŸtÄ±rma yazÄ±larÄ±.',
 };
+
+function normalizePathname(rawPath: string): string {
+  if (!rawPath) return '';
+
+  let value = rawPath.trim();
+  try {
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      value = new URL(value).pathname;
+    }
+  } catch {
+    // Keep original value when URL parsing fails.
+  }
+
+  value = value.split('?')[0]?.split('#')[0] ?? '';
+  if (!value.startsWith('/')) value = `/${value}`;
+  if (value.length > 1) value = value.replace(/\/+$/, '');
+  return value;
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const posts = await getAllPosts();
@@ -36,14 +54,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     headerStore.get('next-url') ??
     headerStore.get('x-matched-path') ??
     '';
-  const pathname = rawPathname.split('?')[0];
+  const pathname = normalizePathname(rawPathname);
   const hasReliablePath = pathname.length > 0;
-  const isLoginRoute = pathname === '/login';
+  const isLoginRoute = pathname === '/login' || pathname.startsWith('/login/');
+  const isRootRoute = pathname === '/';
   const isAuthedFromCookie = cookieStore.get(AUTH_STORAGE_KEY)?.value === AUTH_USER;
+  const isAuthGatewayRoute = isLoginRoute || (!isAuthedFromCookie && isRootRoute);
   // If path headers are unavailable, hide chrome on first paint to prevent refresh flicker.
   const showOperatorShell = hasReliablePath && isAuthedFromCookie && !isLoginRoute;
-  const showPublicHeader = hasReliablePath && !showOperatorShell && !isLoginRoute;
-  const showGlobalTools = hasReliablePath && !isLoginRoute;
+  const showPublicHeader = hasReliablePath && !showOperatorShell && !isAuthGatewayRoute;
+  const showGlobalTools = hasReliablePath && !isAuthGatewayRoute;
 
   return (
     <html lang="tr" className={`${inter.variable} ${jetbrainsMono.variable}`}>
@@ -62,3 +82,4 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
+
