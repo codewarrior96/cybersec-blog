@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import InteractiveTerminal from '@/components/InteractiveTerminal'
 import SOCDashboard from '@/components/SOCDashboard'
+import LoginModal from '@/components/LoginModal'
 import type { PostMeta } from '@/components/SOCDashboard'
 
 // ─── Error Boundary ───────────────────────────────────────────────────────────
@@ -80,6 +81,7 @@ export default function HomePage() {
   return (
     <div>
       <InteractiveTerminal />
+      <LoginModal onClose={() => setLoggedIn(true)} />
     </div>
   )
 }
