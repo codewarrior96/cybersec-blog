@@ -11,21 +11,30 @@ interface LoginBody {
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// In-memory rate limiter: IP -> { count, resetAt }
+// In-memory rate limiter: yalnizca basarisiz denemeleri sayar (IP bazli)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT_MAX = 10
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000 // 5 dakika
 
-function checkRateLimit(ip: string): boolean {
+function isRateLimited(ip: string): boolean {
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+  if (!entry || now > entry.resetAt) return false
+  return entry.count >= RATE_LIMIT_MAX
+}
+
+function recordFailedAttempt(ip: string): void {
   const now = Date.now()
   const entry = rateLimitMap.get(ip)
   if (!entry || now > entry.resetAt) {
     rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
-    return true
+  } else {
+    entry.count++
   }
-  if (entry.count >= RATE_LIMIT_MAX) return false
-  entry.count++
-  return true
+}
+
+function clearFailedAttempts(ip: string): void {
+  rateLimitMap.delete(ip)
 }
 
 export async function POST(request: NextRequest) {
@@ -34,7 +43,7 @@ export async function POST(request: NextRequest) {
     request.headers.get('x-real-ip') ??
     'unknown'
 
-  if (!checkRateLimit(ip)) {
+  if (isRateLimited(ip)) {
     return NextResponse.json(
       { error: 'Cok fazla basarisiz deneme. Lutfen 5 dakika bekleyin.' },
       { status: 429 }
@@ -52,8 +61,11 @@ export async function POST(request: NextRequest) {
   try {
     const user = await authenticateUser(username, password)
     if (!user) {
+      recordFailedAttempt(ip)
       return NextResponse.json({ error: 'Hatali kullanici adi veya sifre.' }, { status: 401 })
     }
+
+    clearFailedAttempts(ip)
 
     const metadata = getRequestMetadata(request)
     const session = await createSession(user, metadata)
