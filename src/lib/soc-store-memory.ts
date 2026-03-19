@@ -715,14 +715,14 @@ export async function recordAttackEvent(input: AttackEventInput): Promise<void> 
     createdAt: now,
   })
 
-  const shouldEscalate = input.severity === 'critical' || (input.severity === 'high' && Math.random() < 0.45)
+  const shouldEscalate = input.severity === 'critical' || (input.severity === 'high' && Math.random() < 0.08)
   if (shouldEscalate) {
-    const twentyMinutesAgo = Date.now() - 20 * 60 * 1000
+    const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000
     const duplicate = store.alerts.find((alert) => {
       if (alert.status === 'resolved') return false
-      if (alert.sourceIp !== input.sourceIP) return false
+      if (alert.sourceCountry !== input.sourceCountry) return false
       if (alert.attackType !== input.type) return false
-      return new Date(alert.createdAt).getTime() >= twentyMinutesAgo
+      return new Date(alert.createdAt).getTime() >= fifteenMinutesAgo
     })
 
     if (!duplicate) {
@@ -966,4 +966,3 @@ export async function createUser(input: {
     metadata: input.metadata,
   })
 }
-

@@ -309,7 +309,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     refreshWorkflow().catch(() => {})
     const interval = setInterval(() => {
       void refreshWorkflow()
-    }, 8000)
+    }, 12000)
     return () => clearInterval(interval)
   }, [refreshWorkflow])
 
@@ -338,7 +338,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         }
         metricsRefreshTimerRef.current = setTimeout(() => {
           void refreshWorkflow()
-        }, 700)
+        }, 3500)
       } catch {
         // ignore malformed payloads
       }
