@@ -179,10 +179,26 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
   const [createTitle, setCreateTitle] = useState('')
   const [createDescription, setCreateDescription] = useState('')
   const [createPriority, setCreatePriority] = useState<AlertPriority>('P2')
+  const [liveAttackStats, setLiveAttackStats] = useState<{ attacksPerMinute: number; activeIps: number } | null>(null)
 
   const startedAtRef = useRef(Date.now())
   const metricsRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const attackFeedRef = useRef<HTMLDivElement | null>(null)
+  const liveAttackWindowRef = useRef<Array<{ ts: number; ip: string }>>([])
+
+  const recomputeLiveAttackStats = useCallback(() => {
+    const nowTs = Date.now()
+    const cutoff15m = nowTs - 15 * 60 * 1000
+    const cutoff1m = nowTs - 60 * 1000
+
+    const pruned = liveAttackWindowRef.current.filter((item) => item.ts >= cutoff15m)
+    liveAttackWindowRef.current = pruned
+
+    const attacksPerMinute = pruned.filter((item) => item.ts >= cutoff1m).length
+    const activeIps = new Set(pruned.map((item) => item.ip)).size
+
+    setLiveAttackStats({ attacksPerMinute, activeIps })
+  }, [])
 
   const fetchCorePanels = useCallback(async () => {
     const [metricsResponse, usersResponse] = await Promise.all([
@@ -267,11 +283,16 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
   const streamLabel = streamModeLabel(streamMode)
   const streamColor = streamMode === 'live' ? '#00ff41' : streamMode === 'degraded' ? '#f59e0b' : '#64748b'
 
-  const weeklyHeights = useMemo(() => {
-    const day = new Date().getDay()
-    const current = day === 0 ? 6 : day - 1
-    return DAY_LABELS.map((_, index) => (index === current ? 90 : 55 + ((index * 11) % 25)))
-  }, [])
+  const activeDayIndex = useMemo(() => {
+    const source = now ?? new Date()
+    const day = source.getDay()
+    return day === 0 ? 6 : day - 1
+  }, [now])
+
+  const weeklyHeights = useMemo(
+    () => DAY_LABELS.map((_, index) => (index === activeDayIndex ? 92 : 52)),
+    [activeDayIndex],
+  )
 
   useEffect(() => {
     setNow(new Date())
@@ -283,17 +304,28 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     return () => clearInterval(interval)
   }, [])
 
+  const loadIntelPanels = useCallback(async () => {
+    await Promise.all([
+      fetch('/api/cybernews')
+        .then((response) => response.json())
+        .then((payload: { items?: NewsItem[] }) => setNewsItems(payload.items ?? []))
+        .catch(() => {}),
+      fetch('/api/cves?days=1')
+        .then((response) => response.json())
+        .then((payload: { cves?: CVEItem[] }) => setCves((payload.cves ?? []).slice(0, 5)))
+        .catch(() => {}),
+    ])
+  }, [])
+
   useEffect(() => {
-    fetch('/api/cybernews')
-      .then((response) => response.json())
-      .then((payload: { items?: NewsItem[] }) => setNewsItems(payload.items ?? []))
-      .catch(() => {})
+    void loadIntelPanels()
+    const interval = setInterval(() => {
+      void loadIntelPanels()
+    }, 60_000)
+    return () => clearInterval(interval)
+  }, [loadIntelPanels])
 
-    fetch('/api/cves?days=1')
-      .then((response) => response.json())
-      .then((payload: { cves?: CVEItem[] }) => setCves((payload.cves ?? []).slice(0, 5)))
-      .catch(() => {})
-
+  useEffect(() => {
     try {
       const raw = localStorage.getItem('community_posts')
       if (!raw) return
@@ -310,7 +342,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     refreshWorkflow().catch(() => {})
     const interval = setInterval(() => {
       void refreshWorkflow()
-    }, 12000)
+    }, 5_000)
     return () => clearInterval(interval)
   }, [refreshWorkflow])
 
@@ -334,12 +366,19 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         setAttacks((prev) => [...prev, payload].slice(-ATTACK_FEED_LIMIT))
         setStreamMode('live')
 
+        const parsedTs = new Date(payload.createdAt).getTime()
+        liveAttackWindowRef.current.push({
+          ts: Number.isFinite(parsedTs) ? parsedTs : Date.now(),
+          ip: payload.sourceIP,
+        })
+        recomputeLiveAttackStats()
+
         if (metricsRefreshTimerRef.current) {
           clearTimeout(metricsRefreshTimerRef.current)
         }
         metricsRefreshTimerRef.current = setTimeout(() => {
           void refreshWorkflow()
-        }, 3500)
+        }, 700)
       } catch {
         // ignore malformed payloads
       }
@@ -357,7 +396,15 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
       }
       source.close()
     }
-  }, [refreshWorkflow])
+  }, [recomputeLiveAttackStats, refreshWorkflow])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (liveAttackWindowRef.current.length === 0) return
+      recomputeLiveAttackStats()
+    }, 2_000)
+    return () => clearInterval(interval)
+  }, [recomputeLiveAttackStats])
 
   useEffect(() => {
     const feed = attackFeedRef.current
@@ -383,6 +430,9 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     window.addEventListener('soc_quick_filter', handler)
     return () => window.removeEventListener('soc_quick_filter', handler)
   }, [])
+
+  const effectiveActiveIps = liveAttackStats?.activeIps ?? metrics?.attack.activeIps ?? 0
+  const effectiveAttacksPerMinute = liveAttackStats?.attacksPerMinute ?? metrics?.attack.attacksPerMinute ?? 0
 
   return (
     <div style={{ minHeight: '100vh', background: '#06070d' }}>
@@ -816,8 +866,8 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
           {[
             { label: 'WRITEUP', value: posts.length, color: '#00ff41' },
             { label: 'CVE BUGUN', value: cves.length, color: '#ef4444' },
-            { label: 'AKTIF IP', value: metrics?.attack.activeIps ?? 0, color: '#00ff41' },
-            { label: 'ATAK / DK', value: metrics?.attack.attacksPerMinute ?? 0, color: '#f59e0b' },
+            { label: 'AKTIF IP', value: effectiveActiveIps, color: '#00ff41' },
+            { label: 'ATAK / DK', value: effectiveAttacksPerMinute, color: '#f59e0b' },
           ].map((item) => (
             <div key={item.label} style={{ padding: 18, borderTop: '1px solid #1a2a1a', borderRight: '1px solid #1a2a1a', textAlign: 'center' }}>
               <div style={{ color: item.color, fontFamily: 'monospace', fontWeight: 700, fontSize: 34 }}>{item.value.toLocaleString()}</div>
@@ -833,7 +883,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
           <div style={{ overflowX: 'auto' }}>
             <div className="soc-weekly-track">
               {DAY_LABELS.map((label, index) => {
-                const isToday = weeklyHeights[index] >= 90
+                const isToday = index === activeDayIndex
                 return (
                   <div key={label} style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: 4 }}>
                     <div
@@ -841,7 +891,13 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                         width: '100%',
                         height: `${weeklyHeights[index]}%`,
                         background: isToday ? '#f59e0b' : '#00ff41',
-                        opacity: isToday ? 1 : 0.55,
+                        opacity: isToday ? 1 : 0.62,
+                        transform: isToday ? 'translateY(-8px)' : 'translateY(0)',
+                        border: isToday ? '1px solid rgba(245,158,11,0.65)' : '1px solid rgba(0,255,65,0.16)',
+                        boxShadow: isToday ? '0 0 14px rgba(245,158,11,0.45)' : 'none',
+                        transition: 'all 220ms ease',
+                        position: 'relative',
+                        zIndex: isToday ? 2 : 1,
                       }}
                     />
                     <span style={{ color: isToday ? '#f59e0b' : '#4d7c4d', fontFamily: 'monospace', fontSize: 10 }}>{label}</span>
