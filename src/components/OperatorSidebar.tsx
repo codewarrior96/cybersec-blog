@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { logoutAuth, useAuthSession } from '@/lib/auth-client'
@@ -88,6 +88,7 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
   const pathname = usePathname()
   const session = useAuthSession(initialAuth)
   const [metrics, setMetrics] = useState<SidebarMetrics | null>(null)
+  const fetchSeqRef = useRef(0)
 
   const isLoginRoute = pathname === '/login' || pathname.startsWith('/login/')
   const isAuthed = session?.authenticated === true
@@ -98,8 +99,9 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
 
     let alive = true
     const load = async () => {
+      const fetchSeq = ++fetchSeqRef.current
       const next = await fetchSidebarMetrics()
-      if (alive) {
+      if (alive && fetchSeq === fetchSeqRef.current) {
         setMetrics(next)
       }
     }

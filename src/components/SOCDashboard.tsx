@@ -5,6 +5,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import Link from 'next/link'
 import ThreatGlobe from '@/components/ThreatGlobe'
 import { useAuthSession } from '@/lib/auth-client'
+import { mapAttackTypeToTag } from '@/lib/soc-attack-utils'
 import type { AlertPriority, AlertStatus, SessionUser } from '@/lib/soc-types'
 
 export interface PostMeta {
@@ -130,17 +131,6 @@ function attackSeverityColor(value: AttackEvent['severity']) {
   return '#00ff41'
 }
 
-function mapAttackTypeToTag(attackType: string) {
-  const value = attackType.toLowerCase()
-  if (value.includes('port')) return 'scanner'
-  if (value.includes('ssh')) return 'bruteforce'
-  if (value.includes('sql')) return 'sqli'
-  if (value.includes('rce')) return 'exploit'
-  if (value.includes('ddos')) return 'botnet'
-  if (value.includes('phishing')) return 'phishing'
-  return 'threat'
-}
-
 function priorityColor(value: AlertPriority) {
   if (value === 'P1') return '#ef4444'
   if (value === 'P2') return '#f59e0b'
@@ -196,6 +186,8 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
 
   const startedAtRef = useRef(Date.now())
   const metricsRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const coreFetchSeqRef = useRef(0)
+  const alertsFetchSeqRef = useRef(0)
   const attackFeedRef = useRef<HTMLDivElement | null>(null)
   const liveAttackWindowRef = useRef<Array<{
     ts: number
@@ -259,23 +251,31 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
   }, [])
 
   const fetchCorePanels = useCallback(async () => {
-    const [metricsResponse, usersResponse] = await Promise.all([
+    const fetchSeq = ++coreFetchSeqRef.current
+    const [metricsResult, usersResult] = await Promise.allSettled([
       fetch('/api/metrics/live', { cache: 'no-store' }),
       fetch('/api/users', { cache: 'no-store' }),
     ])
 
-    if (metricsResponse.ok) {
-      const payload = (await metricsResponse.json()) as WorkflowMetrics
-      setMetrics(payload)
+    if (fetchSeq !== coreFetchSeqRef.current) return
+
+    if (metricsResult.status === 'fulfilled' && metricsResult.value.ok) {
+      const payload = (await metricsResult.value.json()) as WorkflowMetrics
+      if (fetchSeq === coreFetchSeqRef.current) {
+        setMetrics(payload)
+      }
     }
 
-    if (usersResponse.ok) {
-      const payload = (await usersResponse.json()) as { users?: WorkflowMetrics['assignment'] }
-      setUsers(payload.users ?? [])
+    if (usersResult.status === 'fulfilled' && usersResult.value.ok) {
+      const payload = (await usersResult.value.json()) as { users?: WorkflowMetrics['assignment'] }
+      if (fetchSeq === coreFetchSeqRef.current) {
+        setUsers(payload.users ?? [])
+      }
     }
   }, [])
 
   const fetchAlerts = useCallback(async () => {
+    const fetchSeq = ++alertsFetchSeqRef.current
     const params = new URLSearchParams()
     params.set('limit', '8')
     if (alertStatusFilter !== 'all') params.set('status', alertStatusFilter)
@@ -285,7 +285,9 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     const response = await fetch(`/api/alerts?${params.toString()}`, { cache: 'no-store' })
     if (!response.ok) return
     const payload = (await response.json()) as { alerts?: AlertRecord[] }
-    setAlerts(payload.alerts ?? [])
+    if (fetchSeq === alertsFetchSeqRef.current) {
+      setAlerts(payload.alerts ?? [])
+    }
   }, [alertAssigneeFilter, alertPriorityFilter, alertStatusFilter])
 
   const refreshWorkflow = useCallback(async () => {

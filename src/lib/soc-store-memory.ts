@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
 import { hashPassword, verifyPassword } from '@/lib/security'
 import type { AlertPriority, AlertStatus, AttackSeverity, SessionUser, UserRole } from '@/lib/soc-types'
+import { mapAttackTypeToTag, priorityWeight, severityToPriority } from '@/lib/soc-attack-utils'
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
 const ATTACK_RETENTION_MS = 7 * 24 * 60 * 60 * 1000
@@ -138,30 +139,6 @@ function toAgeMinutes(iso: string) {
   const value = new Date(iso).getTime()
   if (!Number.isFinite(value)) return 0
   return Math.max(0, Math.floor((Date.now() - value) / 60000))
-}
-
-function priorityWeight(priority: AlertPriority): number {
-  if (priority === 'P1') return 4
-  if (priority === 'P2') return 3
-  if (priority === 'P3') return 2
-  return 1
-}
-
-function severityToPriority(severity: AttackSeverity): AlertPriority {
-  if (severity === 'critical') return 'P1'
-  if (severity === 'high') return 'P2'
-  return 'P3'
-}
-
-function mapAttackTypeToTag(attackType: string): string {
-  const value = attackType.toLowerCase()
-  if (value.includes('port')) return 'scanner'
-  if (value.includes('ssh')) return 'bruteforce'
-  if (value.includes('sql')) return 'sqli'
-  if (value.includes('rce')) return 'exploit'
-  if (value.includes('ddos')) return 'botnet'
-  if (value.includes('phishing')) return 'phishing'
-  return 'threat'
 }
 
 function createSeededState(): StoreState {

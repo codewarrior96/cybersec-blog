@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import { getDb } from '@/lib/db'
 import { verifyPassword } from '@/lib/security'
+import { mapAttackTypeToTag, priorityWeight, severityToPriority } from '@/lib/soc-attack-utils'
 import type {
   AlertPriority,
   AlertStatus,
@@ -150,30 +151,6 @@ function parseTags(jsonValue: string): string[] {
   } catch {
     return []
   }
-}
-
-function mapAttackTypeToTag(attackType: string): string {
-  const value = attackType.toLowerCase()
-  if (value.includes('port')) return 'scanner'
-  if (value.includes('ssh')) return 'bruteforce'
-  if (value.includes('sql')) return 'sqli'
-  if (value.includes('rce')) return 'exploit'
-  if (value.includes('ddos')) return 'botnet'
-  if (value.includes('phishing')) return 'phishing'
-  return 'threat'
-}
-
-function priorityWeight(priority: AlertPriority): number {
-  if (priority === 'P1') return 4
-  if (priority === 'P2') return 3
-  if (priority === 'P3') return 2
-  return 1
-}
-
-function severityToPriority(severity: AttackSeverity): AlertPriority {
-  if (severity === 'critical') return 'P1'
-  if (severity === 'high') return 'P2'
-  return 'P3'
 }
 
 async function writeAlertEvent(input: {
@@ -396,31 +373,70 @@ export async function listAssignableUsers(): Promise<UserWorkload[]> {
   }))
 }
 
+interface AlertJoinedRow {
+  id: number
+  title: string
+  description: string
+  status: AlertStatus
+  priority: AlertPriority
+  source_event_id: number | null
+  source_ip: string | null
+  source_country: string | null
+  attack_type: string | null
+  created_at: string
+  updated_at: string
+  resolved_at: string | null
+  assignee_id: number | null
+  assignee_username: string | null
+  assignee_display_name: string | null
+  assignee_role: UserRole | null
+  creator_id: number | null
+  creator_username: string | null
+  creator_display_name: string | null
+  creator_role: UserRole | null
+  note_count: number
+}
+
+function toAlertRecord(row: AlertJoinedRow): AlertRecord {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    status: row.status,
+    priority: row.priority,
+    sourceEventId: row.source_event_id,
+    sourceIp: row.source_ip,
+    sourceCountry: row.source_country,
+    attackType: row.attack_type,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    resolvedAt: row.resolved_at,
+    assignee:
+      row.assignee_id == null || row.assignee_username == null || row.assignee_display_name == null || row.assignee_role == null
+        ? null
+        : {
+            id: row.assignee_id,
+            username: row.assignee_username,
+            displayName: row.assignee_display_name,
+            role: row.assignee_role,
+          },
+    createdBy:
+      row.creator_id == null || row.creator_username == null || row.creator_display_name == null || row.creator_role == null
+        ? null
+        : {
+            id: row.creator_id,
+            username: row.creator_username,
+            displayName: row.creator_display_name,
+            role: row.creator_role,
+          },
+    noteCount: Number(row.note_count ?? 0),
+    ageMinutes: toAgeMinutes(row.created_at),
+  }
+}
+
 async function getAlertById(alertId: number): Promise<AlertRecord | null> {
   const db = await getDb()
-  const row = await db.get<{
-    id: number
-    title: string
-    description: string
-    status: AlertStatus
-    priority: AlertPriority
-    source_event_id: number | null
-    source_ip: string | null
-    source_country: string | null
-    attack_type: string | null
-    created_at: string
-    updated_at: string
-    resolved_at: string | null
-    assignee_id: number | null
-    assignee_username: string | null
-    assignee_display_name: string | null
-    assignee_role: UserRole | null
-    creator_id: number | null
-    creator_username: string | null
-    creator_display_name: string | null
-    creator_role: UserRole | null
-    note_count: number
-  }>(
+  const row = await db.get<AlertJoinedRow>(
     `
       SELECT
         a.id,
@@ -459,40 +475,7 @@ async function getAlertById(alertId: number): Promise<AlertRecord | null> {
 
   if (!row) return null
 
-  return {
-    id: row.id,
-    title: row.title,
-    description: row.description,
-    status: row.status,
-    priority: row.priority,
-    sourceEventId: row.source_event_id,
-    sourceIp: row.source_ip,
-    sourceCountry: row.source_country,
-    attackType: row.attack_type,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    resolvedAt: row.resolved_at,
-    assignee:
-      row.assignee_id == null || row.assignee_username == null || row.assignee_display_name == null || row.assignee_role == null
-        ? null
-        : {
-            id: row.assignee_id,
-            username: row.assignee_username,
-            displayName: row.assignee_display_name,
-            role: row.assignee_role,
-          },
-    createdBy:
-      row.creator_id == null || row.creator_username == null || row.creator_display_name == null || row.creator_role == null
-        ? null
-        : {
-            id: row.creator_id,
-            username: row.creator_username,
-            displayName: row.creator_display_name,
-            role: row.creator_role,
-          },
-    noteCount: Number(row.note_count ?? 0),
-    ageMinutes: toAgeMinutes(row.created_at),
-  }
+  return toAlertRecord(row)
 }
 
 export async function listAlerts(filters: ListAlertsFilters): Promise<AlertListResult> {
@@ -532,29 +515,7 @@ export async function listAlerts(filters: ListAlertsFilters): Promise<AlertListR
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
   const db = await getDb()
 
-  const rows = await db.all<{
-    id: number
-    title: string
-    description: string
-    status: AlertStatus
-    priority: AlertPriority
-    source_event_id: number | null
-    source_ip: string | null
-    source_country: string | null
-    attack_type: string | null
-    created_at: string
-    updated_at: string
-    resolved_at: string | null
-    assignee_id: number | null
-    assignee_username: string | null
-    assignee_display_name: string | null
-    assignee_role: UserRole | null
-    creator_id: number | null
-    creator_username: string | null
-    creator_display_name: string | null
-    creator_role: UserRole | null
-    note_count: number
-  }[]>(
+  const rows = await db.all<AlertJoinedRow[]>(
     `
       SELECT
         a.id,
@@ -606,40 +567,7 @@ export async function listAlerts(filters: ListAlertsFilters): Promise<AlertListR
   const nextCursor = hasNext ? sliced[sliced.length - 1]?.id ?? null : null
 
   return {
-    alerts: sliced.map((row) => ({
-      id: row.id,
-      title: row.title,
-      description: row.description,
-      status: row.status,
-      priority: row.priority,
-      sourceEventId: row.source_event_id,
-      sourceIp: row.source_ip,
-      sourceCountry: row.source_country,
-      attackType: row.attack_type,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      resolvedAt: row.resolved_at,
-      assignee:
-        row.assignee_id == null || row.assignee_username == null || row.assignee_display_name == null || row.assignee_role == null
-          ? null
-          : {
-              id: row.assignee_id,
-              username: row.assignee_username,
-              displayName: row.assignee_display_name,
-              role: row.assignee_role,
-            },
-      createdBy:
-        row.creator_id == null || row.creator_username == null || row.creator_display_name == null || row.creator_role == null
-          ? null
-          : {
-              id: row.creator_id,
-              username: row.creator_username,
-              displayName: row.creator_display_name,
-              role: row.creator_role,
-            },
-      noteCount: Number(row.note_count ?? 0),
-      ageMinutes: toAgeMinutes(row.created_at),
-    })),
+    alerts: sliced.map(toAlertRecord),
     nextCursor,
   }
 }
@@ -1038,29 +966,7 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
         ORDER BY active_workload DESC, u.username ASC
       `,
     ),
-    db.all<{
-      id: number
-      title: string
-      description: string
-      status: AlertStatus
-      priority: AlertPriority
-      source_event_id: number | null
-      source_ip: string | null
-      source_country: string | null
-      attack_type: string | null
-      created_at: string
-      updated_at: string
-      resolved_at: string | null
-      assignee_id: number | null
-      assignee_username: string | null
-      assignee_display_name: string | null
-      assignee_role: UserRole | null
-      creator_id: number | null
-      creator_username: string | null
-      creator_display_name: string | null
-      creator_role: UserRole | null
-      note_count: number
-    }[]>(
+    db.all<AlertJoinedRow[]>(
       `
         SELECT
           a.id,
@@ -1255,40 +1161,7 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
     Math.max(6, Math.round(Math.sqrt(attackTotal + 1) * 6 + uniqueCountries * 4 + topPriorityPressure * 2)),
   )
 
-  const alertQueue: AlertRecord[] = queueRows.map((row) => ({
-    id: row.id,
-    title: row.title,
-    description: row.description,
-    status: row.status,
-    priority: row.priority,
-    sourceEventId: row.source_event_id,
-    sourceIp: row.source_ip,
-    sourceCountry: row.source_country,
-    attackType: row.attack_type,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    resolvedAt: row.resolved_at,
-    assignee:
-      row.assignee_id == null || row.assignee_username == null || row.assignee_display_name == null || row.assignee_role == null
-        ? null
-        : {
-            id: row.assignee_id,
-            username: row.assignee_username,
-            displayName: row.assignee_display_name,
-            role: row.assignee_role,
-          },
-    createdBy:
-      row.creator_id == null || row.creator_username == null || row.creator_display_name == null || row.creator_role == null
-        ? null
-        : {
-            id: row.creator_id,
-            username: row.creator_username,
-            displayName: row.creator_display_name,
-            role: row.creator_role,
-          },
-    noteCount: Number(row.note_count ?? 0),
-    ageMinutes: toAgeMinutes(row.created_at),
-  }))
+  const alertQueue: AlertRecord[] = queueRows.map(toAlertRecord)
 
   return {
     generatedAt: toIsoNow(),

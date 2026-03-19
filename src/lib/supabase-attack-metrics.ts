@@ -1,5 +1,6 @@
-﻿import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AttackEventInput, LiveMetrics } from '@/lib/soc-store-memory'
+import { clampNumber, mapAttackTypeToTag, normalizeSeverity, severityWeight } from '@/lib/soc-attack-utils'
 
 interface SupabaseAttackRow {
   source_country: string | null
@@ -16,33 +17,6 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 const SUPABASE_ATTACK_TABLE = process.env.SUPABASE_ATTACK_EVENTS_TABLE ?? 'attack_events'
 
 let supabaseClient: SupabaseClient | null = null
-
-function mapAttackTypeToTag(attackType: string) {
-  const value = attackType.toLowerCase()
-  if (value.includes('port')) return 'scanner'
-  if (value.includes('ssh')) return 'bruteforce'
-  if (value.includes('sql')) return 'sqli'
-  if (value.includes('rce')) return 'exploit'
-  if (value.includes('ddos')) return 'botnet'
-  if (value.includes('phishing')) return 'phishing'
-  return 'threat'
-}
-
-function normalizeSeverity(value: string | null | undefined): 'critical' | 'high' | 'low' {
-  if (value === 'critical') return 'critical'
-  if (value === 'high') return 'high'
-  return 'low'
-}
-
-function getSeverityWeight(value: string | null | undefined) {
-  if (value === 'critical') return 4
-  if (value === 'high') return 2
-  return 1
-}
-
-function clamp(min: number, value: number, max: number) {
-  return Math.min(max, Math.max(min, value))
-}
 
 function getSupabaseClient() {
   if (!isSupabaseAttackStoreEnabled()) return null
@@ -157,7 +131,7 @@ export async function getSupabaseAttackMetrics(): Promise<LiveMetrics['attack'] 
     const tag = mapAttackTypeToTag(row.attack_type ?? 'threat')
     tagMap.set(tag, (tagMap.get(tag) ?? 0) + 1)
 
-    pressure += getSeverityWeight(normalizeSeverity(row.severity))
+    pressure += severityWeight(normalizeSeverity(row.severity))
   }
 
   const topCountries = Array.from(countryMap.entries())
@@ -175,7 +149,7 @@ export async function getSupabaseAttackMetrics(): Promise<LiveMetrics['attack'] 
   const totalLast24h = dayRows.length
 
   const uniqueCountries = topCountries.length
-  const liveDensity = clamp(
+  const liveDensity = clampNumber(
     6,
     Math.round(Math.sqrt(totalLast24h + 1) * 6 + uniqueCountries * 4 + attacksPerMinute * 2 + Math.min(120, pressure * 0.35)),
     100,
