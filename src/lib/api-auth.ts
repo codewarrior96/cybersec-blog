@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { hasRoleAtLeast } from '@/lib/auth-shared'
 import { getServerSessionFromRequest } from '@/lib/auth-server'
-import type { SessionRecord } from '@/lib/soc-store'
+import type { SessionRecord } from '@/lib/soc-store-adapter'
 import type { UserRole } from '@/lib/soc-types'
 
 export interface GuardResult {

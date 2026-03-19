@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireRole, requireSession } from '@/lib/api-auth'
 import { getRequestMetadata } from '@/lib/auth-server'
 import { hashPassword } from '@/lib/security'
-import { createUser, listAssignableUsers } from '@/lib/soc-store'
+import { createUser, listAssignableUsers } from '@/lib/soc-store-adapter'
 import type { UserRole } from '@/lib/soc-types'
 
 export const runtime = 'nodejs'

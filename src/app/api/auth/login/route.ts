@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SESSION_COOKIE_MAX_AGE_SECONDS, SESSION_COOKIE_NAME } from '@/lib/auth-shared'
 import { getRequestMetadata } from '@/lib/auth-server'
-import { authenticateUser, createSession, writeAuditLog } from '@/lib/soc-store'
+import { authenticateUser, createSession, writeAuditLog } from '@/lib/soc-store-adapter'
 
 interface LoginBody {
   username?: unknown

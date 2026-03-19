@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SESSION_COOKIE_NAME } from '@/lib/auth-shared'
 import { getRequestMetadata, getServerSessionFromRequest } from '@/lib/auth-server'
-import { deleteSession, writeAuditLog } from '@/lib/soc-store'
+import { deleteSession, writeAuditLog } from '@/lib/soc-store-adapter'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSession } from '@/lib/api-auth'
-import { getLiveMetrics } from '@/lib/soc-store'
+import { getLiveMetrics } from '@/lib/soc-store-adapter'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

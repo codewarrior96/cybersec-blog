@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole, requireSession } from '@/lib/api-auth'
 import { getRequestMetadata } from '@/lib/auth-server'
-import { createReport, deleteReport, listReports } from '@/lib/soc-store'
+import { createReport, deleteReport, listReports } from '@/lib/soc-store-adapter'
 
 interface PostBody {
   title?: unknown

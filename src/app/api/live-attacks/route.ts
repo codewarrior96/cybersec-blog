@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { requireSession } from '@/lib/api-auth'
-import { recordAttackEvent } from '@/lib/soc-store'
+import { recordAttackEvent } from '@/lib/soc-store-adapter'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'

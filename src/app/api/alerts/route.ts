@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole, requireSession } from '@/lib/api-auth'
 import { getRequestMetadata } from '@/lib/auth-server'
-import { createAlert, listAlerts } from '@/lib/soc-store'
+import { createAlert, listAlerts } from '@/lib/soc-store-adapter'
 import type { AlertPriority, AlertStatus } from '@/lib/soc-types'
 
 export const runtime = 'nodejs'

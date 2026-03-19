@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { SESSION_COOKIE_NAME } from '@/lib/auth-shared'
-import { getSessionByToken } from '@/lib/soc-store'
-import type { RequestMetadata, SessionRecord } from '@/lib/soc-store'
+import { getSessionByToken } from '@/lib/soc-store-adapter'
+import type { RequestMetadata, SessionRecord } from '@/lib/soc-store-adapter'
 
 interface CookieReader {
   get(name: string): { value: string } | undefined
