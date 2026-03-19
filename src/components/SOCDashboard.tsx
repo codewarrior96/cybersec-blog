@@ -168,7 +168,7 @@ function SeverityBadge({ severity }: { severity: string | null }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function SOCDashboard({ posts }: SOCDashboardProps) {
-  const [now, setNow] = useState(new Date())
+  const [now, setNow] = useState<Date | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const [newsItems, setNewsItems] = useState<NewsItem[]>([])
   const [cves, setCves] = useState<CVEItem[]>([])
@@ -188,6 +188,8 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
 
   // ── Clock & session timer ───────────────────────────────────────────────────
   useEffect(() => {
+    setNow(new Date())
+    setElapsed(0)
     const iv = setInterval(() => {
       setNow(new Date())
       setElapsed(Math.floor((Date.now() - sessionStart.current) / 1000))
@@ -337,8 +339,9 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     : 'LOADING THREAT FEED...'
 
   const maxCountry = greynoise?.countries[0]?.count ?? 1
+  // Derived from `now` state (client-only) to avoid SSR↔client mismatch
   // Sunday=0 → index 6 in MON…SUN array
-  const todayIdx = (new Date().getDay() + 6) % 7
+  const todayIdx = now !== null ? (now.getDay() + 6) % 7 : -1
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -446,7 +449,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
             </div>
           </div>
           <div style={{ color: '#336633', fontSize: 11, fontFamily: 'monospace', marginTop: 2, letterSpacing: '0.04em' }}>
-            {formatClock(now)}
+            {now !== null ? formatClock(now) : ''}
           </div>
           <div style={{ color: '#00ff41', fontSize: 11, fontFamily: 'monospace', marginTop: 4 }}>
             <span style={{ color: '#336633' }}>ghost@breach-terminal</span>
