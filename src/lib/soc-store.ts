@@ -1217,7 +1217,7 @@ export async function listReports(
       SELECT id, title, content, severity, tags_json, created_at
       FROM reports
       ${where}
-      ORDER BY datetime(created_at) DESC, id DESC
+      ORDER BY id DESC
       LIMIT ?
     `,
     ...params,
