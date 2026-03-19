@@ -150,17 +150,17 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
       }}
     >
       <div style={{ padding: '20px 16px', borderBottom: '1px solid #1a2a1a' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '78px 1fr', alignItems: 'center', gap: 10 }}>
           <div
             style={{
               position: 'relative',
-              width: 60,
-              height: 60,
+              width: 78,
+              height: 78,
               borderRadius: '9999px',
               border: '1px solid rgba(0,255,65,0.5)',
-              padding: 3,
+              padding: 4,
               background: 'rgba(0,0,0,0.65)',
-              boxShadow: '0 0 18px rgba(0,255,65,0.22)',
+              boxShadow: '0 0 26px rgba(0,255,65,0.25)',
               overflow: 'hidden',
             }}
           >
@@ -179,10 +179,10 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
               aria-hidden="true"
               style={{
                 position: 'absolute',
-                right: 1,
-                bottom: 1,
-                width: 10,
-                height: 10,
+                right: 2,
+                bottom: 2,
+                width: 12,
+                height: 12,
                 borderRadius: '9999px',
                 background: '#00ff41',
                 boxShadow: '0 0 8px #00ff41',
