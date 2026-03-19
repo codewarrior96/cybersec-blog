@@ -68,9 +68,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="tr" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen flex flex-col">
-        {showOperatorShell && <OperatorSidebar initialAuth={isAuthedFromCookie} />}
-        {showOperatorShell && <MobileNav initialAuth={isAuthedFromCookie} />}
-        <div className={`${showOperatorShell ? 'lg:pl-[220px]' : ''} transition-all duration-300 flex flex-col flex-1`}>
+        <OperatorSidebar initialAuth={isAuthedFromCookie} />
+        <MobileNav initialAuth={isAuthedFromCookie} />
+        <div
+          className="transition-all duration-300 flex flex-col flex-1"
+          style={{ paddingLeft: 'var(--operator-shell-offset, 0px)' }}
+        >
           {showPublicHeader && <Header initialAuth={isAuthedFromCookie} />}
           <PageTransition>
             <main className="flex-1">{children}</main>

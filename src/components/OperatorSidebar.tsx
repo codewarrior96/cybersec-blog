@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { clearAuthUser, useAuthStatus } from '@/lib/auth-client'
@@ -59,8 +60,24 @@ interface OperatorSidebarProps {
 export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarProps) {
   const pathname = usePathname()
   const authStatus = useAuthStatus(initialAuth)
+  const isLoginRoute = pathname === '/login' || pathname.startsWith('/login/')
 
-  if (pathname === '/login') return null
+  useEffect(() => {
+    const applyShellOffset = () => {
+      const isDesktop = window.innerWidth >= 1024
+      const shouldOffset = authStatus === true && !isLoginRoute && isDesktop
+      document.documentElement.style.setProperty('--operator-shell-offset', shouldOffset ? '220px' : '0px')
+    }
+
+    applyShellOffset()
+    window.addEventListener('resize', applyShellOffset)
+    return () => {
+      window.removeEventListener('resize', applyShellOffset)
+      document.documentElement.style.setProperty('--operator-shell-offset', '0px')
+    }
+  }, [authStatus, isLoginRoute])
+
+  if (isLoginRoute) return null
   if (authStatus !== true) return null
 
   const isActive = (href: string) =>
