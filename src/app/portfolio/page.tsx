@@ -1,61 +1,60 @@
-import type { Metadata } from 'next';
+﻿import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = { title: 'Portfolio' };
 
 const skills = [
-  { name: 'Python',           level: 70, tag: 'scripting' },
-  { name: 'Linux / Bash',     level: 65, tag: 'sysadmin'  },
-  { name: 'Network Analizi',  level: 55, tag: 'network'   },
-  { name: 'Web Security',     level: 62, tag: 'appsec'    },
-  { name: 'Burp Suite',       level: 65, tag: 'tool'      },
-  { name: 'CTF / Pwn',        level: 50, tag: 'ctf'       },
+  { name: 'Python', level: 45, tag: 'scripting-basics' },
+  { name: 'Linux / Bash', level: 48, tag: 'terminal' },
+  { name: 'Network Temelleri', level: 40, tag: 'tcp-ip' },
+  { name: 'Web Security Basics', level: 38, tag: 'owasp' },
+  { name: 'Burp Suite', level: 35, tag: 'proxy-repeater' },
+  { name: 'CTF (Web)', level: 32, tag: 'learning' },
 ];
 
 const certs = [
-  { name: 'CompTIA Security+',  status: 'planned',     color: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/5' },
-  { name: 'eJPT (eLearnSecurity)', status: 'planned',  color: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/5' },
-  { name: 'TryHackMe — Top 10%',   status: 'progress', color: 'text-cyan-400 border-cyan-400/30 bg-cyan-400/5'      },
-  { name: 'HackTheBox Active',     status: 'progress', color: 'text-cyan-400 border-cyan-400/30 bg-cyan-400/5'      },
+  { name: 'Google Cybersecurity Certificate', status: 'progress', color: 'text-cyan-400 border-cyan-400/30 bg-cyan-400/5' },
+  { name: 'TryHackMe Learning Path', status: 'progress', color: 'text-cyan-400 border-cyan-400/30 bg-cyan-400/5' },
+  { name: 'CompTIA Security+', status: 'planned', color: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/5' },
+  { name: 'eJPT', status: 'planned', color: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/5' },
 ];
 
 const projects = [
   {
     name: 'CyberSec Blog',
-    desc: 'Bu blog — Next.js 14, MDX, Tailwind CSS ile inşa edildi.',
+    desc: 'Kendi öğrenme sürecimi paylaşmak için hazırladığım blog projesi.',
     tech: ['Next.js', 'MDX', 'Tailwind'],
     status: 'live',
     href: '/',
   },
   {
-    name: 'Port Scanner',
-    desc: 'Python tabanlı asenkron port tarayıcı (planlanan).',
-    tech: ['Python', 'asyncio'],
+    name: 'Mini Port Scanner',
+    desc: 'Python ile temel TCP port kontrolü yapan küçük bir öğrenme projesi.',
+    tech: ['Python', 'socket'],
     status: 'planned',
     href: '#',
   },
   {
-    name: 'CTF Toolkit',
-    desc: 'CTF çözümleri için otomasyon araçları koleksiyonu (planlanan).',
-    tech: ['Python', 'Bash'],
-    status: 'planned',
-    href: '#',
+    name: 'CTF Notlari',
+    desc: 'Çözdüğüm başlangıç seviye CTF sorularının kısa çözüm arşivi.',
+    tech: ['Markdown', 'Linux'],
+    status: 'live',
+    href: '/blog',
   },
 ];
 
 const timeline = [
-  { year: '2023', event: 'Linux öğrenme — terminal, bash, dosya sistemi', dot: 'bg-slate-600' },
-  { year: '2023', event: 'Network temelleri — TCP/IP, Wireshark, Nmap',    dot: 'bg-slate-600' },
-  { year: '2024', event: 'Web güvenliği — XSS, SQLi, Burp Suite',          dot: 'bg-cyan-500'  },
-  { year: '2024', event: 'İlk CTF yarışmaları ve writeup yayınları',        dot: 'bg-cyan-500'  },
-  { year: '2025', event: 'Pentest araçları — Metasploit, Nessus, exploit',  dot: 'bg-green-400' },
-  { year: 'Şimdi','event': 'Aktif araştırma ve blog içerikleri',            dot: 'bg-green-400 shadow-[0_0_8px_#00ff41]' },
+  { year: '2024', event: 'Linux ve terminal komutlarına giriş yaptım.', dot: 'bg-slate-600' },
+  { year: '2024', event: 'Python temelini öğrenmeye başladım (dosya, fonksiyon, script).', dot: 'bg-slate-600' },
+  { year: '2025', event: 'Ağ temelleri: TCP/IP, Wireshark ve Nmap başlangıç pratiği.', dot: 'bg-cyan-500' },
+  { year: '2025', event: 'OWASP Top 10 ve Burp Suite ile temel web güvenlik çalışmaları.', dot: 'bg-cyan-500' },
+  { year: '2026', event: 'Blogu yayına alıp düzenli writeup paylaşmaya başladım.', dot: 'bg-green-400' },
+  { year: 'Şimdi', event: '90 günlük plan: haftalık çalışma + aylık 1 mini proje + düzenli not.', dot: 'bg-green-400 shadow-[0_0_8px_#00ff41]' },
 ];
 
 export default function PortfolioPage() {
   return (
     <div className="max-w-5xl mx-auto px-6 py-16">
-      {/* Header */}
       <div className="mb-14">
         <p className="font-mono text-slate-500 text-sm mb-3">
           <span className="text-green-400">guest</span>@cybersec:~$
@@ -66,7 +65,6 @@ export default function PortfolioPage() {
         </h1>
       </div>
 
-      {/* ── Skills ── */}
       <section className="mb-16">
         <h2 className="font-mono text-green-400/80 text-xs uppercase tracking-widest mb-6 flex items-center gap-2">
           <span className="text-green-400/40">01</span> Beceriler
@@ -93,7 +91,6 @@ export default function PortfolioPage() {
         </div>
       </section>
 
-      {/* ── Certifications ── */}
       <section className="mb-16">
         <h2 className="font-mono text-green-400/80 text-xs uppercase tracking-widest mb-6 flex items-center gap-2">
           <span className="text-green-400/40">02</span> Sertifikalar
@@ -113,7 +110,6 @@ export default function PortfolioPage() {
         </div>
       </section>
 
-      {/* ── Projects ── */}
       <section className="mb-16">
         <h2 className="font-mono text-green-400/80 text-xs uppercase tracking-widest mb-6 flex items-center gap-2">
           <span className="text-green-400/40">03</span> Projeler
@@ -155,19 +151,16 @@ export default function PortfolioPage() {
         </div>
       </section>
 
-      {/* ── Timeline ── */}
       <section>
         <h2 className="font-mono text-green-400/80 text-xs uppercase tracking-widest mb-8 flex items-center gap-2">
           <span className="text-green-400/40">04</span> Öğrenme Yolculuğu
         </h2>
         <div className="relative pl-8">
-          {/* Vertical line */}
           <div className="absolute left-2.5 top-0 bottom-0 w-px bg-gradient-to-b from-green-400/30 via-green-400/15 to-transparent" />
 
           <div className="space-y-6">
             {timeline.map((item, i) => (
               <div key={i} className="relative flex items-start gap-4">
-                {/* Dot */}
                 <div className={`absolute -left-6 mt-1 w-2.5 h-2.5 rounded-full border border-[#08080f] ${item.dot}`} />
                 <div>
                   <span className="font-mono text-green-400 text-xs font-bold">{item.year}</span>
@@ -181,3 +174,4 @@ export default function PortfolioPage() {
     </div>
   );
 }
+

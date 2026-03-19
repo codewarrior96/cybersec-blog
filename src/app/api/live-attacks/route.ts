@@ -108,24 +108,21 @@ export async function GET(request: NextRequest) {
       sendEvent('ready', { ok: true, ts: new Date().toISOString() })
 
       attackInterval = setInterval(() => {
-        const burst = Math.random() < 0.2 ? rnd(2, 4) : 1
-        for (let i = 0; i < burst; i += 1) {
-          eventId += 1
-          const attack = makeAttack(eventId)
-          sendEvent('attack', attack)
-          void recordAttackEvent({
-            externalId: attack.id,
-            occurredAt: attack.createdAt,
-            sourceIP: attack.sourceIP,
-            sourceCountry: attack.sourceCountry,
-            targetPort: attack.targetPort,
-            type: attack.type,
-            severity: attack.severity,
-          }).catch(() => {
-            // keep stream alive even if persistence fails
-          })
-        }
-      }, 1300)
+        eventId += 1
+        const attack = makeAttack(eventId)
+        sendEvent('attack', attack)
+        void recordAttackEvent({
+          externalId: attack.id,
+          occurredAt: attack.createdAt,
+          sourceIP: attack.sourceIP,
+          sourceCountry: attack.sourceCountry,
+          targetPort: attack.targetPort,
+          type: attack.type,
+          severity: attack.severity,
+        }).catch(() => {
+          // keep stream alive even if persistence fails
+        })
+      }, 30_000)
 
       heartbeatInterval = setInterval(() => {
         write(`: keepalive ${Date.now()}\n\n`)
