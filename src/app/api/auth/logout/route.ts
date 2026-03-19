@@ -12,17 +12,25 @@ export async function POST(request: NextRequest) {
 
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value
   if (token) {
-    await deleteSession(token)
+    try {
+      await deleteSession(token)
+    } catch (error) {
+      console.error('[auth/logout] Failed to delete session:', error)
+    }
   }
 
   if (session) {
-    await writeAuditLog({
-      actorUserId: session.user.id,
-      action: 'auth.logout',
-      entityType: 'session',
-      entityId: token ?? null,
-      metadata,
-    })
+    try {
+      await writeAuditLog({
+        actorUserId: session.user.id,
+        action: 'auth.logout',
+        entityType: 'session',
+        entityId: token ?? null,
+        metadata,
+      })
+    } catch (error) {
+      console.error('[auth/logout] Failed to write audit log:', error)
+    }
   }
 
   const response = NextResponse.json({ ok: true })

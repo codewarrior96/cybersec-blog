@@ -61,10 +61,6 @@ export default function HomePage() {
       .catch(() => {})
   }, [authStatus])
 
-  if (authStatus === null) {
-    return <div style={{ minHeight: '100vh', background: '#070710' }} />
-  }
-
   if (authStatus) {
     return (
       <ErrorBoundary
