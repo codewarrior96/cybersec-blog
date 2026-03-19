@@ -148,12 +148,56 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
       }}
     >
       <div style={{ padding: '20px 16px', borderBottom: '1px solid #1a2a1a' }}>
-        <div style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 14, letterSpacing: '0.12em' }}>OPERATOR</div>
-        <div style={{ marginTop: 8, color: '#4d7c4d', fontFamily: 'monospace', fontSize: 11 }}>
-          {user?.displayName ?? 'Unknown'}
-        </div>
-        <div style={{ marginTop: 2, color: '#64748b', fontFamily: 'monospace', fontSize: 10 }}>
-          ROLE: {roleLabel(user?.role ?? 'viewer')}
+        <div style={{ display: 'grid', gridTemplateColumns: '46px 1fr', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              position: 'relative',
+              width: 46,
+              height: 46,
+              borderRadius: '9999px',
+              border: '1px solid rgba(0,255,65,0.5)',
+              padding: 2,
+              background: 'rgba(0,0,0,0.65)',
+              boxShadow: '0 0 14px rgba(0,255,65,0.2)',
+              overflow: 'hidden',
+            }}
+          >
+            <img
+              src="/skull.jpg"
+              alt="operator avatar"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                borderRadius: '9999px',
+                filter: 'saturate(1.1) contrast(1.05)',
+              }}
+            />
+            <span
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                right: 1,
+                bottom: 1,
+                width: 8,
+                height: 8,
+                borderRadius: '9999px',
+                background: '#00ff41',
+                boxShadow: '0 0 8px #00ff41',
+                border: '1px solid #06110a',
+              }}
+            />
+          </div>
+
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 14, letterSpacing: '0.12em' }}>OPERATOR</div>
+            <div style={{ marginTop: 5, color: '#4d7c4d', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {user?.displayName ?? 'Unknown'}
+            </div>
+            <div style={{ marginTop: 2, color: '#64748b', fontFamily: 'monospace', fontSize: 10 }}>
+              ROLE: {roleLabel(user?.role ?? 'viewer')}
+            </div>
+          </div>
         </div>
       </div>
 
