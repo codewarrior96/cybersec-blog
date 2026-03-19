@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { clearAuthUser, useAuthStatus } from '@/lib/auth-client'
 
 const mobileItems = [
   {
@@ -50,20 +51,21 @@ const mobileItems = [
 
 export default function MobileNav() {
   const pathname = usePathname()
-  const [visible, setVisible] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [visible, setVisible] = useState<boolean | null>(null)
+  const authStatus = useAuthStatus()
 
   useEffect(() => {
     const check = () => {
       setVisible(window.innerWidth < 1024)
-      setIsLoggedIn(localStorage.getItem('auth_user') === 'ghost')
     }
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  if (!visible || !isLoggedIn) return null
+  if (pathname === '/login') return null
+  if (visible !== true) return null
+  if (authStatus !== true) return null
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
@@ -114,7 +116,7 @@ export default function MobileNav() {
       <button
         onClick={() => {
           if (window.confirm('Çıkış yapmak istiyor musunuz?')) {
-            localStorage.removeItem('auth_user')
+            clearAuthUser()
             window.location.href = '/'
           }
         }}

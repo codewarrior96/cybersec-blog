@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import MatrixRain from '@/components/MatrixRain'
+import { readAuthStatus, setAuthUser } from '@/lib/auth-client'
 
 const DEMO_USER = 'ghost'
 const DEMO_PASS = 'demo_pass'
@@ -20,7 +21,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   const [hexVal, setHexVal] = useState('0000')
 
   useEffect(() => {
-    if (localStorage.getItem('auth_user') === 'ghost') {
+    if (readAuthStatus()) {
       onClose()
       return
     }
@@ -37,8 +38,7 @@ export default function LoginModal({ onClose }: LoginModalProps) {
 
   const handleLogin = () => {
     if (username === DEMO_USER && password === DEMO_PASS) {
-      localStorage.setItem('auth_user', username)
-      document.dispatchEvent(new CustomEvent('auth_changed'))
+      setAuthUser(username)
       onClose()
     } else {
       setError(true)

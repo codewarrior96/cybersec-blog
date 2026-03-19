@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useAuthStatus } from '@/lib/auth-client';
 
 const navLinks = [
   { href: '/blog',             label: 'Blog'           },
@@ -15,16 +15,12 @@ const navLinks = [
 ];
 
 export default function Header() {
-  const [loggedIn, setLoggedIn] = useState(false)
-  useEffect(() => {
-    const check = () => setLoggedIn(localStorage.getItem('auth_user') === 'ghost')
-    check()
-    const interval = setInterval(check, 500)
-    return () => clearInterval(interval)
-  }, [])
-  if (loggedIn) return null
-
   const pathname = usePathname();
+  const authStatus = useAuthStatus()
+
+  if (pathname === '/login') return null
+  if (authStatus === null) return null
+  if (authStatus) return null
 
   return (
     <header className="sticky top-0 z-50 border-b border-green-400/10 backdrop-blur-md bg-[#08080f]/85">

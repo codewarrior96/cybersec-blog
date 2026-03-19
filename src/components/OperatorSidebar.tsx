@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { clearAuthUser, useAuthStatus } from '@/lib/auth-client'
 
 const navItems = [
   {
@@ -54,16 +54,10 @@ const quickIntel = [
 
 export default function OperatorSidebar() {
   const pathname = usePathname()
-  const [loggedIn, setLoggedIn] = useState(false)
+  const authStatus = useAuthStatus()
 
-  useEffect(() => {
-    const check = () => setLoggedIn(localStorage.getItem('auth_user') === 'ghost')
-    check()
-    const interval = setInterval(check, 500)
-    return () => clearInterval(interval)
-  }, [])
-
-  if (!loggedIn) return null
+  if (pathname === '/login') return null
+  if (authStatus !== true) return null
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
@@ -351,7 +345,7 @@ export default function OperatorSidebar() {
           }}>
             <button
               onClick={() => {
-                localStorage.removeItem('auth_user')
+                clearAuthUser()
                 window.location.href = '/'
               }}
               style={{

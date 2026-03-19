@@ -5,6 +5,7 @@ import InteractiveTerminal from '@/components/InteractiveTerminal'
 import SOCDashboard from '@/components/SOCDashboard'
 import LoginModal from '@/components/LoginModal'
 import type { PostMeta } from '@/components/SOCDashboard'
+import { useAuthStatus } from '@/lib/auth-client'
 
 // ─── Error Boundary ───────────────────────────────────────────────────────────
 
@@ -40,18 +41,14 @@ class ErrorBoundary extends React.Component<EBProps, EBState> {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
-  const [loggedIn, setLoggedIn] = useState(false)
+  const authStatus = useAuthStatus()
   const [posts, setPosts] = useState<PostMeta[]>([])
 
   useEffect(() => {
-    const check = () => setLoggedIn(localStorage.getItem('auth_user') === 'ghost')
-    check()
-    const interval = setInterval(check, 500)
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    if (!loggedIn) return
+    if (authStatus !== true) {
+      setPosts([])
+      return
+    }
     fetch('/api/posts')
       .then(r => r.json())
       .then((d: unknown) => {
@@ -62,9 +59,13 @@ export default function HomePage() {
         }
       })
       .catch(() => {})
-  }, [loggedIn])
+  }, [authStatus])
 
-  if (loggedIn) {
+  if (authStatus === null) {
+    return <div style={{ minHeight: '100vh', background: '#070710' }} />
+  }
+
+  if (authStatus) {
     return (
       <ErrorBoundary
         fallback={
@@ -81,7 +82,7 @@ export default function HomePage() {
   return (
     <div>
       <InteractiveTerminal />
-      <LoginModal onClose={() => setLoggedIn(true)} />
+      <LoginModal onClose={() => {}} />
     </div>
   )
 }

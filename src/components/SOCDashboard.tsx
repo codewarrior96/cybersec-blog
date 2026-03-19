@@ -345,7 +345,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div style={{ background: '#070710', minHeight: '100vh', fontFamily: 'monospace' }}>
+    <div className="soc-shell" style={{ background: '#070710', minHeight: '100vh', fontFamily: 'monospace' }}>
       <style>{`
         @keyframes tickerScroll {
           0%   { transform: translateX(0); }
@@ -403,11 +403,245 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
           border-color: rgba(0, 255, 65, 0.35);
           box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), 0 0 16px rgba(0, 255, 65, 0.08);
         }
+        .soc-shell {
+          overflow-x: hidden;
+          padding-bottom: calc(62px + env(safe-area-inset-bottom));
+        }
+        .soc-hero {
+          padding: 24px 24px 20px;
+          border-bottom: 1px solid #1a2a1a;
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          flex-wrap: wrap;
+          gap: 16px;
+        }
+        .soc-hero-left,
+        .soc-hero-right {
+          min-width: 0;
+        }
+        .soc-hero-right {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          align-items: flex-end;
+        }
+        .soc-hero-left > div:last-child {
+          overflow-wrap: anywhere;
+        }
+        .soc-card > div:first-child {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .soc-status-row,
+        .soc-actions-row {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+        .soc-split-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1px;
+          background: #1a2a1a;
+          margin-top: 1px;
+        }
+        .soc-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 1px;
+          background: #1a2a1a;
+          margin-top: 1px;
+        }
+        .soc-weekly-wrap {
+          background: #08080f;
+          border-top: 1px solid #1a2a1a;
+          padding: 12px 16px 16px;
+        }
+        .soc-weekly-scroll {
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+        .soc-weekly-scroll::-webkit-scrollbar {
+          display: none;
+        }
+        .soc-weekly-track {
+          display: flex;
+          align-items: flex-end;
+          gap: 5px;
+          height: 56px;
+        }
+        .soc-notes-wrap {
+          margin-top: 1px;
+          background: #08080f;
+          border-top: 1px solid #1a2a1a;
+          padding: 20px 24px;
+        }
+        .soc-notes-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 16px;
+        }
+        .soc-notes-grid {
+          display: grid;
+          grid-template-columns: 3fr 2fr;
+          gap: 16px;
+        }
+        .soc-report-card {
+          border: 1px solid #1a2a1a;
+          background: #07070f;
+          padding: 12px 14px;
+        }
+        .soc-report-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 8px;
+          margin-bottom: 7px;
+        }
+        .soc-report-meta {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+          margin-top: 9px;
+          flex-wrap: wrap;
+        }
+        .soc-report-meta-right {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        .soc-form-actions {
+          display: flex;
+          gap: 6px;
+        }
+        .soc-attack-feed {
+          height: 200px;
+          overflow-y: hidden;
+        }
+        .soc-attack-row {
+          min-width: 0;
+        }
+        @media (min-width: 1024px) {
+          .soc-shell { padding-bottom: 0; }
+        }
         @media (max-width: 1300px) {
           .soc-top-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .soc-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 900px) {
           .soc-top-grid { grid-template-columns: 1fr; }
+          .soc-top-grid { gap: 10px; padding: 10px; }
+          .soc-hero {
+            padding: 16px 14px 14px;
+            gap: 12px;
+          }
+          .soc-hero > div:first-child > div:first-child > div {
+            font-size: 18px !important;
+            letter-spacing: 0.04em !important;
+          }
+          .soc-hero-right {
+            width: 100%;
+            align-items: flex-start;
+          }
+          .soc-status-row,
+          .soc-actions-row {
+            justify-content: flex-start;
+          }
+          .soc-split-grid { grid-template-columns: 1fr; }
+          .soc-notes-wrap { padding: 14px 12px; }
+          .soc-notes-grid { grid-template-columns: 1fr; }
+          .soc-notes-header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .soc-report-top {
+            flex-wrap: wrap;
+          }
+          .soc-report-meta-right {
+            width: 100%;
+            justify-content: flex-start;
+          }
+        }
+        @media (max-width: 640px) {
+          .soc-card > div:first-child {
+            padding: 9px 12px !important;
+          }
+          .soc-card > div:first-child span,
+          .soc-card > div:first-child a {
+            font-size: 10px !important;
+          }
+          .soc-action {
+            font-size: 11px !important;
+            padding: 4px 8px !important;
+          }
+          .soc-status-row > span {
+            font-size: 10px !important;
+            padding: 3px 8px !important;
+          }
+          .soc-notes-header > button {
+            width: 100%;
+          }
+          .soc-split-grid > div > div {
+            padding: 12px !important;
+          }
+          .soc-stats-grid { grid-template-columns: 1fr; }
+          .soc-stats-grid > div > div:first-child {
+            font-size: 24px !important;
+          }
+          .soc-stats-grid > div {
+            padding: 14px 10px !important;
+          }
+          .soc-weekly-track {
+            min-width: 560px;
+          }
+          .soc-attack-feed {
+            height: 220px;
+            overflow-y: auto;
+          }
+          .soc-attack-row {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            row-gap: 3px;
+            column-gap: 6px;
+            padding: 6px 12px !important;
+          }
+          .soc-attack-row > span {
+            font-size: 10px !important;
+          }
+          .soc-attack-row > span:nth-child(1),
+          .soc-attack-row > span:nth-child(2) {
+            flex-shrink: 0 !important;
+          }
+          .soc-attack-row > span:nth-child(3) {
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .soc-attack-row > div {
+            display: none;
+          }
+          .soc-notes-wrap > div:first-child > span {
+            font-size: 11px !important;
+            letter-spacing: 0.12em !important;
+          }
+          .soc-report-card > div:nth-child(2) {
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+          }
+          .soc-form-actions {
+            flex-direction: column;
+          }
         }
       `}</style>
 
@@ -440,14 +674,9 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
       </div>
 
       {/* ══════════════════ HERO STATUS BAR ══════════════════ */}
-      <div style={{
-        padding: '24px 24px 20px',
-        borderBottom: '1px solid #1a2a1a',
-        display: 'flex', justifyContent: 'space-between',
-        alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,
-      }}>
+      <div className="soc-hero">
         {/* Left */}
-        <div>
+        <div className="soc-hero-left">
           <div style={{ position: 'relative', display: 'inline-block', marginBottom: 8 }}>
             <div style={{
               color: '#00ff41', fontSize: 26, fontWeight: 'bold',
@@ -488,9 +717,9 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         </div>
 
         {/* Right */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
+        <div className="soc-hero-right">
           {/* Status pills */}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div className="soc-status-row">
             {[
               { label: '● ONLINE',            color: '#00ff41' },
               { label: '⚠ THREAT: ELEVATED',  color: '#f59e0b' },
@@ -508,7 +737,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
             ))}
           </div>
           {/* Quick actions */}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div className="soc-actions-row">
             {[
               { label: '[+ WRITEUP]',   href: '/blog'             },
               { label: '[+ COMMUNITY]', href: '/community'        },
@@ -719,10 +948,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
       </div>
 
       {/* ══════════════════ ATTACK INTELLIGENCE ROW ══════════════════ */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr',
-        gap: 1, background: '#1a2a1a', marginTop: 1,
-      }}>
+      <div className="soc-split-grid">
         {/* PANEL D — Saldırı İstihbaratı */}
         <div style={{ background: '#07070f' }}>
           <PanelHeader title="// SALDIRI İSTİHBARATI" />
@@ -792,7 +1018,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
               </span>
             }
           />
-          <div style={{ height: 200, overflowY: 'hidden' }}>
+          <div className="soc-attack-feed">
             {(attacks || []).map((atk, idx) => {
               const sColor =
                 atk.severity === 'critical' ? '#ef4444' :
@@ -801,7 +1027,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                 atk.severity === 'critical' ? 'rgba(239,68,68,0.3)' :
                 atk.severity === 'high'     ? 'rgba(245,158,11,0.3)' : 'rgba(0,255,65,0.2)'
               return (
-                <div key={atk.id} style={{
+                <div key={atk.id} className="soc-attack-row" style={{
                   display: 'flex', alignItems: 'center', gap: 7,
                   padding: '5px 16px',
                   borderBottom: '1px solid #0a0a14',
@@ -829,10 +1055,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
       </div>
 
       {/* ══════════════════ STATS + CHARTS ══════════════════ */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr',
-        gap: 1, background: '#1a2a1a', marginTop: 1,
-      }}>
+      <div className="soc-stats-grid">
         {[
           { label: 'WRITEUP',    value: posts.length || 8, color: '#00ff41' },
           { label: 'CVE BUGÜN', value: 14,                 color: '#ef4444' },
@@ -862,17 +1085,15 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
       </div>
 
       {/* Weekly activity bar chart */}
-      <div style={{
-        background: '#08080f', borderTop: '1px solid #1a2a1a',
-        padding: '12px 16px 16px',
-      }}>
+      <div className="soc-weekly-wrap">
         <div style={{
           fontSize: 11, fontFamily: 'monospace', color: '#4d7c4d',
           letterSpacing: '0.2em', marginBottom: 10,
         }}>
           // HAFTALIK AKTİVİTE
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: 56 }}>
+        <div className="soc-weekly-scroll">
+          <div className="soc-weekly-track">
           {DAY_LABELS.map((day, i) => {
             const isToday = i === todayIdx
             return (
@@ -899,20 +1120,14 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
               </div>
             )
           })}
+          </div>
         </div>
       </div>
 
       {/* ══════════════════ NOTES & REPORTS ══════════════════ */}
-      <div style={{
-        marginTop: 1, background: '#08080f',
-        borderTop: '1px solid #1a2a1a',
-        padding: '20px 24px',
-      }}>
+      <div className="soc-notes-wrap">
         {/* Header row */}
-        <div style={{
-          display: 'flex', justifyContent: 'space-between',
-          alignItems: 'center', marginBottom: 16,
-        }}>
+        <div className="soc-notes-header">
           <span style={{
             color: '#4d7c4d', fontSize: 12,
             fontFamily: 'monospace', letterSpacing: '0.2em',
@@ -934,7 +1149,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         </div>
 
         {/* Two-column layout */}
-        <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16 }}>
+        <div className="soc-notes-grid">
           {/* LEFT — Notes list */}
           <div>
             {reports.length === 0 ? (
@@ -947,14 +1162,8 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {(reports || []).map(report => (
-                  <div key={report.id} style={{
-                    border: '1px solid #1a2a1a', background: '#07070f',
-                    padding: '12px 14px',
-                  }}>
-                    <div style={{
-                      display: 'flex', justifyContent: 'space-between',
-                      alignItems: 'flex-start', marginBottom: 7,
-                    }}>
+                  <div key={report.id} className="soc-report-card">
+                    <div className="soc-report-top">
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <SeverityBadge severity={report.severity} />
                         <span style={{
@@ -983,10 +1192,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                     }}>
                       {report.content}
                     </div>
-                    <div style={{
-                      display: 'flex', justifyContent: 'space-between',
-                      alignItems: 'center', marginTop: 9,
-                    }}>
+                    <div className="soc-report-meta">
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         {(report.tags || []).map(tag => (
                           <span key={tag} style={{
@@ -998,7 +1204,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
                           </span>
                         ))}
                       </div>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <div className="soc-report-meta-right">
                         <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#64748b' }}>
                           {new Date(report.createdAt).toLocaleDateString('tr-TR')}
                         </span>
@@ -1102,7 +1308,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
               </div>
 
               {/* Buttons */}
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div className="soc-form-actions">
                 <button
                   onClick={handleCreateReport}
                   style={{
