@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useAuthStatus } from '@/lib/auth-client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1070,6 +1071,7 @@ const MEMBERS = [
 ]
 
 export default function CommunityPage() {
+  const authStatus = useAuthStatus()
   const [posts, setPosts] = useState<CommunityPost[]>([])
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isDesktop, setIsDesktop] = useState(false)
@@ -1082,13 +1084,16 @@ export default function CommunityPage() {
   const [tagFilter, setTagFilter] = useState<string | null>(null)
 
   useEffect(() => {
-    setIsLoggedIn(localStorage.getItem('auth_user') === 'ghost')
     setIsDesktop(window.innerWidth >= 1024)
     setPosts(loadPosts())
     const handleResize = () => setIsDesktop(window.innerWidth >= 1024)
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  useEffect(() => {
+    setIsLoggedIn(authStatus === true)
+  }, [authStatus])
 
   const refresh = useCallback(() => {
     setPosts(loadPosts())

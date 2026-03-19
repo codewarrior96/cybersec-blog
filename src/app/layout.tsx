@@ -8,7 +8,7 @@ import SearchModal from '@/components/SearchModal';
 import PageTransition from '@/components/PageTransition';
 import OperatorSidebar from '@/components/OperatorSidebar';
 import MobileNav from '@/components/MobileNav';
-import { AUTH_STORAGE_KEY, AUTH_USER } from '@/lib/auth-shared';
+import { getServerSessionFromCookies } from '@/lib/auth-server';
 import { getAllPosts } from '@/lib/posts';
 
 const inter = Inter({
@@ -48,6 +48,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const posts = await getAllPosts();
   const cookieStore = cookies();
   const headerStore = headers();
+  const session = await getServerSessionFromCookies(cookieStore);
 
   const rawPathname =
     headerStore.get('x-pathname') ??
@@ -55,15 +56,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     headerStore.get('x-matched-path') ??
     '';
   const pathname = normalizePathname(rawPathname);
-  const hasReliablePath = pathname.length > 0;
   const isLoginRoute = pathname === '/login' || pathname.startsWith('/login/');
   const isRootRoute = pathname === '/';
-  const isAuthedFromCookie = cookieStore.get(AUTH_STORAGE_KEY)?.value === AUTH_USER;
+  const isAuthedFromCookie = Boolean(session);
   const isAuthGatewayRoute = isLoginRoute || (!isAuthedFromCookie && isRootRoute);
-  // If path headers are unavailable, hide chrome on first paint to prevent refresh flicker.
-  const showOperatorShell = hasReliablePath && isAuthedFromCookie && !isLoginRoute;
-  const showPublicHeader = hasReliablePath && !showOperatorShell && !isAuthGatewayRoute;
-  const showGlobalTools = hasReliablePath && !isAuthGatewayRoute;
+  const showOperatorShell = isAuthedFromCookie && !isLoginRoute;
+  const showPublicHeader = !showOperatorShell && !isAuthGatewayRoute;
+  const showGlobalTools = !isAuthGatewayRoute;
 
   return (
     <html lang="tr" className={`${inter.variable} ${jetbrainsMono.variable}`}>

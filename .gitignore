@@ -16,6 +16,9 @@ Thumbs.db
 
 # Logs
 *.log
+data/*.db
+data/*.db-wal
+data/*.db-shm
 
 .vercel
 .env*.local

@@ -1,4 +1,6 @@
 import { NextRequest } from 'next/server'
+import { requireSession } from '@/lib/api-auth'
+import { recordAttackEvent } from '@/lib/soc-store'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -66,6 +68,9 @@ function makeAttack(id: number): AttackEvent {
 }
 
 export async function GET(request: NextRequest) {
+  const guard = await requireSession(request)
+  if (guard.response) return guard.response
+
   const encoder = new TextEncoder()
   let eventId = Date.now() % 1_000_000
   let closed = false
@@ -106,7 +111,19 @@ export async function GET(request: NextRequest) {
         const burst = Math.random() < 0.2 ? rnd(2, 4) : 1
         for (let i = 0; i < burst; i += 1) {
           eventId += 1
-          sendEvent('attack', makeAttack(eventId))
+          const attack = makeAttack(eventId)
+          sendEvent('attack', attack)
+          void recordAttackEvent({
+            externalId: attack.id,
+            occurredAt: attack.createdAt,
+            sourceIP: attack.sourceIP,
+            sourceCountry: attack.sourceCountry,
+            targetPort: attack.targetPort,
+            type: attack.type,
+            severity: attack.severity,
+          }).catch(() => {
+            // keep stream alive even if persistence fails
+          })
         }
       }, 1300)
 

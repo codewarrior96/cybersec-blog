@@ -14,7 +14,9 @@
     "react": "^18",
     "react-dom": "^18",
     "rehype-pretty-code": "^0.14.3",
-    "shiki": "^1.0.0"
+    "shiki": "^1.0.0",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1"
   },
   "devDependencies": {
     "@types/node": "^20",

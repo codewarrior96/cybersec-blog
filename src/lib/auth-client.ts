@@ -1,77 +1,171 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AUTH_COOKIE_MAX_AGE_SECONDS, AUTH_STORAGE_KEY, AUTH_USER } from '@/lib/auth-shared'
+import type { SessionUser } from '@/lib/soc-types'
 
 export const AUTH_CHANGED_EVENT = 'auth_changed'
 
-function readCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null
-  const prefix = `${name}=`
-  const raw = document.cookie
-    .split(';')
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(prefix))
-  if (!raw) return null
-  return decodeURIComponent(raw.slice(prefix.length))
+export interface AuthSessionState {
+  authenticated: boolean
+  user: SessionUser | null
 }
 
-function writeAuthCookie(user: string) {
-  if (typeof document === 'undefined') return
-  document.cookie = `${AUTH_STORAGE_KEY}=${encodeURIComponent(user)}; Path=/; Max-Age=${AUTH_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`
+interface LoginResult {
+  ok: boolean
+  error?: string
 }
 
-function clearAuthCookie() {
+const UNAUTH_STATE: AuthSessionState = {
+  authenticated: false,
+  user: null,
+}
+
+let authCache: AuthSessionState | null = null
+
+function dispatchAuthChanged() {
   if (typeof document === 'undefined') return
-  document.cookie = `${AUTH_STORAGE_KEY}=; Path=/; Max-Age=0; SameSite=Lax`
+  document.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT))
 }
 
 export function readAuthStatus(): boolean {
-  if (typeof window === 'undefined') return false
-  const local = window.localStorage.getItem(AUTH_STORAGE_KEY)
-  const cookie = readCookie(AUTH_STORAGE_KEY)
-  const localAuthed = local === AUTH_USER
-  const cookieAuthed = cookie === AUTH_USER
-
-  // Keep both client stores in sync for consistent refresh behavior.
-  if (localAuthed && !cookieAuthed) writeAuthCookie(AUTH_USER)
-  if (!localAuthed && cookieAuthed) window.localStorage.setItem(AUTH_STORAGE_KEY, AUTH_USER)
-
-  return localAuthed || cookieAuthed
+  return authCache?.authenticated ?? false
 }
 
-export function setAuthUser(user: string) {
-  if (typeof window === 'undefined') return
-  window.localStorage.setItem(AUTH_STORAGE_KEY, user)
-  writeAuthCookie(user)
-  document.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT))
+export async function getAuthSession(force = false): Promise<AuthSessionState> {
+  if (!force && authCache) return authCache
+
+  try {
+    const response = await fetch('/api/auth/session', {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+    })
+
+    if (!response.ok) {
+      authCache = UNAUTH_STATE
+      return UNAUTH_STATE
+    }
+
+    const payload = (await response.json()) as {
+      authenticated?: boolean
+      user?: SessionUser | null
+    }
+
+    authCache = payload.authenticated
+      ? {
+          authenticated: true,
+          user: payload.user ?? null,
+        }
+      : UNAUTH_STATE
+  } catch {
+    authCache = UNAUTH_STATE
+  }
+
+  return authCache
 }
 
-export function clearAuthUser() {
-  if (typeof window === 'undefined') return
-  window.localStorage.removeItem(AUTH_STORAGE_KEY)
-  clearAuthCookie()
-  document.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT))
+export async function loginWithPassword(username: string, password: string): Promise<LoginResult> {
+  const response = await fetch('/api/auth/login', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string }
+    return { ok: false, error: payload.error ?? 'Giris basarisiz.' }
+  }
+
+  await getAuthSession(true)
+  dispatchAuthChanged()
+  return { ok: true }
+}
+
+export async function logoutAuth(): Promise<void> {
+  try {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    })
+  } catch {
+    // ignore network failures, state will still reset locally
+  }
+
+  authCache = UNAUTH_STATE
+  dispatchAuthChanged()
+}
+
+export async function clearAuthUser() {
+  await logoutAuth()
 }
 
 export function useAuthStatus(initialAuth: boolean | null = null) {
   const [authStatus, setAuthStatus] = useState<boolean | null>(initialAuth)
 
   useEffect(() => {
-    const sync = () => setAuthStatus(readAuthStatus())
-    const onAuthChanged = () => sync()
+    let cancelled = false
+
+    const sync = async () => {
+      const session = await getAuthSession(true)
+      if (!cancelled) {
+        setAuthStatus(session.authenticated)
+      }
+    }
 
     sync()
-    window.addEventListener('storage', sync)
-    window.addEventListener('focus', sync)
+
+    const onAuthChanged = () => {
+      void sync()
+    }
+
+    window.addEventListener('focus', onAuthChanged)
     document.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged)
 
     return () => {
-      window.removeEventListener('storage', sync)
-      window.removeEventListener('focus', sync)
+      cancelled = true
+      window.removeEventListener('focus', onAuthChanged)
       document.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged)
     }
-  }, [])
+  }, [initialAuth])
 
   return authStatus
+}
+
+export function useAuthSession(initialAuth: boolean | null = null) {
+  const [session, setSession] = useState<AuthSessionState | null>(() => {
+    if (initialAuth === null) return null
+    if (initialAuth) {
+      return authCache ?? { authenticated: true, user: null }
+    }
+    return UNAUTH_STATE
+  })
+
+  useEffect(() => {
+    let cancelled = false
+
+    const sync = async () => {
+      const next = await getAuthSession(true)
+      if (!cancelled) {
+        setSession(next)
+      }
+    }
+
+    sync()
+
+    const onAuthChanged = () => {
+      void sync()
+    }
+
+    window.addEventListener('focus', onAuthChanged)
+    document.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged)
+
+    return () => {
+      cancelled = true
+      window.removeEventListener('focus', onAuthChanged)
+      document.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged)
+    }
+  }, [initialAuth])
+
+  return session
 }
