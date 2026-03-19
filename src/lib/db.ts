@@ -1,11 +1,10 @@
 import fs from 'fs'
 import path from 'path'
-import sqlite3 from 'sqlite3'
 import { open, type Database } from 'sqlite'
 import { hashPassword } from '@/lib/security'
 import type { UserRole } from '@/lib/soc-types'
 
-type SqliteDb = Database<sqlite3.Database, sqlite3.Statement>
+type SqliteDb = Database
 
 const DB_DIR = path.join(process.cwd(), 'data')
 const DB_PATH = path.join(DB_DIR, 'soc.db')
@@ -39,6 +38,11 @@ const SEED_USERS: SeedUser[] = [
 ]
 
 let dbPromise: Promise<SqliteDb> | null = null
+
+async function loadSqliteDriver() {
+  const sqliteModule = await import('sqlite3')
+  return ('default' in sqliteModule ? sqliteModule.default : sqliteModule) as typeof import('sqlite3')
+}
 
 async function initializeSchema(db: SqliteDb) {
   await db.exec('PRAGMA journal_mode = WAL;')
@@ -191,6 +195,7 @@ export async function getDb(): Promise<SqliteDb> {
         fs.mkdirSync(DB_DIR, { recursive: true })
       }
 
+      const sqlite3 = await loadSqliteDriver()
       const db = await open({
         filename: DB_PATH,
         driver: sqlite3.Database,
