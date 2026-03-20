@@ -48,7 +48,7 @@ export default function TerminalLogWidget() {
   };
 
   return (
-    <div className="h-full flex flex-col font-mono relative overflow-hidden">
+    <div className="absolute inset-0 p-3 lg:p-4 flex flex-col font-mono overflow-hidden">
       {/* Outer Header: THREAT FEED */}
       <div className="flex justify-between items-center mb-3">
         <span className="text-[12px] lg:text-sm font-bold text-slate-200 tracking-widest uppercase mt-1">THREAT FEED</span>

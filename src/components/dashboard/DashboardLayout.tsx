@@ -84,17 +84,17 @@ export default function DashboardLayout() {
         
         {/* TOP ROW */}
         {/* Left Column: System Monitoring */}
-        <div className="lg:col-span-3 flex flex-col gap-3 min-h-[400px]">
+        <div className="lg:col-span-3 flex flex-col gap-3 h-[450px]">
           <SystemMonitorWidget />
         </div>
 
         {/* Center Column: Cyber Threat Map */}
-        <div className="lg:col-span-6 border border-green-500/20 bg-[#0a1114]/80 p-3 lg:p-4 shadow-[0_0_15px_rgba(0,0,0,0.5)] rounded-sm flex flex-col min-h-[400px] backdrop-blur-sm">
+        <div className="lg:col-span-6 border border-green-500/20 bg-[#0a1114]/80 p-3 lg:p-4 shadow-[0_0_15px_rgba(0,0,0,0.5)] rounded-sm flex flex-col h-[450px] backdrop-blur-sm relative">
           <ThreatMapWidget />
         </div>
 
         {/* Right Column: Threat Feed / Logs */}
-        <div className="lg:col-span-3 border border-green-500/20 bg-[#0a1114]/80 p-3 lg:p-4 shadow-[0_0_15px_rgba(0,0,0,0.5)] rounded-sm flex flex-col min-h-[400px] backdrop-blur-sm">
+        <div className="lg:col-span-3 border border-green-500/20 bg-[#0a1114]/80 p-3 lg:p-4 shadow-[0_0_15px_rgba(0,0,0,0.5)] rounded-sm flex flex-col h-[450px] backdrop-blur-sm relative">
           <TerminalLogWidget />
         </div>
 
