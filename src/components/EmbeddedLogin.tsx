@@ -18,32 +18,57 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
   const [loading, setLoading] = useState(false)
   const [hexVal, setHexVal] = useState('0000')
   const [hint, setHint] = useState('')
-  const [quoteText, setQuoteText] = useState('')
+  const [kaliQuoteText, setKaliQuoteText] = useState('')
+  const fullKaliQuote = '"The quieter you become, the more you are able to hear."'
+  const [kaliGlitchActive, setKaliGlitchActive] = useState(false)
 
-  const fullQuote = '"The quieter you become, the more you are able to hear."'
-  const [glitchActive, setGlitchActive] = useState(false)
+  const [pythonQuoteText, setPythonQuoteText] = useState('')
+  const fullPythonQuote = '"Code is read much more often than it is written."'
+  const [pythonGlitchActive, setPythonGlitchActive] = useState(false)
 
   useEffect(() => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*'
-    let iteration = 0
     let interval: ReturnType<typeof setInterval>
     
+    // First animation starting (Python Quote)
     const delay = setTimeout(() => {
+      let iteration1 = 0
       interval = setInterval(() => {
-        setQuoteText(fullQuote.split('').map((char, index) => {
-          if (index < Math.floor(iteration)) return char
+        setPythonQuoteText(fullPythonQuote.split('').map((char, index) => {
+          if (index < Math.floor(iteration1)) return char
           if (char === ' ') return ' '
           return chars[Math.floor(Math.random() * chars.length)]
         }).join(''))
 
-        if (iteration >= fullQuote.length) {
+        if (iteration1 >= fullPythonQuote.length) {
           clearInterval(interval)
-          setTimeout(() => setGlitchActive(true), 1500)
+          setTimeout(() => setPythonGlitchActive(true), 800)
+          
+          // Trigger the Kali Linux quote animation after Python is done
+          setTimeout(startKaliAnimation, 1400)
         }
         
-        iteration += 1 / 3
+        iteration1 += 1 / 3
       }, 35)
     }, 1200)
+
+    const startKaliAnimation = () => {
+      let iteration2 = 0
+      interval = setInterval(() => {
+        setKaliQuoteText(fullKaliQuote.split('').map((char, index) => {
+          if (index < Math.floor(iteration2)) return char
+          if (char === ' ') return ' '
+          return chars[Math.floor(Math.random() * chars.length)]
+        }).join(''))
+
+        if (iteration2 >= fullKaliQuote.length) {
+          clearInterval(interval)
+          setTimeout(() => setKaliGlitchActive(true), 1500)
+        }
+        
+        iteration2 += 1 / 3
+      }, 35)
+    }
     
     return () => {
       clearTimeout(delay)
@@ -384,40 +409,77 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
           boxShadow: '-6px 0 15px -6px rgba(0,255,65,0.5)',
         }}
       >
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', marginBottom: '2.5rem' }}>
           <p 
             style={{ 
               fontSize: '1.05rem', 
               lineHeight: '1.6', 
               marginBottom: '0.5rem',
               fontWeight: 500,
-              textShadow: glitchActive ? '2px 0 #ff00ea, -2px 0 #00ccff' : '0 0 8px rgba(0,255,65,0.8)',
-              animation: glitchActive ? 'glitch-anim-1 2s infinite linear alternate-reverse' : 'none',
+              textShadow: pythonGlitchActive ? '2px 0 #ff00ea, -2px 0 #00ccff' : '0 0 8px rgba(0,255,65,0.8)',
+              animation: pythonGlitchActive ? 'glitch-anim-1 2s infinite linear alternate-reverse' : 'none',
               opacity: 0.9,
             }}
           >
-            {quoteText}
-            {quoteText.length < fullQuote.length && <span style={{ animation: 'statusBlink 0.3s step-end infinite', marginLeft: 4 }}>█</span>}
+            {pythonQuoteText}
+            {pythonQuoteText.length > 0 && pythonQuoteText.length < fullPythonQuote.length && <span style={{ animation: 'statusBlink 0.3s step-end infinite', marginLeft: 4 }}>█</span>}
           </p>
+          <div style={{
+            overflow: 'hidden',
+            transition: 'max-height 1.5s cubic-bezier(0.16, 1, 0.3, 1)',
+            maxHeight: pythonQuoteText === fullPythonQuote ? '50px' : '0px'
+          }}>
+            <p 
+              style={{ 
+                fontSize: '0.75rem', 
+                letterSpacing: '0.25em', 
+                color: 'rgba(0,255,65,0.6)',
+                marginTop: '0.75rem',
+                transform: pythonQuoteText === fullPythonQuote ? 'translateY(0)' : 'translateY(-20px)',
+                transition: 'transform 1s ease-out',
+              }}
+            >
+              › GUIDO_VAN_ROSSUM
+            </p>
+          </div>
         </div>
-        <div style={{
-          overflow: 'hidden',
-          transition: 'max-height 1.5s cubic-bezier(0.16, 1, 0.3, 1)',
-          maxHeight: quoteText === fullQuote ? '50px' : '0px'
-        }}>
-          <p 
-            style={{ 
-              fontSize: '0.75rem', 
-              letterSpacing: '0.25em', 
-              color: 'rgba(0,255,65,0.6)',
-              marginTop: '0.75rem',
-              transform: quoteText === fullQuote ? 'translateY(0)' : 'translateY(-20px)',
-              transition: 'transform 1s ease-out',
-            }}
-          >
-            › KALI_LINUX_CORE
-          </p>
-        </div>
+
+        {pythonGlitchActive && (
+          <div style={{ position: 'relative' }}>
+            <p 
+              style={{ 
+                fontSize: '1.05rem', 
+                lineHeight: '1.6', 
+                marginBottom: '0.5rem',
+                fontWeight: 500,
+                textShadow: kaliGlitchActive ? '2px 0 #ff00ea, -2px 0 #00ccff' : '0 0 8px rgba(0,255,65,0.8)',
+                animation: kaliGlitchActive ? 'glitch-anim-1 2s infinite linear alternate-reverse' : 'none',
+                opacity: 0.9,
+              }}
+            >
+              {kaliQuoteText}
+              {kaliQuoteText.length < fullKaliQuote.length && <span style={{ animation: 'statusBlink 0.3s step-end infinite', marginLeft: 4 }}>█</span>}
+            </p>
+            <div style={{
+              overflow: 'hidden',
+              transition: 'max-height 1.5s cubic-bezier(0.16, 1, 0.3, 1)',
+              maxHeight: kaliQuoteText === fullKaliQuote ? '50px' : '0px'
+            }}>
+              <p 
+                style={{ 
+                  fontSize: '0.75rem', 
+                  letterSpacing: '0.25em', 
+                  color: 'rgba(0,255,65,0.6)',
+                  marginTop: '0.75rem',
+                  transform: kaliQuoteText === fullKaliQuote ? 'translateY(0)' : 'translateY(-20px)',
+                  transition: 'transform 1s ease-out',
+                }}
+              >
+                › KALI_LINUX_CORE
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div
