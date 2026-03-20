@@ -22,14 +22,14 @@ export default function CveFeedWidget() {
       
       <div className="flex-1 w-full overflow-hidden flex flex-col font-medium p-4 bg-[#021a20]/40">
         {/* Table Header */}
-        <div className="grid grid-cols-[1.5fr_1fr_1.5fr_2fr_2fr_1fr_1fr] gap-2 text-[9px] lg:text-[10px] text-slate-400 uppercase tracking-widest px-4 mb-3">
-          <div>ID</div>
-          <div>ID</div>
-          <div>STATUS</div>
-          <div>HOST</div>
-          <div className="text-center">CVE DESCRIPTION</div>
-          <div className="text-center">SCORE</div>
-          <div className="text-right">BADGE</div>
+        <div className="grid grid-cols-[1.5fr_1fr_1.5fr_2fr_2fr_1fr_1fr] gap-0 text-[10px] text-slate-400 uppercase font-bold tracking-widest px-0 mb-2 bg-[#031c22]/60 rounded-t-md h-8 border-b border-slate-800/80">
+          <div className="pl-4 flex items-center border-r border-slate-700/30">LEVEL</div>
+          <div className="flex items-center justify-center border-r border-slate-700/30">ID</div>
+          <div className="flex items-center justify-center border-r border-slate-700/30">STATUS</div>
+          <div className="flex items-center pl-3 border-r border-slate-700/30">HOST</div>
+          <div className="flex items-center justify-center border-r border-slate-700/30">CVE DESCRIPTION</div>
+          <div className="flex items-center justify-center border-r border-slate-700/30">SCORE</div>
+          <div className="flex items-center justify-end pr-4">TIME</div>
         </div>
 
         {/* Table Body */}
@@ -51,7 +51,7 @@ export default function CveFeedWidget() {
             };
 
             return (
-              <div key={idx} className={`grid grid-cols-[1.5fr_1fr_1.5fr_2fr_2fr_1fr_1fr] gap-0 items-stretch text-[10px] lg:text-[11px] rounded-md border ${getBgOverlay(row.color)} shadow-sm transition-all group overflow-hidden relative h-10`}>
+              <div key={idx} className={`grid grid-cols-[1.5fr_1fr_1.5fr_2fr_2fr_1fr_1fr] gap-0 items-stretch text-[10px] lg:text-[11px] rounded-md border ${getBgOverlay(row.color)} shadow-sm transition-all group overflow-hidden relative flex-1 min-h-[42px]`}>
                 {/* Left Accent Bar is thick glowing block */}
                 <div className={`absolute left-0 top-0 bottom-0 w-[4px] ${row.color.replace('text-', 'bg-')} shadow-[0_0_10px_${row.color.replace('text-', '')}]`} style={{ boxShadow: `0 0 8px ${row.color === 'text-red-500' ? '#ef4444' : row.color === 'text-orange-400' ? '#f97316' : '#22d3ee'}` }} />
 
