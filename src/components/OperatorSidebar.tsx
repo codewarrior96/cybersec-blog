@@ -89,6 +89,7 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
   const session = useAuthSession(initialAuth)
   const [metrics, setMetrics] = useState<SidebarMetrics | null>(null)
   const fetchSeqRef = useRef(0)
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
 
   const isLoginRoute = pathname === '/login' || pathname.startsWith('/login/')
   const isAuthed = session?.authenticated === true
@@ -134,21 +135,39 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href))
 
   return (
-    <aside
-      className="hidden lg:flex"
-      style={{
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        height: '100vh',
-        width: 280,
-        zIndex: 50,
-        flexDirection: 'column',
-        overflow: 'hidden',
-        background: '#070710',
-        borderRight: '1px solid #1a2a1a',
-      }}
-    >
+    <>
+      <button
+        className="lg:hidden fixed bottom-6 right-6 z-40 flex items-center justify-center p-3 rounded-full border border-green-500 bg-black/80 backdrop-blur-md text-green-500 shadow-[0_0_15px_rgba(0,255,65,0.3)] font-mono text-[10px] font-bold tracking-widest transition-all hover:bg-green-900/40"
+        onClick={() => setIsMobileOpen(true)}
+      >
+        [ SYS_MENU ]
+      </button>
+
+      {/* Backdrop for mobile */}
+      {isMobileOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black/80 z-40 backdrop-blur-sm transition-opacity duration-300"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
+      <aside
+        className={`flex transition-transform duration-300 ${
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}
+        style={{
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          height: '100vh',
+          width: 280,
+          zIndex: 50,
+          flexDirection: 'column',
+          overflow: 'hidden',
+          background: '#070710',
+          borderRight: '1px solid #1a2a1a',
+        }}
+      >
       <div style={{ padding: '20px 16px', borderBottom: '1px solid #1a2a1a' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '78px 1fr', alignItems: 'center', gap: 10 }}>
           <div
@@ -214,6 +233,7 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => setIsMobileOpen(false)}
               style={{
                 padding: '8px 10px',
                 border: `1px solid ${active ? 'rgba(0,255,65,0.5)' : '#1a2a1a'}`,
@@ -366,6 +386,7 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
         </button>
       </div>
     </aside>
+    </>
   )
 }
 
