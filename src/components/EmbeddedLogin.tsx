@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import MatrixRain from '@/components/MatrixRain'
 import { getAuthSession, loginWithPassword } from '@/lib/auth-client'
+import Logo from '@/components/Logo'
 
 interface EmbeddedLoginProps {
   redirectTo?: string
@@ -270,20 +271,14 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
               position: 'absolute',
               inset: 0,
               borderRadius: '9999px',
-              border: '2px solid #00ff41',
+              border: '2px solid rgba(0,255,65,0.4)',
+              boxShadow: '0 0 15px rgba(0,255,65,0.2) inset'
             }}
           />
-          <img
-            src="/skull.jpg"
-            alt="skull"
-            style={{
-              width: '6.5rem',
-              height: '6.5rem',
-              borderRadius: '9999px',
-              objectFit: 'cover',
-              animation: 'skullFloat 3s ease-in-out infinite',
-            }}
-          />
+          {/* Replaced static skull with our premium interactive Logo */}
+          <div style={{ transform: 'scale(2.5)', animation: 'skullFloat 3s ease-in-out infinite' }}>
+            <Logo />
+          </div>
         </div>
         <p
           style={{
