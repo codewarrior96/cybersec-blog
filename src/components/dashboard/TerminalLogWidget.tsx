@@ -16,14 +16,14 @@ const mockLogs = [
 
 export default function TerminalLogWidget() {
   const [logs, setLogs] = useState<typeof mockLogs>([mockLogs[0], mockLogs[1]]);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let i = 2;
     const interval = setInterval(() => {
       setLogs((prev) => {
         const newLogs = [...prev, mockLogs[i % mockLogs.length]];
-        if (newLogs.length > 30) newLogs.shift();
+        if (newLogs.length > 35) newLogs.shift();
         return newLogs;
       });
       i++;
@@ -32,8 +32,10 @@ export default function TerminalLogWidget() {
   }, []);
 
   useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (scrollContainerRef.current) {
+      // By using scrollTop instead of scrollIntoView, we prevent the browser from 
+      // scrolling the entire page downwards, fixing the "scroll lock" bug.
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     }
   }, [logs]);
 
@@ -47,23 +49,35 @@ export default function TerminalLogWidget() {
 
   return (
     <div className="h-full flex flex-col font-mono relative overflow-hidden">
-      <div className="flex justify-between items-center mb-2 pb-2 border-b border-green-500/20 z-10 bg-[#0a1114]">
-        <span className="text-[11px] lg:text-sm font-bold text-slate-200 tracking-widest uppercase">DATA-STREAM GRID</span>
+      {/* Outer Header: THREAT FEED */}
+      <div className="flex justify-between items-center mb-3">
+        <span className="text-[12px] lg:text-sm font-bold text-slate-200 tracking-widest uppercase mt-1">THREAT FEED</span>
         <span className="text-slate-500 tracking-widest text-[10px]">...</span>
       </div>
-      <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-cyan-900 scrollbar-track-transparent text-[10px] leading-tight font-medium relative">
-        <div className="relative z-0 space-y-2 py-2">
-          {logs.map((log, idx) => (
-            <div key={idx} className={`${getColor(log.type)}`}>
-              {log.time && <span className="mr-1 opacity-90">[{log.type}] {log.time}</span>}
-              <span className="block opacity-80 break-words mt-0.5">{log.msg}</span>
-            </div>
-          ))}
-          <div ref={bottomRef} className="h-4" />
+      
+      {/* Inner Box: DATA-STREAM GRID */}
+      <div className="flex-1 flex flex-col border border-green-500/20 rounded bg-[#00141a]/40 overflow-hidden relative">
+        <div className="flex justify-between items-center px-4 py-2 border-b border-green-500/20 z-10 bg-[#0a1114]">
+          <span className="text-[10px] lg:text-xs font-bold text-slate-300 tracking-widest uppercase">DATA-STREAM GRID</span>
+          <span className="text-slate-500 tracking-widest text-[10px]">...</span>
         </div>
+        
+        <div 
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto px-4 scrollbar-thin scrollbar-thumb-cyan-900 scrollbar-track-transparent text-[10px] leading-tight font-medium relative"
+        >
+          <div className="relative z-0 space-y-2 py-2 pb-4">
+            {logs.map((log, idx) => (
+              <div key={idx} className={`${getColor(log.type)}`}>
+                {log.time && <span className="mr-2 opacity-90">[{log.type}] {log.time}</span>}
+                <span className="block opacity-80 break-words mt-0.5">{log.msg}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Top Edge Fade Inside Box */}
+        <div className="absolute top-[32px] left-0 right-0 h-4 bg-gradient-to-b from-[#0a1114] to-transparent pointer-events-none" />
       </div>
-      {/* Top Edge Fade */}
-      <div className="absolute top-[32px] left-0 right-0 h-4 bg-gradient-to-b from-[#0a1114] to-transparent pointer-events-none" />
     </div>
   );
 }
