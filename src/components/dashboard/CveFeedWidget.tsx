@@ -33,50 +33,67 @@ export default function CveFeedWidget() {
         </div>
 
         {/* Table Body */}
-        <div className="flex-1 flex flex-col gap-3 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-900 scrollbar-track-transparent">
-          {mockData.map((row, idx) => (
-            <div key={idx} className={`grid grid-cols-[1.5fr_1fr_1.5fr_2fr_2fr_1fr_1fr] gap-2 items-center text-[10px] lg:text-[11px] px-4 py-2.5 rounded-md border ${row.border} bg-[#021114]/80 shadow-sm transition-all group overflow-hidden relative`}>
-              {/* Left Accent Bar using absolute positioning or inset shadow */}
-              <div className={`absolute left-0 top-0 bottom-0 w-1 ${row.color.replace('text-', 'bg-')}`} />
+        <div className="flex-1 flex flex-col gap-2 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-900 scrollbar-track-transparent">
+          {mockData.map((row, idx) => {
+            const getStatusColor = (status: string) => {
+              if (status === 'GLOWING') return 'text-[#22d3ee] shadow-[0_0_8px_rgba(34,211,238,0.4)]';
+              if (status === 'YELLOW') return 'text-yellow-400';
+              if (status === 'STABLE') return 'text-green-400';
+              return 'text-slate-400';
+            };
 
-              {/* ID Level */}
-              <div className={`font-bold ${row.color} pl-2 tracking-widest uppercase`}>
-                {row.level}
-              </div>
+            const getBgOverlay = (color: string) => {
+              if (color.includes('red')) return 'bg-red-500/10 border-red-500/40 shadow-[0_0_10px_rgba(239,68,68,0.15)]';
+              if (color.includes('orange')) return 'bg-orange-500/10 border-orange-500/40 shadow-[0_0_10px_rgba(249,115,22,0.15)]';
+              if (color.includes('yellow')) return 'bg-yellow-500/10 border-yellow-500/30 shadow-[0_0_8px_rgba(234,179,8,0.1)]';
+              if (color.includes('green')) return 'bg-green-500/10 border-green-500/30 shadow-[0_0_8px_rgba(34,197,94,0.1)]';
+              return 'bg-slate-500/5 border-slate-500/20';
+            };
 
-              {/* ID Number */}
-              <div className="text-slate-400 font-mono">
-                {row.id}
-              </div>
+            return (
+              <div key={idx} className={`grid grid-cols-[1.5fr_1fr_1.5fr_2fr_2fr_1fr_1fr] gap-0 items-stretch text-[10px] lg:text-[11px] rounded-md border ${getBgOverlay(row.color)} shadow-sm transition-all group overflow-hidden relative h-10`}>
+                {/* Left Accent Bar is thick glowing block */}
+                <div className={`absolute left-0 top-0 bottom-0 w-[4px] ${row.color.replace('text-', 'bg-')} shadow-[0_0_10px_${row.color.replace('text-', '')}]`} style={{ boxShadow: `0 0 8px ${row.color === 'text-red-500' ? '#ef4444' : row.color === 'text-orange-400' ? '#f97316' : '#22d3ee'}` }} />
 
-              {/* Status */}
-              <div className={`${row.color} font-bold tracking-widest uppercase`}>
-                {row.status}
-              </div>
+                {/* ID Level */}
+                <div className={`font-bold ${row.color} pl-4 flex items-center border-r border-slate-700/40 pr-2 tracking-widest uppercase`}>
+                  {row.level}
+                </div>
 
-              {/* Host/CVE ID */}
-              <div className="text-slate-300 font-medium tracking-wide">
-                {row.host}
-              </div>
+                {/* ID Number */}
+                <div className="text-slate-200 font-mono flex items-center justify-center border-r border-slate-700/40 px-2">
+                  {row.id}
+                </div>
 
-              {/* Desc/Pill */}
-              <div className="flex justify-center">
-                <div className={`px-6 py-0.5 rounded-full border ${row.pill} font-bold text-[9px] tracking-widest uppercase`}>
-                  {row.desc}
+                {/* Status */}
+                <div className={`font-bold tracking-widest uppercase flex items-center justify-center border-r border-slate-700/40 px-2 ${getStatusColor(row.status)}`}>
+                  {row.status}
+                </div>
+
+                {/* Host/CVE ID */}
+                <div className="text-slate-200 font-medium tracking-wide flex items-center pl-3 border-r border-slate-700/40 pr-2">
+                  {row.host}
+                </div>
+
+                {/* Desc/Pill */}
+                <div className="flex items-center justify-center border-r border-slate-700/40 px-2">
+                  <div className={`px-4 py-0.5 rounded-full border ${row.pill} font-bold text-[8px] tracking-widest uppercase shadow-[inset_0_0_4px_rgba(0,0,0,0.4)]`}>
+                    {row.desc}
+                  </div>
+                </div>
+
+                {/* Score */}
+                <div className={`flex items-center justify-center font-bold border-r border-slate-700/40 px-2 ${row.color} text-xs`}>
+                  {row.score}
+                </div>
+
+                {/* Time/Badge */}
+                <div className="flex items-center justify-end pr-4 text-slate-300 font-mono tracking-wider">
+                  {row.time}
                 </div>
               </div>
-
-              {/* Score */}
-              <div className={`text-center font-bold ${row.color} text-xs`}>
-                {row.score}
-              </div>
-
-              {/* Time/Badge */}
-              <div className="text-right text-slate-400 font-mono tracking-wider">
-                {row.time}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
