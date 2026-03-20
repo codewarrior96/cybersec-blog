@@ -67,28 +67,45 @@ export default function CveFeedWidget() {
           {!loading && cves.map((cve, idx) => {
             const style = getStyle(cve.cvss);
             const time = new Date().toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
-            
+            const mockHosts = ['SHADOW_SRV', 'WEB_NODE_1', 'DB_CLUSTER', 'AUTH_GW'];
+            const host = mockHosts[idx % mockHosts.length];
+
             return (
-              <div key={idx} className={`grid grid-cols-12 gap-2 items-center text-[10px] lg:text-[11px] px-4 py-3 border-b last:border-b-0 border-green-500/10 ${style.bg} hover:brightness-125 transition-all group`}>
-                <div className={`col-span-2 font-bold ${style.color} drop-shadow-[0_0_5px_currentColor]`}>
-                  {style.level}
+              <div key={idx} className={`grid grid-cols-12 gap-2 items-center text-[10px] lg:text-[11px] px-4 py-3 border-b last:border-b-0 border-green-500/10 ${style.bg} hover:bg-[#0a111a] transition-all group`}>
+                
+                {/* ID Badge Instead of Text */}
+                <div className={`col-span-2 font-bold flex items-center`}>
+                   <div className={`px-2 py-0.5 border ${style.border} ${style.color} rounded truncate max-w-[90%] shadow-[inset_0_0_8px_rgba(0,0,0,0.5)]`}>
+                     {style.level}
+                   </div>
                 </div>
-                <div className={`col-span-2 ${style.color}`}>
+
+                {/* Status Indicator */}
+                <div className={`col-span-2 flex items-center gap-1.5 ${style.color}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full bg-current ${cve.cvss && cve.cvss >= 7 ? 'animate-pulse shadow-[0_0_5px_currentColor]' : ''}`} />
                   GLOWING
                 </div>
-                <div className="col-span-3 text-slate-300 font-bold group-hover:text-white transition-colors">
-                  {cve.id}
+
+                {/* Host Column */}
+                <div className="col-span-3 text-slate-300 font-bold group-hover:text-white transition-colors tracking-wide">
+                  {host}
                 </div>
+
+                {/* Desc + Custom Badge */}
                 <div className="col-span-3 text-slate-400 truncate pr-4 flex items-center gap-2">
-                  <div className={`shrink-0 px-3 py-0.5 rounded-full border ${style.border} ${style.color} font-bold text-[8px]`}>
+                  <div className={`shrink-0 px-2 py-0.5 rounded-full border ${style.border} group-hover:bg-opacity-20 font-bold text-[8px] tracking-widest text-[#0a1114] ${style.level === 'CRITICAL' || style.level === 'HIGH' ? 'bg-red-500 hover:bg-red-400' : 'bg-cyan-500 hover:bg-cyan-400'} transition-colors`}>
                     BADGE
                   </div>
-                  <span className="truncate">{cve.summary}</span>
+                  <span className="truncate group-hover:text-slate-300" title={cve.summary}>{cve.summary}</span>
                 </div>
+
+                {/* Score */}
                 <div className={`col-span-1 text-center font-bold ${style.color} text-xs`}>
                   {cve.cvss ? cve.cvss.toFixed(1) : '-'}
                 </div>
-                <div className="col-span-1 text-right text-slate-500">
+
+                {/* Time */}
+                <div className="col-span-1 text-right text-slate-500 font-mono tracking-wider">
                   {time}
                 </div>
               </div>

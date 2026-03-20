@@ -94,7 +94,7 @@ export default function DashboardLayout() {
         </div>
 
         {/* Right Column: Threat Feed / Logs */}
-        <div className="lg:col-span-3 border border-green-500/20 bg-[#0a1114]/80 p-3 lg:p-4 shadow-[0_0_15px_rgba(0,0,0,0.5)] rounded-sm flex flex-col h-[450px] backdrop-blur-sm relative">
+        <div className="lg:col-span-3 border border-green-500/20 bg-[#0a1114]/80 shadow-[0_0_15px_rgba(0,0,0,0.5)] rounded-sm flex flex-col h-[450px] backdrop-blur-sm relative">
           <TerminalLogWidget />
         </div>
 
@@ -110,8 +110,20 @@ export default function DashboardLayout() {
             <div className="text-[12px] font-bold text-slate-200 tracking-widest mb-3 flex items-center justify-between border-b border-green-500/20 pb-2">
               GEO-ANALYTICS <span className="text-green-500/50">...</span>
             </div>
-            <div className="flex-1 flex items-center justify-center relative opacity-50 py-4">
-              <Globe className="w-20 h-20 text-cyan-500/40" />
+            <div className="flex-1 flex items-center justify-center relative opacity-60 py-4">
+              <div className="w-24 h-24 rounded-full border border-cyan-500/50 relative flex items-center justify-center bg-[#00111a]/50 overflow-hidden">
+                 <div className="w-16 h-16 rounded-full border border-cyan-500/30 absolute" />
+                 <div className="w-8 h-8 rounded-full border border-cyan-500/20 absolute" />
+                 {/* Crosshairs */}
+                 <div className="absolute w-full h-px bg-cyan-500/30" />
+                 <div className="absolute h-full w-px bg-cyan-500/30" />
+                 {/* Blips */}
+                 <div className="absolute w-1.5 h-1.5 bg-red-500 rounded-full top-[25%] left-[65%] animate-pulse shadow-[0_0_5px_red]" />
+                 <div className="absolute w-1 h-1 bg-cyan-400 rounded-full bottom-[35%] right-[70%] shadow-[0_0_3px_cyan]" />
+                 <div className="absolute w-1.5 h-1.5 bg-red-500 rounded-full bottom-[20%] left-[40%] animate-ping shadow-[0_0_5px_red]" />
+                 {/* Sweep */}
+                 <div className="absolute inset-0 bg-[conic-gradient(from_0deg_at_50%_50%,rgba(6,182,212,0)_0deg,rgba(6,182,212,0.4)_60deg,rgba(6,182,212,0)_61deg)] animate-[spin_4s_linear_infinite]" />
+               </div>
             </div>
           </div>
           <div className="flex justify-between text-[9px] text-green-500/60 font-bold border-t border-green-500/10 pt-2 mt-auto">

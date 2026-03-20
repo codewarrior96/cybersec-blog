@@ -4,33 +4,30 @@ import React from 'react';
 export default function ThreatMapWidget() {
   return (
     <div className="h-full flex flex-col font-mono relative overflow-hidden group w-full bg-[#070b0e]">
-      <div className="flex justify-between items-center mb-0 z-20 pb-2 relative px-2">
+      <div className="flex justify-between items-center z-20 pb-2 relative px-2">
         <span className="text-[12px] lg:text-sm font-bold tracking-widest text-slate-200 uppercase drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]">CYBER THREAT MAP</span>
         <span className="text-[9px] lg:text-[10px] text-slate-400 tracking-widest uppercase">LIVE THREAT DETECTION</span>
       </div>
       
-      <div className="flex-1 relative flex items-center justify-center -mt-2 w-full h-full bg-[#0a1114] border border-green-500/10 rounded overflow-hidden">
+      <div className="flex-1 relative flex items-center justify-center mt-2 w-full h-full bg-[#0a1114] border border-green-500/10 rounded overflow-hidden">
         
-        {/* World Map Silhouette Background */}
-        <div 
-           className="absolute w-[95%] h-[95%] opacity-90" 
-           style={{
-             WebkitMaskImage: "url('/world.svg')",
-             WebkitMaskSize: "contain",
-             WebkitMaskRepeat: "no-repeat",
-             WebkitMaskPosition: "center",
-             maskImage: "url('/world.svg')",
-             maskSize: "contain",
-             maskRepeat: "no-repeat",
-             maskPosition: "center",
-             backgroundColor: "#1c3836" // Deep slate green continents reflecting the Sentinel OS ref
-           }}
-        />
+        {/* Radar Center Glow */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,255,65,0.03)_0%,transparent_70%)] pointer-events-none" />
 
-        {/* Threat Overlay Vectors */}
-        <div className="absolute w-[95%] h-[95%] z-10 pointer-events-none flex items-center justify-center">
-          <svg viewBox="0 0 1000 500" className="w-full h-full drop-shadow-[0_0_5px_rgba(0,0,0,0.8)] saturate-150" preserveAspectRatio="xMidYMid meet">
+        {/* Threat Overlay Vectors - The single SVG source of truth */}
+        <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center p-2">
+          <svg viewBox="0 0 1000 500" className="w-full h-full drop-shadow-[0_0_5px_rgba(0,0,0,0.8)] saturate-[1.2]" preserveAspectRatio="xMidYMid meet">
             
+            {/* 1. Flawless SVG Background Alignment via Inline Masking */}
+            <defs>
+              <mask id="world-map-mask">
+                {/* SVG path mask uses the luminance to block out the oceans */}
+                <image href="/world.svg" x="0" y="0" width="1000" height="500" />
+              </mask>
+            </defs>
+            {/* The actual colored landmass locked inside the SVG coordinates */}
+            <rect x="0" y="0" width="1000" height="500" fill="#182e2c" mask="url(#world-map-mask)" opacity="0.9" />
+
             {/* ARC DEFINITIONS: Central Hub approx (480, 200) Europe */}
             {/* Hub to Moscow (590, 160) - Red */}
             <path d="M 480 200 Q 530 140 590 160" stroke="rgba(239, 68, 68, 0.6)" strokeWidth="1.5" fill="none" className="animate-pulse" />
@@ -41,8 +38,8 @@ export default function ThreatMapWidget() {
             {/* Hub to US East (250, 200) - Cyan */}
             <path d="M 480 200 Q 380 130 250 200" stroke="rgba(34, 211, 238, 0.6)" strokeWidth="1.5" fill="none" />
 
-            {/* Hub to London (440, 180) - Cyan */}
-            <path d="M 480 200 Q 460 160 440 180" stroke="rgba(34, 211, 238, 0.8)" strokeWidth="1.5" fill="none" />
+            {/* Hub to London (445, 185) - Cyan */}
+            <path d="M 480 200 Q 460 160 445 185" stroke="rgba(34, 211, 238, 0.8)" strokeWidth="1.5" fill="none" />
 
             {/* Hub to Brazil (320, 320) - Cyan */}
             <path d="M 480 200 Q 400 280 320 320" stroke="rgba(34, 211, 238, 0.4)" strokeWidth="1.5" fill="none" />
@@ -75,8 +72,8 @@ export default function ThreatMapWidget() {
             <circle cx="250" cy="200" r="12" fill="none" stroke="#22d3ee" strokeWidth="1" strokeDasharray="3 3" className="animate-[spin_4s_linear_infinite]" style={{ transformOrigin: '250px 200px' }} />
 
             {/* London */}
-            <circle cx="440" cy="180" r="4" fill="#22d3ee" />
-            <text x="415" y="200" fill="#cbd5e1" fontSize="12" className="tracking-wider">London</text>
+            <circle cx="445" cy="185" r="4" fill="#22d3ee" />
+            <text x="420" y="205" fill="#cbd5e1" fontSize="12" className="tracking-wider">London</text>
 
             {/* Brazil */}
             <circle cx="320" cy="320" r="4" fill="#22d3ee" />
@@ -90,17 +87,10 @@ export default function ThreatMapWidget() {
 
 
             {/* ANIMATED PACKETS */}
-            {/* To Moscow */}
             <circle cx="0" cy="0" r="2.5" fill="#fb7185" className="animate-[move1_2s_linear_infinite]" style={{ offsetPath: "path('M 480 200 Q 530 140 590 160')" } as React.CSSProperties} />
             <circle cx="0" cy="0" r="2" fill="#fb7185" className="animate-[move1_2s_linear_infinite_0.8s]" style={{ offsetPath: "path('M 480 200 Q 530 140 590 160')" } as React.CSSProperties} />
-            
-            {/* To Beijing */}
             <circle cx="0" cy="0" r="2.5" fill="#fb7185" className="animate-[move1_3s_linear_infinite]" style={{ offsetPath: "path('M 480 200 Q 640 150 750 210')" } as React.CSSProperties} />
-            
-            {/* To US */}
             <circle cx="0" cy="0" r="2" fill="#67e8f9" className="animate-[move1_2.5s_linear_infinite]" style={{ offsetPath: "path('M 480 200 Q 380 130 250 200')" } as React.CSSProperties} />
-            
-            {/* To Brazil */}
             <circle cx="0" cy="0" r="2" fill="#67e8f9" className="animate-[move1_3.5s_linear_infinite_1s]" style={{ offsetPath: "path('M 480 200 Q 400 280 320 320')" } as React.CSSProperties} />
           </svg>
         </div>
