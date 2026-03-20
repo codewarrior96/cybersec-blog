@@ -76,11 +76,40 @@ export default function DashboardLayout() {
             {/* Threat Level */}
             <div className="hidden xl:flex items-center gap-4">
               <div className="flex flex-col">
-                <div className="text-[10px] text-slate-300 font-medium tracking-widest mb-1.5">GLOBAL THREAT LEVEL: <span className="text-red-500 font-bold glow-red">HIGH (8.7)</span></div>
-                <div className="flex gap-[2px]">
-                  {Array.from({length: 26}).map((_, i) => (
-                    <div key={i} className={`h-3 w-1.5 ${i < 20 ? 'bg-cyan-500/80' : 'bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]'} opacity-90`} />
-                  ))}
+                <div className="text-[10px] text-slate-300 font-medium tracking-widest mb-1.5 flex justify-between items-center">
+                  <span>GLOBAL THREAT LEVEL: <span className="text-red-500 font-bold glow-red">HIGH (8.7)</span></span>
+                </div>
+                
+                {/* Visual grid tracker with Handle Slider Notch */}
+                <div className="relative">
+                  <div className="flex gap-[2.5px] items-center">
+                    {Array.from({length: 36}).map((_, i) => {
+                      const ratio = i / 36;
+                      // Dynamic gradient coloring mirroring the mockup blend Cyan -> Pink-Orange -> Red
+                      let color = '#22d3ee'; 
+                      if (ratio > 0.45 && ratio <= 0.75) color = '#ec4899';
+                      if (ratio > 0.75) color = '#ef4444';
+
+                      return (
+                        <div 
+                          key={i} 
+                          className={`h-3.5 w-1 rounded-sm shadow-[0_0_3px_rgba(34,211,238,0.2)]`} 
+                          style={{ 
+                            backgroundColor: color, 
+                            opacity: i < 31 ? 0.95 : 0.2, // items to the right of 87% dimmed down
+                            boxShadow: ratio > 0.75 && i < 31 ? '0 0 6px rgba(239,68,68,0.8)' : undefined
+                          }} 
+                        />
+                      );
+                    })}
+                  </div>
+                  {/* Slider Notch marker placed exactly at 87% weight indexing (~31th bar) */}
+                  <div className="absolute top-[3px] -translate-y-full" style={{ left: 'calc(87% - 2px)' }}>
+                    <div className="w-[1.5px] h-4 bg-slate-200 shadow-sm relative z-20">
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3 h-[1px] bg-slate-200" />
+                    </div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 text-red-500 text-[8px]" style={{ marginTop: '2.5px' }}>▲</div>
+                  </div>
                 </div>
               </div>
               
