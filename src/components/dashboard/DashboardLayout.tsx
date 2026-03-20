@@ -5,17 +5,22 @@ import ThreatMapWidget from './ThreatMapWidget';
 import SystemMonitorWidget from './SystemMonitorWidget';
 import TerminalLogWidget from './TerminalLogWidget';
 import { Shield, User, AlertTriangle, ShieldCheck, Globe, Activity } from 'lucide-react';
+import { useAuthSession } from '@/lib/auth-client';
 
 export default function DashboardLayout() {
   const [mounted, setMounted] = useState(false);
   const [time, setTime] = useState('');
+  const session = useAuthSession(null);
+  const user = session?.user;
 
   useEffect(() => {
     setMounted(true);
-    setTime(new Date().toISOString().substring(11, 19) + ' UTC');
-    const timer = setInterval(() => {
-      setTime(new Date().toISOString().substring(11, 19) + ' UTC');
-    }, 1000);
+    const updateClock = () => {
+      const now = new Date();
+      setTime(now.toLocaleTimeString('tr-TR') + ' LOC');
+    };
+    updateClock();
+    const timer = setInterval(updateClock, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -54,11 +59,11 @@ export default function DashboardLayout() {
 
             {/* Profile */}
             <div className="hidden sm:flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full border border-cyan-500/60 flex items-center justify-center bg-[#00111a] shadow-[0_0_10px_rgba(6,182,212,0.4)]">
-                <User className="w-5 h-5 text-cyan-400" />
+              <div className="w-9 h-9 rounded-full border border-cyan-500/60 overflow-hidden flex items-center justify-center bg-[#00111a] shadow-[0_0_10px_rgba(6,182,212,0.4)]">
+                <img src="/skull.jpg" alt="operator avatar" className="w-full h-full object-cover rounded-full" />
               </div>
               <div className="flex flex-col w-26">
-                <span className="text-[11px] font-bold text-cyan-400 tracking-wider">SHADOW_NODE</span>
+                <span className="text-[11px] font-bold text-cyan-400 tracking-wider uppercase truncate max-w-[100px]">{user?.displayName || 'SHADOW_NODE'}</span>
                 <span className="text-[9px] text-cyan-500/70 mb-0.5">Level 88</span>
                 <div className="w-full h-1.5 bg-black border border-cyan-900/40 rounded-full overflow-hidden">
                   <div className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 w-[70%] shadow-[0_0_5px_#22d3ee]" />
