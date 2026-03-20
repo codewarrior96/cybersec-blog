@@ -122,11 +122,11 @@ export async function GET(request: NextRequest) {
         }).catch(() => {
           // keep stream alive even if persistence fails
         })
-      }, 30_000)
+      }, 90_000)
 
       heartbeatInterval = setInterval(() => {
         write(`: keepalive ${Date.now()}\n\n`)
-      }, 12_000)
+      }, 25_000)
 
       request.signal.addEventListener('abort', cleanup)
     },

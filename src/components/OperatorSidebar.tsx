@@ -107,7 +107,7 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
     }
 
     void load()
-    const interval = setInterval(load, 8000)
+    const interval = setInterval(load, 20_000)
 
     return () => {
       alive = false

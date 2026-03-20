@@ -439,7 +439,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     refreshWorkflow().catch(() => {})
     const interval = setInterval(() => {
       void refreshWorkflow()
-    }, 5_000)
+    }, 15_000)
     return () => clearInterval(interval)
   }, [refreshWorkflow])
 
@@ -478,7 +478,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
         }
         metricsRefreshTimerRef.current = setTimeout(() => {
           void refreshWorkflow()
-        }, 700)
+        }, 3_000)
       } catch {
         // ignore malformed payloads
       }
@@ -502,7 +502,7 @@ export default function SOCDashboard({ posts }: SOCDashboardProps) {
     const interval = setInterval(() => {
       if (liveAttackWindowRef.current.length === 0) return
       recomputeLiveAttackProjection()
-    }, 2_000)
+    }, 8_000)
     return () => clearInterval(interval)
   }, [recomputeLiveAttackProjection])
 
