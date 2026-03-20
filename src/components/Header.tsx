@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStatus } from '@/lib/auth-client';
+import Logo from '@/components/Logo';
 
 const navLinks = [
   { href: '/blog',             label: 'Blog'           },
@@ -30,15 +31,8 @@ export default function Header({ initialAuth = null }: HeaderProps) {
     <header className="sticky top-0 z-50 border-b border-green-400/10 backdrop-blur-md bg-[#08080f]/85">
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-1.5 group">
-          <span className="font-mono text-green-400 text-base font-bold transition-all duration-300 group-hover:text-shadow-green"
-            style={{ transition: 'text-shadow 0.3s ease' }}
-          >
-            <span className="text-slate-500">[</span>
-            ~/cybersec
-            <span className="text-slate-500">]</span>
-          </span>
-          <span className="font-mono text-green-400 cursor-blink text-sm">_</span>
+        <Link href="/" className="block" style={{ textDecoration: 'none' }}>
+          <Logo />
         </Link>
 
         {/* Nav */}
