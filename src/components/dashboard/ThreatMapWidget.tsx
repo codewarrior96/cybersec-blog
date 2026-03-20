@@ -19,10 +19,10 @@ export default function ThreatMapWidget() {
              WebkitMaskSize: "contain",
              WebkitMaskRepeat: "no-repeat",
              WebkitMaskPosition: "center",
-             MaskImage: "url('/world.svg')",
-             MaskSize: "contain",
-             MaskRepeat: "no-repeat",
-             MaskPosition: "center",
+             maskImage: "url('/world.svg')",
+             maskSize: "contain",
+             maskRepeat: "no-repeat",
+             maskPosition: "center",
              backgroundColor: "#1c3836" // Deep slate green continents reflecting the Sentinel OS ref
            }}
         />
