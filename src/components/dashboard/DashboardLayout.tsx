@@ -30,8 +30,8 @@ export default function DashboardLayout() {
       <div className="absolute bottom-3 left-3 w-5 h-5 border-b-2 border-l-2 border-slate-500/40 pointer-events-none z-20" />
       <div className="absolute bottom-3 right-3 w-5 h-5 border-b-2 border-r-2 border-slate-500/40 pointer-events-none z-20" />
 
-      {/* Main Container — fills fixed viewport exactly with a soft margin frame */}
-      <div className="flex flex-col gap-3 w-full h-full p-4 lg:px-5 lg:py-4 max-w-[1800px] mx-auto z-10 relative">
+      {/* Main Container — fills fixed viewport perfectly regardless of width */}
+      <div className="flex flex-col gap-3 w-full h-full p-4 lg:px-5 lg:py-4 z-10 relative">
 
         {/* SENTINEL OS TOP BAR */}
         <header className="relative w-full shrink-0 z-10 flex flex-nowrap items-center justify-between border border-[#00ff41]/25 bg-[#021216]/90 px-5 py-3 rounded-md backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.6)]">
