@@ -21,21 +21,34 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
   const [quoteText, setQuoteText] = useState('')
 
   const fullQuote = '"The quieter you become, the more you are able to hear."'
+  const [glitchActive, setGlitchActive] = useState(false)
 
   useEffect(() => {
-    let current = 0
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*'
+    let iteration = 0
+    let interval: ReturnType<typeof setInterval>
+    
     const delay = setTimeout(() => {
-      const interval = setInterval(() => {
-        if (current <= fullQuote.length) {
-          setQuoteText(fullQuote.slice(0, current))
-          current++
-        } else {
+      interval = setInterval(() => {
+        setQuoteText(fullQuote.split('').map((char, index) => {
+          if (index < Math.floor(iteration)) return char
+          if (char === ' ') return ' '
+          return chars[Math.floor(Math.random() * chars.length)]
+        }).join(''))
+
+        if (iteration >= fullQuote.length) {
           clearInterval(interval)
+          setTimeout(() => setGlitchActive(true), 1500)
         }
-      }, 70)
-      return () => clearInterval(interval)
-    }, 1500)
-    return () => clearTimeout(delay)
+        
+        iteration += 1 / 3
+      }, 35)
+    }, 1200)
+    
+    return () => {
+      clearTimeout(delay)
+      if (interval) clearInterval(interval)
+    }
   }, [])
 
 
@@ -363,26 +376,48 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
           left: '5%',
           transform: 'translateY(-50%)',
           zIndex: 10,
-          maxWidth: '300px',
+          maxWidth: '320px',
           fontFamily: 'monospace',
-          color: 'rgba(0, 255, 65, 0.8)',
-          textShadow: '0 0 5px rgba(0, 255, 65, 0.5)'
+          color: '#00ff41',
+          paddingLeft: '1.25rem',
+          borderLeft: '2px solid rgba(0,255,65,0.6)',
+          boxShadow: '-6px 0 15px -6px rgba(0,255,65,0.5)',
         }}
       >
-        <p style={{ fontSize: '1rem', lineHeight: '1.6', marginBottom: '0.75rem' }}>
-          {quoteText}<span style={{ animation: 'statusBlink 1s step-end infinite' }}>_</span>
-        </p>
-        <p 
-          style={{ 
-            fontSize: '0.7rem', 
-            letterSpacing: '0.15em', 
-            opacity: quoteText.length >= fullQuote.length ? 1 : 0, 
-            transition: 'opacity 1s ease-in', 
-            color: 'rgba(0,255,65,0.4)' 
-          }}
-        >
-          [ KALI LINUX ]
-        </p>
+        <div style={{ position: 'relative' }}>
+          <p 
+            style={{ 
+              fontSize: '1.05rem', 
+              lineHeight: '1.6', 
+              marginBottom: '0.5rem',
+              fontWeight: 500,
+              textShadow: glitchActive ? '2px 0 #ff00ea, -2px 0 #00ccff' : '0 0 8px rgba(0,255,65,0.8)',
+              animation: glitchActive ? 'glitch-anim-1 2s infinite linear alternate-reverse' : 'none',
+              opacity: 0.9,
+            }}
+          >
+            {quoteText}
+            {quoteText.length < fullQuote.length && <span style={{ animation: 'statusBlink 0.3s step-end infinite', marginLeft: 4 }}>█</span>}
+          </p>
+        </div>
+        <div style={{
+          overflow: 'hidden',
+          transition: 'max-height 1.5s cubic-bezier(0.16, 1, 0.3, 1)',
+          maxHeight: quoteText === fullQuote ? '50px' : '0px'
+        }}>
+          <p 
+            style={{ 
+              fontSize: '0.75rem', 
+              letterSpacing: '0.25em', 
+              color: 'rgba(0,255,65,0.6)',
+              marginTop: '0.75rem',
+              transform: quoteText === fullQuote ? 'translateY(0)' : 'translateY(-20px)',
+              transition: 'transform 1s ease-out',
+            }}
+          >
+            › KALI_LINUX_CORE
+          </p>
+        </div>
       </div>
 
       <div
