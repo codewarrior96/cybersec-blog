@@ -177,6 +177,16 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
           0%,100% { opacity: 0.15; box-shadow: 0 0 40px rgba(0,255,65,0.2); }
           50% { opacity: 0.4; box-shadow: 0 0 80px rgba(0,255,65,0.5); }
         }
+        @media (max-width: 768px) {
+          .login-form-panel {
+            top: auto !important;
+            bottom: 2% !important;
+            right: auto !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            width: 90% !important;
+          }
+        }
       `}</style>
 
       {/* 1. Deep space/void backdrop */}
@@ -355,11 +365,12 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
       </div>
 
       <div
+        className="login-form-panel"
         style={{
           position: 'absolute',
-          bottom: '2%',
-          left: '50%',
-          transform: 'translateX(-50%)',
+          top: '50%',
+          right: '5%',
+          transform: 'translateY(-50%)',
           zIndex: 10,
           width: '100%',
           maxWidth: 390,
