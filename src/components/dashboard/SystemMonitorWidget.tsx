@@ -23,7 +23,7 @@ export default function SystemMonitorWidget() {
   }, []);
 
   return (
-    <div className="h-full w-full flex flex-col font-mono text-slate-200">
+    <div className="absolute inset-0 flex flex-col font-mono text-slate-200 overflow-hidden">
       
       {/* Outer grouped header */}
       <div className="flex justify-between items-center px-4 py-3 border-b border-[#00ff41]/20 z-10 bg-[#021518]/80">

@@ -10,7 +10,7 @@ const mockData = [
 export default function CveFeedWidget() {
 
   return (
-    <div className="h-full flex flex-col font-mono">
+    <div className="absolute inset-0 flex flex-col font-mono overflow-hidden">
       {/* Header */}
       <div className="flex justify-between items-center px-4 py-3 border-b border-[#00ff41]/20 z-10 bg-[#021518]/80 text-[#e2e8f0]">
         <span className="text-[12px] lg:text-sm font-bold tracking-widest uppercase">CVE VULNERABILITIES</span>
