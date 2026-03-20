@@ -18,6 +18,25 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
   const [loading, setLoading] = useState(false)
   const [hexVal, setHexVal] = useState('0000')
   const [hint, setHint] = useState('')
+  const [quoteText, setQuoteText] = useState('')
+
+  const fullQuote = '"The quieter you become, the more you are able to hear."'
+
+  useEffect(() => {
+    let current = 0
+    const delay = setTimeout(() => {
+      const interval = setInterval(() => {
+        if (current <= fullQuote.length) {
+          setQuoteText(fullQuote.slice(0, current))
+          current++
+        } else {
+          clearInterval(interval)
+        }
+      }, 70)
+      return () => clearInterval(interval)
+    }, 1500)
+    return () => clearTimeout(delay)
+  }, [])
 
 
   useEffect(() => {
@@ -148,6 +167,14 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
             left: 50% !important;
             transform: translateX(-50%) !important;
             width: 90% !important;
+          }
+          .quote-panel {
+            top: 10% !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            text-align: center;
+            width: 85% !important;
+            max-width: 100% !important;
           }
         }
       `}</style>
@@ -324,6 +351,37 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
           }}
         >
           [ SECURE ACCESS REQUIRED ]
+        </p>
+      </div>
+
+      {/* Motivational Left Panel */}
+      <div
+        className="quote-panel"
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: '5%',
+          transform: 'translateY(-50%)',
+          zIndex: 10,
+          maxWidth: '300px',
+          fontFamily: 'monospace',
+          color: 'rgba(0, 255, 65, 0.8)',
+          textShadow: '0 0 5px rgba(0, 255, 65, 0.5)'
+        }}
+      >
+        <p style={{ fontSize: '1rem', lineHeight: '1.6', marginBottom: '0.75rem' }}>
+          {quoteText}<span style={{ animation: 'statusBlink 1s step-end infinite' }}>_</span>
+        </p>
+        <p 
+          style={{ 
+            fontSize: '0.7rem', 
+            letterSpacing: '0.15em', 
+            opacity: quoteText.length >= fullQuote.length ? 1 : 0, 
+            transition: 'opacity 1s ease-in', 
+            color: 'rgba(0,255,65,0.4)' 
+          }}
+        >
+          [ KALI LINUX ]
         </p>
       </div>
 
