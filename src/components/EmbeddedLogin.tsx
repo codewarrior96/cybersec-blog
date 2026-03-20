@@ -18,6 +18,30 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
   const [loading, setLoading] = useState(false)
   const [hexVal, setHexVal] = useState('0000')
   const [hint, setHint] = useState('')
+  const [booting, setBooting] = useState(true)
+  const [bootLog, setBootLog] = useState<string[]>([])
+
+  useEffect(() => {
+    let current = 0
+    const steps = [
+      'INIT SECURE_KERNEL v2.0.26',
+      'ESTABLISHING CONNECTION... TLS 1.3',
+      'BYPASSING FIREWALL... [ OK ]',
+      'ACQUIRING BIOMETRICS... [ OK ]',
+      'DECRYPTING GHOST PROTOCOL... [ OK ]',
+      'SYSTEM READY.'
+    ]
+    const interval = setInterval(() => {
+      if (current < steps.length) {
+        setBootLog(prev => [...prev, steps[current]])
+        current++
+      } else {
+        clearInterval(interval)
+        setTimeout(() => setBooting(false), 500)
+      }
+    }, 280)
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -59,6 +83,21 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
     } finally {
       setLoading(false)
     }
+  }
+
+  if (booting) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#020502', color: '#00ff41', fontFamily: 'monospace', padding: '2rem', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: '4rem' }}>
+        {bootLog.map((log, i) => (
+          <div key={i} style={{ fontSize: '0.85rem', marginBottom: '0.6rem', textShadow: '0 0 6px rgba(0,255,65,0.7)', opacity: 0.9 }}>
+            {'>'} {log}
+          </div>
+        ))}
+        <div style={{ fontSize: '0.85rem', marginTop: '0.5rem', animation: 'statusBlink 1s step-end infinite', textShadow: '0 0 6px rgba(0,255,65,0.8)' }}>
+          {'>'} █
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -274,15 +313,25 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
       <div
         style={{
           position: 'absolute',
-          bottom: '-2%',
+          bottom: '2%',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 10,
           width: '100%',
           maxWidth: 390,
-          padding: '0 1rem',
+          padding: '1.25rem 1.5rem',
+          background: 'rgba(0, 10, 5, 0.4)',
+          backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(0, 255, 65, 0.15)',
+          boxShadow: '0 0 40px rgba(0, 255, 65, 0.05), inset 0 0 20px rgba(0,0,0,0.8)',
+          borderRadius: '4px',
         }}
       >
+        <div style={{ position: 'absolute', top: -1, left: -1, width: 12, height: 12, borderTop: '2px solid #00ff41', borderLeft: '2px solid #00ff41', boxShadow: '-2px -2px 8px rgba(0,255,65,0.4)', borderRadius: '2px 0 0 0' }} />
+        <div style={{ position: 'absolute', top: -1, right: -1, width: 12, height: 12, borderTop: '2px solid #00ff41', borderRight: '2px solid #00ff41', boxShadow: '2px -2px 8px rgba(0,255,65,0.4)', borderRadius: '0 2px 0 0' }} />
+        <div style={{ position: 'absolute', bottom: -1, left: -1, width: 12, height: 12, borderBottom: '2px solid #00ff41', borderLeft: '2px solid #00ff41', boxShadow: '-2px 2px 8px rgba(0,255,65,0.4)', borderRadius: '0 0 0 2px' }} />
+        <div style={{ position: 'absolute', bottom: -1, right: -1, width: 12, height: 12, borderBottom: '2px solid #00ff41', borderRight: '2px solid #00ff41', boxShadow: '2px 2px 8px rgba(0,255,65,0.4)', borderRadius: '0 0 2px 0' }} />
+
         <div style={{ borderTop: '1px solid rgba(0,255,65,0.1)', marginBottom: '1.25rem', position: 'relative' }}>
           <span
             style={{

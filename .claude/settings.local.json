@@ -3,7 +3,16 @@
     "allow": [
       "Bash(cd:*)",
       "Bash(ls:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git config:*)",
+      "Read(//c/Users/salim/.ssh/**)",
+      "Bash(git remote:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(find /c/Users/salim/Desktop/cybersec-blog -path ./node_modules -prune -o -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\) -print)",
+      "Bash(npx next:*)"
     ]
   }
 }
