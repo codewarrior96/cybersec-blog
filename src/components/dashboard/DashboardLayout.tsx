@@ -22,16 +22,16 @@ export default function DashboardLayout() {
   if (!mounted) return null;
 
   return (
-    <div className="h-screen bg-[#070b10] text-[#00ff41] font-mono p-3 lg:p-5 flex flex-col relative overflow-hidden select-none">
+    <div className="fixed inset-0 lg:left-[280px] bg-[#070b10] text-[#00ff41] font-mono flex flex-col overflow-hidden select-none" style={{ zIndex: 10 }}>
       
       {/* Outer Corners */}
-      <div className="absolute top-2 left-2 w-5 h-5 border-t-2 border-l-2 border-slate-500/40 pointer-events-none" />
-      <div className="absolute top-2 right-2 w-5 h-5 border-t-2 border-r-2 border-slate-500/40 pointer-events-none" />
-      <div className="absolute bottom-2 left-2 w-5 h-5 border-b-2 border-l-2 border-slate-500/40 pointer-events-none" />
-      <div className="absolute bottom-2 right-2 w-5 h-5 border-b-2 border-r-2 border-slate-500/40 pointer-events-none" />
+      <div className="absolute top-2 left-2 w-5 h-5 border-t-2 border-l-2 border-slate-500/40 pointer-events-none z-20" />
+      <div className="absolute top-2 right-2 w-5 h-5 border-t-2 border-r-2 border-slate-500/40 pointer-events-none z-20" />
+      <div className="absolute bottom-2 left-2 w-5 h-5 border-b-2 border-l-2 border-slate-500/40 pointer-events-none z-20" />
+      <div className="absolute bottom-2 right-2 w-5 h-5 border-b-2 border-r-2 border-slate-500/40 pointer-events-none z-20" />
 
-      {/* Main Container — fills the full height */}
-      <div className="flex flex-col gap-3 w-full h-full max-w-[1800px] mx-auto z-10 relative">
+      {/* Main Container — fills fixed viewport exactly */}
+      <div className="flex flex-col gap-3 w-full h-full p-3 lg:p-4 max-w-[1800px] mx-auto z-10 relative">
 
         {/* SENTINEL OS TOP BAR */}
         <header className="relative w-full shrink-0 z-10 flex flex-nowrap items-center justify-between border border-[#00ff41]/20 bg-[#021014]/80 px-4 py-2.5 rounded-md backdrop-blur-md shadow-[0_0_15px_rgba(0,0,0,0.5)]">
