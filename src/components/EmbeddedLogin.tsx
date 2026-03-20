@@ -18,30 +18,7 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
   const [loading, setLoading] = useState(false)
   const [hexVal, setHexVal] = useState('0000')
   const [hint, setHint] = useState('')
-  const [booting, setBooting] = useState(true)
-  const [bootLog, setBootLog] = useState<string[]>([])
 
-  useEffect(() => {
-    let current = 0
-    const steps = [
-      'INIT SECURE_KERNEL v2.0.26',
-      'ESTABLISHING CONNECTION... TLS 1.3',
-      'BYPASSING FIREWALL... [ OK ]',
-      'ACQUIRING BIOMETRICS... [ OK ]',
-      'DECRYPTING GHOST PROTOCOL... [ OK ]',
-      'SYSTEM READY.'
-    ]
-    const interval = setInterval(() => {
-      if (current < steps.length) {
-        setBootLog(prev => [...prev, steps[current]])
-        current++
-      } else {
-        clearInterval(interval)
-        setTimeout(() => setBooting(false), 500)
-      }
-    }, 280)
-    return () => clearInterval(interval)
-  }, [])
 
   useEffect(() => {
     let alive = true
@@ -85,20 +62,6 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
     }
   }
 
-  if (booting) {
-    return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#020502', color: '#00ff41', fontFamily: 'monospace', padding: '2rem', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', paddingBottom: '4rem' }}>
-        {bootLog.map((log, i) => (
-          <div key={i} style={{ fontSize: '0.85rem', marginBottom: '0.6rem', textShadow: '0 0 6px rgba(0,255,65,0.7)', opacity: 0.9 }}>
-            {'>'} {log}
-          </div>
-        ))}
-        <div style={{ fontSize: '0.85rem', marginTop: '0.5rem', animation: 'statusBlink 1s step-end infinite', textShadow: '0 0 6px rgba(0,255,65,0.8)' }}>
-          {'>'} █
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden', backgroundColor: '#000' }}>
