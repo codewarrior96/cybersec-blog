@@ -22,7 +22,7 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
   useEffect(() => {
     let alive = true
     const check = async () => {
-      const session = await getAuthSession(true)
+      const session = await getAuthSession(false)
       if (alive && session.authenticated) {
         window.location.href = redirectTo
       }

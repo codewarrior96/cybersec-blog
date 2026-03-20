@@ -37,7 +37,6 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         return
       }
       onClose()
-      window.location.reload()
     } finally {
       setLoading(false)
     }

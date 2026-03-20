@@ -1,75 +1,11 @@
-'use client'
+import { cookies } from 'next/headers'
+import { getServerSessionFromCookies } from '@/lib/auth-server'
+import HomePageClient from '@/components/HomePageClient'
 
-import React, { useEffect, useState } from 'react'
-import EmbeddedLogin from '@/components/EmbeddedLogin'
-import SOCDashboard from '@/components/SOCDashboard'
-import type { PostMeta } from '@/components/SOCDashboard'
-import { useAuthStatus } from '@/lib/auth-client'
+export default async function HomePage() {
+  const cookieStore = cookies()
+  const session = await getServerSessionFromCookies(cookieStore)
+  const initialAuth = Boolean(session)
 
-interface EBProps {
-  children: React.ReactNode
-  fallback: React.ReactNode
-}
-
-interface EBState {
-  hasError: boolean
-  error: Error | null
-}
-
-class ErrorBoundary extends React.Component<EBProps, EBState> {
-  constructor(props: EBProps) {
-    super(props)
-    this.state = { hasError: false, error: null }
-  }
-
-  static getDerivedStateFromError(error: Error): EBState {
-    return { hasError: true, error }
-  }
-
-  render() {
-    if (this.state.hasError) {
-      console.error('SOC Dashboard crashed:', this.state.error)
-      return this.props.fallback
-    }
-    return this.props.children
-  }
-}
-
-export default function HomePage() {
-  const authStatus = useAuthStatus()
-  const [posts, setPosts] = useState<PostMeta[]>([])
-
-  useEffect(() => {
-    if (authStatus !== true) {
-      setPosts([])
-      return
-    }
-
-    fetch('/api/posts')
-      .then((response) => response.json())
-      .then((payload: unknown) => {
-        if (Array.isArray(payload)) {
-          setPosts(payload as PostMeta[])
-        } else if (payload && typeof payload === 'object' && 'posts' in payload) {
-          setPosts((payload as { posts: PostMeta[] }).posts ?? [])
-        }
-      })
-      .catch(() => {})
-  }, [authStatus])
-
-  if (authStatus) {
-    return (
-      <ErrorBoundary
-        fallback={
-          <div style={{ color: 'red', padding: '20px', fontFamily: 'monospace' }}>
-            SOC Dashboard Error - Check Console
-          </div>
-        }
-      >
-        <SOCDashboard posts={posts} />
-      </ErrorBoundary>
-    )
-  }
-
-  return <EmbeddedLogin />
+  return <HomePageClient initialAuth={initialAuth} />
 }
