@@ -152,20 +152,19 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
       )}
 
       <aside
-        className={`flex transition-transform duration-300 ${
+        className={`flex flex-col fixed z-50 transition-transform duration-300 ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
         style={{
-          position: 'fixed',
           left: 0,
           top: 0,
-          height: '100vh',
+          bottom: 0,
+          height: '100dvh',
           width: 280,
-          zIndex: 50,
-          flexDirection: 'column',
-          overflow: 'hidden',
           background: '#070710',
           borderRight: '1px solid #1a2a1a',
+          overflowY: 'auto',
+          overflowX: 'hidden',
         }}
       >
       <div style={{ padding: '20px 16px', borderBottom: '1px solid #1a2a1a' }}>
