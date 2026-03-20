@@ -94,20 +94,17 @@ export default function SystemMonitorWidget() {
         {/* MEMORY USAGE */}
         <div className="flex-[0.8] flex flex-col relative group mt-1 border border-[#00ff41]/20 rounded p-2 bg-[#021a20]/40">
           <div className="flex justify-between items-center mb-2 z-10">
-            <span className="text-[11px] lg:text-xs font-bold text-slate-300 tracking-widest group-hover:text-white transition-colors">MEMORY USAGE</span>
+            <span className="text-[11px] lg:text-xs font-bold text-slate-300 tracking-widest">MEMORY USAGE</span>
             <span className="text-xs lg:text-sm font-bold text-slate-200">72%</span>
           </div>
-          <div className="flex-1 w-full relative flex pr-1">
-            <div className="flex flex-col justify-between text-[8px] text-slate-500 pr-1 pb-4">
-              <span>100%</span><span>72%</span><span>50%</span><span>25%</span><span>0</span>
+          {/* Full-width horizontal bar matching target */}
+          <div className="flex-1 flex flex-col justify-center gap-1">
+            <div className="relative w-full h-6 bg-[#021a20] border border-cyan-500/30 rounded-sm overflow-hidden">
+              <div className="absolute top-0 left-0 h-full w-[72%] bg-gradient-to-r from-cyan-900/80 via-cyan-700/90 to-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.5)]" />
+              <div className="absolute top-0 bottom-0 w-0.5 bg-cyan-200 left-[72%] shadow-[0_0_6px_rgba(34,211,238,0.9)] animate-pulse" />
             </div>
-            <div className="flex-1 relative w-full h-[60%] my-auto border-l border-b border-cyan-500/30">
-               <div className="absolute top-0 left-0 bottom-0 w-[72%] bg-gradient-to-r from-cyan-900 to-cyan-500 opacity-80" />
-               <div className="absolute top-0 bottom-0 w-0.5 bg-cyan-300 left-[72%] shadow-[0_0_8px_cyan]" />
-               
-               <div className="absolute -bottom-4 left-0 w-full flex justify-between text-[8px] text-slate-500 px-1">
-                  <span>0</span><span>50</span><span>100</span><span>150</span><span>200</span><span>300</span>
-               </div>
+            <div className="flex justify-between text-[8px] text-slate-500 px-0.5">
+              <span>0</span><span>50</span><span>100</span><span>150</span><span>200</span><span>300</span>
             </div>
           </div>
         </div>

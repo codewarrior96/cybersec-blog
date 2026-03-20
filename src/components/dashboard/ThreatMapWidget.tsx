@@ -26,8 +26,9 @@ export default function ThreatMapWidget() {
                 <image href="/world.svg" x="0" y="0" width="1000" height="500" />
               </mask>
             </defs>
-            {/* Landmass */}
-            <rect x="0" y="0" width="1000" height="500" fill="#182e2c" mask="url(#world-map-mask-tm)" opacity="0.9" />
+            {/* Landmass — bright teal-green, clearly visible */}
+            <rect x="0" y="0" width="1000" height="500" fill="#1e4a38" mask="url(#world-map-mask-tm)" opacity="1" />
+            <rect x="0" y="0" width="1000" height="500" fill="#22d3ee" mask="url(#world-map-mask-tm)" opacity="0.06" />
 
             {/* Hub to Moscow */}
             <path d="M 480 200 Q 530 140 590 160" stroke="rgba(239, 68, 68, 0.7)" strokeWidth="1.5" fill="none" className="animate-pulse" />

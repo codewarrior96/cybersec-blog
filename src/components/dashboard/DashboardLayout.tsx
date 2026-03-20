@@ -126,25 +126,38 @@ export default function DashboardLayout() {
             <div className="flex-1 min-h-0 flex items-center justify-center relative overflow-hidden">
               {/* Mini world map using SVG mask */}
               <div className="w-full h-full relative flex items-center justify-center">
-                <svg viewBox="0 0 600 300" className="w-full h-full opacity-80" preserveAspectRatio="xMidYMid meet">
+                <svg viewBox="0 0 600 300" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
                   <defs>
                     <mask id="geo-mask">
                       <image href="/world.svg" x="0" y="0" width="600" height="300" />
                     </mask>
                   </defs>
-                  <rect x="0" y="0" width="600" height="300" fill="#0d3030" mask="url(#geo-mask)" />
-                  {/* Threat blips */}
-                  <circle cx="160" cy="130" r="4" fill="#ef4444" className="animate-pulse" />
-                  <circle cx="160" cy="130" r="10" fill="none" stroke="#ef4444" strokeWidth="1" opacity="0.5" className="animate-ping" />
-                  <circle cx="350" cy="110" r="3" fill="#ef4444" className="animate-pulse" />
-                  <circle cx="450" cy="120" r="5" fill="#ef4444" className="animate-pulse" style={{animationDelay:'0.4s'}} />
-                  <circle cx="450" cy="120" r="12" fill="none" stroke="#ef4444" strokeWidth="1" opacity="0.4" className="animate-ping" />
-                  <circle cx="280" cy="155" r="3" fill="#22d3ee" />
-                  <circle cx="315" cy="185" r="3" fill="#22d3ee" className="animate-pulse" />
+                  {/* Bright teal landmass — highly visible */}
+                  <rect x="0" y="0" width="600" height="300" fill="#1a4a3a" mask="url(#geo-mask)" opacity="1" />
+                  <rect x="0" y="0" width="600" height="300" fill="#22d3ee" mask="url(#geo-mask)" opacity="0.08" />
+                  {/* Threat blips — spread globally */}
+                  {/* Europe */}
+                  <circle cx="295" cy="108" r="3" fill="#ef4444" className="animate-pulse" />
+                  {/* US East */}
+                  <circle cx="148" cy="118" r="5" fill="#ef4444" className="animate-pulse" />
+                  <circle cx="148" cy="118" r="10" fill="none" stroke="#ef4444" strokeWidth="1" opacity="0.5" className="animate-ping" />
+                  {/* Russia */}
+                  <circle cx="370" cy="88" r="4" fill="#ef4444" className="animate-pulse" style={{animationDelay:'0.5s'}} />
+                  <circle cx="370" cy="88" r="9" fill="none" stroke="#ef4444" strokeWidth="1" opacity="0.4" className="animate-ping" style={{animationDelay:'0.5s'}} />
+                  {/* China */}
+                  <circle cx="445" cy="122" r="5" fill="#ef4444" className="animate-pulse" style={{animationDelay:'0.3s'}} />
+                  <circle cx="445" cy="122" r="11" fill="none" stroke="#ef4444" strokeWidth="0.8" opacity="0.35" className="animate-ping" />
+                  {/* Brazil */}
+                  <circle cx="190" cy="198" r="3" fill="#22d3ee" className="animate-pulse" />
+                  {/* South Africa */}
+                  <circle cx="308" cy="218" r="3" fill="#22d3ee" style={{animationDelay:'0.7s'}} />
+                  {/* India */}
+                  <circle cx="400" cy="152" r="3" fill="#22d3ee" className="animate-pulse" style={{animationDelay:'0.2s'}} />
                   {/* Connection arcs */}
-                  <path d="M 280 145 Q 315 130 350 110" stroke="rgba(239,68,68,0.4)" strokeWidth="1" fill="none" />
-                  <path d="M 280 145 Q 365 100 450 120" stroke="rgba(239,68,68,0.4)" strokeWidth="1" fill="none" />
-                  <path d="M 280 145 Q 220 120 160 130" stroke="rgba(34,211,238,0.4)" strokeWidth="1" fill="none" />
+                  <path d="M 295 108 Q 330 95 370 88" stroke="rgba(239,68,68,0.5)" strokeWidth="0.8" fill="none" />
+                  <path d="M 295 108 Q 370 95 445 122" stroke="rgba(239,68,68,0.5)" strokeWidth="0.8" fill="none" />
+                  <path d="M 295 108 Q 220 112 148 118" stroke="rgba(34,211,238,0.5)" strokeWidth="0.8" fill="none" />
+                  <path d="M 295 108 Q 245 155 190 198" stroke="rgba(34,211,238,0.3)" strokeWidth="0.7" fill="none" />
                 </svg>
               </div>
             </div>
