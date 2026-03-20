@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import MatrixRain from '@/components/MatrixRain'
 import { getAuthSession, loginWithPassword } from '@/lib/auth-client'
-import Logo from '@/components/Logo'
 
 interface EmbeddedLoginProps {
   redirectTo?: string
@@ -170,8 +169,34 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
           border-color: rgba(0,255,65,0.6);
           box-shadow: 0 0 15px rgba(0,255,65,0.1);
         }
+        @keyframes gridMove {
+          0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
+          100% { transform: perspective(500px) rotateX(60deg) translateY(50px); }
+        }
+        @keyframes slowGlow {
+          0%,100% { opacity: 0.15; box-shadow: 0 0 40px rgba(0,255,65,0.2); }
+          50% { opacity: 0.4; box-shadow: 0 0 80px rgba(0,255,65,0.5); }
+        }
       `}</style>
 
+      {/* 1. Deep space/void backdrop */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0, background: 'radial-gradient(circle at 50% 40%, #001206 0%, #000000 70%)' }} />
+
+      {/* 2. Cyberpunk Perspective Grid Base */}
+      <div 
+        style={{ 
+          position: 'absolute', 
+          bottom: '-10%', left: '-50%', right: '-50%', height: '80%',
+          zIndex: 0,
+          background: 'linear-gradient(transparent 65%, rgba(0,255,65,0.15) 67%, transparent 70%), linear-gradient(90deg, transparent 48%, rgba(0,255,65,0.08) 50%, transparent 52%)',
+          backgroundSize: '100% 50px, 50px 100%',
+          animation: 'gridMove 5s linear infinite',
+          opacity: 0.5,
+          pointerEvents: 'none'
+        }} 
+      />
+
+      {/* 3. Original Hacker Image with cinematic entrance and blend */}
       <img
         src="/hacker.jpg"
         alt=""
@@ -179,39 +204,57 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
           position: 'absolute',
           bottom: 0,
           left: '50%',
-          transform: visible ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(90%)',
-          transition: 'transform 1.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          transform: visible ? 'translateX(-50%) translateY(0) scale(1.03)' : 'translateX(-50%) translateY(40%) scale(0.95)',
+          transition: 'transform 1.8s cubic-bezier(0.16, 1, 0.3, 1), filter 1.8s',
+          filter: visible ? 'contrast(1.15) brightness(0.8) drop-shadow(0 -10px 40px rgba(0,255,65,0.15))' : 'brightness(0)',
           width: '100%',
-          maxWidth: 720,
-          height: '94vh',
+          maxWidth: 950,
+          height: '100vh',
           objectFit: 'cover',
           objectPosition: 'top center',
           zIndex: 1,
+          opacity: 0.65,
+          mixBlendMode: 'lighten'
         }}
       />
 
+      {/* 4. Deep vignette and shadow gradient to wrap the glowing elements */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
           zIndex: 2,
           pointerEvents: 'none',
-          background:
-            'linear-gradient(to top, rgba(0,0,0,0.985) 0%, rgba(0,0,0,0.2) 45%, rgba(0,0,0,0.85) 100%), linear-gradient(to right, rgba(0,0,0,0.65) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.65) 100%)',
+          background: 'radial-gradient(ellipse at 50% 30%, transparent 20%, rgba(0,0,0,0.85) 65%, #000 100%), linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.95) 90%, #000 100%)',
         }}
       />
 
-      <div style={{ position: 'absolute', inset: 0, zIndex: 3, opacity: 0.17, pointerEvents: 'none' }}>
+      {/* 5. Central glowing aurora radiating from behind the skull */}
+      <div 
+        style={{
+          position: 'absolute', top: '25%', left: '50%', transform: 'translate(-50%, -50%)',
+          width: '45vw', height: '45vw', borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(0,255,65,0.3) 0%, transparent 60%)',
+          zIndex: 2, pointerEvents: 'none',
+          animation: 'slowGlow 5s ease-in-out infinite',
+          mixBlendMode: 'screen'
+        }}
+      />
+
+      {/* 6. Enriched Matrix Rain */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 3, opacity: 0.35, pointerEvents: 'none', mixBlendMode: 'screen', filter: 'blur(0.5px)' }}>
         <MatrixRain />
       </div>
 
+      {/* 7. Advanced CRT overlay with scanlines and monitor shadow */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
           zIndex: 4,
           pointerEvents: 'none',
-          background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.3) 3px, rgba(0,0,0,0.3) 4px)',
+          background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.03) 2px, rgba(0,0,0,0.1) 4px)',
+          boxShadow: 'inset 0 0 120px rgba(0,0,0,0.95)',
         }}
       />
 
@@ -271,14 +314,20 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
               position: 'absolute',
               inset: 0,
               borderRadius: '9999px',
-              border: '2px solid rgba(0,255,65,0.4)',
-              boxShadow: '0 0 15px rgba(0,255,65,0.2) inset'
+              border: '2px solid #00ff41',
             }}
           />
-          {/* Replaced static skull with our premium interactive Logo */}
-          <div style={{ transform: 'scale(2.5)', animation: 'skullFloat 3s ease-in-out infinite' }}>
-            <Logo />
-          </div>
+          <img
+            src="/skull.jpg"
+            alt="skull"
+            style={{
+              width: '6.5rem',
+              height: '6.5rem',
+              borderRadius: '9999px',
+              objectFit: 'cover',
+              animation: 'skullFloat 3s ease-in-out infinite',
+            }}
+          />
         </div>
         <p
           style={{
