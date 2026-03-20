@@ -13,7 +13,6 @@ const navLinks = [
   { href: '/cve-radar',        label: '~/cve-radar'    },
   { href: '/breach-timeline',  label: '~/timeline'     },
   { href: '/about',            label: 'Hakkımda'       },
-  { href: '/dashboard',        label: '#/dashboard'    },
 ];
 
 interface HeaderProps {

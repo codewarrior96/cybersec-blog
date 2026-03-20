@@ -37,6 +37,7 @@ const navItems = [
   { label: '~/timeline', href: '/breach-timeline' },
   { label: '~/roadmap', href: '/roadmap' },
   { label: '~/about', href: '/about' },
+  { label: '#/dashboard', href: '/dashboard' },
 ]
 
 interface OperatorSidebarProps {
