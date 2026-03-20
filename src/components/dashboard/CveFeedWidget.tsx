@@ -5,6 +5,9 @@ const mockData = [
   { level: 'CRITICAL', id: '1456', status: 'GLOWING', host: 'CVE-2023-1456', desc: 'RED', score: '9.8', time: '14:02:11', color: 'text-red-500', border: 'border-red-500/50', shadow: 'shadow-[inset_4px_0_0_rgba(239,68,68,1)]', pill: 'border-red-500/80 text-red-500 bg-red-500/10' },
   { level: 'HIGH', id: '1082', status: 'GLOWING', host: 'CVE-2024-0987', desc: 'BADGE', score: '8.5', time: '14:00:05', color: 'text-orange-400', border: 'border-orange-500/50', shadow: 'shadow-[inset_4px_0_0_rgba(251,146,60,1)]', pill: 'border-orange-500/80 text-orange-400 bg-orange-400/10' },
   { level: 'MEDIUM', id: '932', status: 'YELLOW', host: 'CVE-2022-3112', desc: 'YELLOW', score: '6.1', time: '13:58:30', color: 'text-yellow-400', border: 'border-yellow-400/50', shadow: 'shadow-[inset_4px_0_0_rgba(250,204,21,1)]', pill: 'border-yellow-400/80 text-yellow-400 bg-yellow-400/10' },
+  { level: 'LOW', id: '1012', status: 'STABLE', host: 'CVE-2021-0023', desc: 'PATCH', score: '4.5', time: '13:50:12', color: 'text-green-400', border: 'border-green-500/40', shadow: 'shadow-[inset_4px_0_0_#22c55e]', pill: 'border-green-500/70 text-green-400 bg-green-500/10' },
+  { level: 'MEDIUM', id: '0877', status: 'YELLOW', host: 'CVE-2022-8839', desc: 'RESOLVED', score: '5.8', time: '13:42:05', color: 'text-yellow-400', border: 'border-yellow-400/40', shadow: 'shadow-[inset_4px_0_0_#facc15]', pill: 'border-yellow-400/70 text-yellow-400 bg-yellow-400/10' },
+  { level: 'INFO', id: '0612', status: 'NOMINAL', host: 'CVE-2020-9941', desc: 'LOGGED', score: '2.4', time: '13:30:15', color: 'text-slate-400', border: 'border-slate-500/30', shadow: 'shadow-[inset_4px_0_0_#94a3b8]', pill: 'border-slate-500/60 text-slate-400 bg-slate-500/10' },
 ];
 
 export default function CveFeedWidget() {
