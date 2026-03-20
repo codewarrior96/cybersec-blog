@@ -1,116 +1,79 @@
 'use client';
-import React, { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import React from 'react';
 
-interface CveItem {
-  id: string;
-  cvss: number | null;
-  summary: string;
-}
+const mockData = [
+  { level: 'CRITICAL', id: '1456', status: 'GLOWING', host: 'CVE-2023-1456', desc: 'RED', score: '9.8', time: '14:02:11', color: 'text-red-500', border: 'border-red-500/50', shadow: 'shadow-[inset_4px_0_0_rgba(239,68,68,1)]', pill: 'border-red-500/80 text-red-500 bg-red-500/10' },
+  { level: 'HIGH', id: '1082', status: 'GLOWING', host: 'CVE-2024-0987', desc: 'BADGE', score: '8.5', time: '14:00:05', color: 'text-orange-400', border: 'border-orange-500/50', shadow: 'shadow-[inset_4px_0_0_rgba(251,146,60,1)]', pill: 'border-orange-500/80 text-orange-400 bg-orange-400/10' },
+  { level: 'MEDIUM', id: '932', status: 'YELLOW', host: 'CVE-2022-3112', desc: 'YELLOW', score: '6.1', time: '13:58:30', color: 'text-yellow-400', border: 'border-yellow-400/50', shadow: 'shadow-[inset_4px_0_0_rgba(250,204,21,1)]', pill: 'border-yellow-400/80 text-yellow-400 bg-yellow-400/10' },
+];
 
 export default function CveFeedWidget() {
-  const [cves, setCves] = useState<CveItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchCves() {
-      try {
-        const res = await fetch('/api/cve');
-        if (!res.ok) throw new Error('API failed');
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setCves(data.slice(0, 4)); // Only need 4 items to match layout sizing perfectly
-        }
-      } catch (err) {
-        console.error("Failed to fetch CVEs", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchCves();
-  }, []);
-
-  const getStyle = (score: number | null) => {
-    if (score === null) return { level: 'UNKNOWN', color: 'text-slate-400', border: 'border-slate-500/30', bg: 'bg-slate-500/5' };
-    if (score >= 9.0) return { level: 'CRITICAL', color: 'text-red-500', border: 'border-red-500/80', bg: 'bg-red-500/5' };
-    if (score >= 7.0) return { level: 'HIGH', color: 'text-orange-400', border: 'border-orange-500/80', bg: 'bg-orange-500/5' };
-    if (score >= 4.0) return { level: 'MEDIUM', color: 'text-yellow-400', border: 'border-yellow-400/80', bg: 'bg-yellow-400/5' };
-    return { level: 'LOW', color: 'text-cyan-400', border: 'border-cyan-500/80', bg: 'bg-cyan-500/5' };
-  };
 
   return (
-    <div className="h-full flex flex-col text-slate-200 font-mono p-3 lg:p-4">
-      <div className="flex justify-between items-center mb-4 z-10 w-full px-1">
-        <span className="text-[11px] lg:text-sm font-bold tracking-widest uppercase text-slate-200">CVE VULNERABILITIES</span>
+    <div className="h-full flex flex-col font-mono">
+      {/* Header */}
+      <div className="flex justify-between items-center px-4 py-3 border-b border-[#00ff41]/20 z-10 bg-[#021518]/80 text-[#e2e8f0]">
+        <span className="text-[12px] lg:text-sm font-bold tracking-widest uppercase">CVE VULNERABILITIES</span>
         <span className="text-slate-500 tracking-widest text-[10px]">...</span>
       </div>
       
-      <div className="flex-1 w-full overflow-hidden flex flex-col font-medium border border-green-500/10 rounded-sm">
+      <div className="flex-1 w-full overflow-hidden flex flex-col font-medium p-4 bg-[#021a20]/40">
         {/* Table Header */}
-        <div className="grid grid-cols-12 gap-2 text-[9px] lg:text-[11px] text-slate-400 uppercase tracking-widest px-4 py-3 bg-[#00111a]/40 border-b border-green-500/20">
-          <div className="col-span-2">ID</div>
-          <div className="col-span-2">STATUS</div>
-          <div className="col-span-3">HOST</div>
-          <div className="col-span-3">CVE DESCRIPTION</div>
-          <div className="col-span-1 text-center">SCORE</div>
-          <div className="col-span-1 text-right">TIME</div>
+        <div className="grid grid-cols-[1.5fr_1fr_1.5fr_2fr_2fr_1fr_1fr] gap-2 text-[9px] lg:text-[10px] text-slate-400 uppercase tracking-widest px-4 mb-3">
+          <div>ID</div>
+          <div>ID</div>
+          <div>STATUS</div>
+          <div>HOST</div>
+          <div className="text-center">CVE DESCRIPTION</div>
+          <div className="text-center">SCORE</div>
+          <div className="text-right">BADGE</div>
         </div>
 
         {/* Table Body */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-900 scrollbar-track-transparent">
-          {loading && (
-            <div className="flex items-center justify-center h-full text-green-500/50 min-h-[150px]">
-              <Loader2 className="w-6 h-6 animate-spin" />
-            </div>
-          )}
-          
-          {!loading && cves.map((cve, idx) => {
-            const style = getStyle(cve.cvss);
-            const time = new Date().toLocaleTimeString('en-US', {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
-            const mockHosts = ['SHADOW_SRV', 'WEB_NODE_1', 'DB_CLUSTER', 'AUTH_GW'];
-            const host = mockHosts[idx % mockHosts.length];
+        <div className="flex-1 flex flex-col gap-3 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-900 scrollbar-track-transparent">
+          {mockData.map((row, idx) => (
+            <div key={idx} className={`grid grid-cols-[1.5fr_1fr_1.5fr_2fr_2fr_1fr_1fr] gap-2 items-center text-[10px] lg:text-[11px] px-4 py-2.5 rounded-md border ${row.border} bg-[#021114]/80 shadow-sm transition-all group overflow-hidden relative`}>
+              {/* Left Accent Bar using absolute positioning or inset shadow */}
+              <div className={`absolute left-0 top-0 bottom-0 w-1 ${row.color.replace('text-', 'bg-')}`} />
 
-            return (
-              <div key={idx} className={`grid grid-cols-12 gap-2 items-center text-[10px] lg:text-[11px] px-4 py-3 border-b last:border-b-0 border-green-500/10 ${style.bg} hover:bg-[#0a111a] transition-all group`}>
-                
-                {/* ID Badge Instead of Text */}
-                <div className={`col-span-2 font-bold flex items-center`}>
-                   <div className={`px-2 py-0.5 border ${style.border} ${style.color} rounded truncate max-w-[90%] shadow-[inset_0_0_8px_rgba(0,0,0,0.5)]`}>
-                     {style.level}
-                   </div>
-                </div>
+              {/* ID Level */}
+              <div className={`font-bold ${row.color} pl-2 tracking-widest uppercase`}>
+                {row.level}
+              </div>
 
-                {/* Status Indicator */}
-                <div className={`col-span-2 flex items-center gap-1.5 ${style.color}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full bg-current ${cve.cvss && cve.cvss >= 7 ? 'animate-pulse shadow-[0_0_5px_currentColor]' : ''}`} />
-                  GLOWING
-                </div>
+              {/* ID Number */}
+              <div className="text-slate-400 font-mono">
+                {row.id}
+              </div>
 
-                {/* Host Column */}
-                <div className="col-span-3 text-slate-300 font-bold group-hover:text-white transition-colors tracking-wide">
-                  {host}
-                </div>
+              {/* Status */}
+              <div className={`${row.color} font-bold tracking-widest uppercase`}>
+                {row.status}
+              </div>
 
-                {/* Desc + Custom Badge */}
-                <div className="col-span-3 text-slate-400 truncate pr-4 flex items-center gap-2">
-                  <div className={`shrink-0 px-2 py-0.5 rounded-full border ${style.border} group-hover:bg-opacity-20 font-bold text-[8px] tracking-widest text-[#0a1114] ${style.level === 'CRITICAL' || style.level === 'HIGH' ? 'bg-red-500 hover:bg-red-400' : 'bg-cyan-500 hover:bg-cyan-400'} transition-colors`}>
-                    BADGE
-                  </div>
-                  <span className="truncate group-hover:text-slate-300" title={cve.summary}>{cve.summary}</span>
-                </div>
+              {/* Host/CVE ID */}
+              <div className="text-slate-300 font-medium tracking-wide">
+                {row.host}
+              </div>
 
-                {/* Score */}
-                <div className={`col-span-1 text-center font-bold ${style.color} text-xs`}>
-                  {cve.cvss ? cve.cvss.toFixed(1) : '-'}
-                </div>
-
-                {/* Time */}
-                <div className="col-span-1 text-right text-slate-500 font-mono tracking-wider">
-                  {time}
+              {/* Desc/Pill */}
+              <div className="flex justify-center">
+                <div className={`px-6 py-0.5 rounded-full border ${row.pill} font-bold text-[9px] tracking-widest uppercase`}>
+                  {row.desc}
                 </div>
               </div>
-            );
-          })}
+
+              {/* Score */}
+              <div className={`text-center font-bold ${row.color} text-xs`}>
+                {row.score}
+              </div>
+
+              {/* Time/Badge */}
+              <div className="text-right text-slate-400 font-mono tracking-wider">
+                {row.time}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

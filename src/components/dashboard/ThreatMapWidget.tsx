@@ -3,13 +3,15 @@ import React from 'react';
 
 export default function ThreatMapWidget() {
   return (
-    <div className="h-full flex flex-col font-mono relative overflow-hidden group w-full bg-[#070b0e]">
-      <div className="flex justify-between items-center z-20 pb-2 relative px-2">
-        <span className="text-[12px] lg:text-sm font-bold tracking-widest text-slate-200 uppercase drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]">CYBER THREAT MAP</span>
-        <span className="text-[9px] lg:text-[10px] text-slate-400 tracking-widest uppercase">LIVE THREAT DETECTION</span>
+    <div className="absolute inset-0 flex flex-col font-mono relative overflow-hidden group w-full text-slate-200">
+      
+      {/* Header */}
+      <div className="flex justify-between items-center px-4 py-3 border-b border-[#00ff41]/20 z-10 bg-[#021518]/80 absolute top-0 left-0 right-0">
+        <span className="text-[12px] lg:text-sm font-bold tracking-widest uppercase text-[#e2e8f0]">CYBER THREAT MAP</span>
+        <span className="text-slate-500 tracking-widest text-[10px]">LIVE THREAT DETECTION</span>
       </div>
       
-      <div className="flex-1 relative flex items-center justify-center mt-2 w-full h-full bg-[#0a1114] border border-green-500/10 rounded overflow-hidden">
+      <div className="flex-1 relative flex items-center justify-center w-full h-full bg-[#021a20]/40 overflow-hidden pt-12">
         
         {/* Radar Center Glow */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,255,65,0.03)_0%,transparent_70%)] pointer-events-none" />
