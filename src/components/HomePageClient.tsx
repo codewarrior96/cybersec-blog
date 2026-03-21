@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import EmbeddedLogin from '@/components/EmbeddedLogin'
 import DashboardLayout from '@/components/dashboard/DashboardLayout'
-import type { PostMeta } from '@/components/SOCDashboard'
+import type { PostMeta } from '@/lib/dashboard-types'
 import { useAuthStatus } from '@/lib/auth-client'
 
 interface EBProps {

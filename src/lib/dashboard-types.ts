@@ -50,3 +50,12 @@ export interface WorkflowMetrics {
     totalLast24h: number;
   };
 }
+
+export interface PostMeta {
+  slug: string;
+  title: string;
+  date: string;
+  tags?: string[];
+  description?: string;
+  readingTime?: number;
+}
