@@ -136,8 +136,17 @@ export default function DashboardLayout() {
 
       setDisplayedScore(prev => {
         const diff = threatScore - prev;
-        if (Math.abs(diff) < 0.02) return threatScore;
-        return prev + diff * (deltaTime * 0.005);
+        const intensity = threatScore / 10;
+        // Jitter calculates slightly randomly around target
+        // Random micro noise relative to intensity
+        const noise = (Math.random() - 0.5) * 0.4 * (0.5 + intensity);
+        
+        let newScore = prev + diff * (deltaTime * 0.005);
+        if (Math.abs(diff) < 0.05) {
+            newScore = threatScore + noise; // Apply noise continuously when settled
+        }
+        
+        return Math.min(10, Math.max(0, newScore));
       });
 
       setUserXp(prev => {
@@ -222,25 +231,25 @@ export default function DashboardLayout() {
             <div className="w-px h-16 bg-gradient-to-b from-transparent via-[#2a3b4c] to-transparent mx-6 lg:mx-10 z-10" />
 
             {/* Avatar Group */}
-            <div className="flex flex-col items-center justify-center z-10">
-              <div className="relative w-14 h-14 mb-1 shrink-0">
+            <div className="flex flex-col items-center justify-center z-10 w-24">
+              <div className="relative w-16 h-16 shrink-0">
                  {/* Solid cyan glowing ring exactly hugging the avatar */}
                  <div className="absolute inset-0 rounded-full border-[2.5px] border-green-400 shadow-[0_0_15px_#4ade80,inset_0_0_10px_#4ade80] animate-[spin_4s_linear_infinite] border-r-transparent" />
                  <div className="absolute inset-[3px] rounded-full overflow-hidden bg-[#0a1216]">
-                   <img src="/skull.jpg" className="w-full h-full object-cover mix-blend-screen opacity-90" />
+                   <img src="/skull.jpg" className="w-full h-full object-cover mix-blend-screen opacity-90 scale-110" />
                  </div>
               </div>
-              <div className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">
-                OP: <span className="text-white font-bold ml-1">{user?.displayName || 'NOVA_K'}</span>
+              <div className="text-[9px] text-gray-400 uppercase tracking-widest mt-1.5 w-full text-center whitespace-nowrap">
+                OP: <span className="text-white font-bold">{user?.displayName || 'NOVA_K'}</span>
               </div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[8px] text-gray-500 uppercase tracking-wider">XP/Status</span>
+              <div className="flex items-center justify-center w-full gap-2 mt-0.5">
+                <span className="text-[7.5px] text-gray-500 uppercase tracking-wider">XP/Status</span>
                 <div className="flex gap-[2px]">
-                   <div className="w-3 h-1.5 bg-green-400 shadow-[0_0_5px_#4ade80]" />
-                   <div className="w-3 h-1.5 bg-green-400 shadow-[0_0_5px_#4ade80]" />
-                   <div className="w-3 h-1.5 bg-green-400 shadow-[0_0_5px_#4ade80]" />
-                   <div className="w-3 h-1.5 bg-green-400 shadow-[0_0_5px_#4ade80]" />
-                   <div className="w-3 h-1.5 bg-green-900/50" />
+                   <div className="w-2.5 h-1.5 bg-green-400 shadow-[0_0_5px_#4ade80]" />
+                   <div className="w-2.5 h-1.5 bg-green-400 shadow-[0_0_5px_#4ade80]" />
+                   <div className="w-2.5 h-1.5 bg-green-400 shadow-[0_0_5px_#4ade80]" />
+                   <div className="w-2.5 h-1.5 bg-green-400 shadow-[0_0_5px_#4ade80]" />
+                   <div className="w-2.5 h-1.5 bg-green-900/50" />
                 </div>
               </div>
             </div>
@@ -249,15 +258,15 @@ export default function DashboardLayout() {
           {/* CENTER COLUMN: Hero Arc Gauge */}
           <div className="flex-[1.2] lg:flex-[1.5] h-full relative flex items-end justify-center pb-2">
             {/* The giant arc wrapper */}
-            <div className="relative w-[280px] h-[130px] flex items-end justify-center overflow-hidden">
+            <div className="relative w-[300px] h-[130px] flex items-end justify-center overflow-hidden">
               <svg viewBox="0 0 200 100" className="w-full h-full overflow-visible absolute bottom-0 left-0">
                 <defs>
                   <filter id="gauge-red-glow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feGaussianBlur stdDeviation="3.5" result="blur" />
                     <feComposite in="SourceGraphic" in2="blur" operator="over" />
                   </filter>
                   <filter id="gauge-cyan-glow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feGaussianBlur stdDeviation="2.5" result="blur" />
                     <feComposite in="SourceGraphic" in2="blur" operator="over" />
                   </filter>
                   <linearGradient id="cyan-arc-grad" x1="0%" y1="100%" x2="0%" y2="0%">
@@ -266,24 +275,24 @@ export default function DashboardLayout() {
                   </linearGradient>
                 </defs>
                 
-                {/* Lateral thick cyan curved brackets */}
-                <path d="M 15 100 A 85 85 0 0 1 35 30" fill="none" stroke="url(#cyan-arc-grad)" strokeWidth="6" strokeLinecap="round" filter="url(#gauge-cyan-glow)" />
-                <path d="M 185 100 A 85 85 0 0 0 165 30" fill="none" stroke="url(#cyan-arc-grad)" strokeWidth="6" strokeLinecap="round" filter="url(#gauge-cyan-glow)" />
+                {/* Lateral thick cyan curved brackets hugging the arc */}
+                <path d="M 2 100 L 10 100 A 75 75 0 0 1 35 35 L 50 35" fill="none" stroke="url(#cyan-arc-grad)" strokeWidth="3" filter="url(#gauge-cyan-glow)" />
+                <path d="M 198 100 L 190 100 A 75 75 0 0 0 165 35 L 150 35" fill="none" stroke="url(#cyan-arc-grad)" strokeWidth="3" filter="url(#gauge-cyan-glow)" />
                 
                 {/* Subtle track background */}
-                <path d="M 40 100 A 60 60 0 0 1 160 100" fill="none" stroke="#2a3b4c" strokeWidth="20" strokeLinecap="butt" opacity="0.4" />
+                <path d="M 35 100 A 65 65 0 0 1 165 100" fill="none" stroke="#2a3b4c" strokeWidth="20" strokeLinecap="butt" opacity="0.4" />
 
-                {/* Outer dashed gauge line (red) */}
-                <path d="M 35 100 A 65 65 0 0 1 165 100" fill="none" stroke="#ef4444" strokeWidth="2" strokeDasharray="4 6" opacity="0.8" />
+                {/* Outer dashed gauge line (red) tightly hugging */}
+                <path d="M 30 100 A 70 70 0 0 1 170 100" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="3 4" opacity="0.8" />
 
                 {/* Inner solid thick red arc fill! */}
-                <path d="M 40 100 A 60 60 0 0 1 160 100" fill="none" stroke="#ef4444" strokeWidth="20" strokeLinecap="butt" filter="url(#gauge-red-glow)" 
-                  strokeDasharray="188.5" strokeDashoffset={188.5 - ((displayedScore / 10) * 188.5)} 
+                <path d="M 35 100 A 65 65 0 0 1 165 100" fill="none" stroke="#ef4444" strokeWidth="20" strokeLinecap="butt" filter="url(#gauge-red-glow)" 
+                  strokeDasharray="204.2" strokeDashoffset={204.2 - ((displayedScore / 10) * 204.2)} 
                 />
                 
                 {/* The white ticker line at the edge of the fill */}
                 <g transform={`rotate(${-90 + (displayedScore / 10) * 180}, 100, 100)`}>
-                  <line x1="160" y1="100" x2="140" y2="100" stroke="#fff" strokeWidth="3" filter="url(#gauge-red-glow)" />
+                  <line x1="165" y1="100" x2="145" y2="100" stroke="#fff" strokeWidth="3" filter="url(#gauge-red-glow)" />
                 </g>
               </svg>
               
@@ -295,8 +304,8 @@ export default function DashboardLayout() {
                 
                 {/* Large score perfectly aligned on baseline */}
                 <div className="flex items-baseline gap-1 pointer-events-none drop-shadow-[0_0_10px_rgba(0,0,0,0.8)]">
-                  <span className="text-5xl font-bold text-red-500 drop-shadow-[0_0_10px_#ef4444] tracking-tight">{displayedScore.toFixed(1)}</span>
-                  <span className="text-lg font-bold text-red-500/80">/ 10</span>
+                  <span className="text-[56px] font-bold text-red-500 drop-shadow-[0_0_12px_#ef4444] tracking-tighter leading-none">{displayedScore.toFixed(1)}</span>
+                  <span className="text-xl font-bold text-red-600 leading-none">/ 10</span>
                 </div>
                 
                 {/* Warning Triangles exactly like Aether */}
