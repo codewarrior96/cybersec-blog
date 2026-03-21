@@ -179,155 +179,200 @@ export default function DashboardLayout() {
       {/* Main Container — fills fixed viewport perfectly regardless of width */}
       <div className="flex flex-col gap-3 w-full h-full p-4 lg:px-5 lg:py-4 z-10 relative">
 
-        {/* EXACT AETHER SECURITY REPLICA TOP BAR */}
-        <header className="relative w-full shrink-0 z-10 flex flex-nowrap items-center justify-between bg-[#0a1216]/90 border border-cyan-500/20 rounded-2xl px-6 py-3 shadow-[0_10px_40px_rgba(0,0,0,0.8)] overflow-hidden h-[120px] lg:h-[130px]">
+        {/* EXACT AETHER SECURITY REPLICA TOP BAR (PIXEL PERFECT) */}
+        <header className="relative w-full shrink-0 z-10 flex flex-nowrap items-center justify-between bg-[#111A22] rounded-[16px] px-2 py-2 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden h-[120px] border border-[#2a3b4c]">
           
-          {/* Top/Bottom Cyan Edge Lines */}
-          <div className="absolute top-0 left-12 w-48 h-[2px] bg-cyan-400 shadow-[0_0_12px_#22d3ee]" />
-          <div className="absolute bottom-0 left-12 w-48 h-[2px] bg-cyan-400 shadow-[0_0_12px_#22d3ee]" />
-          <div className="absolute top-0 right-12 w-48 h-[2px] bg-cyan-400 shadow-[0_0_12px_#22d3ee]" />
-          <div className="absolute bottom-0 right-12 w-48 h-[2px] bg-cyan-400 shadow-[0_0_12px_#22d3ee]" />
+          {/* Inner glass overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
+          
+          {/* Top/Bottom Cyan Edge Lines (The Chamfered look) */}
+          <div className="absolute top-0 left-8 right-8 h-[1px] bg-cyan-900/50" />
+          <div className="absolute bottom-0 left-8 right-8 h-[1px] bg-cyan-900/50" />
+          
+          <div className="absolute top-0 left-12 w-64 h-[2px] bg-cyan-400 shadow-[0_0_15px_#22d3ee] rounded-b-md" />
+          <div className="absolute bottom-0 left-12 w-64 h-[2px] bg-cyan-400 shadow-[0_0_15px_#22d3ee] rounded-t-md" />
+          <div className="absolute top-0 right-12 w-64 h-[2px] bg-cyan-400 shadow-[0_0_15px_#22d3ee] rounded-b-md" />
+          <div className="absolute bottom-0 right-12 w-64 h-[2px] bg-cyan-400 shadow-[0_0_15px_#22d3ee] rounded-t-md" />
 
-          {/* LEFT COLUMN: Logo & Profile */}
-          <div className="flex-1 flex items-center h-full">
-            {/* Logo */}
-            <div className="flex items-center gap-3 shrink-0">
-              <div 
-                className="w-14 h-14 flex items-center justify-center bg-cyan-500/10 border border-cyan-400/50 relative shadow-[0_0_15px_rgba(6,182,212,0.4)]"
-                style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}
-              >
-                <div className="absolute inset-0 bg-cyan-400/20 blur-md rounded-full animate-pulse" />
-                <Shield className="text-cyan-400 w-8 h-8 drop-shadow-[0_0_8px_#22d3ee] relative z-10" strokeWidth={1.5} />
+          {/* LEFT COLUMN: Logo & Avatar */}
+          <div className="flex-1 flex items-center h-full pl-6 relative">
+            {/* Geometric Background Traces */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 300 120">
+               <path d="M 0 60 L 50 60 L 60 40 L 150 40" fill="none" stroke="#22d3ee" strokeWidth="1" />
+               <path d="M 0 80 L 100 80 L 120 100 L 200 100" fill="none" stroke="#22d3ee" strokeWidth="1" />
+            </svg>
+
+            {/* Logo Group */}
+            <div className="flex items-center gap-4 z-10">
+              <div className="w-14 h-14 relative flex items-center justify-center">
+                <Shield className="w-14 h-14 text-cyan-400 drop-shadow-[0_0_10px_#22d3ee] fill-cyan-950/50" strokeWidth={1} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                   <div className="w-8 h-8 clip-triangle border border-cyan-300 flex items-center justify-center bg-cyan-400/20" style={{ clipPath: 'polygon(50% 10%, 90% 90%, 10% 90%)' }}>
+                     <span className="text-cyan-50 font-bold text-sm drop-shadow-[0_0_5px_#fff] mt-1">C</span>
+                   </div>
+                </div>
               </div>
-              <div className="flex flex-col leading-tight justify-center ml-1">
-                <span className="text-xl md:text-2xl font-bold text-white tracking-widest drop-shadow-[0_0_5px_rgba(255,255,255,0.8)]">CYBERLOGSEC</span>
-                <span className="text-sm text-cyan-400 tracking-[0.3em] font-medium">OS v4.1</span>
+              <div className="flex flex-col justify-center translate-y-[-2px]">
+                <span className="text-2xl font-bold text-white tracking-[0.1em] drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">CYBERLOGSEC</span>
+                <span className="text-xs text-cyan-400 tracking-[0.25em] font-medium -mt-1">OS v4.1</span>
               </div>
             </div>
             
-            {/* Profile */}
-            <div className="flex items-center gap-4 ml-8 xl:ml-12 shrink-0">
-              <div className="relative flex flex-col items-center shrink-0">
-                <div className="relative w-14 h-14 mb-1 shrink-0">
-                   {/* glowing green avatar ring */}
-                   <div className="absolute inset-0 rounded-full border-[2px] border-green-500 shadow-[0_0_12px_#22c55e,inset_0_0_12px_#22c55e] animate-[spin_4s_linear_infinite] border-t-transparent" />
-                   <div className="absolute top-[4px] left-[4px] right-[4px] bottom-[4px] rounded-full overflow-hidden bg-[#00111a] flex items-center justify-center relative z-10">
-                     <User className="w-8 h-8 text-green-900 absolute opacity-50" />
-                     <img src="/skull.jpg" className="w-full h-full object-cover opacity-90 mix-blend-screen relative z-10" />
-                   </div>
-                </div>
-                <div className="text-[9px] text-green-300 uppercase tracking-widest font-semibold mt-1">OP: <span className="text-white">{user?.displayName || 'NOVA_K'}</span></div>
-                <div className="mt-1 flex items-center gap-1.5">
-                  <span className="text-[7px] text-green-500/80">XP/Status</span>
-                  <div className="flex gap-[1px]">
-                    {Array.from({length: 8}).map((_, i) => (
-                       <div key={i} className={`w-2 h-1 ${i < (userLevel % 8) ? 'bg-green-400 shadow-[0_0_4px_#22c55e]' : 'bg-green-900/40'}`} />
-                    ))}
-                  </div>
+            {/* Vertical Divider */}
+            <div className="w-px h-16 bg-gradient-to-b from-transparent via-[#2a3b4c] to-transparent mx-6 lg:mx-10 z-10" />
+
+            {/* Avatar Group */}
+            <div className="flex flex-col items-center justify-center z-10">
+              <div className="relative w-14 h-14 mb-1 shrink-0">
+                 {/* Solid cyan glowing ring exactly hugging the avatar */}
+                 <div className="absolute inset-0 rounded-full border-[2.5px] border-green-400 shadow-[0_0_15px_#4ade80,inset_0_0_10px_#4ade80] animate-[spin_4s_linear_infinite] border-r-transparent" />
+                 <div className="absolute inset-[3px] rounded-full overflow-hidden bg-[#0a1216]">
+                   <img src="/skull.jpg" className="w-full h-full object-cover mix-blend-screen opacity-90" />
+                 </div>
+              </div>
+              <div className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">
+                OP: <span className="text-white font-bold ml-1">{user?.displayName || 'NOVA_K'}</span>
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[8px] text-gray-500 uppercase tracking-wider">XP/Status</span>
+                <div className="flex gap-[2px]">
+                   <div className="w-3 h-1.5 bg-green-400 shadow-[0_0_5px_#4ade80]" />
+                   <div className="w-3 h-1.5 bg-green-400 shadow-[0_0_5px_#4ade80]" />
+                   <div className="w-3 h-1.5 bg-green-400 shadow-[0_0_5px_#4ade80]" />
+                   <div className="w-3 h-1.5 bg-green-400 shadow-[0_0_5px_#4ade80]" />
+                   <div className="w-3 h-1.5 bg-green-900/50" />
                 </div>
               </div>
             </div>
           </div>
 
           {/* CENTER COLUMN: Hero Arc Gauge */}
-          <div className="flex-[1.2] lg:flex-[1.5] flex justify-center items-end h-[140px] relative px-4 pointer-events-none -mt-4">
-            <svg viewBox="0 0 200 120" className="w-full h-full overflow-visible absolute bottom-0">
-              <defs>
-                <filter id="red-glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3.5" result="blur" />
-                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                </filter>
-                <filter id="cyan-glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                </filter>
-                <linearGradient id="gauge-cyan-grad" x1="0%" y1="100%" x2="0%" y2="0%">
-                  <stop offset="0%" stopColor="rgba(34,211,238,0)" />
-                  <stop offset="100%" stopColor="#22d3ee" />
-                </linearGradient>
-              </defs>
+          <div className="flex-[1.2] lg:flex-[1.5] h-full relative flex items-end justify-center pb-2">
+            {/* The giant arc wrapper */}
+            <div className="relative w-[280px] h-[130px] flex items-end justify-center overflow-hidden">
+              <svg viewBox="0 0 200 100" className="w-full h-full overflow-visible absolute bottom-0 left-0">
+                <defs>
+                  <filter id="gauge-red-glow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <filter id="gauge-cyan-glow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <linearGradient id="cyan-arc-grad" x1="0%" y1="100%" x2="0%" y2="0%">
+                    <stop offset="0%" stopColor="transparent" />
+                    <stop offset="100%" stopColor="#22d3ee" />
+                  </linearGradient>
+                </defs>
+                
+                {/* Lateral thick cyan curved brackets */}
+                <path d="M 15 100 A 85 85 0 0 1 35 30" fill="none" stroke="url(#cyan-arc-grad)" strokeWidth="6" strokeLinecap="round" filter="url(#gauge-cyan-glow)" />
+                <path d="M 185 100 A 85 85 0 0 0 165 30" fill="none" stroke="url(#cyan-arc-grad)" strokeWidth="6" strokeLinecap="round" filter="url(#gauge-cyan-glow)" />
+                
+                {/* Subtle track background */}
+                <path d="M 40 100 A 60 60 0 0 1 160 100" fill="none" stroke="#2a3b4c" strokeWidth="20" strokeLinecap="butt" opacity="0.4" />
+
+                {/* Outer dashed gauge line (red) */}
+                <path d="M 35 100 A 65 65 0 0 1 165 100" fill="none" stroke="#ef4444" strokeWidth="2" strokeDasharray="4 6" opacity="0.8" />
+
+                {/* Inner solid thick red arc fill! */}
+                <path d="M 40 100 A 60 60 0 0 1 160 100" fill="none" stroke="#ef4444" strokeWidth="20" strokeLinecap="butt" filter="url(#gauge-red-glow)" 
+                  strokeDasharray="188.5" strokeDashoffset={188.5 - ((displayedScore / 10) * 188.5)} 
+                />
+                
+                {/* The white ticker line at the edge of the fill */}
+                <g transform={`rotate(${-90 + (displayedScore / 10) * 180}, 100, 100)`}>
+                  <line x1="160" y1="100" x2="140" y2="100" stroke="#fff" strokeWidth="3" filter="url(#gauge-red-glow)" />
+                </g>
+              </svg>
               
-              {/* Outer Cyan brackets */}
-              <path d="M 25 110 A 85 85 0 0 1 40 45" fill="none" stroke="url(#gauge-cyan-grad)" strokeWidth="4" filter="url(#cyan-glow)" strokeLinecap="round" />
-              <path d="M 175 110 A 85 85 0 0 0 160 45" fill="none" stroke="url(#gauge-cyan-grad)" strokeWidth="4" filter="url(#cyan-glow)" strokeLinecap="round" />
-              
-              {/* background red arc */}
-              <path d="M 45 110 A 65 65 0 0 1 155 110" fill="none" stroke="rgba(239,68,68,0.15)" strokeWidth="18" />
-              
-              {/* Segmented outer red ring */}
-              <path d="M 40 110 A 70 70 0 0 1 160 110" fill="none" stroke="#ef4444" strokeWidth="2" strokeDasharray="3 4" filter="url(#red-glow)" />
-              
-              {/* Inner dynamic solid red arc - Length ~204 */}
-              <path d="M 45 110 A 65 65 0 0 1 155 110" fill="none" stroke="#ef4444" strokeWidth="18" filter="url(#red-glow)" strokeDasharray="204" strokeDashoffset={204 - ((displayedScore / 10) * 204)} strokeLinecap="butt" />
-              
-              {/* Marker dot on arc end (mapped to same angle) */}
-              <g transform={`rotate(${-90 + (displayedScore / 10) * 180}, 100, 110)`}>
-                <rect x="155" y="103" width="8" height="14" fill="#ffffff" filter="url(#red-glow)" rx="2" />
-              </g>
-            </svg>
-            
-            {/* Center Gauge Text & Status */}
-            <div className="absolute inset-0 flex flex-col items-center justify-end pb-2">
-              <div className="text-[8px] md:text-[9px] text-[#ff6b6b] drop-shadow-[0_0_5px_#ef4444] font-medium tracking-[0.2em] mb-1">GLOBAL THREAT: <span className="text-white font-bold">{threatInfo.text.toUpperCase()}</span></div>
-              <div className="flex items-baseline gap-1 mb-1 relative">
-                <span className="text-4xl md:text-5xl text-red-500 font-bold drop-shadow-[0_0_8px_#ef4444]">{displayedScore.toFixed(1)}</span>
-                <span className="text-sm md:text-base text-red-500/70 font-bold">/ 10</span>
+              {/* Text overlays perfectly positioned */}
+              <div className="absolute inset-0 flex flex-col items-center justify-end pb-[10px] z-10 w-full">
+                <div className="text-[10px] text-gray-300 tracking-[0.2em] font-medium mb-1 drop-shadow-[0_0_5px_rgba(0,0,0,1)]">
+                  GLOBAL THREAT: <span className="text-red-500 font-bold ml-1 drop-shadow-[0_0_5px_#ef4444]">{threatInfo.text.toUpperCase()}</span>
+                </div>
+                
+                {/* Large score perfectly aligned on baseline */}
+                <div className="flex items-baseline gap-1 pointer-events-none drop-shadow-[0_0_10px_rgba(0,0,0,0.8)]">
+                  <span className="text-5xl font-bold text-red-500 drop-shadow-[0_0_10px_#ef4444] tracking-tight">{displayedScore.toFixed(1)}</span>
+                  <span className="text-lg font-bold text-red-500/80">/ 10</span>
+                </div>
+                
+                {/* Warning Triangles exactly like Aether */}
+                <div className="flex gap-2 items-center mt-1 -mb-1">
+                  <AlertTriangle className={`w-3.5 h-3.5 ${displayedScore > 3 ? 'text-red-500 fill-red-500 filter drop-shadow-[0_0_5px_#ef4444]' : 'text-red-900/40 fill-red-900/40'}`} />
+                  <span className="text-red-500/50 text-xs font-bold leading-none -translate-y-[2px]">...</span>
+                  <AlertTriangle className={`w-3.5 h-3.5 ${displayedScore > 6 ? 'text-red-500 fill-red-500 filter drop-shadow-[0_0_5px_#ef4444]' : 'text-red-900/40 fill-red-900/40'}`} />
+                  <span className="text-red-500/50 text-xs font-bold leading-none -translate-y-[2px]">...</span>
+                  <AlertTriangle className={`w-3.5 h-3.5 ${displayedScore > 8 ? 'text-red-500 fill-red-500 filter drop-shadow-[0_0_5px_#ef4444]' : 'text-red-900/40 fill-red-900/40'}`} />
+                </div>
+                
+                <div className="text-[9px] text-gray-400 tracking-widest mt-2 -mb-2">
+                  ALERT STATUS: <span className={displayedScore > 6 ? 'text-red-500 font-bold drop-shadow-[0_0_5px_#ef4444]' : 'text-red-500/80 font-bold'}>{displayedScore > 6 ? 'HIGH' : 'ELEVATED'}</span>
+                </div>
               </div>
-              
-              <div className="flex gap-2">
-                <AlertTriangle className={`w-3.5 h-3.5 ${displayedScore > 3 ? 'text-red-500 fill-red-500 filter drop-shadow-[0_0_5px_#ef4444]' : 'text-red-900/40 fill-red-900/40'}`} />
-                <span className="text-red-500/50 text-[10px] font-bold">- - -</span>
-                <AlertTriangle className={`w-3.5 h-3.5 ${displayedScore > 6 ? 'text-red-500 fill-red-500 filter drop-shadow-[0_0_5px_#ef4444]' : 'text-red-900/40 fill-red-900/40'}`} />
-                <span className="text-red-500/50 text-[10px] font-bold">- - -</span>
-                <AlertTriangle className={`w-3.5 h-3.5 ${displayedScore > 8 ? 'text-red-500 fill-red-500 filter drop-shadow-[0_0_5px_#ef4444]' : 'text-red-900/40 fill-red-900/40'}`} />
-              </div>
-              
-              <div className="text-[8px] md:text-[9px] text-[#a0aec0] tracking-widest mt-1">ALERT STATUS: <span className={displayedScore > 6 ? 'text-red-500 font-bold drop-shadow-[0_0_5px_#ef4444]' : 'text-cyan-400 font-bold'}>{displayedScore > 6 ? 'HIGH' : 'ELEVATED'}</span></div>
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Time & Controls */}
-          <div className="flex-1 flex flex-col justify-between items-end h-full">
-            {/* Top icons */}
-            <div className="flex items-center gap-5 text-cyan-400 mt-1">
-              <Wifi className="w-5 h-5 filter drop-shadow-[0_0_5px_#22d3ee] animate-pulse" />
-              <div className="relative">
-                <Bell className="w-5 h-5 filter drop-shadow-[0_0_5px_#22d3ee]" />
-                <div className="absolute top-0 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_#ef4444] border-2 border-[#0a1216]" />
-              </div>
-              <Settings className="w-5 h-5 text-gray-400 hover:text-white transition-colors cursor-pointer" />
-            </div>
-            
-            {/* Time & User Badge Container */}
-            <div className="flex items-center gap-4 xl:gap-8 mt-2 w-full justify-end">
-              <div className="flex flex-col items-start translate-x-3 shrink-0">
-                <div className="text-3xl md:text-3xl lg:text-4xl text-cyan-50 font-mono tracking-widest drop-shadow-[0_0_8px_rgba(34,211,238,0.4)] whitespace-nowrap">{time.replace(' LOC', '').replace(' UTC', '')} <span className="text-lg text-cyan-200/80">LOC</span></div>
-                <div className="text-[10px] text-[#64748b] tracking-widest mt-0.5 uppercase font-medium">
-                  {new Date().toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}
-                </div>
+          {/* RIGHT COLUMN */}
+          <div className="flex-1 h-full pr-6 flex flex-col justify-between items-end relative py-2 z-10">
+            {/* Abstract Background Trace */}
+            <svg className="absolute top-0 right-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 300 120">
+               <path d="M 300 30 L 250 30 L 230 50 L 100 50" fill="none" stroke="#22d3ee" strokeWidth="1" />
+            </svg>
+
+            <div className="flex justify-between w-full h-full pl-8 z-10">
+              {/* LARGE TIME & DATE */}
+              <div className="flex flex-col justify-center translate-y-[-4px]">
+                 <div className="flex items-baseline gap-2">
+                   <span className="text-4xl lg:text-5xl font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_10px_rgba(255,255,255,0.4)] whitespace-nowrap">
+                     {time.replace(' LOC', '').replace(' UTC', '')}
+                   </span>
+                   <span className="text-lg lg:text-xl font-medium text-cyan-300/80 tracking-widest leading-none">UTC</span>
+                 </div>
+                 <span className="text-[10px] text-gray-400 font-mono tracking-[0.25em] mt-1 ml-1 uppercase">
+                   {new Date().toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}
+                 </span>
               </div>
               
-              <div className="bg-[#121c24] border-l border-b border-t-0 border-r-0 border-cyan-500/30 rounded-bl-xl px-4 py-2 flex items-center justify-between min-w-[150px] shadow-[inset_0_-2px_10px_rgba(0,0,0,0.5)] cursor-pointer hover:bg-[#16222b]">
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-white tracking-widest font-semibold uppercase">{user?.displayName || 'N. KORSAKOVA'}</span>
-                  <span className="text-[9px] text-cyan-400 mt-0.5 tracking-wider font-bold drop-shadow-[0_0_5px_#22d3ee]">ONLINE</span>
+              {/* TOP RIGHT ICONS + USER BADGE */}
+              <div className="flex flex-col items-end justify-between h-full pt-1">
+                
+                {/* Icons */}
+                <div className="flex items-center gap-5 text-cyan-400">
+                  <Wifi className="w-5 h-5 filter drop-shadow-[0_0_8px_#22d3ee] animate-pulse" />
+                  <div className="relative">
+                    <Bell className="w-5 h-5 filter drop-shadow-[0_0_8px_#22d3ee]" />
+                    <div className="absolute top-0 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_8px_#ef4444] border-[1.5px] border-[#111A22]" />
+                  </div>
+                  <Settings className="w-5 h-5 text-gray-400 hover:text-white transition-colors cursor-pointer" />
                 </div>
-                <ChevronDown className="w-4 h-4 text-cyan-500" />
+                
+                {/* User Dropdown Badge */}
+                <div className="bg-[#18232c] border border-gray-600 rounded-lg px-3 py-1.5 flex items-center justify-between min-w-[150px] shadow-[0_4px_10px_rgba(0,0,0,0.5)] cursor-pointer hover:bg-[#1a2833] transition-colors group mt-2">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-gray-300 tracking-widest font-semibold uppercase group-hover:text-white">{user?.displayName || 'N. KORSAKOVA'}</span>
+                    <span className="text-[9px] text-cyan-400 mt-0.5 tracking-[0.2em] font-bold drop-shadow-[0_0_5px_#22d3ee]">ONLINE</span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-cyan-500/70 group-hover:text-cyan-400" />
+                </div>
               </div>
             </div>
 
-            {/* Bottom Status Pills */}
-            <div className="flex items-center gap-2 xl:gap-4 mt-2 mb-1">
-              <div className="border-[1.5px] border-red-500/60 bg-[#2a0e14] rounded-full px-4 py-1.5 text-[9px] text-red-500 font-bold tracking-wider shadow-[0_0_10px_rgba(239,68,68,0.15)] md:px-5">
+            {/* BOTTOM STATUS PILLS */}
+            <div className="flex items-center gap-2 lg:gap-3 absolute bottom-2 right-6">
+              <div className="border border-red-500 bg-[#3a0a10] rounded-full px-3 lg:px-4 py-1 flex items-center justify-center text-[9px] lg:text-[10px] text-red-500 font-bold tracking-widest shadow-[inset_0_0_10px_rgba(239,68,68,0.2)] min-w-[100px] lg:min-w-[120px]">
                 THREATS: {activeAlerts + Math.floor(displayedScore)}
               </div>
-              <div className="border-[1.5px] border-yellow-500/60 bg-[#2a1e0b] rounded-full px-4 py-1.5 text-[9px] text-yellow-500 font-bold tracking-wider shadow-[0_0_10px_rgba(234,179,8,0.15)] md:px-5">
+              <div className="border border-yellow-500 bg-[#3a280a] rounded-full px-3 lg:px-4 py-1 flex items-center justify-center text-[9px] lg:text-[10px] text-yellow-500 font-bold tracking-widest shadow-[inset_0_0_10px_rgba(234,179,8,0.2)] min-w-[100px] lg:min-w-[120px]">
                 WARNINGS: {attacks.length + 12}
               </div>
-              <div className="border-[1.5px] border-cyan-500/60 bg-[#0e212a] rounded-full px-4 py-1.5 text-[9px] text-cyan-400 font-bold tracking-wider shadow-[0_0_10px_rgba(34,211,238,0.15)] md:px-5">
+              <div className="border border-cyan-400 bg-[#0a2333] rounded-full px-3 lg:px-4 py-1 flex items-center justify-center text-[9px] lg:text-[10px] text-cyan-400 font-bold tracking-widest shadow-[inset_0_0_10px_rgba(34,211,238,0.2)] min-w-[100px] lg:min-w-[120px]">
                 SECURED: 852
               </div>
             </div>
+
           </div>
         </header>
 
