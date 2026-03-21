@@ -377,7 +377,7 @@ export default function DashboardLayout() {
               </div>
             </div>
 
-          </div>v>
+          </div>
         </header>
 
         {/* Main Responsive Bento Grid — flex-1 to fill remaining height */}
