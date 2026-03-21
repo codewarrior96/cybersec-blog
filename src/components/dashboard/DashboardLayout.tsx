@@ -137,13 +137,13 @@ export default function DashboardLayout() {
       setDisplayedScore(prev => {
         const diff = threatScore - prev;
         const intensity = threatScore / 10;
-        // Jitter calculates slightly randomly around target
-        // Random micro noise relative to intensity
-        const noise = (Math.random() - 0.5) * 0.4 * (0.5 + intensity);
+        const timeSec = currentTime / 1000;
+        // Smooth sine-based jitter instead of rapid random noise
+        const noise = (Math.sin(timeSec * 3) * 0.5 + Math.sin(timeSec * 7) * 0.5) * 0.25 * (0.3 + intensity);
         
         let newScore = prev + diff * (deltaTime * 0.005);
         if (Math.abs(diff) < 0.05) {
-            newScore = threatScore + noise; // Apply noise continuously when settled
+            newScore = threatScore + noise; // Apply smooth noise continuously when near target
         }
         
         return Math.min(10, Math.max(0, newScore));
@@ -322,67 +322,62 @@ export default function DashboardLayout() {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* RIGHT COLUMN */}
-          <div className="flex-1 h-full pr-6 flex flex-col justify-between items-end relative py-2 z-10">
-            {/* Abstract Background Trace */}
+          </div>          {/* RIGHT COLUMN */}
+          <div className="flex-1 h-full pr-8 flex flex-col justify-center items-end relative py-3 z-10 w-[420px]">
+            {/* Abstract Background Trace right behind icons */}
             <svg className="absolute top-0 right-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 300 120">
                <path d="M 300 30 L 250 30 L 230 50 L 100 50" fill="none" stroke="#22d3ee" strokeWidth="1" />
             </svg>
 
-            <div className="flex justify-between w-full h-full pl-8 z-10">
+            {/* TOP ICONS ROW */}
+            <div className="flex items-center gap-5 text-cyan-400 mb-4 mr-2 relative z-10">
+              <Wifi className="w-5 h-5 filter drop-shadow-[0_0_8px_#22d3ee] animate-pulse" />
+              <div className="relative">
+                <Bell className="w-5 h-5 filter drop-shadow-[0_0_8px_#22d3ee]" />
+                <div className="absolute top-0 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_#ef4444] border-[1.5px] border-[#111A22]" />
+              </div>
+              <Settings className="w-5 h-5 text-gray-400 hover:text-white transition-colors cursor-pointer" />
+            </div>
+
+            {/* MIDDLE ROW: TIME & USER BADGE */}
+            <div className="flex items-center gap-6 z-10 w-full justify-end mb-4">
               {/* LARGE TIME & DATE */}
-              <div className="flex flex-col justify-center translate-y-[-4px]">
+              <div className="flex flex-col justify-center items-start">
                  <div className="flex items-baseline gap-2">
-                   <span className="text-4xl lg:text-5xl font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_10px_rgba(255,255,255,0.4)] whitespace-nowrap">
+                   <span className="text-[40px] font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] whitespace-nowrap leading-none">
                      {time.replace(' LOC', '').replace(' UTC', '')}
                    </span>
-                   <span className="text-lg lg:text-xl font-medium text-cyan-300/80 tracking-widest leading-none">UTC</span>
+                   <span className="text-xl font-medium text-cyan-300/80 tracking-widest leading-none">UTC</span>
                  </div>
-                 <span className="text-[10px] text-gray-400 font-mono tracking-[0.25em] mt-1 ml-1 uppercase">
+                 <span className="text-[10px] text-gray-400 font-mono tracking-[0.2em] mt-1.5 uppercase drop-shadow-[0_0_2px_rgba(0,0,0,1)]">
                    {new Date().toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}
                  </span>
               </div>
               
-              {/* TOP RIGHT ICONS + USER BADGE */}
-              <div className="flex flex-col items-end justify-between h-full pt-1">
-                
-                {/* Icons */}
-                <div className="flex items-center gap-5 text-cyan-400">
-                  <Wifi className="w-5 h-5 filter drop-shadow-[0_0_8px_#22d3ee] animate-pulse" />
-                  <div className="relative">
-                    <Bell className="w-5 h-5 filter drop-shadow-[0_0_8px_#22d3ee]" />
-                    <div className="absolute top-0 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_8px_#ef4444] border-[1.5px] border-[#111A22]" />
-                  </div>
-                  <Settings className="w-5 h-5 text-gray-400 hover:text-white transition-colors cursor-pointer" />
+              {/* User Dropdown Badge */}
+              <div className="bg-[#18232c] border border-gray-600 rounded-lg px-3 py-1.5 flex items-center justify-between min-w-[140px] shadow-[0_4px_10px_rgba(0,0,0,0.5)] cursor-pointer hover:bg-[#1a2833] transition-colors group">
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-gray-300 tracking-widest font-semibold uppercase group-hover:text-white truncate max-w-[90px]">{user?.displayName || 'N. KORSAKOVA'}</span>
+                  <span className="text-[8px] text-cyan-400 mt-0.5 tracking-[0.2em] font-bold drop-shadow-[0_0_5px_#22d3ee]">ONLINE</span>
                 </div>
-                
-                {/* User Dropdown Badge */}
-                <div className="bg-[#18232c] border border-gray-600 rounded-lg px-3 py-1.5 flex items-center justify-between min-w-[150px] shadow-[0_4px_10px_rgba(0,0,0,0.5)] cursor-pointer hover:bg-[#1a2833] transition-colors group mt-2">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] text-gray-300 tracking-widest font-semibold uppercase group-hover:text-white">{user?.displayName || 'N. KORSAKOVA'}</span>
-                    <span className="text-[9px] text-cyan-400 mt-0.5 tracking-[0.2em] font-bold drop-shadow-[0_0_5px_#22d3ee]">ONLINE</span>
-                  </div>
-                  <ChevronDown className="w-4 h-4 text-cyan-500/70 group-hover:text-cyan-400" />
-                </div>
+                <ChevronDown className="w-4 h-4 text-cyan-500/70 group-hover:text-cyan-400" />
               </div>
             </div>
 
             {/* BOTTOM STATUS PILLS */}
-            <div className="flex items-center gap-2 lg:gap-3 absolute bottom-2 right-6">
-              <div className="border border-red-500 bg-[#3a0a10] rounded-full px-3 lg:px-4 py-1 flex items-center justify-center text-[9px] lg:text-[10px] text-red-500 font-bold tracking-widest shadow-[inset_0_0_10px_rgba(239,68,68,0.2)] min-w-[100px] lg:min-w-[120px]">
+            <div className="flex items-center gap-2 lg:gap-3 z-10 justify-end w-full">
+              <div className="border border-red-500/60 bg-[#2a0e14] rounded-full px-4 py-1 flex items-center justify-center text-[9px] text-red-500 font-bold tracking-widest shadow-[inset_0_0_10px_rgba(239,68,68,0.2)]">
                 THREATS: {activeAlerts + Math.floor(displayedScore)}
               </div>
-              <div className="border border-yellow-500 bg-[#3a280a] rounded-full px-3 lg:px-4 py-1 flex items-center justify-center text-[9px] lg:text-[10px] text-yellow-500 font-bold tracking-widest shadow-[inset_0_0_10px_rgba(234,179,8,0.2)] min-w-[100px] lg:min-w-[120px]">
+              <div className="border border-yellow-500/60 bg-[#2a1e0b] rounded-full px-4 py-1 flex items-center justify-center text-[9px] text-yellow-500 font-bold tracking-widest shadow-[inset_0_0_10px_rgba(234,179,8,0.2)]">
                 WARNINGS: {attacks.length + 12}
               </div>
-              <div className="border border-cyan-400 bg-[#0a2333] rounded-full px-3 lg:px-4 py-1 flex items-center justify-center text-[9px] lg:text-[10px] text-cyan-400 font-bold tracking-widest shadow-[inset_0_0_10px_rgba(34,211,238,0.2)] min-w-[100px] lg:min-w-[120px]">
+              <div className="border border-cyan-400/60 bg-[#0e212a] rounded-full px-4 py-1 flex items-center justify-center text-[9px] text-cyan-400 font-bold tracking-widest shadow-[inset_0_0_10px_rgba(34,211,238,0.2)]">
                 SECURED: 852
               </div>
             </div>
 
-          </div>
+          </div>v>
         </header>
 
         {/* Main Responsive Bento Grid — flex-1 to fill remaining height */}
