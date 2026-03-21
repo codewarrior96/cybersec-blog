@@ -191,35 +191,37 @@ export default function DashboardLayout() {
           {/* LEFT COLUMN: Logo & Profile */}
           <div className="flex-1 flex items-center h-full">
             {/* Logo */}
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 relative flex items-center justify-center">
-                <div className="absolute inset-0 bg-cyan-400/20 blur-xl rounded-full" />
-                <Shield className="w-10 h-10 text-cyan-400 drop-shadow-[0_0_8px_#22d3ee] relative z-10" strokeWidth={1.5} />
-                <div className="absolute text-cyan-50 font-bold text-lg drop-shadow-[0_0_5px_#fff] mt-0.5 z-20">A</div>
+            <div className="flex items-center gap-3 shrink-0">
+              <div 
+                className="w-14 h-14 flex items-center justify-center bg-cyan-500/10 border border-cyan-400/50 relative shadow-[0_0_15px_rgba(6,182,212,0.4)]"
+                style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}
+              >
+                <div className="absolute inset-0 bg-cyan-400/20 blur-md rounded-full animate-pulse" />
+                <Shield className="text-cyan-400 w-8 h-8 drop-shadow-[0_0_8px_#22d3ee] relative z-10" strokeWidth={1.5} />
               </div>
-              <div className="flex flex-col leading-tight justify-center">
-                <span className="text-xl md:text-2xl font-bold text-white tracking-widest drop-shadow-[0_0_5px_rgba(255,255,255,0.8)]">AETHER</span>
-                <span className="text-sm text-cyan-400 tracking-[0.2em] font-light">SECURITY</span>
+              <div className="flex flex-col leading-tight justify-center ml-1">
+                <span className="text-xl md:text-2xl font-bold text-white tracking-widest drop-shadow-[0_0_5px_rgba(255,255,255,0.8)]">CYBERLOGSEC</span>
+                <span className="text-sm text-cyan-400 tracking-[0.3em] font-medium">OS v4.1</span>
               </div>
             </div>
             
             {/* Profile */}
-            <div className="flex items-center gap-4 ml-8 xl:ml-12">
-              <div className="relative flex flex-col items-center">
-                <div className="relative w-14 h-14 mb-1">
-                   {/* glowing avatar ring */}
-                   <div className="absolute inset-0 rounded-full border-2 border-cyan-400 shadow-[0_0_10px_#22d3ee,inset_0_0_10px_#22d3ee] animate-[pulse_3s_ease-in-out_infinite]" />
-                   <div className="absolute top-[3px] left-[3px] right-[3px] bottom-[3px] rounded-full overflow-hidden bg-black flex items-center justify-center relative z-10">
-                     <User className="w-8 h-8 text-cyan-900 absolute opacity-50" />
-                     <img src="/skull.jpg" className="w-full h-full object-cover opacity-80 mix-blend-screen relative z-10" />
+            <div className="flex items-center gap-4 ml-8 xl:ml-12 shrink-0">
+              <div className="relative flex flex-col items-center shrink-0">
+                <div className="relative w-14 h-14 mb-1 shrink-0">
+                   {/* glowing green avatar ring */}
+                   <div className="absolute inset-0 rounded-full border-[2px] border-green-500 shadow-[0_0_12px_#22c55e,inset_0_0_12px_#22c55e] animate-[spin_4s_linear_infinite] border-t-transparent" />
+                   <div className="absolute top-[4px] left-[4px] right-[4px] bottom-[4px] rounded-full overflow-hidden bg-[#00111a] flex items-center justify-center relative z-10">
+                     <User className="w-8 h-8 text-green-900 absolute opacity-50" />
+                     <img src="/skull.jpg" className="w-full h-full object-cover opacity-90 mix-blend-screen relative z-10" />
                    </div>
                 </div>
-                <div className="text-[9px] text-cyan-100 uppercase tracking-widest font-semibold mt-1">OP: <span className="text-white">{user?.displayName || 'NOVA_K'}</span></div>
+                <div className="text-[9px] text-green-300 uppercase tracking-widest font-semibold mt-1">OP: <span className="text-white">{user?.displayName || 'NOVA_K'}</span></div>
                 <div className="mt-1 flex items-center gap-1.5">
-                  <span className="text-[7px] text-cyan-500/80">XP/Status</span>
+                  <span className="text-[7px] text-green-500/80">XP/Status</span>
                   <div className="flex gap-[1px]">
                     {Array.from({length: 8}).map((_, i) => (
-                       <div key={i} className={`w-2 h-1 ${i < (userLevel % 8) ? 'bg-cyan-400 shadow-[0_0_4px_#22d3ee]' : 'bg-cyan-900/40'}`} />
+                       <div key={i} className={`w-2 h-1 ${i < (userLevel % 8) ? 'bg-green-400 shadow-[0_0_4px_#22c55e]' : 'bg-green-900/40'}`} />
                     ))}
                   </div>
                 </div>
@@ -298,8 +300,8 @@ export default function DashboardLayout() {
             
             {/* Time & User Badge Container */}
             <div className="flex items-center gap-4 xl:gap-8 mt-2 w-full justify-end">
-              <div className="flex flex-col items-start translate-x-2">
-                <div className="text-3xl md:text-4xl text-cyan-50 font-mono tracking-widest drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]">{time} <span className="text-lg text-cyan-200/80">UTC</span></div>
+              <div className="flex flex-col items-start translate-x-3 shrink-0">
+                <div className="text-3xl md:text-3xl lg:text-4xl text-cyan-50 font-mono tracking-widest drop-shadow-[0_0_8px_rgba(34,211,238,0.4)] whitespace-nowrap">{time.replace(' LOC', '').replace(' UTC', '')} <span className="text-lg text-cyan-200/80">LOC</span></div>
                 <div className="text-[10px] text-[#64748b] tracking-widest mt-0.5 uppercase font-medium">
                   {new Date().toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}
                 </div>
