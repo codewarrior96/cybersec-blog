@@ -13,14 +13,13 @@ Türkçe içerikli bir siber güvenlik blogu ve tam işlevsel bir **Güvenlik Op
 - Portfolio, Roadmap ve Community sayfaları
 - Tam metin blog arama
 
-### SOC Dashboard (Giriş Gerektirir)
-- **Canlı saldırı akışı** — Server-Sent Events (SSE) ile 30 saniyede bir gerçek zamanlı simüle saldırı verisi
-- **Alert yönetimi** — Oluşturma, önceliklendirme (P1–P4), atama, durum takibi, kapatma
-- **3D Tehdit Globu** — Saldırı kaynaklarını dünya haritasında görselleştirme
-- **Metrik paneli** — SLA takibi, analist iş yükü dağılımı, shift snapshot
-- **Audit trail** — Her alert değişikliği tam geçmişiyle kayıt altında
-- **Raporlama** — Olay/tehdit raporu oluşturma, listeleme, silme
-- **Kullanıcı yönetimi** (Admin) — Yeni kullanıcı ekleme, rol atama
+### SOC Dashboard (Anasayfa - Giriş Gerektirir)
+- **Sentinel OS v4.1 Estetiği** — Modern **Bento Grid** mimarisiyle tasarlanmış, karanlık mod (dark theme) ve siber opera estetiği.
+- **Canlı Tehdit Haritası** — Üzerindeki dinamik SVG harita ile dünya genelindeki saldırı akışlarını canlı izleme.
+- **Canlı Saldırı Akışı** — Server-Sent Events (SSE) ile anlık gerçek zamanlı simüle edilen log bildirimleri.
+- **Alert Yönetimi** — Oluşturma, önceliklendirme (P1–P4), atama ve durum takibi.
+- **Sistem İzleme** — Volatile CPU, Network ve Memory yükünü dinamik grafiklerle takip etme.
+- **Gelişmiş Veri Entegrasyonu** — Canlı API'lerden veri çekilerek beslenen dinamik metrik widgetları.
 
 ### Rol Tabanlı Erişim Kontrolü
 | Rol | Yetkiler |
@@ -142,8 +141,13 @@ cybersec-blog/
 │   │   ├── roadmap/
 │   │   └── community/
 │   ├── components/
-│   │   ├── SOCDashboard.tsx   # Ana dashboard bileşeni
-│   │   ├── ThreatGlobe.tsx    # 3D saldırı haritası
+│   │   ├── dashboard/         # Yeni Sentinel Dashboard Dosyaları
+│   │   │   ├── DashboardLayout.tsx
+│   │   │   ├── CveFeedWidget.tsx
+│   │   │   ├── ThreatMapWidget.tsx
+│   │   │   ├── TerminalLogWidget.tsx
+│   │   │   └── SystemMonitorWidget.tsx
+│   │   ├── ThreatGlobe.tsx    # Ekstra 3D saldırı haritası
 │   │   ├── ThreatFeed.tsx     # Tehdit akışı
 │   │   ├── OperatorSidebar.tsx
 │   │   ├── MatrixRain.tsx     # Matrix animasyonu
