@@ -179,54 +179,59 @@ export default function DashboardLayout() {
       {/* Main Container — fills fixed viewport perfectly regardless of width */}
       <div className="flex flex-col gap-3 w-full h-full p-4 lg:px-5 lg:py-4 z-10 relative">
 
-        {/* SENTINEL OS TOP BAR */}
-        <header className="relative w-full shrink-0 z-10 flex flex-nowrap items-center justify-between border border-[#00ff41]/25 bg-[#021216]/90 px-5 py-3 rounded-md backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.6)]">
-          <div className="flex items-center gap-3 lg:gap-5 shrink-0">
-            {/* Logo */}
-            <div className="flex items-center gap-3">
+        {/* SENTINEL OS V2 - ULTRA PREMIUM TOP BAR */}
+        <header className="relative w-full shrink-0 z-10 flex flex-nowrap items-center justify-between border border-cyan-500/30 bg-gradient-to-r from-[#030b14]/80 via-[#021014]/80 to-[#030b14]/80 px-6 py-4 rounded-xl backdrop-blur-xl shadow-[0_0_30px_rgba(6,182,212,0.15)]">
+          <div className="flex items-center gap-4 lg:gap-8 shrink-0">
+            {/* Logo Section */}
+            <div className="flex items-center gap-4">
               <div 
-                className="w-11 h-11 flex items-center justify-center bg-[#00ff41]/10 border border-[#00ff41]/50 relative shadow-[0_0_10px_rgba(0,255,65,0.2)]"
+                className="w-12 h-12 flex items-center justify-center bg-cyan-500/10 border border-cyan-400/50 relative shadow-[0_0_15px_rgba(6,182,212,0.4)]"
                 style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}
               >
-                <Shield className="text-[#00ff41] w-5 h-5 drop-shadow-[0_0_3px_#00ff41]" />
+                <div className="absolute inset-0 bg-cyan-400/20 blur-md rounded-full animate-pulse" />
+                <Shield className="text-cyan-400 w-6 h-6 drop-shadow-[0_0_8px_#22d3ee] relative z-10" />
               </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-bold tracking-widest text-[#e2e8f0] glow-cyan">SENTINEL OS <span className="text-xs font-normal text-[#00ff41] opacity-90">v4.1</span></span>
-                <span className="text-[9px] text-[#00ff41]/60 tracking-widest uppercase">RANK: SHADOW_NODE</span>
+              <div className="flex flex-col justify-center">
+                <span className="text-sm md:text-base font-extrabold tracking-widest text-[#e2e8f0] drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]">SENTINEL OS <span className="text-xs md:text-sm font-medium text-cyan-400 opacity-90 drop-shadow-[0_0_5px_#22d3ee]">v4.1</span></span>
+                <span className="text-[10px] text-cyan-500/80 tracking-widest uppercase font-semibold mt-0.5">RANK: SHADOW_NODE</span>
               </div>
             </div>
             
-            <div className="w-px h-9 bg-[#00ff41]/20 mx-1 hidden sm:block" />
+            <div className="w-px h-10 bg-cyan-500/30 mx-2 hidden sm:block shadow-[0_0_10px_#22d3ee]" />
 
-            {/* Profile */}
-            <div className="hidden sm:flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full border border-cyan-500/60 overflow-hidden flex items-center justify-center bg-[#00111a] shadow-[0_0_10px_rgba(6,182,212,0.4)]">
-                <img src="/skull.jpg" alt="operator avatar" className="w-full h-full object-cover rounded-full" />
+            {/* Profile Section */}
+            <div className="hidden sm:flex items-center gap-3">
+              <div className="relative w-11 h-11 flex items-center justify-center">
+                <div className="absolute inset-0 border-[2px] border-cyan-400/80 rounded-full animate-[spin_4s_linear_infinite] border-t-transparent shadow-[0_0_10px_#22d3ee]" />
+                <div className="w-9 h-9 rounded-full overflow-hidden border border-cyan-900 bg-[#00111a] shadow-[inset_0_0_10px_rgba(6,182,212,0.5)] relative z-10">
+                  <img src="/skull.jpg" alt="operator avatar" className="w-full h-full object-cover rounded-full mix-blend-screen opacity-90" />
+                </div>
               </div>
-              <div className="flex flex-col w-26">
-                <span className="text-[11px] font-bold text-cyan-400 tracking-wider uppercase truncate max-w-[100px]">{user?.displayName || 'SHADOW_NODE'}</span>
-                <span className="text-[9px] text-cyan-500/70 mb-0.5">Level {userLevel}</span>
-                <div className="w-full h-1.5 bg-black border border-cyan-900/40 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 shadow-[0_0_5px_#22d3ee]" style={{ width: `${userXp}%` }} />
+              <div className="flex flex-col w-28 justify-center">
+                <span className="text-xs font-bold text-cyan-300 tracking-wider uppercase truncate drop-shadow-[0_0_3px_#22d3ee]">{user?.displayName || 'SHADOW_NODE'}</span>
+                <span className="text-[10px] text-cyan-500/90 mb-1 font-medium">Level <span className="text-cyan-200">{userLevel}</span></span>
+                <div className="relative w-full h-1.5 bg-[#010a0f] border border-cyan-900/50 rounded-full overflow-hidden shadow-[inset_0_0_3px_#000]">
+                  <div className="absolute inset-0 bg-cyan-400/20 blur-sm" style={{ width: `${userXp}%` }} />
+                  <div className="h-full bg-gradient-to-r from-cyan-600 via-cyan-400 to-cyan-200 rounded-full relative z-10" style={{ width: `${userXp}%`, boxShadow: '0 0 8px #22d3ee, 0 0 2px #fff' }} />
                 </div>
               </div>
             </div>
 
-            <div className="w-px h-8 bg-[#00ff41]/20 mx-1 hidden xl:block" />
+            <div className="w-px h-10 bg-cyan-500/30 mx-2 hidden xl:block shadow-[0_0_10px_#22d3ee]" />
 
-            {/* Threat Level */}
-            <div className="hidden xl:flex items-center gap-4">
-              <div className="flex flex-col">
-                <div className="text-[10px] text-slate-300 font-medium tracking-widest mb-1.5 flex justify-between items-center">
-                  <span>GLOBAL THREAT LEVEL: <span className={`font-bold ${threatInfo.color} ${threatInfo.glow}`}>{threatInfo.text} ({displayedScore.toFixed(1)})</span></span>
+            {/* Threat Level Section */}
+            <div className="hidden xl:flex items-center gap-5">
+              <div className="flex flex-col justify-center">
+                <div className="text-[10px] md:text-[11px] text-cyan-100/70 font-bold tracking-[0.2em] mb-2 flex justify-between items-center">
+                  <span>GLOBAL THREAT LEVEL: <span className={`font-extrabold ml-1 ${threatInfo.color} ${threatInfo.glow} drop-shadow-[0_0_8px_currentColor]`}>{threatInfo.text} <span className="text-white/90">({displayedScore.toFixed(1)})</span></span></span>
                 </div>
                 
-                {/* Visual grid tracker with Handle Slider Notch */}
+                {/* Visual grid tracker - GLOWING EFFECT */}
                 <div className="relative">
-                  <div className="flex gap-[2.5px] items-center">
-                    {Array.from({length: 36}).map((_, i) => {
-                      const ratio = i / 36;
-                      // Dynamic gradient coloring mirroring the mockup blend Cyan -> Pink-Orange -> Red
+                  <div className="flex gap-[3px] items-center">
+                    {Array.from({length: 40}).map((_, i) => {
+                      const ratio = i / 40;
+                      // Dynamic gradient coloring mirroring aesthetic
                       let color = '#22d3ee'; 
                       if (ratio > 0.45 && ratio <= 0.75) color = '#ec4899';
                       if (ratio > 0.75) color = '#ef4444';
@@ -236,65 +241,77 @@ export default function DashboardLayout() {
                       return (
                         <div 
                           key={i} 
-                          className={`h-3.5 w-1 rounded-sm ${isActive ? 'shadow-[0_0_3px_currentColor]' : ''}`} 
+                          className="h-4 w-1.5 rounded-[1px] transition-all duration-300"
                           style={{ 
                             backgroundColor: color, 
-                            opacity: isActive ? 0.95 : 0.2,
-                            boxShadow: isActive && ratio > 0.75 ? '0 0 6px rgba(239,68,68,0.8)' : undefined
+                            opacity: isActive ? 1 : 0.15,
+                            boxShadow: isActive ? `0 0 8px ${color}` : undefined,
+                            transform: isActive ? 'scaleY(1.1)' : 'scaleY(1)'
                           }} 
                         />
                       );
                     })}
                   </div>
-                  {/* Slider Notch marker mapped dynamically */}
-                  <div className="absolute top-[3px] -translate-y-full" style={{ left: `calc(${(displayedScore / 10) * 100}% - 2px)` }}>
-                    <div className="w-[1.5px] h-4 bg-slate-200 shadow-sm relative z-20">
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3 h-[1px] bg-slate-200" />
+                  {/* Slider Notch - Cyberpunk Arrow */}
+                  <div className="absolute top-[3px] -translate-y-full transition-transform duration-100" style={{ left: `calc(${(displayedScore / 10) * 100}% - 4px)` }}>
+                    <div className="w-[2px] h-5 bg-white shadow-[0_0_10px_#fff] relative z-20">
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-[2px] bg-white shadow-[0_0_8px_#fff]" />
                     </div>
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 text-slate-300 text-[8px]" style={{ marginTop: '2.5px' }}>▲</div>
+                    <div className="absolute top-full text-[10px] left-1/2 -translate-x-1/2 text-white drop-shadow-[0_0_5px_#fff]" style={{ marginTop: '2px' }}>▼</div>
                   </div>
                 </div>
               </div>
               
-              {/* Gauge Redesigned as SVG Arc */}
-              <div className="w-14 h-8 relative flex items-end justify-center overflow-hidden">
-                <svg viewBox="0 0 100 50" className="w-full h-full">
+              {/* Premium Glow Arc Gauge */}
+              <div className="w-16 h-10 relative flex items-end justify-center overflow-visible">
+                <div className="absolute inset-0 rounded-full bg-cyan-500/5 blur-xl" />
+                <svg viewBox="0 0 100 50" className="w-full h-full overflow-visible relative z-10">
                   <defs>
-                    <linearGradient id="gauge-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <linearGradient id="premium-gauge-grad" x1="0%" y1="0%" x2="100%" y2="0%">
                       <stop offset="0%" stopColor="#22d3ee" />
-                      <stop offset="60%" stopColor="#f97316" />
+                      <stop offset="50%" stopColor="#ec4899" />
                       <stop offset="100%" stopColor="#ef4444" />
                     </linearGradient>
+                    <filter id="gauge-glow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feGaussianBlur stdDeviation="3" result="blur" />
+                      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
                   </defs>
+                  
                   {/* Background Arc */}
-                  <path d="M 10 45 A 35 35 0 0 1 90 45" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" strokeLinecap="round" />
-                  {/* Colored Arc Dial */}
-                  <path d="M 10 45 A 35 35 0 0 1 90 45" fill="none" stroke="url(#gauge-grad)" strokeWidth="6" strokeLinecap="round" strokeDasharray="125" strokeDashoffset="25" />
+                  <path d="M 5 45 A 40 40 0 0 1 95 45" fill="none" stroke="rgba(34,211,238,0.1)" strokeWidth="8" strokeLinecap="round" />
                   
-                  {/* Center Dot */}
-                  <circle cx="50" cy="45" r="4" fill="#cbd5e1" />
-                  <circle cx="50" cy="45" r="1.5" fill="#0b1318" />
+                  {/* Dynamic Colored Arc Dial equivalent styling */}
+                  <path d="M 5 45 A 40 40 0 0 1 95 45" fill="none" stroke="url(#premium-gauge-grad)" strokeWidth="8" strokeLinecap="round" strokeDasharray="125" strokeDashoffset="25" filter="url(#gauge-glow)" opacity="0.8" />
                   
-                  {/* Arrow needle based on dynamic angle */}
-                  <g transform={`rotate(${gaugeRotation}, 50, 45)`}>
-                    <line x1="50" y1="45" x2="50" y2="18" stroke={threatInfo.color.replace('text-', '').replace(']', '').replace('[', '').replace('bg-', '') || "#ef4444"} strokeWidth="2.5" strokeLinecap="round" />
-                    <polygon points="50,16 48,22 52,22" fill={threatInfo.color.replace('text-', '').replace(']', '').replace('[', '').replace('bg-', '') || "#ef4444"} />
+                  {/* Dial Center Base */}
+                  <circle cx="50" cy="45" r="5" fill="#e2e8f0" filter="url(#gauge-glow)" />
+                  <circle cx="50" cy="45" r="2" fill="#020810" />
+                  
+                  {/* Animated Arrow needle */}
+                  <g transform={`rotate(${gaugeRotation}, 50, 45)`} className="transition-transform duration-100 origin-[50px_45px]">
+                    <line x1="50" y1="45" x2="50" y2="15" stroke={threatInfo.color.replace('text-', '').replace(']', '').replace('[', '').replace('bg-', '') || "#ef4444"} strokeWidth="3" strokeLinecap="round" filter="url(#gauge-glow)" />
+                    <polygon points="50,11 46,18 54,18" fill="white" filter="url(#gauge-glow)" />
                   </g>
                 </svg>
               </div>
             </div>
           </div>
           
-          {/* Right Stats */}
-          <div className="flex flex-col items-end gap-0.5">
-            <div className="text-base lg:text-lg font-medium text-[#e2e8f0] tracking-wider font-mono">{time}</div>
-            <div className="flex gap-3 text-[9px] font-medium tracking-wide">
-              <div className={`flex items-center gap-1 ${streamMode === 'live' ? 'text-[#00ff41]' : streamMode === 'connecting' ? 'text-yellow-500' : 'text-red-500'}`}>
-                <Activity className={`w-2.5 h-2.5 ${streamMode === 'live' ? 'animate-pulse' : ''}`} /> 
-                {streamMode === 'live' ? 'Active' : streamMode === 'connecting' ? 'Connecting' : 'Degraded'}
+          {/* Right Stats - Glass Panel Effect */}
+          <div className="flex flex-col items-end gap-1.5 pl-4 border-l border-cyan-500/20 py-1">
+            <div className="text-lg lg:text-xl font-bold text-cyan-50 tracking-widest font-mono drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]">{time}</div>
+            <div className="flex gap-4 text-[10px] font-bold tracking-widest uppercase">
+              <div className={`flex items-center gap-1.5 ${streamMode === 'live' ? 'text-cyan-400 drop-shadow-[0_0_5px_#22d3ee]' : streamMode === 'connecting' ? 'text-yellow-400' : 'text-red-500'}`}>
+                <Activity className={`w-3 h-3 ${streamMode === 'live' ? 'animate-pulse' : ''}`} /> 
+                {streamMode === 'live' ? 'LIVE' : streamMode === 'connecting' ? 'CONNECTING' : 'OFFLINE'}
               </div>
-              <div className="flex items-center gap-1 text-red-500"><AlertTriangle className="w-2.5 h-2.5" /> Alerts: {activeAlerts}</div>
-              <div className="flex items-center gap-1 text-cyan-400"><ShieldCheck className="w-2.5 h-2.5" /> Secure</div>
+              <div className="flex items-center gap-1.5 text-red-500 drop-shadow-[0_0_5px_#ef4444]">
+                <AlertTriangle className="w-3 h-3" /> ALERTS: {activeAlerts}
+              </div>
+              <div className="flex items-center gap-1.5 text-cyan-400 opacity-80">
+                <ShieldCheck className="w-3 h-3" /> SECURE
+              </div>
             </div>
           </div>
         </header>
