@@ -323,49 +323,49 @@ export default function DashboardLayout() {
               </div>
             </div>
           </div>          {/* RIGHT COLUMN */}
-          <div className="flex-1 h-full pr-8 flex flex-col justify-center items-end relative py-3 z-10 w-[420px]">
+          <div className="flex-[1.1] lg:flex-[1.3] h-full pr-8 flex flex-col justify-between items-end relative py-2 z-10 min-w-[360px]">
             {/* Abstract Background Trace right behind icons */}
             <svg className="absolute top-0 right-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 300 120">
                <path d="M 300 30 L 250 30 L 230 50 L 100 50" fill="none" stroke="#22d3ee" strokeWidth="1" />
             </svg>
 
             {/* TOP ICONS ROW */}
-            <div className="flex items-center gap-5 text-cyan-400 mb-4 mr-2 relative z-10">
-              <Wifi className="w-5 h-5 filter drop-shadow-[0_0_8px_#22d3ee] animate-pulse" />
+            <div className="flex items-center gap-5 text-cyan-400 mt-0.5 mr-2 relative z-10">
+              <Wifi className="w-4 h-4 filter drop-shadow-[0_0_8px_#22d3ee] animate-pulse" />
               <div className="relative">
-                <Bell className="w-5 h-5 filter drop-shadow-[0_0_8px_#22d3ee]" />
-                <div className="absolute top-0 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_#ef4444] border-[1.5px] border-[#111A22]" />
+                <Bell className="w-4 h-4 filter drop-shadow-[0_0_8px_#22d3ee]" />
+                <div className="absolute top-0 -right-1 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_5px_#ef4444] border-[1.5px] border-[#111A22]" />
               </div>
-              <Settings className="w-5 h-5 text-gray-400 hover:text-white transition-colors cursor-pointer" />
+              <Settings className="w-4 h-4 text-gray-400 hover:text-white transition-colors cursor-pointer" />
             </div>
 
             {/* MIDDLE ROW: TIME & USER BADGE */}
-            <div className="flex items-center gap-6 z-10 w-full justify-end mb-4">
+            <div className="flex items-center gap-5 z-10 w-full justify-end">
               {/* LARGE TIME & DATE */}
               <div className="flex flex-col justify-center items-start">
                  <div className="flex items-baseline gap-2">
-                   <span className="text-[40px] font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] whitespace-nowrap leading-none">
+                   <span className="text-[38px] font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] whitespace-nowrap leading-none">
                      {time.replace(' LOC', '').replace(' UTC', '')}
                    </span>
-                   <span className="text-xl font-medium text-cyan-300/80 tracking-widest leading-none">UTC</span>
+                   <span className="text-lg font-medium text-cyan-300/80 tracking-widest leading-none">UTC</span>
                  </div>
-                 <span className="text-[10px] text-gray-400 font-mono tracking-[0.2em] mt-1.5 uppercase drop-shadow-[0_0_2px_rgba(0,0,0,1)]">
+                 <span className="text-[9px] text-gray-400 font-mono tracking-[0.2em] mt-1.5 uppercase drop-shadow-[0_0_2px_rgba(0,0,0,1)]">
                    {new Date().toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}
                  </span>
               </div>
               
               {/* User Dropdown Badge */}
-              <div className="bg-[#18232c] border border-gray-600 rounded-lg px-3 py-1.5 flex items-center justify-between min-w-[140px] shadow-[0_4px_10px_rgba(0,0,0,0.5)] cursor-pointer hover:bg-[#1a2833] transition-colors group">
+              <div className="bg-[#18232c] border border-gray-600 rounded-lg px-3 py-1.5 flex items-center justify-between min-w-[130px] shadow-[0_4px_10px_rgba(0,0,0,0.5)] cursor-pointer hover:bg-[#1a2833] transition-colors group">
                 <div className="flex flex-col">
                   <span className="text-[9px] text-gray-300 tracking-widest font-semibold uppercase group-hover:text-white truncate max-w-[90px]">{user?.displayName || 'N. KORSAKOVA'}</span>
                   <span className="text-[8px] text-cyan-400 mt-0.5 tracking-[0.2em] font-bold drop-shadow-[0_0_5px_#22d3ee]">ONLINE</span>
                 </div>
-                <ChevronDown className="w-4 h-4 text-cyan-500/70 group-hover:text-cyan-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-cyan-500/70 group-hover:text-cyan-400" />
               </div>
             </div>
 
             {/* BOTTOM STATUS PILLS */}
-            <div className="flex items-center gap-2 lg:gap-3 z-10 justify-end w-full">
+            <div className="flex items-center gap-2 lg:gap-3 z-10 justify-end w-full pb-0.5">
               <div className="border border-red-500/60 bg-[#2a0e14] rounded-full px-4 py-1 flex items-center justify-center text-[9px] text-red-500 font-bold tracking-widest shadow-[inset_0_0_10px_rgba(239,68,68,0.2)]">
                 THREATS: {activeAlerts + Math.floor(displayedScore)}
               </div>

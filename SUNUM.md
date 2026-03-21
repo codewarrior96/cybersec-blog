@@ -50,5 +50,3 @@ Bu rehber, okulun/jürinin belirlediği maddelere göre **5 dakikalık ideal bir
     > - **Aşama 3 (Sıradaki Hedef)**: Temelleri atılan bu dinamik yapının cebe sığdırılması, yani **Tam Fonksiyonel Mobil Uygulamaya** dönüştürülmesi. Dinlediğiniz için teşekkürler."
 
 ---
-
-💡 **Ekran Sunum İpucu**: Sunum yaparken mouse ile sistem animasyonları (pulse efektleri vb.) ve canlı JSON log akışları üzerinden geçmeniz maddelerin etkisini iki katına çıkaracaktır!
