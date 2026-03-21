@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import type { CVEItem } from '@/lib/dashboard-types';
 
 const mockData = [
   { level: 'CRITICAL', id: '1456', status: 'GLOWING', host: 'CVE-2023-1456', desc: 'RED', score: '9.8', time: '14:02:11', color: 'text-red-500', border: 'border-red-500/50', shadow: 'shadow-[inset_4px_0_0_rgba(239,68,68,1)]', pill: 'border-red-500/80 text-red-500 bg-red-500/10' },
@@ -10,7 +11,50 @@ const mockData = [
   { level: 'INFO', id: '0612', status: 'NOMINAL', host: 'CVE-2020-9941', desc: 'LOGGED', score: '2.4', time: '13:30:15', color: 'text-slate-400', border: 'border-slate-500/30', shadow: 'shadow-[inset_4px_0_0_#94a3b8]', pill: 'border-slate-500/60 text-slate-400 bg-slate-500/10' },
 ];
 
-export default function CveFeedWidget() {
+interface CveFeedWidgetProps {
+  cves?: CVEItem[];
+}
+
+export default function CveFeedWidget({ cves = [] }: CveFeedWidgetProps) {
+  const rows = cves.length > 0 ? cves.map((item, idx) => {
+    const severity = item.severity?.toUpperCase() || 'MEDIUM';
+    const score = item.score ?? 5.0;
+    
+    let color = 'text-yellow-400';
+    let pill = 'border-yellow-400/80 text-yellow-400 bg-yellow-400/10';
+    let desc = 'RESOLVED';
+    let status = 'YELLOW';
+
+    if (severity === 'CRITICAL' || score >= 9.0) {
+      color = 'text-red-500';
+      pill = 'border-red-500/80 text-red-500 bg-red-500/10';
+      desc = 'RED';
+      status = 'GLOWING';
+    } else if (severity === 'HIGH' || score >= 7.0) {
+      color = 'text-orange-400';
+      pill = 'border-orange-500/80 text-orange-400 bg-orange-400/10';
+      desc = 'BADGE';
+      status = 'GLOWING';
+    } else if (severity === 'LOW' || score < 4.0) {
+      color = 'text-green-400';
+      pill = 'border-green-500/70 text-green-400 bg-green-500/10';
+      desc = 'PATCH';
+      status = 'STABLE';
+    }
+
+    return {
+      level: severity,
+      id: item.id.split('-').pop() || String(idx),
+      status: status,
+      host: item.id,
+      desc: item.description ? item.description.slice(0, 15).toUpperCase() : desc,
+      score: score.toFixed(1),
+      time: new Date().toLocaleTimeString('tr-TR'),
+      color: color,
+      pill: pill
+    };
+  }) : mockData;
+
 
   return (
     <div className="absolute inset-0 flex flex-col font-mono overflow-hidden">
@@ -34,7 +78,7 @@ export default function CveFeedWidget() {
 
         {/* Table Body */}
         <div className="flex-1 flex flex-col gap-2 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-900 scrollbar-track-transparent">
-          {mockData.map((row, idx) => {
+          {rows.map((row, idx) => {
             const getStatusColor = (status: string) => {
               if (status === 'GLOWING') return 'text-[#22d3ee] shadow-[0_0_8px_rgba(34,211,238,0.4)]';
               if (status === 'YELLOW') return 'text-yellow-400';

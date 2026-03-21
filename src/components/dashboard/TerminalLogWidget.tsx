@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
+import type { AttackEvent } from '@/lib/dashboard-types';
 
 const mockLogs = [
   { type: 'ALERT',  time: '14:01:23', msg: 'Brute force attack detected on SHADOW_SRV (192.168.1.102)' },
@@ -21,23 +22,38 @@ const mockLogs = [
   { type: 'INFO',   time: '14:01:21', msg: 'Updated signatures database successfully' },
 ];
 
-export default function TerminalLogWidget() {
-  const [logs, setLogs] = useState<typeof mockLogs>(mockLogs.slice(0, 5));
+interface TerminalLogWidgetProps {
+  attacks?: AttackEvent[];
+}
+
+export default function TerminalLogWidget({ attacks = [] }: TerminalLogWidgetProps) {
+
+  const [logs, setLogs] = useState<typeof mockLogs>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [scrollPct, setScrollPct] = useState(100);
 
   useEffect(() => {
-    let i = 5;
-    const interval = setInterval(() => {
-      setLogs((prev) => {
-        const newLogs = [...prev, mockLogs[i % mockLogs.length]];
-        if (newLogs.length > 60) newLogs.shift();
-        return newLogs;
-      });
-      i++;
-    }, 500);
-    return () => clearInterval(interval);
-  }, []);
+    if (attacks && attacks.length > 0) {
+      const live = attacks.map(attack => ({
+        type: attack.severity === 'critical' ? 'ALERT' : attack.severity === 'high' ? 'MALWARE' : 'INFO',
+        time: attack.time || new Date(attack.createdAt).toLocaleTimeString('tr-TR'),
+        msg: `${attack.type.toUpperCase()} from ${attack.sourceIP} port ${attack.targetPort}`
+      }));
+      setLogs(live);
+    } else {
+      let i = 5;
+      const interval = setInterval(() => {
+        setLogs((prev) => {
+          const newLogs = [...prev, mockLogs[i % mockLogs.length]];
+          if (newLogs.length > 40) newLogs.shift();
+          return newLogs;
+        });
+        i++;
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [attacks]);
+
 
   useEffect(() => {
     const el = scrollContainerRef.current;

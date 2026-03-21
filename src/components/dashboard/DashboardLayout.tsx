@@ -1,17 +1,57 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import CveFeedWidget from './CveFeedWidget';
 import ThreatMapWidget from './ThreatMapWidget';
 import SystemMonitorWidget from './SystemMonitorWidget';
 import TerminalLogWidget from './TerminalLogWidget';
 import { Shield, User, AlertTriangle, ShieldCheck, Globe, Activity } from 'lucide-react';
 import { useAuthSession } from '@/lib/auth-client';
+import type { AttackEvent, CVEItem, NewsItem, WorkflowMetrics } from '@/lib/dashboard-types';
+
 
 export default function DashboardLayout() {
   const [mounted, setMounted] = useState(false);
   const [time, setTime] = useState('');
   const session = useAuthSession(null);
   const user = session?.user;
+
+  // Live Data States
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [cves, setCves] = useState<CVEItem[]>([]);
+  const [attacks, setAttacks] = useState<AttackEvent[]>([]);
+  const [streamMode, setStreamMode] = useState<'connecting' | 'live' | 'degraded'>('connecting');
+  const [metrics, setMetrics] = useState<WorkflowMetrics | null>(null);
+
+  const coreFetchSeqRef = useRef(0);
+
+  const fetchCorePanels = useCallback(async () => {
+    const fetchSeq = ++coreFetchSeqRef.current;
+    try {
+      const response = await fetch('/api/metrics/live', { cache: 'no-store' });
+      if (response.ok && fetchSeq === coreFetchSeqRef.current) {
+        const payload = (await response.json()) as WorkflowMetrics;
+        setMetrics(payload);
+      }
+    } catch (e) { }
+  }, []);
+
+  const loadIntelPanels = useCallback(async () => {
+    try {
+      const [newsRes, cvesRes] = await Promise.all([
+        fetch('/api/cybernews', { cache: 'no-store' }),
+        fetch('/api/cves?days=1', { cache: 'no-store' })
+      ]);
+      
+      if (newsRes.ok) {
+        const payload = await newsRes.json();
+        setNewsItems(payload.items ?? []);
+      }
+      if (cvesRes.ok) {
+        const payload = await cvesRes.json();
+        setCves((payload.cves ?? []).slice(0, 10));
+      }
+    } catch (e) { }
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -24,7 +64,49 @@ export default function DashboardLayout() {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    void loadIntelPanels();
+    const interval = setInterval(() => { void loadIntelPanels(); }, 60_000);
+    return () => clearInterval(interval);
+  }, [loadIntelPanels]);
+
+  useEffect(() => {
+    void fetchCorePanels();
+    const interval = setInterval(() => { void fetchCorePanels(); }, 15_000);
+    return () => clearInterval(interval);
+  }, [fetchCorePanels]);
+
+  useEffect(() => {
+    let disposed = false;
+    const source = new EventSource('/api/live-attacks');
+
+    source.addEventListener('ready', () => {
+      if (disposed) return;
+      setStreamMode('live');
+    });
+
+    source.addEventListener('attack', (event) => {
+      if (disposed) return;
+      try {
+        const payload = JSON.parse((event as MessageEvent<string>).data) as AttackEvent;
+        setAttacks((prev) => [...prev, payload].slice(-15));
+        setStreamMode('live');
+      } catch { }
+    });
+
+    source.onerror = () => {
+      if (disposed) return;
+      setStreamMode('degraded');
+    };
+
+    return () => {
+      disposed = true;
+      source.close();
+    };
+  }, []);
+
   if (!mounted) return null;
+
 
   return (
     <div className="fixed inset-0 lg:left-[280px] bg-[#030608] text-[#00ff41] font-mono flex flex-col overflow-hidden select-none" style={{ zIndex: 10 }}>
@@ -162,17 +244,18 @@ export default function DashboardLayout() {
           </div>
 
           <div className="lg:col-span-6 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)]">
-            <ThreatMapWidget />
+            <ThreatMapWidget attacks={attacks} />
           </div>
 
           <div className="lg:col-span-3 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)]">
-            <TerminalLogWidget />
+            <TerminalLogWidget attacks={attacks} />
           </div>
 
           {/* BOTTOM ROW */}
           <div className="lg:col-span-9 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)]">
-            <CveFeedWidget />
+            <CveFeedWidget cves={cves} />
           </div>
+
 
           <div className="lg:col-span-3 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] flex flex-col">
             <div className="flex justify-between items-center px-4 py-3 border-b border-[#00ff41]/20 bg-[#021518]/80 shrink-0">

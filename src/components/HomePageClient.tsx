@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import EmbeddedLogin from '@/components/EmbeddedLogin'
-import SOCDashboard from '@/components/SOCDashboard'
+import DashboardLayout from '@/components/dashboard/DashboardLayout'
 import type { PostMeta } from '@/components/SOCDashboard'
 import { useAuthStatus } from '@/lib/auth-client'
 
@@ -74,7 +74,7 @@ export default function HomePageClient({ initialAuth }: HomePageClientProps) {
           </div>
         }
       >
-        <SOCDashboard posts={posts} />
+        <DashboardLayout />
       </ErrorBoundary>
     )
   }

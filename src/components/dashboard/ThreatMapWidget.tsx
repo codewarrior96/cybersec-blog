@@ -1,7 +1,13 @@
 'use client';
 import React from 'react';
+import type { AttackEvent } from '@/lib/dashboard-types';
 
-export default function ThreatMapWidget() {
+interface ThreatMapWidgetProps {
+  attacks?: AttackEvent[];
+}
+
+export default function ThreatMapWidget({ attacks = [] }: ThreatMapWidgetProps) {
+
   return (
     <div className="absolute inset-0 flex flex-col font-mono overflow-hidden">
       
@@ -88,13 +94,28 @@ export default function ThreatMapWidget() {
         </div>
 
         {/* Bottom Left — LIVE THREAT DETECTION */}
-        <div className="absolute bottom-4 left-4 z-20 flex items-center gap-3">
-          <div className="w-7 h-7 rounded-full border border-red-500/80 flex items-center justify-center relative shadow-[0_0_12px_rgba(239,68,68,0.5)] bg-red-500/10">
-            <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-ping absolute" />
-            <div className="w-2.5 h-2.5 bg-red-500 rounded-full" />
+        <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-1 bg-[#021518]/90 p-2 rounded border border-red-500/30 backdrop-blur-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-6 h-6 rounded-full border border-red-500/80 flex items-center justify-center relative shadow-[0_0_10px_rgba(239,68,68,0.5)] bg-red-500/20">
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-ping absolute" />
+              <div className="w-2 h-2 bg-red-500 rounded-full" />
+            </div>
+            <span className="text-[11px] font-bold text-red-500 tracking-widest uppercase">LIVE THREATS</span>
           </div>
-          <span className="text-[13px] lg:text-[15px] font-bold text-red-500 tracking-widest drop-shadow-[0_0_8px_rgba(239,68,68,0.9)] uppercase">LIVE THREAT DETECTION</span>
+          <div className="flex flex-col gap-0.5">
+            {attacks.length === 0 && (
+              <span className="text-[8px] text-slate-500 font-mono">Scanning grid...</span>
+            )}
+            {attacks.slice(-3).reverse().map((attack, i) => (
+              <div key={i} className="text-[9px] text-[#22d3ee] font-mono tracking-wider flex items-center gap-1.5 leading-tight">
+                <span className="w-1 h-1 bg-red-500 rounded-full animate-pulse flex-shrink-0" />
+                <span className="text-red-400 font-bold">{attack.sourceIP}</span>
+                <span className="text-slate-400 text-[8px]">({attack.sourceCountry})</span>
+              </div>
+            ))}
+          </div>
         </div>
+
       </div>
       
       <style dangerouslySetInnerHTML={{__html: `
