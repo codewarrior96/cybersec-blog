@@ -32,12 +32,14 @@ Bu rehber, okulun/jürinin belirlediği maddelere göre **5 dakikalık ideal bir
     > - **CVE Vulnerabilities**: NIST/NVD API entegrasyonu ile en son zafiyetlerin anlık taranması.
     > - **Sistem İzleme Widget'ı**: CPU, Memory ve Network yükünü yansıtan dinamik sinüs grafikleri."
 
-### 🟣 5. Kullanılacak AI Araçları (3:15 - 4:00)
-*   **Açıklama**: Yapay zekanın rolu.
+### 🟣 5. Kullanılan Teknolojiler ve AI Araçları (3:15 - 4:00)
+*   **Açıklama**: Projenin teknik omurgası ve yapay zeka entegrasyonu.
 *   **Konuşma Metni**: 
-    > "Geliştirme sürecimizde yapay zeka agentlarından (Advanced Agentic AI) mimari ve veri hatası ayıklama desteği aldık. **Gelecek planlarımızda** ise sistemimize dahil edeceğimiz AI modülü ile:
-    > - Terminal loglarını otomatik analiz edip **AI Tehdit Özeti** çıkarmayı,
-    > - Karmaşık CVE raporlarını insan dilinde basitleştirerek açıklamayı hedefliyoruz."
+    > "Projemiz, modern web teknolojileri olan **Next.js 14 (App Router)**, **React 18** ve **TypeScript 5** üzerine inşa edilmiştir. Veri yönetimi için hafif **SQLite 3** kullandık.
+    > Geliştirme süreçlerinde ise **Claude** ve **Gemini (Google)** gibi gelişmiş yapay zeka asistanlarından; kod mimarisi tasarımı, test ve hata ayıklama konularında aktif destek aldık.
+    > **Gelecek planlarımızda** bu akıllı yapıyı sistemin içine gömerek:
+    > - Logları analiz edip otomatik **AI Olay Raporu** çıkarmayı,
+    > - Karmaşık CVE raporlarını insan dilinde basitleştirmeyi hedefliyoruz."
 
 ### 🏁 6. Planlanan Geliştirme İş Akışı (4:00 - 5:00)
 *   **Açıklama**: Sonraki adım ve kapanış.
