@@ -22,6 +22,13 @@ export default function DashboardLayout() {
   const [streamMode, setStreamMode] = useState<'connecting' | 'live' | 'degraded'>('connecting');
   const [metrics, setMetrics] = useState<WorkflowMetrics | null>(null);
 
+  // Dynamic Header States
+  const [threatScore, setThreatScore] = useState(2.5);
+  const [displayedScore, setDisplayedScore] = useState(2.5);
+  const [activeAlerts, setActiveAlerts] = useState(0);
+  const [userXp, setUserXp] = useState(70);
+  const [userLevel, setUserLevel] = useState(88);
+
   const coreFetchSeqRef = useRef(0);
 
   const fetchCorePanels = useCallback(async () => {
@@ -105,7 +112,59 @@ export default function DashboardLayout() {
     };
   }, []);
 
+  // Dynamic Threat Score Calculation and Alerts
+  useEffect(() => {
+    let baseScore = 2.5;
+    if (metrics) {
+      baseScore = Math.max(2.0, Math.min(6.0, metrics.attack.liveDensity || 2.0));
+    }
+    const attackSpike = attacks.length * 0.4;
+    setThreatScore(Math.min(10.0, baseScore + attackSpike));
+
+    const baseAlerts = metrics?.shiftSnapshot.openCritical || 12;
+    setActiveAlerts(baseAlerts + Math.floor(attacks.length / 2));
+  }, [attacks, metrics]);
+
+  // Smooth Interpolation for display score and slow User XP gain
+  useEffect(() => {
+    let animationFrame: number;
+    let lastTime = performance.now();
+
+    const animate = (currentTime: number) => {
+      const deltaTime = currentTime - lastTime;
+      lastTime = currentTime;
+
+      setDisplayedScore(prev => {
+        const diff = threatScore - prev;
+        if (Math.abs(diff) < 0.02) return threatScore;
+        return prev + diff * (deltaTime * 0.005);
+      });
+
+      setUserXp(prev => {
+        const newXp = prev + (deltaTime * 0.0005); // Very slow filling
+        if (newXp >= 100) {
+          setUserLevel(l => l + 1);
+          return 0;
+        }
+        return newXp;
+      });
+
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [threatScore]);
+
   if (!mounted) return null;
+
+  const getThreatLevelInfo = (score: number) => {
+    if (score < 4.0) return { text: 'LOW', color: 'text-[#00ff41]', glow: 'glow-cyan' };
+    if (score < 7.5) return { text: 'ELEVATED', color: 'text-orange-500', glow: 'glow-orange' };
+    return { text: 'HIGH', color: 'text-red-500', glow: 'glow-red' };
+  };
+  const threatInfo = getThreatLevelInfo(displayedScore);
+  const gaugeRotation = -70 + (displayedScore / 10) * 140;
 
 
   return (
@@ -146,9 +205,9 @@ export default function DashboardLayout() {
               </div>
               <div className="flex flex-col w-26">
                 <span className="text-[11px] font-bold text-cyan-400 tracking-wider uppercase truncate max-w-[100px]">{user?.displayName || 'SHADOW_NODE'}</span>
-                <span className="text-[9px] text-cyan-500/70 mb-0.5">Level 88</span>
+                <span className="text-[9px] text-cyan-500/70 mb-0.5">Level {userLevel}</span>
                 <div className="w-full h-1.5 bg-black border border-cyan-900/40 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 w-[70%] shadow-[0_0_5px_#22d3ee]" />
+                  <div className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 shadow-[0_0_5px_#22d3ee]" style={{ width: `${userXp}%` }} />
                 </div>
               </div>
             </div>
@@ -159,7 +218,7 @@ export default function DashboardLayout() {
             <div className="hidden xl:flex items-center gap-4">
               <div className="flex flex-col">
                 <div className="text-[10px] text-slate-300 font-medium tracking-widest mb-1.5 flex justify-between items-center">
-                  <span>GLOBAL THREAT LEVEL: <span className="text-red-500 font-bold glow-red">HIGH (8.7)</span></span>
+                  <span>GLOBAL THREAT LEVEL: <span className={`font-bold ${threatInfo.color} ${threatInfo.glow}`}>{threatInfo.text} ({displayedScore.toFixed(1)})</span></span>
                 </div>
                 
                 {/* Visual grid tracker with Handle Slider Notch */}
@@ -171,26 +230,28 @@ export default function DashboardLayout() {
                       let color = '#22d3ee'; 
                       if (ratio > 0.45 && ratio <= 0.75) color = '#ec4899';
                       if (ratio > 0.75) color = '#ef4444';
+                      
+                      const isActive = ratio <= (displayedScore / 10);
 
                       return (
                         <div 
                           key={i} 
-                          className={`h-3.5 w-1 rounded-sm shadow-[0_0_3px_rgba(34,211,238,0.2)]`} 
+                          className={`h-3.5 w-1 rounded-sm ${isActive ? 'shadow-[0_0_3px_currentColor]' : ''}`} 
                           style={{ 
                             backgroundColor: color, 
-                            opacity: i < 31 ? 0.95 : 0.2, // items to the right of 87% dimmed down
-                            boxShadow: ratio > 0.75 && i < 31 ? '0 0 6px rgba(239,68,68,0.8)' : undefined
+                            opacity: isActive ? 0.95 : 0.2,
+                            boxShadow: isActive && ratio > 0.75 ? '0 0 6px rgba(239,68,68,0.8)' : undefined
                           }} 
                         />
                       );
                     })}
                   </div>
-                  {/* Slider Notch marker placed exactly at 87% weight indexing (~31th bar) */}
-                  <div className="absolute top-[3px] -translate-y-full" style={{ left: 'calc(87% - 2px)' }}>
+                  {/* Slider Notch marker mapped dynamically */}
+                  <div className="absolute top-[3px] -translate-y-full" style={{ left: `calc(${(displayedScore / 10) * 100}% - 2px)` }}>
                     <div className="w-[1.5px] h-4 bg-slate-200 shadow-sm relative z-20">
                       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3 h-[1px] bg-slate-200" />
                     </div>
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 text-red-500 text-[8px]" style={{ marginTop: '2.5px' }}>▲</div>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 text-slate-300 text-[8px]" style={{ marginTop: '2.5px' }}>▲</div>
                   </div>
                 </div>
               </div>
@@ -214,10 +275,10 @@ export default function DashboardLayout() {
                   <circle cx="50" cy="45" r="4" fill="#cbd5e1" />
                   <circle cx="50" cy="45" r="1.5" fill="#0b1318" />
                   
-                  {/* Arrow needle at angle 35 deg */}
-                  <g transform="rotate(35, 50, 45)">
-                    <line x1="50" y1="45" x2="50" y2="18" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" />
-                    <polygon points="50,16 48,22 52,22" fill="#ef4444" />
+                  {/* Arrow needle based on dynamic angle */}
+                  <g transform={`rotate(${gaugeRotation}, 50, 45)`}>
+                    <line x1="50" y1="45" x2="50" y2="18" stroke={threatInfo.color.replace('text-', '').replace(']', '').replace('[', '').replace('bg-', '') || "#ef4444"} strokeWidth="2.5" strokeLinecap="round" />
+                    <polygon points="50,16 48,22 52,22" fill={threatInfo.color.replace('text-', '').replace(']', '').replace('[', '').replace('bg-', '') || "#ef4444"} />
                   </g>
                 </svg>
               </div>
@@ -228,8 +289,11 @@ export default function DashboardLayout() {
           <div className="flex flex-col items-end gap-0.5">
             <div className="text-base lg:text-lg font-medium text-[#e2e8f0] tracking-wider font-mono">{time}</div>
             <div className="flex gap-3 text-[9px] font-medium tracking-wide">
-              <div className="flex items-center gap-1 text-[#00ff41]"><Activity className="w-2.5 h-2.5 animate-pulse" /> Active</div>
-              <div className="flex items-center gap-1 text-red-500"><AlertTriangle className="w-2.5 h-2.5" /> Alerts: 37</div>
+              <div className={`flex items-center gap-1 ${streamMode === 'live' ? 'text-[#00ff41]' : streamMode === 'connecting' ? 'text-yellow-500' : 'text-red-500'}`}>
+                <Activity className={`w-2.5 h-2.5 ${streamMode === 'live' ? 'animate-pulse' : ''}`} /> 
+                {streamMode === 'live' ? 'Active' : streamMode === 'connecting' ? 'Connecting' : 'Degraded'}
+              </div>
+              <div className="flex items-center gap-1 text-red-500"><AlertTriangle className="w-2.5 h-2.5" /> Alerts: {activeAlerts}</div>
               <div className="flex items-center gap-1 text-cyan-400"><ShieldCheck className="w-2.5 h-2.5" /> Secure</div>
             </div>
           </div>
