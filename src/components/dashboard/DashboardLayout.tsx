@@ -365,7 +365,7 @@ export default function DashboardLayout() {
             </div>
 
             {/* BOTTOM STATUS PILLS */}
-            <div className="flex items-center gap-2 lg:gap-3 z-10 justify-end w-full pb-0.5">
+            <div className="flex items-center gap-2 lg:gap-3 z-10 justify-end w-full pb-2.5">
               <div className="border border-red-500/60 bg-[#2a0e14] rounded-full px-4 py-1 flex items-center justify-center text-[9px] text-red-500 font-bold tracking-widest shadow-[inset_0_0_10px_rgba(239,68,68,0.2)]">
                 THREATS: {activeAlerts + Math.floor(displayedScore)}
               </div>
