@@ -189,7 +189,7 @@ export default function DashboardLayout() {
       <div className="flex flex-col gap-3 w-full h-full p-4 lg:px-5 lg:py-4 z-10 relative">
 
         {/* EXACT AETHER SECURITY REPLICA TOP BAR (PIXEL PERFECT) */}
-        <header className="relative w-full shrink-0 z-10 flex flex-nowrap items-center justify-between bg-[#111A22] rounded-[16px] px-2 py-2 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden h-[120px] border border-[#2a3b4c]">
+        <header className="relative w-full shrink-0 z-10 flex flex-col xl:flex-row items-center xl:justify-between bg-[#111A22] rounded-[16px] px-2 py-4 xl:py-2 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden min-h-[120px] border border-[#2a3b4c] gap-6 xl:gap-0">
           
           {/* Inner glass overlay */}
           <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
@@ -204,7 +204,7 @@ export default function DashboardLayout() {
           <div className="absolute bottom-0 right-12 w-64 h-[2px] bg-cyan-400 shadow-[0_0_15px_#22d3ee] rounded-t-md" />
 
           {/* LEFT COLUMN: Logo & Avatar */}
-          <div className="flex-1 flex items-center h-full pl-6 relative">
+          <div className="flex-1 flex flex-col sm:flex-row items-center justify-center xl:justify-start h-full pl-0 sm:pl-6 relative w-full xl:w-auto gap-4 sm:gap-0">
             {/* Geometric Background Traces */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 300 120">
                <path d="M 0 60 L 50 60 L 60 40 L 150 40" fill="none" stroke="#22d3ee" strokeWidth="1" />
@@ -228,7 +228,7 @@ export default function DashboardLayout() {
             </div>
             
             {/* Vertical Divider */}
-            <div className="w-px h-16 bg-gradient-to-b from-transparent via-[#2a3b4c] to-transparent mx-6 lg:mx-10 z-10" />
+            <div className="hidden sm:block w-px h-16 bg-gradient-to-b from-transparent via-[#2a3b4c] to-transparent mx-6 lg:mx-10 z-10" />
 
             {/* Avatar Group */}
             <div className="flex flex-col items-center justify-center z-10 w-24">
@@ -256,9 +256,9 @@ export default function DashboardLayout() {
           </div>
 
           {/* CENTER COLUMN: Hero Arc Gauge */}
-          <div className="flex-[1.2] lg:flex-[1.5] h-full relative flex items-end justify-center pb-2">
+          <div className="flex-[1.2] lg:flex-[1.5] relative flex items-end justify-center pb-2 w-full xl:w-auto h-[120px] xl:h-full">
             {/* The giant arc wrapper */}
-            <div className="relative w-[300px] h-[130px] flex items-end justify-center overflow-hidden">
+            <div className="relative w-[260px] h-[110px] xl:w-[300px] xl:h-[130px] flex items-end justify-center overflow-hidden scale-90 sm:scale-100">
               <svg viewBox="0 0 200 100" className="w-full h-full overflow-visible absolute bottom-0 left-0">
                 <defs>
                   <filter id="gauge-red-glow" x="-20%" y="-20%" width="140%" height="140%">
@@ -323,7 +323,7 @@ export default function DashboardLayout() {
               </div>
             </div>
           </div>          {/* RIGHT COLUMN */}
-          <div className="flex-[1.1] lg:flex-[1.3] h-full pr-8 flex flex-col justify-between items-end relative py-2 z-10 min-w-[360px]">
+          <div className="flex-[1.1] xl:flex-[1.3] h-full pr-0 xl:pr-8 flex flex-col justify-between items-center xl:items-end relative py-2 z-10 w-full xl:w-auto xl:min-w-[360px] gap-4 xl:gap-0">
             {/* Abstract Background Trace right behind icons */}
             <svg className="absolute top-0 right-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 300 120">
                <path d="M 300 30 L 250 30 L 230 50 L 100 50" fill="none" stroke="#22d3ee" strokeWidth="1" />
@@ -344,14 +344,14 @@ export default function DashboardLayout() {
             </div>
 
             {/* MIDDLE ROW: TIME & USER BADGE */}
-            <div className="flex items-center gap-6 z-10 w-full justify-end">
+            <div className="flex flex-col sm:flex-row items-center gap-4 xl:gap-6 z-10 w-full justify-center xl:justify-end">
               {/* LARGE TIME & DATE */}
-              <div className="flex flex-col justify-center items-end text-right mt-1">
+              <div className="flex flex-col justify-center items-center xl:items-end text-center xl:text-right mt-1">
                  <div className="flex items-baseline gap-2">
-                   <span className="text-[34px] font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] leading-none">
+                   <span className="text-[28px] sm:text-[34px] font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] leading-none">
                      {time.replace(' LOC', '').replace(' UTC', '')}
                    </span>
-                   <span className="text-lg font-medium text-cyan-300/80 tracking-widest leading-none">UTC</span>
+                   <span className="text-base sm:text-lg font-medium text-cyan-300/80 tracking-widest leading-none">UTC</span>
                  </div>
                  <span className="text-[9px] text-gray-400 font-mono tracking-[0.2em] mt-1 uppercase">
                    {new Date().toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}
@@ -375,7 +375,7 @@ export default function DashboardLayout() {
             </div>
 
             {/* BOTTOM STATUS PILLS */}
-            <div className="flex items-center gap-2 lg:gap-3 z-10 justify-end w-full pb-1">
+            <div className="flex flex-wrap items-center gap-2 lg:gap-3 z-10 justify-center xl:justify-end w-full pb-1">
               <button className="border border-red-500/50 hover:border-red-400 bg-[#2a0e14] hover:bg-[#3a131c] transition-colors cursor-pointer rounded-full px-3 py-0.5 flex items-center justify-center text-[9px] text-red-500 font-bold tracking-[0.1em] shadow-[inset_0_0_8px_rgba(239,68,68,0.15)] active:scale-95">
                 THREATS: {activeAlerts + Math.floor(displayedScore)}
               </button>
@@ -390,7 +390,7 @@ export default function DashboardLayout() {
         </header>
 
         {/* Main Responsive Bento Grid — flex-1 to fill remaining height */}
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 grid-rows-[3fr_2fr] gap-3">
+        <div className="flex-1 min-h-[600px] xl:min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 auto-rows-min lg:grid-rows-[3fr_2fr] gap-3">
           
           {/* TOP ROW */}
           <div className="lg:col-span-3 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)]">

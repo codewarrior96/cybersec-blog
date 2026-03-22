@@ -35,7 +35,7 @@ export default function AppShellClient({
     <>
       <OperatorSidebar initialAuth={isAuthed} />
       <MobileNav initialAuth={isAuthed} />
-      <div className={`transition-all duration-300 flex flex-col flex-1 app-shell ${showOperatorShell ? 'app-shell--sidebar' : ''}`}>
+      <div className={`transition-all duration-300 flex flex-col flex-1 app-shell pb-20 lg:pb-0 ${showOperatorShell ? 'app-shell--sidebar' : ''}`}>
         {showPublicHeader && <Header initialAuth={isAuthed} />}
         <PageTransition>
           <main className="flex-1">{children}</main>
