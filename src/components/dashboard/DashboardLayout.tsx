@@ -322,7 +322,7 @@ export default function DashboardLayout() {
                 </div>
               </div>
             </div>
-          </div>          {/* RIGHT COLUMN */}
+          </di          {/* RIGHT COLUMN */}
           <div className="flex-[1.1] lg:flex-[1.3] h-full pr-8 flex flex-col justify-between items-end relative py-2 z-10 min-w-[360px]">
             {/* Abstract Background Trace right behind icons */}
             <svg className="absolute top-0 right-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 300 120">
@@ -330,28 +330,30 @@ export default function DashboardLayout() {
             </svg>
 
             {/* TOP ICONS ROW */}
-            <div className="flex items-center gap-6 text-cyan-400 mt-0.5 mr-2 relative z-10">
-              <button title="Network Status" className="p-1.5 rounded-full hover:bg-cyan-900/30 transition-all cursor-pointer group active:scale-95">
-                <Wifi className="w-4 h-4 filter drop-shadow-[0_0_8px_#22d3ee] animate-pulse group-hover:drop-shadow-[0_0_12px_#22d3ee]" />
+            <div className="flex items-center gap-5 text-cyan-400 relative z-10">
+              <button title="Network Status" className="hover:scale-110 transition-transform cursor-pointer">
+                <Wifi className="w-4 h-4 filter drop-shadow-[0_0_8px_#22d3ee] animate-pulse" />
               </button>
-              <button title="Alerts" className="relative p-1.5 rounded-full hover:bg-cyan-900/30 transition-all cursor-pointer group active:scale-95">
-                <Bell className="w-4 h-4 filter drop-shadow-[0_0_8px_#22d3ee] group-hover:drop-shadow-[0_0_12px_#22d3ee]" />
-                <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_5px_#ef4444] border-[1.5px] border-[#111A22]" />
+              <button title="Alerts" className="relative hover:scale-110 transition-transform cursor-pointer mx-1">
+                <Bell className="w-4 h-4 filter drop-shadow-[0_0_8px_#22d3ee]" />
+                <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-[#111A22]" />
               </button>
-              <button title="Settings" className="p-1.5 rounded-full hover:bg-slate-800 transition-all cursor-pointer group active:scale-95">
-                <Settings className="w-4 h-4 text-gray-400 group-hover:text-cyan-300 transition-colors" />
+              <button title="Settings" className="hover:scale-110 transition-transform cursor-pointer text-gray-400 hover:text-cyan-300">
+                <Settings className="w-4 h-4" />
               </button>
-            </div>            {/* MIDDLE ROW: TIME & USER BADGE */}
-            <div className="flex items-center gap-8 lg:gap-14 z-10 w-full justify-end mt-0.5">
+            </div>
+
+            {/* MIDDLE ROW: TIME & USER BADGE */}
+            <div className="flex items-center gap-6 z-10 w-full justify-end">
               {/* LARGE TIME & DATE */}
-              <div className="flex flex-col justify-center items-end text-right">
+              <div className="flex flex-col justify-center items-end text-right mt-1">
                  <div className="flex items-baseline gap-2">
-                   <span className="text-[38px] font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] whitespace-nowrap leading-none">
+                   <span className="text-[34px] font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] leading-none">
                      {time.replace(' LOC', '').replace(' UTC', '')}
                    </span>
                    <span className="text-lg font-medium text-cyan-300/80 tracking-widest leading-none">UTC</span>
                  </div>
-                 <span className="text-[9px] text-gray-400 font-mono tracking-[0.2em] mt-1.5 uppercase drop-shadow-[0_0_2px_rgba(0,0,0,1)] pr-1">
+                 <span className="text-[9px] text-gray-400 font-mono tracking-[0.2em] mt-1 uppercase">
                    {new Date().toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}
                  </span>
               </div>
@@ -359,32 +361,32 @@ export default function DashboardLayout() {
               {/* User Dropdown Badge - Made Interactive */}
               <button 
                 title="Profile & Status Options"
-                className="bg-[#18232c]/80 border border-cyan-900/40 rounded-lg px-3 py-1.5 flex items-center justify-between min-w-[130px] shadow-[0_4px_15px_rgba(0,0,0,0.6)] cursor-pointer hover:bg-[#1f2d38] hover:border-cyan-500/50 hover:shadow-[0_0_15px_rgba(34,211,238,0.2)] transition-all active:scale-[0.98] group"
+                className="bg-[#18232c]/80 border border-cyan-900/40 rounded-lg px-3 py-1.5 flex items-center justify-between min-w-[130px] shadow-[0_3px_8px_rgba(0,0,0,0.5)] hover:bg-[#1f2d38] hover:border-cyan-500/50 transition-all cursor-pointer active:scale-95"
               >
                 <div className="flex flex-col items-start text-left">
-                  <span className="text-[9px] text-gray-300 tracking-[0.15em] font-bold uppercase group-hover:text-white truncate max-w-[90px] transition-colors">{user?.displayName || 'N. KORSAKOVA'}</span>
+                  <span className="text-[9px] text-gray-300 tracking-[0.1em] font-bold uppercase truncate max-w-[90px]">{user?.displayName || 'N. KORSAKOVA'}</span>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_5px_#22d3ee] animate-pulse"></span>
-                    <span className="text-[8px] text-cyan-400 tracking-[0.2em] font-bold drop-shadow-[0_0_5px_#22d3ee]">ONLINE</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                    <span className="text-[8px] text-cyan-400 tracking-[0.15em] font-bold mt-0.5">ONLINE</span>
                   </div>
                 </div>
-                <ChevronDown className="w-3.5 h-3.5 text-cyan-600 group-hover:text-cyan-300 transition-colors ml-2" />
+                <ChevronDown className="w-3.5 h-3.5 text-cyan-600 ml-1" />
               </button>
             </div>
 
             {/* BOTTOM STATUS PILLS */}
-            <div className="flex items-center gap-2 lg:gap-3 z-10 justify-end w-full pb-1 mt-1">
-              <button className="border border-red-500/50 hover:border-red-400 bg-[#2a0e14] hover:bg-[#3a131c] transition-colors cursor-pointer rounded-full px-3 py-1 flex items-center justify-center text-[9px] text-red-500 font-bold tracking-[0.15em] shadow-[inset_0_0_10px_rgba(239,68,68,0.15)] active:scale-95">
+            <div className="flex items-center gap-2 lg:gap-3 z-10 justify-end w-full pb-1">
+              <button className="border border-red-500/50 hover:border-red-400 bg-[#2a0e14] hover:bg-[#3a131c] transition-colors cursor-pointer rounded-full px-3 py-0.5 flex items-center justify-center text-[9px] text-red-500 font-bold tracking-[0.1em] shadow-[inset_0_0_8px_rgba(239,68,68,0.15)] active:scale-95">
                 THREATS: {activeAlerts + Math.floor(displayedScore)}
               </button>
-              <button className="border border-yellow-500/50 hover:border-yellow-400 bg-[#2a1e0b] hover:bg-[#3a290f] transition-colors cursor-pointer rounded-full px-3 py-1 flex items-center justify-center text-[9px] text-yellow-500 font-bold tracking-[0.15em] shadow-[inset_0_0_10px_rgba(234,179,8,0.15)] active:scale-95">
+              <button className="border border-yellow-500/50 hover:border-yellow-400 bg-[#2a1e0b] hover:bg-[#3a290f] transition-colors cursor-pointer rounded-full px-3 py-0.5 flex items-center justify-center text-[9px] text-yellow-500 font-bold tracking-[0.1em] shadow-[inset_0_0_8px_rgba(234,179,8,0.15)] active:scale-95">
                 WARNINGS: {attacks.length + 12}
               </button>
-              <button className="border border-cyan-500/40 hover:border-cyan-300 bg-[#0e212a] hover:bg-[#132d3a] transition-colors cursor-pointer rounded-full px-3 py-1 flex items-center justify-center text-[9px] text-cyan-400 font-bold tracking-[0.15em] shadow-[inset_0_0_10px_rgba(34,211,238,0.15)] active:scale-95">
+              <button className="border border-cyan-500/40 hover:border-cyan-300 bg-[#0e212a] hover:bg-[#132d3a] transition-colors cursor-pointer rounded-full px-3 py-0.5 flex items-center justify-center text-[9px] text-cyan-400 font-bold tracking-[0.1em] shadow-[inset_0_0_8px_rgba(34,211,238,0.15)] active:scale-95">
                 SECURED: 852
               </button>
             </div>
-          </div>
+          </div>v>
         </header>
 
         {/* Main Responsive Bento Grid — flex-1 to fill remaining height */}
