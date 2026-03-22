@@ -51,7 +51,7 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
   if (isLoginRoute) return null
   if (!isAuthed) return null
 
-  const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href))
+  const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname?.startsWith(href))
 
   // Define unique key to restart CSS animations via React key prop
   const animKey = triggerCount.toString()

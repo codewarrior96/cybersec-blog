@@ -189,7 +189,7 @@ export default function DashboardLayout() {
       <div className="flex flex-col gap-3 w-full h-full p-4 lg:px-5 lg:py-4 z-10 relative">
 
         {/* EXACT AETHER SECURITY REPLICA TOP BAR (PIXEL PERFECT) */}
-        <header className="relative w-full shrink-0 z-10 flex flex-col xl:flex-row items-center xl:justify-between bg-[#111A22] rounded-[16px] px-2 py-4 xl:py-2 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden min-h-[120px] border border-[#2a3b4c] gap-6 xl:gap-0">
+        <header className="relative w-full shrink-0 z-10 flex flex-col xl:flex-row items-center xl:justify-between bg-[#111A22] rounded-[16px] px-2 py-3 xl:py-2 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden min-h-[120px] border border-[#2a3b4c] gap-3 xl:gap-0">
           
           {/* Inner glass overlay */}
           <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
@@ -204,36 +204,49 @@ export default function DashboardLayout() {
           <div className="absolute bottom-0 right-12 w-64 h-[2px] bg-cyan-400 shadow-[0_0_15px_#22d3ee] rounded-t-md" />
 
           {/* LEFT COLUMN: Logo & Avatar */}
-          <div className="flex-1 flex flex-col sm:flex-row items-center justify-center xl:justify-start h-full pl-0 sm:pl-6 relative w-full xl:w-auto gap-4 sm:gap-0">
+          <div className="flex-1 flex items-center justify-between xl:justify-start h-full pl-2 xl:pl-6 relative w-full xl:w-auto">
             {/* Geometric Background Traces */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 300 120">
+            <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20 hidden xl:block" viewBox="0 0 300 120">
                <path d="M 0 60 L 50 60 L 60 40 L 150 40" fill="none" stroke="#22d3ee" strokeWidth="1" />
                <path d="M 0 80 L 100 80 L 120 100 L 200 100" fill="none" stroke="#22d3ee" strokeWidth="1" />
             </svg>
 
             {/* Logo Group */}
-            <div className="flex items-center gap-4 z-10">
-              <div className="w-14 h-14 relative flex items-center justify-center">
-                <Shield className="w-14 h-14 text-cyan-400 drop-shadow-[0_0_10px_#22d3ee] fill-cyan-950/50" strokeWidth={1} />
+            <div className="flex items-center gap-3 xl:gap-4 z-10">
+              <div className="w-10 h-10 xl:w-14 xl:h-14 relative flex items-center justify-center">
+                <Shield className="w-10 h-10 xl:w-14 xl:h-14 text-cyan-400 drop-shadow-[0_0_10px_#22d3ee] fill-cyan-950/50" strokeWidth={1} />
                 <div className="absolute inset-0 flex items-center justify-center">
-                   <div className="w-8 h-8 clip-triangle border border-cyan-300 flex items-center justify-center bg-cyan-400/20" style={{ clipPath: 'polygon(50% 10%, 90% 90%, 10% 90%)' }}>
-                     <span className="text-cyan-50 font-bold text-sm drop-shadow-[0_0_5px_#fff] mt-1">C</span>
+                   <div className="w-5 h-5 xl:w-8 xl:h-8 clip-triangle border border-cyan-300 flex items-center justify-center bg-cyan-400/20" style={{ clipPath: 'polygon(50% 10%, 90% 90%, 10% 90%)' }}>
+                     <span className="text-cyan-50 font-bold text-[10px] xl:text-sm drop-shadow-[0_0_5px_#fff] mt-0.5 xl:mt-1">C</span>
                    </div>
                 </div>
               </div>
-              <div className="flex flex-col justify-center translate-y-[-2px]">
-                <span className="text-2xl font-bold text-white tracking-[0.1em] drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">CYBERLOGSEC</span>
-                <span className="text-xs text-cyan-400 tracking-[0.25em] font-medium -mt-1">OS v4.1</span>
+              <div className="flex flex-col justify-center translate-y-[-1px]">
+                <span className="text-lg xl:text-2xl font-bold text-white tracking-[0.1em] drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">CYBERLOGSEC</span>
+                <span className="text-[10px] xl:text-xs text-cyan-400 tracking-[0.25em] font-medium -mt-0.5 xl:-mt-1">OS v4.1</span>
               </div>
+            </div>
+
+            {/* MOBILE ONLY: TRIPLE ICONS */}
+            <div className="flex xl:hidden items-center gap-4 text-cyan-400 z-10 pr-2 pb-1 relative">
+              <button title="Network Status" className="hover:scale-110 transition-transform cursor-pointer">
+                <Wifi className="w-5 h-5 filter drop-shadow-[0_0_8px_#22d3ee] animate-pulse" />
+              </button>
+              <button title="Alerts" className="relative hover:scale-110 transition-transform cursor-pointer">
+                <Bell className="w-5 h-5 filter drop-shadow-[0_0_8px_#22d3ee]" />
+                <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-[#111A22]" />
+              </button>
+              <button title="Settings" className="hover:scale-110 transition-transform cursor-pointer text-gray-400 hover:text-cyan-300">
+                <Settings className="w-5 h-5" />
+              </button>
             </div>
             
             {/* Vertical Divider */}
-            <div className="hidden sm:block w-px h-16 bg-gradient-to-b from-transparent via-[#2a3b4c] to-transparent mx-6 lg:mx-10 z-10" />
+            <div className="hidden xl:block w-px h-16 bg-gradient-to-b from-transparent via-[#2a3b4c] to-transparent mx-10 z-10" />
 
-            {/* Avatar Group */}
-            <div className="flex flex-col items-center justify-center z-10 w-24">
+            {/* Avatar Group - DESKTOP ONLY */}
+            <div className="hidden xl:flex flex-col items-center justify-center z-10 w-24">
               <div className="relative w-16 h-16 shrink-0">
-                 {/* Solid cyan glowing ring exactly hugging the avatar */}
                  <div className="absolute inset-0 rounded-full border-[2.5px] border-green-400 shadow-[0_0_15px_#4ade80,inset_0_0_10px_#4ade80] animate-[spin_4s_linear_infinite] border-r-transparent" />
                  <div className="absolute inset-[3px] rounded-full overflow-hidden bg-[#0a1216]">
                    <img src="/skull.jpg" className="w-full h-full object-cover mix-blend-screen opacity-90 scale-110" />
@@ -255,10 +268,10 @@ export default function DashboardLayout() {
             </div>
           </div>
 
-          {/* CENTER COLUMN: Hero Arc Gauge */}
-          <div className="flex-[1.2] lg:flex-[1.5] relative flex items-end justify-center pb-2 w-full xl:w-auto h-[120px] xl:h-full">
+          {/* CENTER COLUMN: Hero Arc Gauge (DESKTOP ONLY) */}
+          <div className="hidden xl:flex flex-[1.5] relative items-end justify-center pb-2 w-auto h-full shrink-0">
             {/* The giant arc wrapper */}
-            <div className="relative w-[260px] h-[110px] xl:w-[300px] xl:h-[130px] flex items-end justify-center overflow-hidden scale-90 sm:scale-100">
+            <div className="relative w-[300px] h-[130px] flex items-end justify-center overflow-hidden">
               <svg viewBox="0 0 200 100" className="w-full h-full overflow-visible absolute bottom-0 left-0">
                 <defs>
                   <filter id="gauge-red-glow" x="-20%" y="-20%" width="140%" height="140%">
@@ -354,7 +367,7 @@ export default function DashboardLayout() {
                    <span className="text-base sm:text-lg font-medium text-cyan-300/80 tracking-widest leading-none">UTC</span>
                  </div>
                  <span className="text-[9px] text-gray-400 font-mono tracking-[0.2em] mt-1 uppercase">
-                   {new Date().toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}
+                   {mounted ? new Date().toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}) : ''}
                  </span>
               </div>
               
