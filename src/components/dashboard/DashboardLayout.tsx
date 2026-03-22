@@ -322,7 +322,7 @@ export default function DashboardLayout() {
                 </div>
               </div>
             </div>
-          </di          {/* RIGHT COLUMN */}
+          </div>          {/* RIGHT COLUMN */}
           <div className="flex-[1.1] lg:flex-[1.3] h-full pr-8 flex flex-col justify-between items-end relative py-2 z-10 min-w-[360px]">
             {/* Abstract Background Trace right behind icons */}
             <svg className="absolute top-0 right-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 300 120">
@@ -386,7 +386,7 @@ export default function DashboardLayout() {
                 SECURED: 852
               </button>
             </div>
-          </div>v>
+          </div>
         </header>
 
         {/* Main Responsive Bento Grid — flex-1 to fill remaining height */}
