@@ -355,3 +355,33 @@
   border-left: 2px solid #00ff41;
   padding-left: calc(0.25rem - 2px);
 }
+
+/* ═══ SOC TOOLKIT SIDEBAR TRANSITIONS ═══ */
+
+@keyframes toolkit-typing { from { width: 0 } to { width: 100% } }
+@keyframes toolkit-glitch {
+    0% { transform: translate(0) }
+    5% { transform: translate(-2px, 1px) }
+    10% { transform: translate(-1px, -1px) }
+    15% { transform: translate(2px, 1px) }
+    20% { transform: translate(1px, -1px) }
+    25% { transform: translate(0) }
+    100% { transform: translate(0) }
+}
+@keyframes toolkit-slow-pulse {
+    0% { border-color: rgba(245, 158, 11, 0.3); box-shadow: 0 0 2px rgba(245,158,11,0.2); }
+    50% { border-color: rgba(245, 158, 11, 0.8); box-shadow: 0 0 15px rgba(245,158,11,0.6); }
+    100% { border-color: rgba(245, 158, 11, 0.3); box-shadow: 0 0 2px rgba(245,158,11,0.2); }
+}
+@keyframes toolkit-slide-up { to { opacity: 1; transform: translateY(0); } }
+@keyframes toolkit-fade-in { to { opacity: 1; } }
+
+.toolkit-typewriter {
+    overflow: hidden; white-space: nowrap; border-right: 2px solid #10B981;
+    width: 0;
+    animation: toolkit-typing 1.5s steps(15, end) forwards, blink 0.75s step-end infinite;
+}
+.toolkit-glitch-anim { animation: toolkit-glitch 2s infinite; }
+.toolkit-pulse-anim { animation: toolkit-slow-pulse 3s infinite; }
+.toolkit-slide-up-anim { opacity: 0; transform: translateY(10px); animation: toolkit-slide-up 0.4s ease-out forwards; }
+.toolkit-fade-in-anim { opacity: 0; animation: toolkit-fade-in 1s ease-in forwards; }
