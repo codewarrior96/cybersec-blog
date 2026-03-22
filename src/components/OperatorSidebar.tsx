@@ -190,7 +190,7 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
           <button
             onClick={() => {
               void logoutAuth()
-              router.push('/')
+              window.location.href = '/'
             }}
             style={{ width: '100%', border: '1px solid rgba(239,68,68,0.5)', background: 'rgba(239,68,68,0.08)', color: '#ef4444', padding: '8px 10px', fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', cursor: 'pointer' }}
           >
