@@ -108,7 +108,7 @@ export function useAuthStatus(initialAuth: boolean | null = null) {
     let cancelled = false
 
     const sync = async () => {
-      const session = await getAuthSession(true)
+      const session = await getAuthSession()
       if (!cancelled) {
         setAuthStatus(session.authenticated)
       }
@@ -153,7 +153,7 @@ export function useAuthSession(initialAuth: boolean | null = null) {
     let cancelled = false
 
     const sync = async () => {
-      const next = await getAuthSession(true)
+      const next = await getAuthSession()
       if (!cancelled) {
         setSession(next)
       }
