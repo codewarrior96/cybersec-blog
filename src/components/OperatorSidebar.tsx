@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { logoutAuth, useAuthSession } from '@/lib/auth-client'
 
@@ -28,6 +28,7 @@ function roleLabel(role: string) {
 
 export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const session = useAuthSession(initialAuth)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
 
@@ -187,9 +188,9 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
 
         <div className="shrink-0" style={{ marginTop: 'auto', borderTop: '1px solid #1a2a1a', padding: '14px 12px' }}>
           <button
-            onClick={async () => {
-              await logoutAuth()
-              window.location.href = '/'
+            onClick={() => {
+              void logoutAuth()
+              router.push('/')
             }}
             style={{ width: '100%', border: '1px solid rgba(239,68,68,0.5)', background: 'rgba(239,68,68,0.08)', color: '#ef4444', padding: '8px 10px', fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.08em', cursor: 'pointer' }}
           >

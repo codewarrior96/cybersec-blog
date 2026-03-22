@@ -83,6 +83,10 @@ export async function loginWithPassword(username: string, password: string): Pro
 }
 
 export async function logoutAuth(): Promise<void> {
+  // Optimistic UI update for instant feedback
+  authCache = UNAUTH_STATE
+  dispatchAuthChanged()
+
   try {
     await fetch('/api/auth/logout', {
       method: 'POST',
@@ -91,9 +95,6 @@ export async function logoutAuth(): Promise<void> {
   } catch {
     // ignore network failures, state will still reset locally
   }
-
-  authCache = UNAUTH_STATE
-  dispatchAuthChanged()
 }
 
 export async function clearAuthUser() {
