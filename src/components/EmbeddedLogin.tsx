@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import MatrixRain from '@/components/MatrixRain'
 import { getAuthSession, loginWithPassword } from '@/lib/auth-client'
 
@@ -9,6 +10,7 @@ interface EmbeddedLoginProps {
 }
 
 export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) {
+  const router = useRouter()
   const [visible, setVisible] = useState(false)
   const [username, setUsername] = useState('ghost')
   const [password, setPassword] = useState('demo_pass')
@@ -82,14 +84,14 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
     const check = async () => {
       const session = await getAuthSession(false)
       if (alive && session.authenticated) {
-        window.location.href = redirectTo
+        router.push(redirectTo)
       }
     }
     void check()
     return () => {
       alive = false
     }
-  }, [redirectTo])
+  }, [redirectTo, router])
 
   useEffect(() => {
     const timer = setTimeout(() => setVisible(true), 120)
@@ -113,7 +115,7 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
         setError(result.error ?? 'ACCESS DENIED - INVALID CREDENTIALS')
         return
       }
-      window.location.href = redirectTo
+      router.push(redirectTo)
     } finally {
       setLoading(false)
     }
