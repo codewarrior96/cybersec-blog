@@ -1,13 +1,8 @@
-﻿import type { Metadata } from 'next';
+import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { cookies, headers } from 'next/headers';
 import '@/styles/globals.css';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import SearchModal from '@/components/SearchModal';
-import PageTransition from '@/components/PageTransition';
-import OperatorSidebar from '@/components/OperatorSidebar';
-import MobileNav from '@/components/MobileNav';
+import AppShellClient from '@/components/AppShellClient';
 import { getServerSessionFromCookies } from '@/lib/auth-server';
 import { getAllPosts } from '@/lib/posts';
 
@@ -47,38 +42,15 @@ function normalizePathname(rawPath: string): string {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const posts = await getAllPosts();
   const cookieStore = cookies();
-  const headerStore = headers();
   const session = await getServerSessionFromCookies(cookieStore);
-
-  const rawPathname =
-    headerStore.get('x-pathname') ??
-    headerStore.get('next-url') ??
-    headerStore.get('x-matched-path') ??
-    '';
-  const pathname = normalizePathname(rawPathname);
-  const isLoginRoute = pathname === '/login' || pathname.startsWith('/login/');
-  const isRootRoute = pathname === '/';
   const isAuthedFromCookie = Boolean(session);
-  const isAuthGatewayRoute = isLoginRoute || (!isAuthedFromCookie && isRootRoute);
-  const showOperatorShell = isAuthedFromCookie && !isLoginRoute;
-  const showPublicHeader = !showOperatorShell && !isAuthGatewayRoute;
-  const showGlobalTools = !isAuthGatewayRoute && !showOperatorShell;
 
   return (
     <html lang="tr" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen flex flex-col">
-        <OperatorSidebar initialAuth={isAuthedFromCookie} />
-        <MobileNav initialAuth={isAuthedFromCookie} />
-        <div
-          className={`transition-all duration-300 flex flex-col flex-1 app-shell ${showOperatorShell ? 'app-shell--sidebar' : ''}`}
-        >
-          {showPublicHeader && <Header initialAuth={isAuthedFromCookie} />}
-          <PageTransition>
-            <main className="flex-1">{children}</main>
-          </PageTransition>
-          {showGlobalTools && <Footer />}
-        </div>
-        {showGlobalTools && <SearchModal posts={posts} />}
+        <AppShellClient initialAuth={isAuthedFromCookie} posts={posts}>
+          {children}
+        </AppShellClient>
       </body>
     </html>
   );
