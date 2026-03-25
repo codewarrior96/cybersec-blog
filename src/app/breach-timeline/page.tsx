@@ -351,7 +351,7 @@ export default function BreachTimelinePage() {
       </div>
 
       {/* Timeline */}
-      <div className="max-w-5xl mx-auto px-6 pb-20 relative">
+      <div className="max-w-5xl mx-auto px-4 md:px-6 pb-20 relative">
         {/* Vertical center line */}
         <div
           className="absolute left-1/2 top-0 bottom-0 w-[2px] -translate-x-1/2 pointer-events-none"

@@ -21,10 +21,9 @@ export const metadata: Metadata = {
   description: 'Siber güvenlik, CTF writeup ve araştırma yazıları.',
 };
 
-/* Mobil tarayıcılara "bu site 1600px genişliğindedir" der.
-   Masaüstü tarayıcılar kendi ekran genişliğini kullanır, etkilenmez. */
 export const viewport: Viewport = {
-  width: 1600,
+  width: 'device-width',
+  initialScale: 1,
 };
 
 function normalizePathname(rawPath: string): string {
