@@ -22,9 +22,11 @@ export default function AppShellClient({
   const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
   const session = useAuthSession(initialAuth)
-  const isAuthed = session?.authenticated ?? false
 
   useEffect(() => { setMounted(true) }, [])
+
+  // Before mount: use initialAuth (matches SSR). After mount: use live session.
+  const isAuthed = mounted ? (session?.authenticated ?? false) : initialAuth
 
   const isLoginRoute = pathname === '/login' || pathname?.startsWith('/login/')
   const isRootRoute = pathname === '/'
@@ -33,15 +35,6 @@ export default function AppShellClient({
   const showOperatorShell = isAuthed && !isLoginRoute
   const showPublicHeader = !showOperatorShell && !isAuthGatewayRoute
   const showGlobalTools = !isAuthGatewayRoute && !showOperatorShell
-
-  /* Before hydration completes, render only children to avoid mismatch */
-  if (!mounted) {
-    return (
-      <div className="transition-all duration-300 flex flex-col flex-1 app-shell">
-        <main className="flex-1">{children}</main>
-      </div>
-    )
-  }
 
   return (
     <>
