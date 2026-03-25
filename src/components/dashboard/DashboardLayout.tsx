@@ -183,7 +183,7 @@ export default function DashboardLayout() {
 
 
   return (
-    <div className="fixed inset-0 lg:left-[280px] bg-[#030608] text-[#00ff41] font-mono flex flex-col overflow-y-auto lg:overflow-hidden select-none scrollbar-thin scrollbar-thumb-cyan-900/50 scrollbar-track-transparent" style={{ zIndex: 10 }}>
+    <div className="fixed inset-0 lg:left-[280px] bg-[#030608] text-[#00ff41] font-mono flex flex-col overflow-x-hidden overflow-y-auto lg:overflow-hidden select-none scrollbar-thin scrollbar-thumb-cyan-900/50 scrollbar-track-transparent" style={{ zIndex: 10 }}>
       
       {/* Outer Corners */}
       <div className="absolute top-3 left-3 w-5 h-5 border-t-2 border-l-2 border-slate-500/40 pointer-events-none z-20" />
@@ -409,7 +409,7 @@ export default function DashboardLayout() {
         </header>
 
         {/* Main Responsive Bento Grid — flex-1 to fill remaining height */}
-        <div className="flex-1 min-h-[600px] xl:min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 auto-rows-min lg:grid-rows-[3fr_2fr] gap-3">
+        <div className="flex-1 min-h-[400px] xl:min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 auto-rows-min lg:grid-rows-[3fr_2fr] gap-2">
           
           {/* TOP ROW */}
           <div className="lg:col-span-3 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] min-h-[250px] lg:min-h-0">
