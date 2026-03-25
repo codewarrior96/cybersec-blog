@@ -183,7 +183,7 @@ export default function DashboardLayout() {
 
 
   return (
-    <div className="dashboard-root fixed inset-0 lg:left-[280px] bg-[#030608] text-[#00ff41] font-mono flex flex-col overflow-x-hidden overflow-y-auto lg:overflow-hidden select-none scrollbar-thin scrollbar-thumb-cyan-900/50 scrollbar-track-transparent" style={{ zIndex: 10 }}>
+    <div className="fixed inset-0 lg:left-[280px] bg-[#030608] text-[#00ff41] font-mono flex flex-col overflow-hidden select-none" style={{ zIndex: 10 }}>
       
       {/* Outer Corners */}
       <div className="absolute top-3 left-3 w-5 h-5 border-t-2 border-l-2 border-slate-500/40 pointer-events-none z-20" />
@@ -192,7 +192,7 @@ export default function DashboardLayout() {
       <div className="absolute bottom-3 right-3 w-5 h-5 border-b-2 border-r-2 border-slate-500/40 pointer-events-none z-20" />
 
       {/* Main Container — fills fixed viewport perfectly regardless of width */}
-      <div className="flex flex-col gap-3 w-full min-h-full lg:h-full p-4 lg:px-5 lg:py-4 pb-24 lg:pb-4 z-10 relative">
+      <div className="flex flex-col gap-3 w-full h-full p-4 lg:px-5 lg:py-4 z-10 relative overflow-hidden">
 
         {/* EXACT AETHER SECURITY REPLICA TOP BAR (PIXEL PERFECT) */}
         <header className="relative w-full shrink-0 z-10 flex flex-col xl:flex-row items-center xl:justify-between bg-[#111A22] rounded-[16px] px-2 py-3 xl:py-2 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden min-h-[auto] xl:min-h-[120px] border border-[#2a3b4c] gap-3 xl:gap-0">
@@ -408,8 +408,8 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        {/* Main Responsive Bento Grid — flex-1 to fill remaining height */}
-        <div className="flex-1 min-h-[400px] xl:min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 auto-rows-min lg:grid-rows-[3fr_2fr] gap-2">
+        {/* Main Responsive Bento Grid — flex-1 min-h-0 to fill remaining height without overflow */}
+        <div className="flex-1 min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 grid-rows-[auto] lg:grid-rows-[3fr_2fr] gap-2">
           
           {/* TOP ROW */}
           <div className="lg:col-span-3 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] min-h-[250px] lg:min-h-0">
