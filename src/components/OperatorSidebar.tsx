@@ -59,7 +59,7 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
   return (
     <>
       <aside
-        className="hidden lg:flex flex-col fixed z-50 transition-transform duration-300"
+        className="flex flex-col fixed z-50 transition-transform duration-300"
         style={{
           left: 0, top: 0, bottom: 0, height: '100dvh', width: 280,
           background: '#070710', borderRight: '1px solid #1a2a1a',
