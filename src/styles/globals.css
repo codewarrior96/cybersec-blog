@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Portrait-only: Dashboard'u masaüstü oranlarında tut ────────────────────
+   Telefon dikey tutulduğunda viewport yüksekliği devasa oluyor (1440/390 ≈ 3.7x).
+   Bu kural, dashboard'un dikeyde aşırı uzamasını engelleyerek masaüstü
+   en-boy oranlarını korur. Landscape ve desktop'ta bu kural aktif olmaz. ── */
+@media (orientation: portrait) {
+  /* Dashboard ana container — fixed inset-0 olan div */
+  .dashboard-root {
+    max-height: 62.5vw !important; /* 16:10 oran — 1440 * 0.625 = 900px eşdeğeri */
+  }
+}
+
 @layer base {
   * {
     box-sizing: border-box;

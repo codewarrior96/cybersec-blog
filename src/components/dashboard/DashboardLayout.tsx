@@ -183,7 +183,7 @@ export default function DashboardLayout() {
 
 
   return (
-    <div className="fixed inset-0 lg:left-[280px] bg-[#030608] text-[#00ff41] font-mono flex flex-col overflow-x-hidden overflow-y-auto lg:overflow-hidden select-none scrollbar-thin scrollbar-thumb-cyan-900/50 scrollbar-track-transparent" style={{ zIndex: 10 }}>
+    <div className="dashboard-root fixed inset-0 lg:left-[280px] bg-[#030608] text-[#00ff41] font-mono flex flex-col overflow-x-hidden overflow-y-auto lg:overflow-hidden select-none scrollbar-thin scrollbar-thumb-cyan-900/50 scrollbar-track-transparent" style={{ zIndex: 10 }}>
       
       {/* Outer Corners */}
       <div className="absolute top-3 left-3 w-5 h-5 border-t-2 border-l-2 border-slate-500/40 pointer-events-none z-20" />
