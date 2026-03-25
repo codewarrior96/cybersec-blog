@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuthSession } from '@/lib/auth-client'
 import OperatorSidebar from '@/components/OperatorSidebar'
@@ -19,18 +19,13 @@ export default function AppShellClient({
   initialAuth: boolean
   posts: any[]
 }) {
-  const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
   const session = useAuthSession(initialAuth)
-
-  useEffect(() => { setMounted(true) }, [])
-
-  // Before mount: use initialAuth (matches SSR). After mount: use live session.
-  const isAuthed = mounted ? (session?.authenticated ?? false) : initialAuth
+  const isAuthed = session?.authenticated ?? false
 
   const isLoginRoute = pathname === '/login' || pathname?.startsWith('/login/')
   const isRootRoute = pathname === '/'
-
+  
   const isAuthGatewayRoute = isLoginRoute || (!isAuthed && isRootRoute)
   const showOperatorShell = isAuthed && !isLoginRoute
   const showPublicHeader = !showOperatorShell && !isAuthGatewayRoute

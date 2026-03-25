@@ -3,14 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, BarChart, Bar, ResponsiveContainer, YAxis, CartesianGrid } from 'recharts';
 
 export default function SystemMonitorWidget() {
-  const [cpuData, setCpuData] = useState<{ time: number; value: number }[]>([]);
-  const [netData, setNetData] = useState<{ time: number; value: number }[]>([]);
-
-  // Initial data must be generated client-side only to avoid SSR/hydration mismatch
-  useEffect(() => {
-    setCpuData(Array.from({ length: 30 }, (_, i) => ({ time: i, value: 40 + Math.random() * 30 })));
-    setNetData(Array.from({ length: 20 }, (_, i) => ({ time: i, value: Math.random() * 100 })));
-  }, []);
+  const [cpuData, setCpuData] = useState(Array.from({ length: 30 }, (_, i) => ({ time: i, value: 40 + Math.random() * 30 })));
+  const [netData, setNetData] = useState(Array.from({ length: 20 }, (_, i) => ({ time: i, value: Math.random() * 100 })));
 
   useEffect(() => {
     const interval = setInterval(() => {
