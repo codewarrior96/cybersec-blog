@@ -99,41 +99,41 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
 
         {/* ═══ SOC TOOLKIT SECTIONS ═══ */}
         
-        <div className="flex flex-col gap-5 px-3 mb-6 relative shrink-0" key={animKey}>
-          {/* Transition 3: Smooth Pulse */}
-          <div className="border border-yellow-600/50 bg-black/60 p-3 relative shadow-[inset_0_0_10px_rgba(245,158,11,0.05)] toolkit-pulse-anim">
-              <div className="text-[11px] text-yellow-600 mb-2 font-bold font-mono tracking-widest">// DEFCON THRESHOLD</div>
-              <div className="flex justify-between text-yellow-500 text-sm font-mono">
+        <div className="flex flex-col gap-2 px-3 mb-3 relative shrink-0" key={animKey}>
+          {/* DEFCON */}
+          <div className="border border-yellow-600/50 bg-black/60 p-2 relative toolkit-pulse-anim">
+              <div className="text-[10px] text-yellow-600 mb-1 font-bold font-mono tracking-widest">// DEFCON THRESHOLD</div>
+              <div className="flex justify-between text-yellow-500 text-xs font-mono">
                   <span className="opacity-20">[ 5 ]</span>
                   <span className="opacity-20">[ 4 ]</span>
-                  <span className="font-black border border-yellow-500 px-2 bg-yellow-500/20 shadow-[0_0_8px_rgba(245,158,11,0.5)] text-yellow-300">[{">"}3{"<"}]</span>
+                  <span className="font-black border border-yellow-500 px-1.5 bg-yellow-500/20 shadow-[0_0_8px_rgba(245,158,11,0.5)] text-yellow-300">[{">"}3{"<"}]</span>
                   <span className="opacity-20">[ 2 ]</span>
                   <span className="opacity-20">[ 1 ]</span>
               </div>
-              <div className="text-[9px] font-mono text-yellow-600/80 mt-2 toolkit-fade-in-anim" style={{animationDelay: '1s'}}>STATUS: ELEVATED RISK</div>
+              <div className="text-[9px] font-mono text-yellow-600/80 mt-1 toolkit-fade-in-anim" style={{animationDelay: '1s'}}>STATUS: ELEVATED RISK</div>
           </div>
 
-          {/* Transition 1: Typewriter */}
-          <div className="border border-green-800 bg-black/60 p-3 relative group hover:border-green-500 transition-colors duration-300">
-              <div className="text-[10px] text-green-600 mb-2 font-mono tracking-wider">// OSINT LOOKUP</div>
-              <div className="flex bg-[#000000] p-1.5 border border-green-900/50 text-xs text-green-400 mb-2 items-center font-mono">
+          {/* OSINT LOOKUP */}
+          <div className="border border-green-800 bg-black/60 p-2 relative group hover:border-green-500 transition-colors duration-300">
+              <div className="text-[10px] text-green-600 mb-1 font-mono tracking-wider">// OSINT LOOKUP</div>
+              <div className="flex bg-[#000000] p-1 border border-green-900/50 text-[10px] text-green-400 mb-1 items-center font-mono">
                   <span className="mr-2 text-green-600">&gt;</span>
                   <span className="toolkit-typewriter" style={{animationDelay: '0.5s'}}>{osintTarget}</span>
                   <span className="ml-auto text-[9px] bg-green-900/40 border border-green-700 font-bold px-1.5 py-0.5 cursor-pointer hover:bg-green-700 text-green-400">EXEC</span>
               </div>
-              <div className="text-[10px] space-y-1.5 toolkit-fade-in-anim font-mono" style={{animationDelay: '1.5s'}}>
+              <div className="text-[10px] space-y-1 toolkit-fade-in-anim font-mono" style={{animationDelay: '1.5s'}}>
                   <div className="flex justify-between items-center"><span className="text-gray-500">TARGET:</span> <span className="text-green-300">{osintTarget}</span></div>
                   <div className="flex justify-between items-center"><span className="text-gray-500">REP:</span> <span className="text-orange-400 bg-orange-900/20 px-1 border border-orange-800">[ SUSPICIOUS ]</span></div>
                   <div className="flex justify-between items-center"><span className="text-gray-500">GEO:</span> <span className="text-gray-400">RU / Moscow</span></div>
               </div>
           </div>
 
-          {/* Transition 4: Slide-Up Stagger */}
-          <div className="border border-green-800/80 bg-black/60 p-3 relative font-mono">
-              <div className="text-[10px] text-green-600 mb-2 flex justify-between tracking-wider">
+          {/* PERIMETER SCAN */}
+          <div className="border border-green-800/80 bg-black/60 p-2 relative font-mono">
+              <div className="text-[10px] text-green-600 mb-1 flex justify-between tracking-wider">
                   <span>// PERIMETER SCAN</span>
               </div>
-              <div className="text-[10px] space-y-2 mt-2 p-2 bg-[#030605] border border-green-900/30">
+              <div className="text-[10px] space-y-1 p-1.5 bg-[#030605] border border-green-900/30">
                   <div className="toolkit-slide-up-anim text-red-500 flex justify-between items-center" style={{animationDelay: '0.2s'}}>
                       <span>TCP/22</span> <span className="bg-red-900/30 px-1 border border-red-800/50">[ OPEN ]</span> <span className="text-gray-600 text-[9px]">&gt; 10.0.1.5</span>
                   </div>
@@ -146,26 +146,17 @@ export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarP
               </div>
           </div>
 
-          {/* Transition 2: Glitch */}
-          <div className="border border-red-900 bg-[#1e0505]/40 p-3 relative border-r-4 border-r-red-600 font-mono">
-              <div className="text-[10px] text-red-500 mb-2 tracking-wider">// HASH ANALYZER</div>
-              <div className="flex bg-[#000000] p-1.5 border border-red-950 text-xs text-red-500 mb-2 items-center">
+          {/* HASH ANALYZER — compact */}
+          <div className="border border-red-900 bg-[#1e0505]/40 p-2 relative border-r-4 border-r-red-600 font-mono">
+              <div className="text-[10px] text-red-500 mb-1 tracking-wider">// HASH ANALYZER</div>
+              <div className="flex bg-[#000000] p-1 border border-red-950 text-[10px] text-red-500 mb-1 items-center">
                   <span className="mr-2">&gt;</span>
                   <span>{hashValue}</span>
               </div>
-              <div className="text-[10px] text-red-400 font-bold toolkit-glitch-anim mt-1 border border-red-500 bg-red-900/20 p-2 text-center shadow-[0_0_10px_rgba(239,68,68,0.2)]">
-                  [!] MATCH: WannaCry
-              </div>
-              <div className="text-[9px] text-red-500/80 mt-2 flex justify-between">
+              <div className="text-[10px] text-red-400 font-bold toolkit-glitch-anim border border-red-500 bg-red-900/20 p-1 text-center shadow-[0_0_10px_rgba(239,68,68,0.2)]">[!] MATCH: WannaCry</div>
+              <div className="text-[9px] text-red-500/80 mt-1 flex justify-between">
                   <span>SEVERITY:</span> <span className="font-bold text-red-400">CRITICAL</span>
               </div>
-          </div>
-          
-          {/* Transition 5: Slow Fade */}
-          <div className="border border-green-800/60 bg-black/40 p-3 relative font-mono">
-              <div className="text-[10px] text-green-600 mb-2 tracking-wider">// DECODER</div>
-              <div className="text-[10px] text-green-700/60 mt-1 bg-black p-1.5 border border-green-900/30">IN &gt; [ YWRtaW4... ]</div>
-              <div className="text-[10px] text-green-400 mt-2 toolkit-fade-in-anim bg-black p-1.5 border border-green-600/40 shadow-[inset_0_0_8px_rgba(0,255,65,0.05)]" style={{animationDelay: '1s'}}>OUT&gt; admin:password</div>
           </div>
         </div>
 
