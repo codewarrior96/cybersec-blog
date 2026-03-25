@@ -183,7 +183,7 @@ export default function DashboardLayout() {
 
 
   return (
-    <div className="relative flex-1 w-full lg:fixed lg:inset-0 lg:left-[280px] bg-[#030608] text-[#00ff41] font-mono flex flex-col lg:overflow-hidden select-none" style={{ zIndex: 10 }}>
+    <div className="fixed inset-0 lg:left-[280px] bg-[#030608] text-[#00ff41] font-mono flex flex-col overflow-y-auto lg:overflow-hidden select-none scrollbar-thin scrollbar-thumb-cyan-900/50 scrollbar-track-transparent" style={{ zIndex: 10 }}>
       
       {/* Outer Corners */}
       <div className="absolute top-3 left-3 w-5 h-5 border-t-2 border-l-2 border-slate-500/40 pointer-events-none z-20" />
@@ -192,7 +192,7 @@ export default function DashboardLayout() {
       <div className="absolute bottom-3 right-3 w-5 h-5 border-b-2 border-r-2 border-slate-500/40 pointer-events-none z-20" />
 
       {/* Main Container — fills fixed viewport perfectly regardless of width */}
-      <div className="flex flex-col gap-3 w-full min-h-screen lg:min-h-full lg:h-full p-3 sm:p-4 lg:px-5 lg:py-4 pb-[100px] lg:pb-4 z-10 relative">
+      <div className="flex flex-col gap-3 w-full min-h-full lg:h-full p-4 lg:px-5 lg:py-4 pb-24 lg:pb-4 z-10 relative">
 
         {/* EXACT AETHER SECURITY REPLICA TOP BAR (PIXEL PERFECT) */}
         <header className="relative w-full shrink-0 z-10 flex flex-col xl:flex-row items-center xl:justify-between bg-[#111A22] rounded-[16px] px-2 py-3 xl:py-2 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden min-h-[auto] xl:min-h-[120px] border border-[#2a3b4c] gap-3 xl:gap-0">
@@ -234,13 +234,13 @@ export default function DashboardLayout() {
             </div>
 
             {/* MOBILE ONLY: TRIPLE ICONS */}
-            <div className="flex xl:hidden items-center gap-3 text-cyan-400 z-10 pr-2 pb-1 relative">
+            <div className="flex xl:hidden items-center gap-4 text-cyan-400 z-10 pr-2 pb-1 relative">
               <button title="Network Status" className="hover:scale-110 transition-transform cursor-pointer">
-                <Wifi className="w-4 h-4 filter drop-shadow-[0_0_8px_#22d3ee] animate-pulse" />
+                <Wifi className="w-5 h-5 filter drop-shadow-[0_0_8px_#22d3ee] animate-pulse" />
               </button>
               <button title="Alerts" className="relative hover:scale-110 transition-transform cursor-pointer">
-                <Bell className="w-4 h-4 filter drop-shadow-[0_0_8px_#22d3ee]" />
-                <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-[#111A22]" />
+                <Bell className="w-5 h-5 filter drop-shadow-[0_0_8px_#22d3ee]" />
+                <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-[#111A22]" />
               </button>
               <button title="Settings" className="hover:scale-110 transition-transform cursor-pointer text-gray-400 hover:text-cyan-300">
                 <Settings className="w-5 h-5" />
@@ -367,7 +367,7 @@ export default function DashboardLayout() {
               {/* LARGE TIME & DATE */}
               <div className="flex flex-col justify-center items-center xl:items-end text-center xl:text-right mt-1">
                  <div className="flex items-baseline gap-2">
-                   <span className="text-[20px] sm:text-[24px] xl:text-[34px] font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] leading-none">
+                   <span className="text-[22px] sm:text-[28px] xl:text-[34px] font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] leading-none">
                      {time.replace(' LOC', '').replace(' UTC', '')}
                    </span>
                    <span className="text-base sm:text-lg font-medium text-cyan-300/80 tracking-widest leading-none">UTC</span>
@@ -409,7 +409,7 @@ export default function DashboardLayout() {
         </header>
 
         {/* Main Responsive Bento Grid — flex-1 to fill remaining height */}
-        <div className="flex-1 min-h-[500px] xl:min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 auto-rows-min lg:grid-rows-[3fr_2fr] gap-3">
+        <div className="flex-1 min-h-[600px] xl:min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 auto-rows-min lg:grid-rows-[3fr_2fr] gap-3">
           
           {/* TOP ROW */}
           <div className="lg:col-span-3 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] min-h-[250px] lg:min-h-0">

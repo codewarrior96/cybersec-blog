@@ -24,20 +24,20 @@ export default function SystemMonitorWidget() {
 
   return (
     <div className="absolute inset-0 flex flex-col font-mono text-slate-200 overflow-hidden">
-
+      
       {/* Outer grouped header */}
       <div className="flex justify-between items-center px-4 py-3 border-b border-[#00ff41]/20 z-10 bg-[#021518]/80">
         <span className="text-[12px] lg:text-sm font-bold text-slate-200 tracking-widest uppercase mt-1">SYSTEM MONITORING</span>
         <span className="text-slate-500 tracking-widest text-[10px]">...</span>
       </div>
-
+      
       <div className="flex-1 flex flex-col p-4 gap-2">
         {/* CPU LOAD */}
         <div className="flex-1 flex flex-col relative overflow-hidden group border border-[#00ff41]/20 rounded p-2 bg-[#021a20]/40">
           <div className="flex justify-between items-start mb-1 z-10">
             <span className="text-[11px] lg:text-xs font-bold text-slate-300 tracking-widest group-hover:text-white transition-colors">CPU LOAD</span>
             <div className="text-right leading-none">
-              <div className="text-xs lg:text-sm font-bold text-cyan-400">{Math.floor(cpuData[cpuData.length - 1].value)}%</div>
+              <div className="text-xs lg:text-sm font-bold text-cyan-400">{Math.floor(cpuData[cpuData.length-1].value)}%</div>
               <div className="text-[9px] text-cyan-400/50">volatile</div>
             </div>
           </div>
@@ -50,8 +50,8 @@ export default function SystemMonitorWidget() {
                 <AreaChart data={cpuData}>
                   <defs>
                     <linearGradient id="cpuGlow" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.6} />
-                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.6}/>
+                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <YAxis hide domain={[0, 100]} />
