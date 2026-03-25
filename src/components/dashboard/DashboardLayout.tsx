@@ -4,8 +4,8 @@ import CveFeedWidget from './CveFeedWidget';
 import ThreatMapWidget from './ThreatMapWidget';
 import SystemMonitorWidget from './SystemMonitorWidget';
 import TerminalLogWidget from './TerminalLogWidget';
-import { Shield, User, AlertTriangle, ShieldCheck, Globe, Activity, Wifi, Bell, Settings, ChevronDown } from 'lucide-react';
-import { useAuthSession } from '@/lib/auth-client';
+import { Shield, User, AlertTriangle, ShieldCheck, Globe, Activity, Wifi, Bell, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { useAuthSession, logoutAuth } from '@/lib/auth-client';
 import type { AttackEvent, CVEItem, NewsItem, WorkflowMetrics } from '@/lib/dashboard-types';
 
 
@@ -242,8 +242,8 @@ export default function DashboardLayout() {
                 <Bell className="w-4 h-4 filter drop-shadow-[0_0_8px_#22d3ee]" />
                 <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-[#111A22]" />
               </button>
-              <button title="Settings" className="hover:scale-110 transition-transform cursor-pointer text-gray-400 hover:text-cyan-300">
-                <Settings className="w-5 h-5" />
+              <button title="Logout" onClick={async () => { await logoutAuth(); window.location.href = '/login'; }} className="hover:scale-110 transition-transform cursor-pointer text-red-500/80 hover:text-red-400">
+                <LogOut className="w-5 h-5" />
               </button>
             </div>
             
@@ -412,7 +412,7 @@ export default function DashboardLayout() {
         <div className="flex-1 min-h-[500px] xl:min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 auto-rows-min lg:grid-rows-[3fr_2fr] gap-3">
           
           {/* TOP ROW */}
-          <div className="lg:col-span-3 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] min-h-[250px] lg:min-h-0">
+          <div className="lg:col-span-3 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] min-h-[420px] lg:min-h-0">
             <SystemMonitorWidget />
           </div>
 

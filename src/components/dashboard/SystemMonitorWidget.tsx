@@ -31,7 +31,7 @@ export default function SystemMonitorWidget() {
         <span className="text-slate-500 tracking-widest text-[10px]">...</span>
       </div>
       
-      <div className="flex-1 flex flex-col p-4 gap-2">
+      <div className="flex-1 flex flex-col p-2 lg:p-4 gap-1 lg:gap-2">
         {/* CPU LOAD */}
         <div className="flex-1 flex flex-col relative overflow-hidden group border border-[#00ff41]/20 rounded p-2 bg-[#021a20]/40">
           <div className="flex justify-between items-start mb-1 z-10">
@@ -59,7 +59,7 @@ export default function SystemMonitorWidget() {
                   <Area type="monotone" dataKey="value" stroke="#22d3ee" strokeWidth={2} fillOpacity={1} fill="url(#cpuGlow)" isAnimationActive={false} />
                 </AreaChart>
               </ResponsiveContainer>
-              <div className="absolute -bottom-4 left-0 w-full flex justify-between text-[8px] text-slate-500 px-1">
+              <div className="absolute -bottom-2 lg:-bottom-4 left-0 w-full flex justify-between text-[8px] text-slate-500 px-1">
                 <span>0</span><span>20%</span><span>40%</span><span>60%</span><span>48M</span>
               </div>
             </div>
@@ -84,7 +84,7 @@ export default function SystemMonitorWidget() {
                   <Bar dataKey="value" fill="#f97316" isAnimationActive={false} opacity={0.8} />
                 </BarChart>
               </ResponsiveContainer>
-              <div className="absolute -bottom-4 left-0 w-full flex justify-between text-[8px] text-slate-500 px-1">
+              <div className="absolute -bottom-2 lg:-bottom-4 left-0 w-full flex justify-between text-[8px] text-slate-500 px-1">
                 <span>0</span><span>300</span><span>600</span><span>900</span><span>120k</span><span>150k</span>
               </div>
             </div>
