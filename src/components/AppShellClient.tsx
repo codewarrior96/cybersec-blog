@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuthSession } from '@/lib/auth-client'
 import OperatorSidebar from '@/components/OperatorSidebar'
@@ -19,17 +19,29 @@ export default function AppShellClient({
   initialAuth: boolean
   posts: any[]
 }) {
+  const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
   const session = useAuthSession(initialAuth)
   const isAuthed = session?.authenticated ?? false
 
+  useEffect(() => { setMounted(true) }, [])
+
   const isLoginRoute = pathname === '/login' || pathname?.startsWith('/login/')
   const isRootRoute = pathname === '/'
-  
+
   const isAuthGatewayRoute = isLoginRoute || (!isAuthed && isRootRoute)
   const showOperatorShell = isAuthed && !isLoginRoute
   const showPublicHeader = !showOperatorShell && !isAuthGatewayRoute
   const showGlobalTools = !isAuthGatewayRoute && !showOperatorShell
+
+  /* Before hydration completes, render only children to avoid mismatch */
+  if (!mounted) {
+    return (
+      <div className="transition-all duration-300 flex flex-col flex-1 app-shell">
+        <main className="flex-1">{children}</main>
+      </div>
+    )
+  }
 
   return (
     <>
