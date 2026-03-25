@@ -183,7 +183,7 @@ export default function DashboardLayout() {
 
 
   return (
-    <div className="relative flex-1 w-full lg:fixed lg:inset-0 lg:left-[280px] bg-[#030608] text-[#00ff41] font-mono flex flex-col lg:overflow-hidden select-none" style={{ zIndex: 10 }}>
+    <div className="fixed inset-0 left-[280px] min-w-[1000px] bg-[#030608] text-[#00ff41] font-mono flex flex-col overflow-hidden select-none" style={{ zIndex: 10 }}>
 
       {/* Outer Corners */}
       <div className="absolute top-3 left-3 w-5 h-5 border-t-2 border-l-2 border-slate-500/40 pointer-events-none z-20" />
@@ -192,10 +192,10 @@ export default function DashboardLayout() {
       <div className="absolute bottom-3 right-3 w-5 h-5 border-b-2 border-r-2 border-slate-500/40 pointer-events-none z-20" />
 
       {/* Main Container — fills fixed viewport perfectly regardless of width */}
-      <div className="flex flex-col gap-3 w-full min-h-screen lg:min-h-full lg:h-full p-3 sm:p-4 lg:px-5 lg:py-4 pb-[100px] lg:pb-4 z-10 relative">
+      <div className="flex flex-col gap-3 w-full h-full p-4 px-5 py-4 z-10 relative">
 
         {/* EXACT AETHER SECURITY REPLICA TOP BAR (PIXEL PERFECT) */}
-        <header className="relative w-full shrink-0 z-10 flex flex-col xl:flex-row items-center xl:justify-between bg-[#111A22] rounded-[16px] px-2 py-3 xl:py-2 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden min-h-[auto] xl:min-h-[120px] border border-[#2a3b4c] gap-3 xl:gap-0">
+        <header className="relative w-full shrink-0 z-10 flex flex-row items-center justify-between bg-[#111A22] rounded-[16px] px-2 py-2 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-visible min-h-[120px] border border-[#2a3b4c] gap-0">
 
           {/* Inner glass overlay */}
           <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
@@ -210,31 +210,31 @@ export default function DashboardLayout() {
           <div className="absolute bottom-0 right-12 w-64 h-[2px] bg-cyan-400 shadow-[0_0_15px_#22d3ee] rounded-t-md" />
 
           {/* LEFT COLUMN: Logo & Avatar */}
-          <div className="flex-1 flex items-center justify-between xl:justify-start h-full pl-2 xl:pl-6 relative w-full xl:w-auto">
+          <div className="flex-1 flex items-center justify-between justify-start h-full pl-2 pl-6 relative w-full w-auto">
             {/* Geometric Background Traces */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20 hidden xl:block" viewBox="0 0 300 120">
+            <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20 block" viewBox="0 0 300 120">
               <path d="M 0 60 L 50 60 L 60 40 L 150 40" fill="none" stroke="#22d3ee" strokeWidth="1" />
               <path d="M 0 80 L 100 80 L 120 100 L 200 100" fill="none" stroke="#22d3ee" strokeWidth="1" />
             </svg>
 
             {/* Logo Group */}
             <div className="flex items-center gap-3 xl:gap-4 z-10">
-              <div className="w-10 h-10 xl:w-14 xl:h-14 relative flex items-center justify-center">
-                <Shield className="w-10 h-10 xl:w-14 xl:h-14 text-cyan-400 drop-shadow-[0_0_10px_#22d3ee] fill-cyan-950/50" strokeWidth={1} />
+              <div className="w-10 h-10 w-14 h-14 relative flex items-center justify-center">
+                <Shield className="w-10 h-10 w-14 h-14 text-cyan-400 drop-shadow-[0_0_10px_#22d3ee] fill-cyan-950/50" strokeWidth={1} />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-5 h-5 xl:w-8 xl:h-8 clip-triangle border border-cyan-300 flex items-center justify-center bg-cyan-400/20" style={{ clipPath: 'polygon(50% 10%, 90% 90%, 10% 90%)' }}>
-                    <span className="text-cyan-50 font-bold text-[10px] xl:text-sm drop-shadow-[0_0_5px_#fff] mt-0.5 xl:mt-1">C</span>
+                  <div className="w-5 h-5 w-8 h-8 clip-triangle border border-cyan-300 flex items-center justify-center bg-cyan-400/20" style={{ clipPath: 'polygon(50% 10%, 90% 90%, 10% 90%)' }}>
+                    <span className="text-cyan-50 font-bold text-[10px] text-sm drop-shadow-[0_0_5px_#fff] mt-0.5 xl:mt-1">C</span>
                   </div>
                 </div>
               </div>
               <div className="flex flex-col justify-center translate-y-[-1px]">
                 <span className="text-lg xl:text-2xl font-bold text-[#00ff41] tracking-[0.1em] drop-shadow-[0_0_8px_#00ff41]">BREACH TERMINAL</span>
-                <span className="text-[10px] xl:text-xs text-cyan-400 tracking-[0.25em] font-medium -mt-0.5 xl:-mt-1">OS v4.1</span>
+                <span className="text-[10px] text-[12px] text-cyan-400 tracking-[0.25em] font-medium -mt-0.5 -mt-1">OS v4.1</span>
               </div>
             </div>
 
             {/* MOBILE ONLY: TRIPLE ICONS */}
-            <div className="flex xl:hidden items-center gap-3 text-cyan-400 z-10 pr-2 pb-1 relative">
+            <div className="hidden items-center gap-3 text-cyan-400 z-10 pr-2 pb-1 relative">
               <button title="Network Status" className="hover:scale-110 transition-transform cursor-pointer">
                 <Wifi className="w-4 h-4 filter drop-shadow-[0_0_8px_#22d3ee] animate-pulse" />
               </button>
@@ -248,10 +248,10 @@ export default function DashboardLayout() {
             </div>
 
             {/* Vertical Divider */}
-            <div className="hidden xl:block w-px h-16 bg-gradient-to-b from-transparent via-[#2a3b4c] to-transparent mx-10 z-10" />
+            <div className="block w-px h-16 bg-gradient-to-b from-transparent via-[#2a3b4c] to-transparent mx-10 z-10" />
 
             {/* Avatar Group - DESKTOP ONLY */}
-            <div className="hidden xl:flex flex-col items-center justify-center z-10 w-24">
+            <div className="flex flex-col items-center justify-center z-10 w-24">
               <div className="relative w-16 h-16 shrink-0">
                 <div className="absolute inset-0 rounded-full border-[2.5px] border-green-400 shadow-[0_0_15px_#4ade80,inset_0_0_10px_#4ade80] animate-[spin_4s_linear_infinite] border-r-transparent" />
                 <div className="absolute inset-[3px] rounded-full overflow-hidden bg-[#0a1216]">
@@ -275,7 +275,7 @@ export default function DashboardLayout() {
           </div>
 
           {/* CENTER COLUMN: Hero Arc Gauge (DESKTOP ONLY) */}
-          <div className="hidden xl:flex flex-[1.5] relative items-end justify-center pb-2 w-auto h-full shrink-0">
+          <div className="flex flex-[1.5] relative items-end justify-center pb-2 w-auto h-full shrink-0">
             {/* The giant arc wrapper */}
             <div className="relative w-[300px] h-[130px] flex items-end justify-center overflow-hidden">
               <svg viewBox="0 0 200 100" className="w-full h-full overflow-visible absolute bottom-0 left-0">
@@ -342,7 +342,7 @@ export default function DashboardLayout() {
               </div>
             </div>
           </div>          {/* RIGHT COLUMN */}
-          <div className="flex-[1.1] xl:flex-[1.3] h-full pr-0 xl:pr-8 flex flex-col justify-between items-center xl:items-end relative py-2 z-10 w-full xl:w-auto xl:min-w-[360px] gap-4 xl:gap-0">
+          <div className="flex-[1.1] flex-[1.3] h-full pr-0 pr-8 flex flex-col justify-between items-center items-end relative py-2 z-10 w-full w-auto min-w-[360px] gap-4 gap-0">
             {/* Abstract Background Trace right behind icons */}
             <svg className="absolute top-0 right-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 300 120">
               <path d="M 300 30 L 250 30 L 230 50 L 100 50" fill="none" stroke="#22d3ee" strokeWidth="1" />
@@ -365,9 +365,9 @@ export default function DashboardLayout() {
             {/* MIDDLE ROW: TIME & USER BADGE */}
             <div className="flex flex-col sm:flex-row items-center gap-4 xl:gap-6 z-10 w-full justify-center xl:justify-end">
               {/* LARGE TIME & DATE */}
-              <div className="flex flex-col justify-center items-center xl:items-end text-center xl:text-right mt-1">
+              <div className="flex flex-col justify-center items-center items-end text-center text-right mt-1">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-[20px] sm:text-[24px] xl:text-[34px] font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] leading-none">
+                  <span className="text-[20px] sm:text-[24px] text-[34px] font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] leading-none">
                     {time.replace(' LOC', '').replace(' UTC', '')}
                   </span>
                   <span className="text-base sm:text-lg font-medium text-cyan-300/80 tracking-widest leading-none">UTC</span>
@@ -409,28 +409,28 @@ export default function DashboardLayout() {
         </header>
 
         {/* Main Responsive Bento Grid — flex-1 to fill remaining height */}
-        <div className="flex-1 min-h-[500px] xl:min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 auto-rows-min lg:grid-rows-[3fr_2fr] gap-3">
+        <div className="flex-1 min-h-0 w-full grid grid-cols-12 auto-rows-min grid-rows-[3fr_2fr] gap-3">
 
           {/* TOP ROW */}
-          <div className="lg:col-span-3 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] min-h-[250px] lg:min-h-0">
+          <div className="col-span-3 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] min-h-0">
             <SystemMonitorWidget />
           </div>
 
-          <div className="lg:col-span-6 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] min-h-[350px] lg:min-h-0">
+          <div className="col-span-6 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] min-h-0">
             <ThreatMapWidget attacks={attacks} />
           </div>
 
-          <div className="lg:col-span-3 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] min-h-[300px] lg:min-h-0">
+          <div className="col-span-3 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] min-h-0">
             <TerminalLogWidget attacks={attacks} />
           </div>
 
           {/* BOTTOM ROW */}
-          <div className="lg:col-span-9 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] min-h-[400px] lg:min-h-0">
+          <div className="col-span-9 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] min-h-0">
             <CveFeedWidget cves={cves} />
           </div>
 
 
-          <div className="lg:col-span-3 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] flex flex-col min-h-[250px] lg:min-h-0">
+          <div className="col-span-3 relative rounded-md border border-[#00ff41]/20 bg-[#021014]/60 overflow-hidden shadow-[inset_0_0_20px_rgba(0,255,65,0.05)] flex flex-col min-h-0">
             <div className="flex justify-between items-center px-4 py-3 border-b border-[#00ff41]/20 bg-[#021518]/80 shrink-0">
               <span className="text-[11px] font-bold text-slate-200 tracking-widest uppercase">GEO-ANALYTICS</span>
               <span className="text-slate-500 tracking-widest text-[10px]">...</span>
