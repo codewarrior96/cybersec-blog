@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  width: 1280,
+  width: 1600,
   initialScale: undefined,
   maximumScale: 5,
 };

@@ -183,7 +183,7 @@ export default function DashboardLayout() {
 
 
   return (
-    <div className="fixed inset-0 left-[280px] min-w-[1000px] max-h-[950px] bg-[#030608] text-[#00ff41] font-mono flex flex-col overflow-hidden select-none" style={{ zIndex: 10 }}>
+    <div className="fixed inset-0 left-[280px] min-w-[1300px] max-h-[950px] bg-[#030608] text-[#00ff41] font-mono flex flex-col overflow-hidden select-none" style={{ zIndex: 10 }}>
 
       {/* Outer Corners */}
       <div className="absolute top-3 left-3 w-5 h-5 border-t-2 border-l-2 border-slate-500/40 pointer-events-none z-20" />
