@@ -85,30 +85,36 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     let disposed = false;
-    const source = new EventSource('/api/live-attacks');
 
-    source.addEventListener('ready', () => {
-      if (disposed) return;
-      setStreamMode('live');
-    });
-
-    source.addEventListener('attack', (event) => {
+    const fetchAttack = async () => {
       if (disposed) return;
       try {
-        const payload = JSON.parse((event as MessageEvent<string>).data) as AttackEvent;
-        setAttacks((prev) => [...prev, payload].slice(-15));
-        setStreamMode('live');
-      } catch { }
-    });
-
-    source.onerror = () => {
-      if (disposed) return;
-      setStreamMode('degraded');
+        const res = await fetch('/api/live-attacks', { cache: 'no-store' });
+        if (res.ok) {
+          const payload = await res.json() as AttackEvent;
+          if (payload && payload.id) {
+            setAttacks((prev) => [...prev, payload].slice(-15));
+            setStreamMode('live');
+          }
+        } else {
+          setStreamMode('degraded');
+        }
+      } catch {
+        setStreamMode('degraded');
+      }
     };
+
+    // Formally Server-Sent Events dispatched 'ready' followed by 'attack' per 90_000ms.
+    void fetchAttack();
+    setStreamMode('live');
+
+    const attackInterval = setInterval(() => {
+      void fetchAttack();
+    }, 90_000);
 
     return () => {
       disposed = true;
-      source.close();
+      clearInterval(attackInterval);
     };
   }, []);
 

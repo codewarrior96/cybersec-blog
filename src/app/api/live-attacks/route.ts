@@ -71,78 +71,23 @@ export async function GET(request: NextRequest) {
   const guard = await requireSession(request)
   if (guard.response) return guard.response
 
-  const encoder = new TextEncoder()
-  let eventId = Date.now() % 1_000_000
-  let closed = false
-  let attackInterval: NodeJS.Timeout | null = null
-  let heartbeatInterval: NodeJS.Timeout | null = null
+  const eventId = Date.now() % 1_000_000
+  const attack = makeAttack(eventId)
 
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      const write = (chunk: string) => {
-        if (closed) return
-        try {
-          controller.enqueue(encoder.encode(chunk))
-        } catch {
-          closed = true
-        }
-      }
+  void recordAttackEvent({
+    externalId: attack.id,
+    occurredAt: attack.createdAt,
+    sourceIP: attack.sourceIP,
+    sourceCountry: attack.sourceCountry,
+    targetPort: attack.targetPort,
+    type: attack.type,
+    severity: attack.severity,
+  }).catch(() => {})
 
-      const sendEvent = (name: string, payload: unknown) => {
-        write(`event: ${name}\n`)
-        write(`data: ${JSON.stringify(payload)}\n\n`)
-      }
-
-      const cleanup = () => {
-        if (closed) return
-        closed = true
-        if (attackInterval) clearInterval(attackInterval)
-        if (heartbeatInterval) clearInterval(heartbeatInterval)
-        try {
-          controller.close()
-        } catch {
-          // no-op
-        }
-      }
-
-      sendEvent('ready', { ok: true, ts: new Date().toISOString() })
-
-      attackInterval = setInterval(() => {
-        eventId += 1
-        const attack = makeAttack(eventId)
-        sendEvent('attack', attack)
-        void recordAttackEvent({
-          externalId: attack.id,
-          occurredAt: attack.createdAt,
-          sourceIP: attack.sourceIP,
-          sourceCountry: attack.sourceCountry,
-          targetPort: attack.targetPort,
-          type: attack.type,
-          severity: attack.severity,
-        }).catch(() => {
-          // keep stream alive even if persistence fails
-        })
-      }, 90_000)
-
-      heartbeatInterval = setInterval(() => {
-        write(`: keepalive ${Date.now()}\n\n`)
-      }, 25_000)
-
-      request.signal.addEventListener('abort', cleanup)
-    },
-    cancel() {
-      closed = true
-      if (attackInterval) clearInterval(attackInterval)
-      if (heartbeatInterval) clearInterval(heartbeatInterval)
-    },
-  })
-
-  return new Response(stream, {
+  return new Response(JSON.stringify(attack), {
     headers: {
-      'Content-Type': 'text/event-stream; charset=utf-8',
-      'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no',
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
     },
   })
 }
