@@ -505,7 +505,7 @@ function PostDetailModal({
         </div>
 
         {/* Body */}
-        <div style={{ padding: 24 }}>
+        <div style={{ padding: '24px 16px' }}>
           {/* Author */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <SkullAvatar size={28} />
@@ -847,7 +847,7 @@ function NewPostForm({
           overflowY: 'auto',
           background: '#050508',
           border: '1px solid rgba(0,255,65,0.25)',
-          padding: 24,
+          padding: '24px 16px',
           position: 'relative',
         }}
       >
@@ -1207,7 +1207,7 @@ export default function CommunityPage() {
       <div
         style={{
           borderBottom: '1px solid rgba(0,255,65,0.1)',
-          padding: '20px 24px',
+          padding: isDesktop ? '20px 24px' : '20px 16px',
           background: '#050508',
           display: 'flex',
           alignItems: 'flex-start',
@@ -1267,7 +1267,7 @@ export default function CommunityPage() {
       {/* Filter Bar */}
       <div
         style={{
-          padding: '12px 24px',
+          padding: isDesktop ? '12px 24px' : '12px 16px',
           borderBottom: '1px solid rgba(255,255,255,0.05)',
           background: 'rgba(5,5,8,0.8)',
           display: 'flex',
@@ -1376,7 +1376,7 @@ export default function CommunityPage() {
       {/* Stats bar */}
       <div
         style={{
-          padding: '8px 24px',
+          padding: isDesktop ? '8px 24px' : '8px 16px',
           borderBottom: '1px solid rgba(255,255,255,0.05)',
           display: 'flex',
           gap: 24,
@@ -1399,7 +1399,7 @@ export default function CommunityPage() {
       {/* Main grid */}
       <div
         style={{
-          padding: '24px',
+          padding: isDesktop ? '24px' : '16px',
           display: 'grid',
           gridTemplateColumns: isDesktop ? '1fr 1fr 1fr' : '1fr',
           gap: 24,

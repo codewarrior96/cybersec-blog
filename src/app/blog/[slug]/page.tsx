@@ -64,7 +64,7 @@ export default async function PostPage({ params }: { params: { slug: string } })
       <ReadingProgress />
       <BackToTop />
 
-      <div className="max-w-5xl mx-auto px-6 py-16">
+      <div className="max-w-5xl mx-auto px-4 py-8 md:px-6 md:py-16">
         {/* Breadcrumb */}
         <div className="font-mono text-sm text-slate-500 mb-10">
           <Link href="/" className="hover:text-green-400 transition-colors">~</Link>

@@ -349,7 +349,7 @@ export default function RoadmapPage() {
 
       {/* ── Page header ── */}
       <div className="border-b border-amber-400/10 bg-[#070709]/60 backdrop-blur-sm">
-        <div className="max-w-6xl mx-auto px-6 py-12">
+        <div className="max-w-6xl mx-auto px-4 py-8 md:px-6 md:py-12">
           <p className="text-amber-400/40 text-[10px] tracking-[0.3em] uppercase mb-3">
             {'>'} classification: public {'//'}  status: active
           </p>

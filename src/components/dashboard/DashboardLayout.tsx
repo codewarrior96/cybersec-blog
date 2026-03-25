@@ -189,7 +189,7 @@ export default function DashboardLayout() {
       <div className="flex flex-col gap-3 w-full min-h-full lg:h-full p-4 lg:px-5 lg:py-4 pb-24 lg:pb-4 z-10 relative">
 
         {/* EXACT AETHER SECURITY REPLICA TOP BAR (PIXEL PERFECT) */}
-        <header className="relative w-full shrink-0 z-10 flex flex-col xl:flex-row items-center xl:justify-between bg-[#111A22] rounded-[16px] px-2 py-3 xl:py-2 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden min-h-[120px] border border-[#2a3b4c] gap-3 xl:gap-0">
+        <header className="relative w-full shrink-0 z-10 flex flex-col xl:flex-row items-center xl:justify-between bg-[#111A22] rounded-[16px] px-2 py-3 xl:py-2 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden min-h-[auto] xl:min-h-[120px] border border-[#2a3b4c] gap-3 xl:gap-0">
           
           {/* Inner glass overlay */}
           <div className="absolute inset-0 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
@@ -361,7 +361,7 @@ export default function DashboardLayout() {
               {/* LARGE TIME & DATE */}
               <div className="flex flex-col justify-center items-center xl:items-end text-center xl:text-right mt-1">
                  <div className="flex items-baseline gap-2">
-                   <span className="text-[28px] sm:text-[34px] font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] leading-none">
+                   <span className="text-[22px] sm:text-[28px] xl:text-[34px] font-mono text-cyan-50 tracking-wider drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] leading-none">
                      {time.replace(' LOC', '').replace(' UTC', '')}
                    </span>
                    <span className="text-base sm:text-lg font-medium text-cyan-300/80 tracking-widest leading-none">UTC</span>
@@ -388,14 +388,14 @@ export default function DashboardLayout() {
             </div>
 
             {/* BOTTOM STATUS PILLS */}
-            <div className="flex flex-wrap items-center gap-2 lg:gap-3 z-10 justify-center xl:justify-end w-full pb-1">
-              <button className="border border-red-500/50 hover:border-red-400 bg-[#2a0e14] hover:bg-[#3a131c] transition-colors cursor-pointer rounded-full px-3 py-0.5 flex items-center justify-center text-[9px] text-red-500 font-bold tracking-[0.1em] shadow-[inset_0_0_8px_rgba(239,68,68,0.15)] active:scale-95">
+            <div className="flex flex-wrap items-center gap-1.5 lg:gap-3 z-10 justify-center xl:justify-end w-full pb-1">
+              <button className="border border-red-500/50 hover:border-red-400 bg-[#2a0e14] hover:bg-[#3a131c] transition-colors cursor-pointer rounded-full px-2 sm:px-3 py-0.5 flex items-center justify-center text-[9px] text-red-500 font-bold tracking-[0.1em] shadow-[inset_0_0_8px_rgba(239,68,68,0.15)] active:scale-95">
                 THREATS: {activeAlerts + Math.floor(displayedScore)}
               </button>
-              <button className="border border-yellow-500/50 hover:border-yellow-400 bg-[#2a1e0b] hover:bg-[#3a290f] transition-colors cursor-pointer rounded-full px-3 py-0.5 flex items-center justify-center text-[9px] text-yellow-500 font-bold tracking-[0.1em] shadow-[inset_0_0_8px_rgba(234,179,8,0.15)] active:scale-95">
+              <button className="border border-yellow-500/50 hover:border-yellow-400 bg-[#2a1e0b] hover:bg-[#3a290f] transition-colors cursor-pointer rounded-full px-2 sm:px-3 py-0.5 flex items-center justify-center text-[9px] text-yellow-500 font-bold tracking-[0.1em] shadow-[inset_0_0_8px_rgba(234,179,8,0.15)] active:scale-95">
                 WARNINGS: {attacks.length + 12}
               </button>
-              <button className="border border-cyan-500/40 hover:border-cyan-300 bg-[#0e212a] hover:bg-[#132d3a] transition-colors cursor-pointer rounded-full px-3 py-0.5 flex items-center justify-center text-[9px] text-cyan-400 font-bold tracking-[0.1em] shadow-[inset_0_0_8px_rgba(34,211,238,0.15)] active:scale-95">
+              <button className="border border-cyan-500/40 hover:border-cyan-300 bg-[#0e212a] hover:bg-[#132d3a] transition-colors cursor-pointer rounded-full px-2 sm:px-3 py-0.5 flex items-center justify-center text-[9px] text-cyan-400 font-bold tracking-[0.1em] shadow-[inset_0_0_8px_rgba(34,211,238,0.15)] active:scale-95">
                 SECURED: 852
               </button>
             </div>

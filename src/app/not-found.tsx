@@ -5,7 +5,7 @@ export const metadata: Metadata = { title: '404 — Access Denied' };
 
 export default function NotFound() {
   return (
-    <div className="max-w-5xl mx-auto px-6 py-32 flex flex-col items-center text-center">
+    <div className="max-w-5xl mx-auto px-4 py-16 md:px-6 md:py-32 flex flex-col items-center text-center">
       <div className="font-mono space-y-2">
         <p className="text-slate-500 text-sm tracking-widest uppercase">Error 0x00000404</p>
 

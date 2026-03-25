@@ -200,21 +200,39 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
           50% { opacity: 0.4; box-shadow: 0 0 80px rgba(0,255,65,0.5); }
         }
         @media (max-width: 768px) {
-          .login-form-panel {
-            top: auto !important;
-            bottom: 2% !important;
-            right: auto !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            width: 90% !important;
+          .mobile-container {
+            position: absolute !important;
+            inset: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            padding: 2rem 0 4rem 0 !important;
+            gap: 2rem !important;
+            overflow-y: auto !important;
+            z-index: 20 !important;
+            pointer-events: auto !important;
+          }
+          .skull-group {
+            position: static !important;
+            transform: none !important;
+            margin-top: 2rem !important;
           }
           .quote-panel {
-            top: 10% !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            text-align: center;
-            width: 85% !important;
+            position: static !important;
+            transform: none !important;
+            text-align: center !important;
+            width: 90% !important;
             max-width: 100% !important;
+            border-left: none !important;
+            box-shadow: none !important;
+            padding-left: 0 !important;
+          }
+          .login-form-panel {
+            position: static !important;
+            transform: none !important;
+            width: 90% !important;
+            margin-bottom: 4rem !important;
           }
         }
       `}</style>
@@ -326,17 +344,20 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
         ))}
       </div>
 
-      <div
-        style={{
-          position: 'absolute',
-          top: '25%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 10,
-          textAlign: 'center',
-          width: '100%',
-        }}
-      >
+      <div className="mobile-container" style={{ position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none' }}>
+        <div
+          className="skull-group"
+          style={{
+            pointerEvents: 'auto',
+            position: 'absolute',
+            top: '25%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 10,
+            textAlign: 'center',
+            width: '100%',
+          }}
+        >
         <div
           style={{
             margin: '0 auto',
@@ -393,11 +414,12 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
           [ SECURE ACCESS REQUIRED ]
         </p>
       </div>
-
+      
       {/* Motivational Left Panel */}
       <div
         className="quote-panel"
         style={{
+          pointerEvents: 'auto',
           position: 'absolute',
           top: '50%',
           left: '5%',
@@ -487,6 +509,7 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
       <div
         className="login-form-panel"
         style={{
+          pointerEvents: 'auto',
           position: 'absolute',
           top: '50%',
           right: '5%',
@@ -709,6 +732,7 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
           <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(0,255,65,0.15)' }}>v2.0.26</span>
           <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(0,255,65,0.15)' }}>{hexVal}</span>
         </div>
+      </div>
       </div>
     </div>
   )

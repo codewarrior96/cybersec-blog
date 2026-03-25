@@ -267,7 +267,7 @@ export default function BreachTimelinePage() {
   return (
     <div className="min-h-screen bg-[#070709]">
       {/* Header */}
-      <div className="max-w-5xl mx-auto px-6 pt-10 pb-6">
+      <div className="max-w-5xl mx-auto px-4 pt-6 pb-4 md:px-6 md:pt-10 md:pb-6">
         <h1 className="font-mono text-amber-400 tracking-[0.3em] text-2xl font-bold">
           [ BREACH TIMELINE ]
         </h1>
@@ -278,7 +278,7 @@ export default function BreachTimelinePage() {
 
       {/* Sticky filters */}
       <div className="sticky top-[65px] z-40 bg-[#070709] border-b border-white/10">
-        <div className="max-w-5xl mx-auto px-6 py-3 space-y-2">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-3 space-y-2">
           {/* Category filters */}
           <div className="flex flex-wrap items-center gap-1.5">
             {categoryButtons.map(({ label, value }) => {
@@ -328,7 +328,7 @@ export default function BreachTimelinePage() {
       </div>
 
       {/* Stats summary */}
-      <div className="max-w-5xl mx-auto px-6 py-4">
+      <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="bg-white/[0.02] border border-white/5 rounded px-4 py-3">
             <div className="font-mono font-bold text-xl text-amber-400">{breachData.length}</div>

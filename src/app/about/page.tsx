@@ -6,7 +6,7 @@ const tools = ['Burp Suite', 'Nmap', 'Metasploit', 'Wireshark', 'Ghidra', 'Pytho
 
 export default function AboutPage() {
   return (
-    <div className="max-w-5xl mx-auto px-6 py-16">
+    <div className="max-w-5xl mx-auto px-4 py-8 md:px-6 md:py-16">
       <div className="max-w-2xl">
         {/* Terminal prompt */}
         <p className="font-mono text-slate-500 text-sm mb-8">

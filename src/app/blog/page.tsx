@@ -49,7 +49,7 @@ export default async function BlogPage({
   }));
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-16">
+    <div className="max-w-6xl mx-auto px-4 py-8 md:px-6 md:py-16">
       {/* Header */}
       <div className="mb-10">
         <p className="font-mono text-slate-500 text-sm mb-2">

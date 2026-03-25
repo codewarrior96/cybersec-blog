@@ -1,4 +1,4 @@
-﻿import type { Metadata } from 'next';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = { title: 'Portfolio' };
@@ -54,7 +54,7 @@ const timeline = [
 
 export default function PortfolioPage() {
   return (
-    <div className="max-w-5xl mx-auto px-6 py-16">
+    <div className="max-w-5xl mx-auto px-4 py-8 md:px-6 md:py-16">
       <div className="mb-14">
         <p className="font-mono text-slate-500 text-sm mb-3">
           <span className="text-green-400">guest</span>@cybersec:~$
