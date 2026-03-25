@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { cookies, headers } from 'next/headers';
 import '@/styles/globals.css';
@@ -17,8 +17,14 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: 'CyberSec Blog', template: '%s Â· CyberSec' },
-  description: 'Siber gÃ¼venlik, CTF writeup ve araÅŸtÄ±rma yazÄ±larÄ±.',
+  title: { default: 'CyberSec Blog', template: '%s · CyberSec' },
+  description: 'Siber güvenlik, CTF writeup ve araştırma yazıları.',
+};
+
+export const viewport: Viewport = {
+  width: 1280,
+  initialScale: undefined,
+  maximumScale: 5,
 };
 
 function normalizePathname(rawPath: string): string {
