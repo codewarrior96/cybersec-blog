@@ -177,7 +177,7 @@ export default function DashboardLayout() {
 
 
   return (
-    <div className="fixed inset-0 lg:left-[280px] bg-[#030608] text-[#00ff41] font-mono flex flex-col overflow-hidden select-none" style={{ zIndex: 10 }}>
+    <div className="fixed inset-0 lg:left-[280px] bg-[#030608] text-[#00ff41] font-mono flex flex-col overflow-y-auto lg:overflow-hidden select-none scrollbar-thin scrollbar-thumb-cyan-900/50 scrollbar-track-transparent" style={{ zIndex: 10 }}>
       
       {/* Outer Corners */}
       <div className="absolute top-3 left-3 w-5 h-5 border-t-2 border-l-2 border-slate-500/40 pointer-events-none z-20" />
@@ -186,7 +186,7 @@ export default function DashboardLayout() {
       <div className="absolute bottom-3 right-3 w-5 h-5 border-b-2 border-r-2 border-slate-500/40 pointer-events-none z-20" />
 
       {/* Main Container — fills fixed viewport perfectly regardless of width */}
-      <div className="flex flex-col gap-3 w-full h-full p-4 lg:px-5 lg:py-4 z-10 relative">
+      <div className="flex flex-col gap-3 w-full min-h-full lg:h-full p-4 lg:px-5 lg:py-4 pb-24 lg:pb-4 z-10 relative">
 
         {/* EXACT AETHER SECURITY REPLICA TOP BAR (PIXEL PERFECT) */}
         <header className="relative w-full shrink-0 z-10 flex flex-col xl:flex-row items-center xl:justify-between bg-[#111A22] rounded-[16px] px-2 py-3 xl:py-2 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden min-h-[120px] border border-[#2a3b4c] gap-3 xl:gap-0">
@@ -222,7 +222,7 @@ export default function DashboardLayout() {
                 </div>
               </div>
               <div className="flex flex-col justify-center translate-y-[-1px]">
-                <span className="text-lg xl:text-2xl font-bold text-white tracking-[0.1em] drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]">CYBERLOGSEC</span>
+                <span className="text-lg xl:text-2xl font-bold text-[#00ff41] tracking-[0.1em] drop-shadow-[0_0_8px_#00ff41]">BREACH TERMINAL</span>
                 <span className="text-[10px] xl:text-xs text-cyan-400 tracking-[0.25em] font-medium -mt-0.5 xl:-mt-1">OS v4.1</span>
               </div>
             </div>

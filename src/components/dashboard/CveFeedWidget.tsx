@@ -64,21 +64,23 @@ export default function CveFeedWidget({ cves = [] }: CveFeedWidgetProps) {
         <span className="text-slate-500 tracking-widest text-[10px]">...</span>
       </div>
       
-      <div className="flex-1 w-full overflow-hidden flex flex-col font-medium p-4 bg-[#021a20]/40">
-        {/* Table Header */}
-        <div className="grid grid-cols-[1.5fr_1fr_1.5fr_2fr_2fr_1fr_1fr] gap-0 text-[10px] text-slate-400 uppercase font-bold tracking-widest px-0 mb-2 bg-[#031c22]/60 rounded-t-md h-8 border-b border-slate-800/80">
-          <div className="pl-4 flex items-center border-r border-slate-700/30">LEVEL</div>
-          <div className="flex items-center justify-center border-r border-slate-700/30">ID</div>
-          <div className="flex items-center justify-center border-r border-slate-700/30">STATUS</div>
-          <div className="flex items-center pl-3 border-r border-slate-700/30">HOST</div>
-          <div className="flex items-center justify-center border-r border-slate-700/30">CVE DESCRIPTION</div>
-          <div className="flex items-center justify-center border-r border-slate-700/30">SCORE</div>
-          <div className="flex items-center justify-end pr-4">TIME</div>
-        </div>
+      <div className="flex-1 w-full flex flex-col font-medium p-4 bg-[#021a20]/40 overflow-hidden">
+        <div className="w-full h-full flex flex-col overflow-x-auto overflow-y-hidden min-h-0 custom-scrollbar-x">
+          <div className="min-w-[750px] w-full flex-1 flex flex-col">
+            {/* Table Header */}
+            <div className="grid grid-cols-[1.5fr_1fr_1.5fr_2fr_2fr_1fr_1fr] gap-0 text-[10px] text-slate-400 uppercase font-bold tracking-widest px-0 mb-2 bg-[#031c22]/60 rounded-t-md shrink-0 h-8 border-b border-slate-800/80">
+              <div className="pl-4 flex items-center border-r border-slate-700/30">LEVEL</div>
+              <div className="flex items-center justify-center border-r border-slate-700/30">ID</div>
+              <div className="flex items-center justify-center border-r border-slate-700/30">STATUS</div>
+              <div className="flex items-center pl-3 border-r border-slate-700/30">HOST</div>
+              <div className="flex items-center justify-center border-r border-slate-700/30">CVE DESCRIPTION</div>
+              <div className="flex items-center justify-center border-r border-slate-700/30">SCORE</div>
+              <div className="flex items-center justify-end pr-4">TIME</div>
+            </div>
 
-        {/* Table Body */}
-        <div className="flex-1 flex flex-col gap-2 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-900 scrollbar-track-transparent">
-          {rows.map((row, idx) => {
+            {/* Table Body */}
+            <div className="flex-1 flex flex-col gap-2 overflow-y-auto scrollbar-thin scrollbar-thumb-cyan-900 scrollbar-track-transparent pr-1">
+              {rows.map((row, idx) => {
             const getStatusColor = (status: string) => {
               if (status === 'GLOWING') return 'text-[#22d3ee] shadow-[0_0_8px_rgba(34,211,238,0.4)]';
               if (status === 'YELLOW') return 'text-yellow-400';
@@ -138,6 +140,8 @@ export default function CveFeedWidget({ cves = [] }: CveFeedWidgetProps) {
               </div>
             );
           })}
+            </div>
+          </div>
         </div>
       </div>
     </div>
