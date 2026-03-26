@@ -130,7 +130,7 @@ export default function DashboardLayout() {
   const cardStyle = "relative rounded-lg border border-cyan-500/20 bg-[#0a1020]/60 overflow-hidden shadow-[inset_0_0_30px_rgba(34,211,238,0.03)]";
 
   return (
-    <div className="fixed inset-0 bg-[#050a14] text-slate-200 font-mono flex flex-col overflow-hidden select-none" style={{ zIndex: 10 }}>
+    <div className="fixed top-0 left-0 w-screen bg-[#050a14] text-slate-200 font-mono flex flex-col overflow-hidden select-none" style={{ zIndex: 10, height: 'min(100vh, 62.5vw)' }}>
 
       {/* ═══ TOP NAVBAR ═══ */}
       <header className="shrink-0 w-full flex flex-col bg-[#0a1020]/95 border-b border-cyan-500/25 relative z-20"

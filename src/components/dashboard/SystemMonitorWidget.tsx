@@ -95,7 +95,7 @@ export default function SystemMonitorWidget() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2.5">
+      <div className="flex-1 min-h-0 overflow-hidden px-3 py-2 space-y-2.5">
 
         {/* CPU + Cores Row */}
         <div className="flex items-center gap-3">

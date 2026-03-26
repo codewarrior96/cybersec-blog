@@ -88,7 +88,7 @@ export default function LiveIntelFeedWidget({ attacks, threatScore }: LiveIntelF
       </div>
 
       {/* Cards */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-2 py-1.5 space-y-1.5 scrollbar-thin scrollbar-thumb-cyan-900/30 scrollbar-track-transparent">
+      <div className="flex-1 min-h-0 overflow-hidden px-2 py-1.5 space-y-1.5">
         
         {/* Real attacks from API */}
         {attacks.slice().reverse().slice(0, 4).map((attack, i) => {
