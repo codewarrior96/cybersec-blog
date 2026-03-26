@@ -96,8 +96,14 @@ export default function ThreatMapWidget({ attacks = [] }: ThreatMapWidgetProps) 
           </svg>
         </div>
 
+        {/* Top Right — Attack Stats Overlay */}
+        <div className="absolute top-3 right-3 z-20 text-right font-mono backdrop-blur-sm bg-[#0a1020]/70 p-2 rounded border border-cyan-500/20">
+          <div className="text-[9px] text-slate-400">Attack Speed: <span className="text-cyan-400 font-bold">23.50 MB/s</span></div>
+          <div className="text-[9px] text-slate-400">Volume: <span className="text-cyan-400 font-bold">123.2 MB/s</span></div>
+        </div>
+
         {/* Bottom Left — LIVE THREAT DETECTION */}
-        <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-1 bg-[#021518]/90 p-2 rounded border border-red-500/30 backdrop-blur-sm">
+        <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-1 bg-[#0a1020]/90 p-2 rounded border border-red-500/30 backdrop-blur-sm">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-6 h-6 rounded-full border border-red-500/80 flex items-center justify-center relative shadow-[0_0_10px_rgba(239,68,68,0.5)] bg-red-500/20">
               <div className="w-2 h-2 bg-red-500 rounded-full animate-ping absolute" />
