@@ -122,9 +122,7 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
   }
 
 
-  return (
-    <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden', backgroundColor: '#000' }}>
-      <style>{`
+  const loginStyles = `
         @keyframes eyePulse {
           0%,100% { opacity: 0.55; box-shadow: 0 0 8px #00ff41, 0 0 24px rgba(0,255,65,0.5); }
           50%     { opacity: 1; box-shadow: 0 0 16px #00ff41, 0 0 44px #00ff41, 0 0 90px rgba(0,255,65,0.3); }
@@ -172,7 +170,7 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
           border-color: rgba(0,255,65,0.7);
         }
         .el-checkbox:checked::after {
-          content: '✓';
+          content: "\\2713";
           position: absolute;
           top: 50%;
           left: 50%;
@@ -235,7 +233,11 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
             margin-bottom: 4rem !important;
           }
         }
-      `}</style>
+  `;
+
+  return (
+    <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden', backgroundColor: '#000' }}>
+      <style dangerouslySetInnerHTML={{ __html: loginStyles }} />
 
       {/* 1. Deep space/void backdrop */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0, background: 'radial-gradient(circle at 50% 40%, #001206 0%, #000000 70%)' }} />
