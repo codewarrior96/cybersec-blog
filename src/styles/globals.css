@@ -198,11 +198,7 @@
   padding-left: 0;
 }
 
-@media (min-width: 1024px) {
-  .app-shell.app-shell--sidebar {
-    padding-left: 280px;
-  }
-}
+/* V2: Sidebar removed, no offset needed */
 
 /* ═══ KEYFRAMES ═══ */
 

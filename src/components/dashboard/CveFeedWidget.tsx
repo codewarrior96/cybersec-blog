@@ -59,9 +59,9 @@ export default function CveFeedWidget({ cves = [] }: CveFeedWidgetProps) {
   return (
     <div className="absolute inset-0 flex flex-col font-mono overflow-hidden">
       {/* Header */}
-      <div className="flex justify-between items-center px-4 py-3 border-b border-[#00ff41]/20 z-10 bg-[#021518]/80 text-[#e2e8f0]">
-        <span className="text-[12px] lg:text-sm font-bold tracking-widest uppercase">CVE VULNERABILITIES</span>
-        <span className="text-slate-500 tracking-widest text-[10px]">...</span>
+      <div className="flex justify-between items-center px-3 py-2 border-b border-cyan-500/15 z-10 bg-[#0a1020]/80 text-slate-300">
+        <span className="text-[10px] font-bold tracking-widest uppercase">// CVE VULNERABILITIES</span>
+        <span className="text-slate-600 text-[9px]">...</span>
       </div>
       
       <div className="flex-1 w-full flex flex-col font-medium p-4 bg-[#021a20]/40 overflow-hidden">

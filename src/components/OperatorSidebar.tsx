@@ -27,6 +27,8 @@ function roleLabel(role: string) {
 }
 
 export default function OperatorSidebar({ initialAuth = null }: OperatorSidebarProps) {
+  // V2: Sidebar disabled — navigation moved to DashboardLayout top navbar
+  return null;
   const pathname = usePathname()
   const router = useRouter()
   const session = useAuthSession(initialAuth)

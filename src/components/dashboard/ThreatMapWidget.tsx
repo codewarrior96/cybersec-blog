@@ -12,9 +12,12 @@ export default function ThreatMapWidget({ attacks = [] }: ThreatMapWidgetProps) 
     <div className="absolute inset-0 flex flex-col font-mono overflow-hidden">
       
       {/* Header */}
-      <div className="flex justify-between items-center px-4 py-3 border-b border-[#00ff41]/20 z-20 bg-[#021518]/90 shrink-0">
-        <span className="text-[12px] lg:text-sm font-bold tracking-widest uppercase text-[#e2e8f0]">CYBER THREAT MAP</span>
-        <span className="text-slate-500 tracking-widest text-[10px]">LIVE THREAT DETECTION</span>
+      <div className="flex justify-between items-center px-3 py-2 border-b border-cyan-500/15 z-20 bg-[#0a1020]/80 shrink-0">
+        <span className="text-[10px] font-bold tracking-widest uppercase text-slate-300">// CYBER THREAT MAP</span>
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" /><span className="text-[8px] text-red-400 font-bold">LIVE</span></span>
+          <span className="text-slate-600 text-[9px]">THREAT DETECTION</span>
+        </div>
       </div>
       
       {/* Map Area — fills remaining height */}
