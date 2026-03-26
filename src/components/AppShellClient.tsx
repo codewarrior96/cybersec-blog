@@ -4,7 +4,6 @@ import React from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuthSession } from '@/lib/auth-client'
 import OperatorSidebar from '@/components/OperatorSidebar'
-import MobileNav from '@/components/MobileNav'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import SearchModal from '@/components/SearchModal'
@@ -34,8 +33,7 @@ export default function AppShellClient({
   return (
     <>
       <OperatorSidebar initialAuth={isAuthed} />
-      <MobileNav initialAuth={isAuthed} />
-      <div className={`transition-all duration-300 flex flex-col flex-1 app-shell pb-20 lg:pb-0`}>
+      <div className={`transition-all duration-300 flex flex-col flex-1 app-shell`}>
         {showPublicHeader && <Header initialAuth={isAuthed} />}
         <PageTransition>
           <main className="flex-1">{children}</main>
