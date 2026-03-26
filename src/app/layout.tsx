@@ -22,8 +22,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  width: 1440,
-  initialScale: 0.24,
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 function normalizePathname(rawPath: string): string {

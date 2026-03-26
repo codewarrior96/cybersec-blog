@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 function generateInitialData(): { time: string; inbound: number; outbound: number }[] {
   const data = [];
@@ -44,12 +44,31 @@ export default function NetworkTrafficWidget() {
     return () => clearInterval(interval);
   }, []);
 
-  if (data.length === 0) return <div className="absolute inset-0 bg-[#0a1020]" />;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ w: 1000, h: 300 });
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        setDimensions({
+          w: Math.max(300, entry.contentRect.width),
+          h: Math.max(150, entry.contentRect.height)
+        });
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  if (data.length === 0) return <div className="absolute inset-0 bg-var(--bg-panel)" />;
 
   const maxVal = Math.max(...data.map(d => Math.max(d.inbound, d.outbound)), 1);
-  const w = 1000;
-  const h = 300;
-  const padL = 50;
+  const { w, h } = dimensions;
+  
+  // Dynamic padding based on sizing
+  const isMobile = w < 500;
+  const padL = isMobile ? 30 : 50;
   const padB = 30;
   const padT = 10;
   const chartW = w - padL;
@@ -66,27 +85,27 @@ export default function NetworkTrafficWidget() {
   // Y-axis labels
   const yLabels = [0, 25, 50, 75, 100];
 
-  // X-axis: show every 4 hours
-  const xLabels = data.filter((_, i) => i % 16 === 0);
+  // X-axis: show every 4 hours on desktop, 8 hours on mobile
+  const xLabels = data.filter((_, i) => isMobile ? i % 32 === 0 : i % 16 === 0);
 
   return (
     <div className="absolute inset-0 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex justify-between items-center px-3 py-2 border-b border-cyan-500/15 bg-[#0a1020]/80 shrink-0">
-        <span className="text-[10px] font-bold text-slate-300 tracking-widest uppercase">// NETWORK TRAFFIC</span>
+      <div className="flex justify-between items-center px-3 py-2 border-b border-cyan-500/15 bg-var(--bg-panel)/80 shrink-0">
+        <span className="text-[var(--text-title)] font-bold text-slate-300 tracking-widest uppercase">// NETWORK TRAFFIC</span>
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5 text-[9px]">
+          <span className="flex items-center gap-1.5 text-[var(--text-body)]">
             <span className="w-3 h-[2px] bg-cyan-400 rounded" /> <span className="text-cyan-400">INBOUND</span>
           </span>
-          <span className="flex items-center gap-1.5 text-[9px]">
+          <span className="flex items-center gap-1.5 text-[var(--text-body)]">
             <span className="w-3 h-[2px] bg-orange-400 rounded" /> <span className="text-orange-400">OUTBOUND</span>
           </span>
-          <span className="text-slate-600 text-[9px]">⋮</span>
+          <span className="text-slate-600 text-[var(--text-body)]">⋮</span>
         </div>
       </div>
 
       {/* Chart */}
-      <div className="flex-1 min-h-0 p-2 relative">
+      <div className="flex-1 min-h-0 p-2 relative" ref={containerRef}>
         <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="block">
           <defs>
             <linearGradient id="inboundGrad" x1="0" y1="0" x2="0" y2="1">
@@ -103,7 +122,7 @@ export default function NetworkTrafficWidget() {
           {yLabels.map(v => (
             <g key={v}>
               <line x1={padL} y1={toY(v)} x2={w} y2={toY(v)} stroke="#1e293b" strokeWidth="0.5" />
-              <text x={padL - 6} y={toY(v) + 3} textAnchor="end" fill="#475569" fontSize="10" fontFamily="monospace">
+              <text x={padL - 6} y={toY(v) + 3} textAnchor="end" fill="#475569" fontSize={isMobile ? "8" : "10"} fontFamily="monospace">
                 {v}%
               </text>
             </g>
@@ -111,7 +130,7 @@ export default function NetworkTrafficWidget() {
 
           {/* X-axis labels */}
           {xLabels.map((d, i) => (
-            <text key={d.time} x={toX(i * 16)} y={h - 8} textAnchor="middle" fill="#475569" fontSize="10" fontFamily="monospace">
+            <text key={d.time} x={toX(isMobile ? i * 32 : i * 16)} y={h - 8} textAnchor="middle" fill="#475569" fontSize={isMobile ? "8" : "10"} fontFamily="monospace">
               {d.time}
             </text>
           ))}
@@ -126,7 +145,7 @@ export default function NetworkTrafficWidget() {
         </svg>
 
         {/* Scale label */}
-        <div className="absolute bottom-8 left-14 text-[9px] text-slate-500 font-mono">5 GB/s</div>
+        <div className="absolute bottom-8 left-14 text-[var(--text-body)] text-slate-500 font-mono">5 GB/s</div>
       </div>
     </div>
   );

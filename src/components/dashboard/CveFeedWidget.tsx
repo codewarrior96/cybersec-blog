@@ -38,29 +38,29 @@ export default function CveFeedWidget({ cves = [] }: CveFeedWidgetProps) {
   return (
     <div className="absolute inset-0 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex justify-between items-center px-3 py-2 border-b border-cyan-500/15 bg-[#0a1020]/80 shrink-0">
-        <span className="text-[10px] font-bold text-slate-300 tracking-widest uppercase">// CVE FEED</span>
-        <span className="text-slate-600 text-[9px]">⋮</span>
+      <div className="flex justify-between items-center px-3 py-2 border-b border-cyan-500/15 bg-var(--bg-panel)/80 shrink-0">
+        <span className="text-[var(--text-title)] font-bold text-slate-300 tracking-widest uppercase">// CVE FEED</span>
+        <span className="text-slate-600 text-[var(--text-body)]">⋮</span>
       </div>
 
       {/* Compact CVE list — right column style */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-2 py-1.5 space-y-1 scrollbar-thin scrollbar-thumb-cyan-900/30 scrollbar-track-transparent">
+      <div className="flex-1 min-h-0 overflow-y-auto px-2 py-1.5 space-y-1.5 scrollbar-thin scrollbar-thumb-cyan-900/30 scrollbar-track-transparent" style={{ WebkitOverflowScrolling: 'touch' }}>
         {rows.map((row, idx) => {
           const style = getSeverityStyle(row.severity);
           return (
-            <div key={idx} className="flex items-center gap-2 px-2 py-1.5 rounded border border-slate-700/30 bg-slate-900/30 hover:bg-slate-800/30 transition-colors">
+            <div key={idx} className="flex items-center gap-2 px-2 py-1.5 rounded border border-slate-700/30 bg-slate-900/30 hover:bg-slate-800/30 transition-colors touch-target min-w-0">
               {/* Severity badge */}
-              <span className={`text-[7px] font-bold px-1.5 py-0.5 rounded border ${style.bg} ${style.text} ${style.border} shrink-0 w-[52px] text-center`}>
+              <span className={`text-[var(--text-body)] font-bold px-1.5 py-0.5 rounded border ${style.bg} ${style.text} ${style.border} shrink-0 w-[60px] text-center`}>
                 {row.severity}
               </span>
               {/* CVSS Score */}
-              <span className="text-[9px] text-slate-300 font-bold shrink-0 w-[30px]">
+              <span className="text-[var(--text-body)] text-slate-300 font-bold shrink-0 w-[40px]">
                 CVSS: <span className={style.text}>{row.score}</span>
               </span>
               {/* CVE ID + system */}
-              <div className="min-w-0 flex-1">
-                <span className="text-[9px] text-slate-200 font-mono truncate block">{row.id}</span>
-                <span className="text-[7px] text-slate-500 truncate block">{row.system}</span>
+              <div className="min-w-0 flex-1 flex flex-col justify-center">
+                <span className="text-[var(--text-body)] text-slate-200 font-mono truncate block">{row.id}</span>
+                <span className="text-[var(--text-body)] text-slate-500 truncate block text-[0.85em]">{row.system}</span>
               </div>
             </div>
           );

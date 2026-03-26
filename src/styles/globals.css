@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Color Palette */
+  --bg-primary: #0a0f1a;
+  --bg-panel: #0d1526;
+  --border-color: rgba(0, 255, 136, 0.15);
+  --accent-green: #00ff88;
+  --accent-cyan: #00d4ff;
+  --text-primary: #e2e8f0;
+  --text-muted: #64748b;
+  --threat-red: #ff4757;
+  --warning-orange: #ffa502;
+  
+  /* Fluid Typography */
+  --text-title: clamp(10px, 1.2vw, 14px);
+  --text-body: clamp(9px, 1vw, 12px);
+  --text-header: clamp(14px, 2vw, 22px);
+}
+
 @layer base {
   * {
     box-sizing: border-box;
@@ -10,16 +28,19 @@
   html {
     scroll-behavior: smooth;
     scrollbar-gutter: stable;
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-green) #0a0a0f;
   }
 
   body {
-    background-color: #08080f;
-    color: #e2e8f0;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     font-family: var(--font-inter), system-ui, sans-serif;
     /* Subtle grid pattern */
     background-image:
-      repeating-linear-gradient(0deg, transparent, transparent 50px, rgba(0,255,65,0.018) 50px, rgba(0,255,65,0.018) 51px),
-      repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(0,255,65,0.018) 50px, rgba(0,255,65,0.018) 51px);
+      repeating-linear-gradient(0deg, transparent, transparent 50px, rgba(0,255,136,0.018) 50px, rgba(0,255,136,0.018) 51px),
+      repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(0,255,136,0.018) 50px, rgba(0,255,136,0.018) 51px);
   }
 
   /* CRT scanline overlay */
@@ -381,3 +402,20 @@
 .toolkit-pulse-anim { animation: toolkit-slow-pulse 3s infinite; }
 .toolkit-slide-up-anim { opacity: 0; transform: translateY(10px); animation: toolkit-slide-up 0.4s ease-out forwards; }
 .toolkit-fade-in-anim { opacity: 0; animation: toolkit-fade-in 1s ease-in forwards; }
+
+@layer utilities {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .glass-panel {
+    background: rgba(13, 21, 38, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+  }
+}

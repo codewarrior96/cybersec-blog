@@ -51,21 +51,21 @@ export default function LiveIntelFeedWidget({ attacks, threatScore }: LiveIntelF
     <div className="absolute inset-0 flex flex-col overflow-hidden">
 
       {/* Header */}
-      <div className="flex justify-between items-center px-3 py-2 border-b border-cyan-500/15 bg-[#0a1020]/80 shrink-0">
+      <div className="flex justify-between items-center px-3 py-2 border-b border-cyan-500/15 bg-var(--bg-panel)/80 shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-slate-300 tracking-widest uppercase">// LIVE INTEL FEED</span>
+          <span className="text-[var(--text-title)] font-bold text-slate-300 tracking-widest uppercase">// LIVE INTEL FEED</span>
         </div>
-        <span className="text-slate-600 text-[9px]">⋮</span>
+        <span className="text-slate-600 text-[10px]">⋮</span>
       </div>
 
       {/* Threat Index */}
       <div className="px-3 py-2.5 border-b border-cyan-500/10 shrink-0">
-        <div className="flex items-center gap-2 mb-1.5">
-          <div className="text-[9px] text-slate-500 leading-tight">GLOBAL<br/>THREAT INDEX</div>
-          <span className="text-3xl font-black text-white tabular-nums tracking-tight" style={{ textShadow: `0 0 24px ${threat.color}` }}>
+        <div className="flex items-center gap-2 mb-1.5 overflow-hidden">
+          <div className="text-[var(--text-body)] text-slate-500 leading-tight shrink-0">GLOBAL<br/>THREAT INDEX</div>
+          <span className="text-[clamp(1.5rem,5vw,2.25rem)] font-black text-white tabular-nums tracking-tight shrink-0 flex-1 ml-2" style={{ textShadow: `0 0 24px ${threat.color}` }}>
             {threatScore.toFixed(1)}
           </span>
-          <span className="text-[9px] font-bold px-2 py-0.5 rounded border animate-pulse" 
+          <span className="text-[var(--text-title)] font-bold px-2 py-0.5 rounded border animate-pulse shrink-0 whitespace-nowrap" 
             style={{ color: threat.color, borderColor: threat.color + '80', backgroundColor: threat.color + '15' }}>
             ◀ {threat.text}
           </span>
@@ -81,14 +81,14 @@ export default function LiveIntelFeedWidget({ attacks, threatScore }: LiveIntelF
             style={{ left: `calc(${barPercent}% - 1px)` }} />
         </div>
         <div className="flex justify-between mt-0.5">
-          <span className="text-[8px] text-slate-600">0</span>
-          <span className="text-[7px] text-slate-500 tracking-widest">GLOBAL THREAT INDEX | REAL-TIME</span>
-          <span className="text-[8px] text-slate-600">10</span>
+          <span className="text-[var(--text-body)] text-slate-600">0</span>
+          <span className="text-[clamp(7px,0.8vw,9px)] text-slate-500 tracking-widest">GLOBAL THREAT INDEX | REAL-TIME</span>
+          <span className="text-[var(--text-body)] text-slate-600">10</span>
         </div>
       </div>
 
-      {/* Cards */}
-      <div className="flex-1 min-h-0 overflow-hidden px-2 py-1.5 space-y-1.5">
+      {/* Cards - Scrollable on mobile */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 py-1.5 space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
         
         {/* Real attacks from API */}
         {attacks.slice().reverse().slice(0, 4).map((attack, i) => {
@@ -96,18 +96,18 @@ export default function LiveIntelFeedWidget({ attacks, threatScore }: LiveIntelF
           const IconComp = config.Icon;
           return (
             <div key={`real-${attack.id}-${i}`}
-              className={`rounded border-l-[3px] ${config.border} ${config.bg} border border-slate-700/30 px-2.5 py-2`}>
+              className={`rounded border-l-[3px] ${config.border} ${config.bg} border border-slate-700/30 px-2.5 py-2 touch-target w-full flex flex-col justify-center`}>
               <div className="flex items-center justify-between mb-1">
-                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${config.badge}`}>{config.label}</span>
-                <span className="text-[8px] text-slate-500">{timeAgo(attack.createdAt)}</span>
+                <span className={`text-[var(--text-body)] font-bold px-1.5 py-0.5 rounded border ${config.badge}`}>{config.label}</span>
+                <span className="text-[var(--text-body)] text-slate-500">{timeAgo(attack.createdAt)}</span>
               </div>
               <div className="flex items-start gap-2">
                 <IconComp className={`w-4 h-4 ${config.text} shrink-0 mt-0.5`} />
-                <div className="min-w-0">
-                  <div className={`text-[10px] font-bold ${config.text}`}>{attack.type.toUpperCase()}</div>
-                  <div className="text-[9px] text-slate-400 font-mono">IP: {attack.sourceIP} → {attack.targetPort > 0 ? `:${attack.targetPort}` : 'TARGET'}</div>
+                <div className="min-w-0 flex-1">
+                  <div className={`text-[var(--text-title)] font-bold ${config.text} truncate`}>{attack.type.toUpperCase()}</div>
+                  <div className="text-[var(--text-body)] text-slate-400 font-mono truncate">IP: {attack.sourceIP} → {attack.targetPort > 0 ? `:${attack.targetPort}` : 'TARGET'}</div>
                 </div>
-                <span className="text-[8px] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded shrink-0 ml-auto">{attack.sourceCountry}</span>
+                <span className="text-[var(--text-body)] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded shrink-0">{attack.sourceCountry}</span>
               </div>
             </div>
           );
@@ -126,21 +126,21 @@ export default function LiveIntelFeedWidget({ attacks, threatScore }: LiveIntelF
 
           return (
             <div key={`static-${i}`}
-              className={`rounded border-l-[3px] ${borderClass} ${bgClass} border border-slate-700/30 px-2.5 py-2`}>
+              className={`rounded border-l-[3px] ${borderClass} ${bgClass} border border-slate-700/30 px-2.5 py-2 touch-target w-full flex flex-col justify-center`}>
               <div className="flex items-center justify-between mb-1">
-                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${badgeClass}`}>
+                <span className={`text-[var(--text-body)] font-bold px-1.5 py-0.5 rounded border ${badgeClass}`}>
                   {isSafe ? '● SAFE' : isAmber ? '● AMBER' : `● ${config.label}`}
                 </span>
-                <span className="text-[8px] text-slate-500">{card.time}</span>
+                <span className="text-[var(--text-body)] text-slate-500">{card.time}</span>
               </div>
               <div className="flex items-start gap-2">
                 <IconComp className={`w-4 h-4 ${colorClass} shrink-0 mt-0.5`} />
-                <div className="min-w-0">
-                  <div className={`text-[10px] font-bold ${colorClass}`}>{card.type}</div>
-                  {card.ip && <div className="text-[9px] text-slate-400 font-mono">IP: {card.ip} → {card.target}</div>}
-                  {card.detail && <div className="text-[8px] text-slate-500 mt-0.5 italic">{card.detail}</div>}
+                <div className="min-w-0 flex-1">
+                  <div className={`text-[var(--text-title)] font-bold ${colorClass} truncate`}>{card.type}</div>
+                  {card.ip && <div className="text-[var(--text-body)] text-slate-400 font-mono truncate">IP: {card.ip} → {card.target}</div>}
+                  {card.detail && <div className="text-[var(--text-body)] text-slate-500 mt-0.5 italic truncate">{card.detail}</div>}
                 </div>
-                {card.country && <span className="text-[8px] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded shrink-0 ml-auto">{card.country}</span>}
+                {card.country && <span className="text-[var(--text-body)] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded shrink-0 ml-auto">{card.country}</span>}
               </div>
             </div>
           );
@@ -148,10 +148,10 @@ export default function LiveIntelFeedWidget({ attacks, threatScore }: LiveIntelF
       </div>
 
       {/* Bottom Stats */}
-      <div className="shrink-0 flex items-center justify-center gap-4 border-t border-cyan-500/15 bg-[#0a1020]/80 py-1.5 px-3">
-        <span className="text-[8px] text-slate-400 border border-slate-700/50 px-2 py-0.5 rounded">BLOCKED: <span className="text-cyan-400 font-bold">{totalBlocked.toLocaleString()}</span></span>
-        <span className="text-[8px] text-slate-400 border border-slate-700/50 px-2 py-0.5 rounded">SCANS: <span className="text-cyan-400 font-bold">89</span></span>
-        <span className="text-[8px] text-slate-400 border border-slate-700/50 px-2 py-0.5 rounded">UPTIME: <span className="text-green-400 font-bold">99.97%</span></span>
+      <div className="shrink-0 flex items-center justify-center gap-2 lg:gap-4 border-t border-cyan-500/15 bg-var(--bg-panel)/80 py-1.5 px-3">
+        <span className="text-[var(--text-body)] text-slate-400 border border-slate-700/50 px-2 py-0.5 rounded whitespace-nowrap">BLOCKED: <span className="text-cyan-400 font-bold">{totalBlocked.toLocaleString()}</span></span>
+        <span className="text-[var(--text-body)] text-slate-400 border border-slate-700/50 px-2 py-0.5 rounded whitespace-nowrap">SCANS: <span className="text-cyan-400 font-bold">89</span></span>
+        <span className="text-[var(--text-body)] text-slate-400 border border-slate-700/50 px-2 py-0.5 rounded whitespace-nowrap">UPTIME: <span className="text-green-400 font-bold">99.97%</span></span>
       </div>
     </div>
   );

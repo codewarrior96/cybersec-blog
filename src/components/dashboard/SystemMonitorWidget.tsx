@@ -83,104 +83,104 @@ export default function SystemMonitorWidget() {
   return (
     <div className="absolute inset-0 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex justify-between items-center px-3 py-2 border-b border-cyan-500/15 bg-[#0a1020]/80 shrink-0">
+      <div className="flex justify-between items-center px-3 py-2 border-b border-cyan-500/15 bg-var(--bg-panel)/80 shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-slate-300 tracking-widest uppercase">// SYSTEM STATUS</span>
+          <span className="text-[var(--text-title)] font-bold text-slate-300 tracking-widest uppercase">// SYSTEM STATUS</span>
           <span className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-[8px] text-green-400 font-bold">LIVE</span>
+            <span className="text-[var(--text-body)] text-green-400 font-bold">LIVE</span>
           </span>
         </div>
-        <span className="text-[8px] text-slate-500 font-mono">4 NODES</span>
+        <span className="text-[var(--text-body)] text-slate-500 font-mono">4 NODES</span>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-h-0 overflow-hidden px-3 py-2 space-y-2.5">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-2 space-y-3" style={{ WebkitOverflowScrolling: 'touch' }}>
 
         {/* CPU + Cores Row */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
           {/* Hex Ring */}
-          <div className="shrink-0">
+          <div className="shrink-0 flex items-center justify-center min-w-[68px]">
             <HexProgress percent={cpuPercent} size={68} />
           </div>
           {/* Per-core bars */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 w-full">
             <div className="flex items-end gap-[3px] h-[38px]">
               {cores.map((c, i) => (
-                <div key={i} className="flex-1 flex flex-col justify-end h-full">
-                  <div className="rounded-t-sm transition-all duration-500" style={{
-                    height: `${c}%`,
+                <div key={i} className="flex-1 flex flex-col justify-end h-full relative group">
+                  <div className="rounded-t-sm transition-all duration-500 min-w-[4px]" style={{
+                    height: `${Math.max(4, c)}%`,
                     background: c > 80 ? '#ef4444' : c > 60 ? '#f59e0b' : '#22d3ee',
                     boxShadow: c > 80 ? '0 0 4px #ef4444' : 'none',
                   }} />
                 </div>
               ))}
             </div>
-            <div className="flex justify-between mt-1">
-              <span className="text-[8px] text-slate-500">8 CORES · 3.2 GHz</span>
-              <span className="text-[8px] text-orange-400 flex items-center gap-0.5">🔥 {temp}°C</span>
+            <div className="flex justify-between mt-1 border-t border-cyan-500/10 pt-1">
+              <span className="text-[var(--text-body)] text-slate-500 whitespace-nowrap">8 CORES · 3.2 GHz</span>
+              <span className="text-[var(--text-body)] text-orange-400 flex items-center gap-0.5 whitespace-nowrap">🔥 {temp}°C</span>
             </div>
           </div>
         </div>
 
         {/* Memory */}
-        <div>
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-[9px] text-slate-400 font-bold tracking-wider">MEMORY</span>
-            <span className="text-[9px] text-slate-300 font-bold">{memPercent}% · 16 GB DDR5</span>
+        <div className="bg-slate-900/40 p-2 rounded-lg border border-cyan-500/10">
+          <div className="flex justify-between items-center mb-1.5">
+            <span className="text-[var(--text-title)] text-slate-400 font-bold tracking-wider">MEMORY</span>
+            <span className="text-[var(--text-title)] text-slate-300 font-bold">{memPercent}% <span className="hidden sm:inline">· 16 GB DDR5</span></span>
           </div>
-          <div className="flex h-3 rounded-sm overflow-hidden bg-[#1a1a2e]">
+          <div className="flex h-3 rounded-md overflow-hidden bg-[#1a1a2e] shadow-[inset_0_1px_3px_rgba(0,0,0,0.4)]">
             <div className="transition-all duration-700" style={{ width: `${(memUsed.system / memTotal) * 100}%`, background: '#3b82f6' }} title="System" />
             <div className="transition-all duration-700" style={{ width: `${(memUsed.apps / memTotal) * 100}%`, background: '#22d3ee' }} title="Apps" />
             <div className="transition-all duration-700" style={{ width: `${(memUsed.cache / memTotal) * 100}%`, background: '#a855f7' }} title="Cache" />
           </div>
-          <div className="flex gap-3 mt-1">
-            <span className="text-[8px] text-blue-400">■ SYS {memUsed.system}G</span>
-            <span className="text-[8px] text-cyan-400">■ APP {memUsed.apps}G</span>
-            <span className="text-[8px] text-purple-400">■ CACHE {memUsed.cache}G</span>
-            <span className="text-[8px] text-slate-500">■ FREE {memUsed.free}G</span>
+          <div className="flex flex-wrap gap-2 mt-2">
+            <span className="text-[var(--text-body)] text-blue-400 whitespace-nowrap">■ SYS {memUsed.system}G</span>
+            <span className="text-[var(--text-body)] text-cyan-400 whitespace-nowrap">■ APP {memUsed.apps}G</span>
+            <span className="text-[var(--text-body)] text-purple-400 whitespace-nowrap">■ CACHE {memUsed.cache}G</span>
+            <span className="text-[var(--text-body)] text-slate-500 whitespace-nowrap">■ FREE {memUsed.free}G</span>
           </div>
         </div>
 
         {/* Network I/O */}
-        <div>
-          <span className="text-[9px] text-slate-400 font-bold tracking-wider">NETWORK I/O</span>
-          <div className="grid grid-cols-2 gap-2 mt-1">
+        <div className="bg-slate-900/40 p-2 rounded-lg border border-cyan-500/10">
+          <span className="text-[var(--text-title)] text-slate-400 font-bold tracking-wider">NETWORK I/O</span>
+          <div className="grid grid-cols-2 gap-3 mt-1.5">
             <div>
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="text-[8px] text-orange-400">↑ UPLOAD</span>
-                <span className="text-[9px] text-orange-300 font-bold">{uploadSpeed} MB/s</span>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[var(--text-body)] text-orange-400 whitespace-nowrap">↑ UPLOAD</span>
+                <span className="text-[var(--text-title)] text-orange-300 font-bold ml-1">{uploadSpeed} <span className="hidden sm:inline">MB/s</span></span>
               </div>
-              <Sparkline data={uploadHistory} color="#fb923c" height={18} />
+              <Sparkline data={uploadHistory} color="#fb923c" height={22} />
             </div>
             <div>
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="text-[8px] text-cyan-400">↓ DOWNLOAD</span>
-                <span className="text-[9px] text-cyan-300 font-bold">{(downloadSpeed / 1000).toFixed(1)} GB/s</span>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[var(--text-body)] text-cyan-400 whitespace-nowrap">↓ DOWNLOAD</span>
+                <span className="text-[var(--text-title)] text-cyan-300 font-bold ml-1">{(downloadSpeed / 1000).toFixed(1)} <span className="hidden sm:inline">GB/s</span></span>
               </div>
-              <Sparkline data={downloadHistory} color="#22d3ee" height={18} />
+              <Sparkline data={downloadHistory} color="#22d3ee" height={22} />
             </div>
           </div>
         </div>
       </div>
 
       {/* Status Badges */}
-      <div className="shrink-0 grid grid-cols-4 border-t border-cyan-500/15 bg-[#0a1020]/80">
-        <div className="flex flex-col items-center py-1.5 border-r border-cyan-500/10">
-          <span className="text-[7px] text-slate-500">FIREWALL</span>
-          <span className="text-[9px] text-green-400 font-bold">✓ ON</span>
+      <div className="shrink-0 grid grid-cols-4 border-t border-cyan-500/15 bg-var(--bg-panel)/80">
+        <div className="flex flex-col items-center justify-center p-2 border-r border-cyan-500/10 touch-target min-w-0">
+          <span className="text-[var(--text-body)] text-slate-500 truncate w-full text-center">FIREWALL</span>
+          <span className="text-[var(--text-title)] text-green-400 font-bold">✓ ON</span>
         </div>
-        <div className="flex flex-col items-center py-1.5 border-r border-cyan-500/10">
-          <span className="text-[7px] text-slate-500">VPN</span>
-          <span className="text-[9px] text-green-400 font-bold">✓ UP</span>
+        <div className="flex flex-col items-center justify-center p-2 border-r border-cyan-500/10 touch-target min-w-0">
+          <span className="text-[var(--text-body)] text-slate-500 truncate w-full text-center">VPN</span>
+          <span className="text-[var(--text-title)] text-green-400 font-bold">✓ UP</span>
         </div>
-        <div className="flex flex-col items-center py-1.5 border-r border-cyan-500/10">
-          <span className="text-[7px] text-slate-500">IDS</span>
-          <span className="text-[9px] text-amber-400 font-bold">⚡ SCAN</span>
+        <div className="flex flex-col items-center justify-center p-2 border-r border-cyan-500/10 touch-target min-w-0">
+          <span className="text-[var(--text-body)] text-slate-500 truncate w-full text-center">IDS</span>
+          <span className="text-[var(--text-title)] text-amber-400 font-bold">⚡ SCAN</span>
         </div>
-        <div className="flex flex-col items-center py-1.5">
-          <span className="text-[7px] text-slate-500">BACKUP</span>
-          <span className="text-[9px] text-blue-400 font-bold">↻ SYNC</span>
+        <div className="flex flex-col items-center justify-center p-2 touch-target min-w-0">
+          <span className="text-[var(--text-body)] text-slate-500 truncate w-full text-center">BACKUP</span>
+          <span className="text-[var(--text-title)] text-blue-400 font-bold">↻ SYNC</span>
         </div>
       </div>
     </div>
