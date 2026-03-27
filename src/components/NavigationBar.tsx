@@ -45,42 +45,15 @@ function BellMark() {
   )
 }
 
-function PunisherSkull() {
+function SkullImage({ className }: { className?: string }) {
   return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 28 28"
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/skull.jpg"
+      alt=""
       aria-hidden="true"
-      className="nb2-skull-svg"
-    >
-      {/* Main skull body — evenodd punches out eyes and nose */}
-      <path
-        fillRule="evenodd"
-        fill="white"
-        d="
-          M14 1 C5 1 1 7 1 13 C1 18 4 21 7 22 L7 24 L21 24 L21 22
-          C24 21 27 18 27 13 C27 7 23 1 14 1 Z
-          M5 10 L5 17 L11 17 L11 10 Z
-          M17 10 L17 17 L23 17 L23 10 Z
-          M12 18 L16 18 L14 21.5 Z
-        "
-      />
-      {/* Eye glow rects — nearly transparent so drop-shadow animates */}
-      <rect x="5" y="10" width="6" height="7" fill="rgba(0,230,64,0.001)" className="nb2-skull-eye-glow" />
-      <rect x="17" y="10" width="6" height="7" fill="rgba(0,230,64,0.001)" className="nb2-skull-eye-glow" />
-      {/* Teeth */}
-      <path
-        fill="white"
-        d="
-          M6 24 L6 27 L8 27 L8 24 Z
-          M9.5 24 L9.5 27 L11.5 27 L11.5 24 Z
-          M13 24 L13 27 L15 27 L15 24 Z
-          M16.5 24 L16.5 27 L18.5 27 L18.5 24 Z
-          M20 24 L20 27 L22 27 L22 24 Z
-        "
-      />
-    </svg>
+      className={`nb2-skull-img${className ? ` ${className}` : ''}`}
+    />
   )
 }
 
@@ -101,7 +74,7 @@ function ProfilePanel({
     <div className="nb2-profile-panel">
       <div className="nb2-profile-header">
         <div className="nb2-profile-avatar">
-          <PunisherSkull />
+          <SkullImage />
         </div>
         <div className="nb2-profile-identity">
           <span className="nb2-profile-name">{username}</span>
@@ -166,9 +139,7 @@ function SkullButton({
       >
         <span className="nb2-skull-ring-pulse" aria-hidden="true" />
         <span className="nb2-skull-ring-orbit" aria-hidden="true" />
-        <span className="nb2-skull-disc" aria-hidden="true">
-          <PunisherSkull />
-        </span>
+        <span className="nb2-skull-disc" aria-hidden="true" />
       </button>
       {profileOpen && (
         <ProfilePanel

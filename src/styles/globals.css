@@ -1002,6 +1002,29 @@
   100% { filter: drop-shadow(0 0 10px rgba(0, 255, 80, 1)) drop-shadow(0 0 18px rgba(0, 230, 64, 0.8)); }
 }
 
+@keyframes nb2-skull-glow-pulse {
+  0%, 100% {
+    filter: brightness(0.85) saturate(1.1);
+    box-shadow:
+      0 0 6px  #00e640,
+      0 0 14px rgba(0, 230, 64, 0.9),
+      0 0 30px rgba(0, 230, 64, 0.65),
+      0 0 55px rgba(0, 230, 64, 0.35),
+      0 0 90px rgba(0, 230, 64, 0.18),
+      inset 0 0 18px rgba(0, 0, 0, 0.85);
+  }
+  50% {
+    filter: brightness(1.15) saturate(1.4);
+    box-shadow:
+      0 0 10px #39ff14,
+      0 0 22px rgba(57, 255, 20, 1),
+      0 0 45px rgba(57, 255, 20, 0.75),
+      0 0 80px rgba(57, 255, 20, 0.4),
+      0 0 120px rgba(57, 255, 20, 0.2),
+      inset 0 0 18px rgba(0, 0, 0, 0.85);
+  }
+}
+
 @keyframes nb2-online-pulse {
   0%, 100% { opacity: 1;   transform: scale(1); }
   50%       { opacity: 0.5; transform: scale(0.85); }
@@ -1177,11 +1200,11 @@
     0 0 55px rgba(0, 230, 64, 0.35),
     0 0 90px rgba(0, 230, 64, 0.18),
     inset 0 0 18px rgba(0, 0, 0, 0.85);
-  background: radial-gradient(circle at 50% 38%, #0a1a0a 0%, #030703 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background-image: url('/skull.jpg');
+  background-size: 175%;
+  background-position: center 47%;
   overflow: hidden;
+  animation: nb2-skull-glow-pulse 3s ease-in-out infinite;
 }
 
 .nb2-skull-btn.is-open .nb2-skull-disc {
@@ -1196,16 +1219,23 @@
   border-width: 3px;
 }
 
-.nb2-skull-svg {
-  position: relative;
-  z-index: 1;
-  filter:
-    drop-shadow(0 0 3px rgba(255, 255, 255, 0.6))
-    drop-shadow(0 0 6px rgba(0, 230, 64, 0.5));
+/* Skull image inside disc */
+.nb2-skull-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  border-radius: 50%;
+  display: block;
 }
 
-.nb2-skull-eye-glow {
-  animation: nb2-skull-eye 2s ease-in-out infinite alternate;
+/* Profile panel avatar skull image */
+.nb2-profile-avatar .nb2-skull-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  border-radius: 50%;
 }
 
 /* Profile panel dropdown */
