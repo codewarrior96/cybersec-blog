@@ -13,7 +13,8 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(find /c/Users/salim/Desktop/cybersec-blog -path ./node_modules -prune -o -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\) -print)",
       "Bash(npx next:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(find /c/Users/salim/AppData -path *claude* -name *.png -o -path *claude* -name *.jpg -o -path *Claude* -name *.png -o -path *Claude* -name *.jpg)"
     ]
   }
 }

@@ -112,20 +112,10 @@ function ProfilePanel({
 }
 
 function SkullButton({
-  profileOpen,
-  onToggle,
   skullRef,
-  username,
-  threatCount,
-  warnCount,
   onLogout,
 }: {
-  profileOpen: boolean
-  onToggle: () => void
   skullRef: React.RefObject<HTMLDivElement>
-  username: string
-  threatCount: number
-  warnCount: number
   onLogout?: () => void
 }) {
   const [isLeaving, setIsLeaving] = useState(false)
@@ -146,12 +136,11 @@ function SkullButton({
     <div className="nb2-skull-wrap" ref={skullRef}>
       <button
         type="button"
-        className={`nb2-skull-btn ${profileOpen ? 'is-open' : ''} ${isLeaving ? 'is-leaving' : ''}`}
-        onClick={onToggle}
+        className={`nb2-skull-btn ${isLeaving ? 'is-leaving' : ''}`}
+        onClick={() => onLogout?.()}
         onMouseLeave={handleMouseLeave}
         onMouseEnter={handleMouseEnter}
-        aria-label="Operator profile"
-        aria-expanded={profileOpen}
+        aria-label="Logout"
       >
         <span className="nb2-skull-ring-pulse" aria-hidden="true" />
         <span className="nb2-skull-ring-orbit" aria-hidden="true" />
