@@ -141,15 +141,7 @@ function SkullButton({
         <span className="nb2-skull-ring-orbit" aria-hidden="true" />
         <span className="nb2-skull-disc" aria-hidden="true" />
       </button>
-      {profileOpen && (
-        <ProfilePanel
-          username={username}
-          threatCount={threatCount}
-          warnCount={warnCount}
-          onLogout={onLogout}
-          onClose={onToggle}
-        />
-      )}
+      {/* profile panel removed — custom animation coming */}
     </div>
   )
 }
