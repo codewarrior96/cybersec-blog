@@ -895,6 +895,7 @@
     width: 16px;
   }
 
+  .nb2-mobile-tools .nb2-pill-threat,
   .nb2-mobile-tools .nb2-pill-warn,
   .nb2-mobile-tools .nb2-icon-btn {
     display: none;
