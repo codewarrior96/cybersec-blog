@@ -988,8 +988,8 @@
 }
 
 @keyframes nb2-skull-pulse {
-  0%, 100% { opacity: 0.4; transform: scale(1); }
-  50%       { opacity: 0.8; transform: scale(1.08); }
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50%       { opacity: 1;   transform: scale(1.12); }
 }
 
 @keyframes nb2-skull-orbit {
@@ -998,8 +998,8 @@
 }
 
 @keyframes nb2-skull-eye {
-  0%   { filter: drop-shadow(0 0 2px rgba(0, 230, 64, 0.3)); }
-  100% { filter: drop-shadow(0 0 7px rgba(0, 230, 64, 1)); }
+  0%   { filter: drop-shadow(0 0 3px rgba(0, 230, 64, 0.5)); }
+  100% { filter: drop-shadow(0 0 10px rgba(0, 255, 80, 1)) drop-shadow(0 0 18px rgba(0, 230, 64, 0.8)); }
 }
 
 @keyframes nb2-online-pulse {
@@ -1142,10 +1142,11 @@
 /* Layer 1: outermost pulsing ring */
 .nb2-skull-ring-pulse {
   position: absolute;
-  inset: -10px;
+  inset: -14px;
   border-radius: 50%;
   background: transparent;
-  border: 1.5px solid rgba(0, 230, 64, 0.22);
+  border: 1px solid rgba(0, 230, 64, 0.35);
+  box-shadow: 0 0 18px rgba(0, 230, 64, 0.2);
   animation: nb2-skull-pulse 3s ease-in-out infinite;
   pointer-events: none;
 }
@@ -1153,9 +1154,10 @@
 /* Layer 2: rotating dashed orbit ring */
 .nb2-skull-ring-orbit {
   position: absolute;
-  inset: -5px;
+  inset: -7px;
   border-radius: 50%;
-  border: 1.5px dashed rgba(0, 230, 64, 0.55);
+  border: 1.5px dashed rgba(0, 230, 64, 0.7);
+  box-shadow: 0 0 8px rgba(0, 230, 64, 0.25);
   animation: nb2-skull-orbit 8s linear infinite;
   pointer-events: none;
   will-change: transform;
@@ -1164,15 +1166,18 @@
 /* Layer 3+4: disc */
 .nb2-skull-disc {
   position: relative;
-  width: 50px;
-  height: 50px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
-  border: 1.5px solid #00e640;
+  border: 2.5px solid #00e640;
   box-shadow:
-    0 0 8px rgba(0, 230, 64, 0.5),
-    0 0 20px rgba(0, 230, 64, 0.2),
-    inset 0 0 12px rgba(0, 0, 0, 0.8);
-  background: radial-gradient(circle at 50% 40%, #0c180c 0%, #060a06 100%);
+    0 0 6px  #00e640,
+    0 0 14px rgba(0, 230, 64, 0.9),
+    0 0 30px rgba(0, 230, 64, 0.65),
+    0 0 55px rgba(0, 230, 64, 0.35),
+    0 0 90px rgba(0, 230, 64, 0.18),
+    inset 0 0 18px rgba(0, 0, 0, 0.85);
+  background: radial-gradient(circle at 50% 38%, #0a1a0a 0%, #030703 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1181,16 +1186,22 @@
 
 .nb2-skull-btn.is-open .nb2-skull-disc {
   box-shadow:
-    0 0 14px rgba(0, 230, 64, 0.8),
-    0 0 30px rgba(0, 230, 64, 0.35),
-    inset 0 0 12px rgba(0, 0, 0, 0.8);
+    0 0 8px  #00ff50,
+    0 0 20px rgba(0, 255, 80, 0.95),
+    0 0 40px rgba(0, 255, 80, 0.7),
+    0 0 70px rgba(0, 255, 80, 0.4),
+    0 0 110px rgba(0, 255, 80, 0.2),
+    inset 0 0 18px rgba(0, 0, 0, 0.85);
   border-color: #00ff50;
+  border-width: 3px;
 }
 
 .nb2-skull-svg {
   position: relative;
   z-index: 1;
-  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.3));
+  filter:
+    drop-shadow(0 0 3px rgba(255, 255, 255, 0.6))
+    drop-shadow(0 0 6px rgba(0, 230, 64, 0.5));
 }
 
 .nb2-skull-eye-glow {
