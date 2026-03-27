@@ -1055,6 +1055,11 @@
   100% { transform: rotate(360deg); }
 }
 
+@keyframes nb2-skull-spin-close {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(-360deg); }
+}
+
 @keyframes nb2-skull-img-pulse {
   0%, 100% { filter: brightness(0.9) saturate(1.1); }
   50%       { filter: brightness(1.15) saturate(1.4); }
@@ -1308,6 +1313,36 @@
 .nb2-skull-btn:hover .nb2-skull-logout-svg {
   opacity: 1;
   transform: scale(1) rotate(0deg);
+}
+
+/* ── Kapanış (mouse-leave) animasyonu ── */
+.nb2-skull-btn.is-leaving .nb2-skull-disc {
+  animation: nb2-skull-spin-close 0.52s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  border-color: #00e640;
+  box-shadow:
+    0 0 6px  #00e640,
+    0 0 14px rgba(0, 230, 64, 0.9),
+    0 0 30px rgba(0, 230, 64, 0.65),
+    0 0 55px rgba(0, 230, 64, 0.35),
+    0 0 90px rgba(0, 230, 64, 0.18),
+    inset 0 0 18px rgba(0, 0, 0, 0.85);
+}
+
+.nb2-skull-btn.is-leaving .nb2-skull-disc::before {
+  filter: hue-rotate(0deg) brightness(1);
+  opacity: 1;
+  transition: filter 0.38s ease 0s, opacity 0.38s ease 0s;
+}
+
+.nb2-skull-btn.is-leaving .nb2-skull-hover-overlay {
+  background: rgba(30, 0, 0, 0);
+  transition: background 0.25s ease 0s;
+}
+
+.nb2-skull-btn.is-leaving .nb2-skull-logout-svg {
+  opacity: 0;
+  transform: scale(0.3) rotate(180deg);
+  transition: opacity 0.18s ease 0s, transform 0.22s ease 0s;
 }
 
 /* Profile panel dropdown */

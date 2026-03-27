@@ -128,12 +128,28 @@ function SkullButton({
   warnCount: number
   onLogout?: () => void
 }) {
+  const [isLeaving, setIsLeaving] = useState(false)
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleMouseLeave = () => {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    setIsLeaving(true)
+    leaveTimer.current = setTimeout(() => setIsLeaving(false), 580)
+  }
+
+  const handleMouseEnter = () => {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    setIsLeaving(false)
+  }
+
   return (
     <div className="nb2-skull-wrap" ref={skullRef}>
       <button
         type="button"
-        className={`nb2-skull-btn ${profileOpen ? 'is-open' : ''}`}
+        className={`nb2-skull-btn ${profileOpen ? 'is-open' : ''} ${isLeaving ? 'is-leaving' : ''}`}
         onClick={onToggle}
+        onMouseLeave={handleMouseLeave}
+        onMouseEnter={handleMouseEnter}
         aria-label="Operator profile"
         aria-expanded={profileOpen}
       >
