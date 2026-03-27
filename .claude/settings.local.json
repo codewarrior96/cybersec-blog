@@ -12,7 +12,8 @@
       "Bash(git remote:*)",
       "mcp__Claude_Preview__preview_start",
       "Bash(find /c/Users/salim/Desktop/cybersec-blog -path ./node_modules -prune -o -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\) -print)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
