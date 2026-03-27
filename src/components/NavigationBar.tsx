@@ -348,7 +348,9 @@ export default function NavigationBar({
                     aria-current={active ? 'page' : undefined}
                     onClick={() => setDrawerOpen(false)}
                   >
-                    <span className="nb2-caret">&gt;</span>
+                    <svg className="nb2-caret" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                      <polyline points="2,1 8,5 2,9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                     {link.label}
                   </Link>
                 )
