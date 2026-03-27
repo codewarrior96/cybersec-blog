@@ -175,6 +175,13 @@ function isActivePath(currentPath: string, href: string) {
   return currentPath === href || currentPath.startsWith(`${href}/`)
 }
 
+function getDaySegment(hour: number) {
+  if (hour >= 5 && hour < 11) return 'SABAH'
+  if (hour >= 11 && hour < 17) return 'OGLE'
+  if (hour >= 17 && hour < 22) return 'AKSAM'
+  return 'GECE'
+}
+
 export default function NavigationBar({
   threatCount = 1,
   warnCount = 14,
@@ -184,7 +191,27 @@ export default function NavigationBar({
 }: NavigationBarProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [now, setNow] = useState<Date | null>(null)
   const skullRef = useRef<HTMLDivElement>(null)
+
+  const timeLabel = now
+    ? now.toLocaleTimeString('tr-TR', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
+    : '--:--:--'
+
+  const dateLabel = now
+    ? now.toLocaleDateString('tr-TR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: '2-digit',
+      }).toUpperCase()
+    : '-- --.--'
+
+  const daySegment = now ? getDaySegment(now.getHours()) : 'SYNC'
 
   useEffect(() => {
     if (!drawerOpen) return
@@ -222,6 +249,13 @@ export default function NavigationBar({
     return () => window.removeEventListener('mousedown', handleOutside)
   }, [profileOpen])
 
+  useEffect(() => {
+    const tick = () => setNow(new Date())
+    tick()
+    const timer = window.setInterval(tick, 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
   return (
     <>
       <header className="nb2-root">
@@ -254,20 +288,17 @@ export default function NavigationBar({
         </nav>
 
         <div className="nb2-tools">
-          <span className="nb2-chip nb2-chip-threat">
-            <span className="nb2-threat-dot" aria-hidden="true" />
-            THREATS: {threatCount}
-          </span>
-          <span className="nb2-chip nb2-chip-warn">
-            <span className="nb2-warn-triangle" aria-hidden="true">▲</span>
-            WARNS: {warnCount}
-          </span>
-          <button type="button" className="nb2-icon-btn" aria-label="Notifications">
-            <BellMark />
-            {threatCount > 0 && <span className="nb2-dot" />}
-          </button>
+          <div className="nb2-retro-clock" role="status" aria-live="polite">
+            <div className="nb2-retro-head">
+              <span className="nb2-retro-label">LOCAL TIME</span>
+              <span className="nb2-retro-date">{dateLabel}</span>
+            </div>
+            <div className="nb2-retro-body">
+              <span className="nb2-retro-time">{timeLabel}</span>
+              <span className="nb2-retro-segment">{daySegment}</span>
+            </div>
+          </div>
         </div>
-
         <div className="nb2-mobile-tools">
           <span className="nb2-pill nb2-pill-threat nb2-mobile-pill">{threatCount}</span>
           <span className="nb2-pill nb2-pill-warn nb2-mobile-pill">{warnCount}</span>
@@ -354,3 +385,4 @@ export default function NavigationBar({
     </>
   )
 }
+

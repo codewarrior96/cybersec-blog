@@ -596,6 +596,83 @@
   flex-shrink: 0;
 }
 
+.nb2-retro-clock {
+  position: relative;
+  width: clamp(178px, 21vw, 230px);
+  min-height: 38px;
+  padding: 6px 10px;
+  border: 1px solid rgba(0, 255, 136, 0.34);
+  background:
+    radial-gradient(circle at 50% -45%, rgba(0, 255, 136, 0.18), rgba(0, 0, 0, 0) 62%),
+    linear-gradient(180deg, rgba(5, 22, 12, 0.9), rgba(2, 10, 6, 0.95));
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 255, 136, 0.1),
+    inset 0 0 18px rgba(0, 255, 136, 0.12),
+    0 0 16px rgba(0, 255, 136, 0.12);
+  overflow: hidden;
+}
+
+.nb2-retro-clock::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 255, 136, 0.055) 0px,
+    rgba(0, 255, 136, 0.055) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.nb2-retro-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.nb2-retro-label {
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  color: rgba(103, 255, 171, 0.75);
+}
+
+.nb2-retro-date {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: rgba(163, 255, 203, 0.82);
+}
+
+.nb2-retro-body {
+  margin-top: 3px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nb2-retro-time {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #47ff8b;
+  text-shadow: 0 0 8px rgba(71, 255, 139, 0.6);
+  font-variant-numeric: tabular-nums;
+}
+
+.nb2-retro-segment {
+  padding: 1px 6px;
+  border: 1px solid rgba(71, 255, 139, 0.45);
+  background: rgba(71, 255, 139, 0.1);
+  color: #9cffc2;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
 .nb2-pill {
   display: inline-flex;
   align-items: center;
