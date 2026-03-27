@@ -1031,7 +1031,6 @@
 
 @keyframes nb2-skull-glow-pulse {
   0%, 100% {
-    filter: brightness(0.85) saturate(1.1);
     box-shadow:
       0 0 6px  #00e640,
       0 0 14px rgba(0, 230, 64, 0.9),
@@ -1041,7 +1040,6 @@
       inset 0 0 18px rgba(0, 0, 0, 0.85);
   }
   50% {
-    filter: brightness(1.15) saturate(1.4);
     box-shadow:
       0 0 10px #39ff14,
       0 0 22px rgba(57, 255, 20, 1),
@@ -1050,6 +1048,16 @@
       0 0 120px rgba(57, 255, 20, 0.2),
       inset 0 0 18px rgba(0, 0, 0, 0.85);
   }
+}
+
+@keyframes nb2-skull-spin-once {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes nb2-skull-img-pulse {
+  0%, 100% { filter: brightness(0.9) saturate(1.1); }
+  50%       { filter: brightness(1.15) saturate(1.4); }
 }
 
 @keyframes nb2-online-pulse {
@@ -1227,42 +1235,79 @@
     0 0 55px rgba(0, 230, 64, 0.35),
     0 0 90px rgba(0, 230, 64, 0.18),
     inset 0 0 18px rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  animation: nb2-skull-glow-pulse 3s ease-in-out infinite;
+  transition: border-color 0.45s ease, box-shadow 0.45s ease;
+}
+
+/* Skull image on ::before so hover filter only affects it */
+.nb2-skull-disc::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
   background-image: url('/skull.jpg');
   background-size: 175%;
   background-position: center 47%;
-  overflow: hidden;
-  animation: nb2-skull-glow-pulse 3s ease-in-out infinite;
+  animation: nb2-skull-img-pulse 3s ease-in-out infinite;
+  transition: filter 0.4s ease, opacity 0.4s ease;
+  z-index: 0;
 }
 
-.nb2-skull-btn.is-open .nb2-skull-disc {
+/* Dark overlay — hidden by default */
+.nb2-skull-hover-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(30, 0, 0, 0);
+  transition: background 0.35s ease 0.12s;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Logout icon — hidden by default */
+.nb2-skull-logout-svg {
+  position: relative;
+  z-index: 2;
+  color: #ff3838;
+  opacity: 0;
+  transform: scale(0.4) rotate(-180deg);
+  transition: opacity 0.25s ease 0.28s, transform 0.32s ease 0.28s;
+  filter: drop-shadow(0 0 8px rgba(255, 56, 56, 1));
+  flex-shrink: 0;
+}
+
+/* ── Hover effects ── */
+.nb2-skull-btn:hover {
+  animation-play-state: paused;
+}
+
+.nb2-skull-btn:hover .nb2-skull-disc {
+  animation: nb2-skull-spin-once 0.52s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  border-color: #ff3838;
   box-shadow:
-    0 0 8px  #00ff50,
-    0 0 20px rgba(0, 255, 80, 0.95),
-    0 0 40px rgba(0, 255, 80, 0.7),
-    0 0 70px rgba(0, 255, 80, 0.4),
-    0 0 110px rgba(0, 255, 80, 0.2),
+    0 0 8px  #ff3838,
+    0 0 18px rgba(255, 56, 56, 0.9),
+    0 0 36px rgba(255, 56, 56, 0.6),
+    0 0 65px rgba(255, 56, 56, 0.3),
     inset 0 0 18px rgba(0, 0, 0, 0.85);
-  border-color: #00ff50;
-  border-width: 3px;
 }
 
-/* Skull image inside disc */
-.nb2-skull-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 30%;
-  border-radius: 50%;
-  display: block;
+.nb2-skull-btn:hover .nb2-skull-disc::before {
+  filter: hue-rotate(220deg) brightness(1.05);
+  opacity: 0.35;
 }
 
-/* Profile panel avatar skull image */
-.nb2-profile-avatar .nb2-skull-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 30%;
-  border-radius: 50%;
+.nb2-skull-btn:hover .nb2-skull-hover-overlay {
+  background: rgba(40, 0, 0, 0.72);
+}
+
+.nb2-skull-btn:hover .nb2-skull-logout-svg {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
 }
 
 /* Profile panel dropdown */
