@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
 interface NavigationBarProps {
   threatCount?: number
   warnCount?: number
   currentPath?: string
+  username?: string
   onLogout?: () => void
 }
 
@@ -20,15 +21,17 @@ const NAV_LINKS = [
   { label: 'ABOUT', href: '/about' },
 ] as const
 
+const CVE_BADGE_COUNT = 3
+
 function ShieldMark({ size }: { size: number }) {
   const height = Math.round((size * 30) / 26)
   return (
     <svg width={size} height={height} viewBox="0 0 26 30" aria-hidden="true" className="nb2-shield">
       <path d="M13 0L0 5v10c0 8.28 5.54 16.03 13 18 7.46-1.97 13-9.72 13-18V5L13 0z" fill="none" />
       <path d="M13 4L3 8v7c0 5.52 3.7 10.7 10 12.5 6.3-1.8 10-6.98 10-12.5V8L13 4z" />
-      <text x="13" y="18" textAnchor="middle">
-        C
-      </text>
+      <line x1="13" y1="10" x2="13" y2="20" className="nb2-shield-cross" />
+      <line x1="8"  y1="15" x2="18" y2="15" className="nb2-shield-cross" />
+      <circle cx="13" cy="15" r="2.5" className="nb2-shield-circle" />
     </svg>
   )
 }
@@ -42,6 +45,144 @@ function BellMark() {
   )
 }
 
+function PunisherSkull() {
+  return (
+    <svg
+      width="28"
+      height="28"
+      viewBox="0 0 28 28"
+      aria-hidden="true"
+      className="nb2-skull-svg"
+    >
+      {/* Main skull body — evenodd punches out eyes and nose */}
+      <path
+        fillRule="evenodd"
+        fill="white"
+        d="
+          M14 1 C5 1 1 7 1 13 C1 18 4 21 7 22 L7 24 L21 24 L21 22
+          C24 21 27 18 27 13 C27 7 23 1 14 1 Z
+          M5 10 L5 17 L11 17 L11 10 Z
+          M17 10 L17 17 L23 17 L23 10 Z
+          M12 18 L16 18 L14 21.5 Z
+        "
+      />
+      {/* Eye glow rects — nearly transparent so drop-shadow animates */}
+      <rect x="5" y="10" width="6" height="7" fill="rgba(0,230,64,0.001)" className="nb2-skull-eye-glow" />
+      <rect x="17" y="10" width="6" height="7" fill="rgba(0,230,64,0.001)" className="nb2-skull-eye-glow" />
+      {/* Teeth */}
+      <path
+        fill="white"
+        d="
+          M6 24 L6 27 L8 27 L8 24 Z
+          M9.5 24 L9.5 27 L11.5 27 L11.5 24 Z
+          M13 24 L13 27 L15 27 L15 24 Z
+          M16.5 24 L16.5 27 L18.5 27 L18.5 24 Z
+          M20 24 L20 27 L22 27 L22 24 Z
+        "
+      />
+    </svg>
+  )
+}
+
+function ProfilePanel({
+  username,
+  threatCount,
+  warnCount,
+  onLogout,
+  onClose,
+}: {
+  username: string
+  threatCount: number
+  warnCount: number
+  onLogout?: () => void
+  onClose: () => void
+}) {
+  return (
+    <div className="nb2-profile-panel">
+      <div className="nb2-profile-header">
+        <div className="nb2-profile-avatar">
+          <PunisherSkull />
+        </div>
+        <div className="nb2-profile-identity">
+          <span className="nb2-profile-name">{username}</span>
+          <span className="nb2-profile-role">BREACH OPERATOR</span>
+        </div>
+      </div>
+      <div className="nb2-profile-stats">
+        <div className="nb2-profile-stat">
+          <span className="nb2-profile-stat-val nb2-profile-stat-red">{threatCount}</span>
+          <span className="nb2-profile-stat-label">THREATS</span>
+        </div>
+        <div className="nb2-profile-stat">
+          <span className="nb2-profile-stat-val nb2-profile-stat-amber">{warnCount}</span>
+          <span className="nb2-profile-stat-label">WARNS</span>
+        </div>
+        <div className="nb2-profile-stat">
+          <span className="nb2-profile-stat-val nb2-profile-stat-green">ACTIVE</span>
+          <span className="nb2-profile-stat-label">STATUS</span>
+        </div>
+      </div>
+      <div className="nb2-profile-actions">
+        <button
+          type="button"
+          className="nb2-profile-logout"
+          onClick={() => {
+            onLogout?.()
+            onClose()
+          }}
+        >
+          [ TERMINATE SESSION ]
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function SkullButton({
+  profileOpen,
+  onToggle,
+  skullRef,
+  username,
+  threatCount,
+  warnCount,
+  onLogout,
+}: {
+  profileOpen: boolean
+  onToggle: () => void
+  skullRef: React.RefObject<HTMLDivElement>
+  username: string
+  threatCount: number
+  warnCount: number
+  onLogout?: () => void
+}) {
+  return (
+    <div className="nb2-skull-wrap" ref={skullRef}>
+      <button
+        type="button"
+        className={`nb2-skull-btn ${profileOpen ? 'is-open' : ''}`}
+        onClick={onToggle}
+        aria-label="Operator profile"
+        aria-expanded={profileOpen}
+      >
+        <span className="nb2-skull-ring-pulse" aria-hidden="true" />
+        <span className="nb2-skull-ring-orbit" aria-hidden="true" />
+        <span className="nb2-skull-disc" aria-hidden="true">
+          <PunisherSkull />
+        </span>
+      </button>
+      {profileOpen && (
+        <ProfilePanel
+          username={username}
+          threatCount={threatCount}
+          warnCount={warnCount}
+          onLogout={onLogout}
+          onClose={onToggle}
+        />
+      )}
+    </div>
+  )
+}
+
 function isActivePath(currentPath: string, href: string) {
   if (href === '/') return currentPath === '/'
   return currentPath === href || currentPath.startsWith(`${href}/`)
@@ -51,9 +192,12 @@ export default function NavigationBar({
   threatCount = 1,
   warnCount = 14,
   currentPath = '/',
+  username = 'OPERATOR',
   onLogout,
 }: NavigationBarProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const skullRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!drawerOpen) return
@@ -66,15 +210,30 @@ export default function NavigationBar({
 
   useEffect(() => {
     setDrawerOpen(false)
+    setProfileOpen(false)
   }, [currentPath])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setDrawerOpen(false)
+      if (event.key === 'Escape') {
+        setDrawerOpen(false)
+        setProfileOpen(false)
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
+
+  useEffect(() => {
+    if (!profileOpen) return
+    const handleOutside = (e: MouseEvent) => {
+      if (skullRef.current && !skullRef.current.contains(e.target as Node)) {
+        setProfileOpen(false)
+      }
+    }
+    window.addEventListener('mousedown', handleOutside)
+    return () => window.removeEventListener('mousedown', handleOutside)
+  }, [profileOpen])
 
   return (
     <>
@@ -83,13 +242,18 @@ export default function NavigationBar({
           <ShieldMark size={26} />
           <div className="nb2-brand-copy">
             <span className="nb2-brand-title">BREACH TERMINAL</span>
-            <span className="nb2-brand-subtitle">OS v4.1</span>
+            <span className="nb2-brand-subtitle">OS v4.1 · secure shell</span>
           </div>
+          <span className="nb2-online-badge">
+            <span className="nb2-online-dot" aria-hidden="true" />
+            ONLINE
+          </span>
         </Link>
 
         <nav className="nb2-links" aria-label="Primary">
           {NAV_LINKS.map((link) => {
             const active = isActivePath(currentPath, link.href)
+            const isCVE = link.label === 'CVE-RADAR'
             return (
               <Link
                 key={link.href}
@@ -97,21 +261,36 @@ export default function NavigationBar({
                 className={`nb2-link ${active ? 'is-active' : ''}`}
                 aria-current={active ? 'page' : undefined}
               >
-                {link.label}
+                {active ? `[${link.label}]` : link.label}
+                {isCVE && <span className="nb2-cve-badge">{CVE_BADGE_COUNT}</span>}
               </Link>
             )
           })}
+          <span className="nb2-links-spacer" aria-hidden="true" />
         </nav>
 
+        <SkullButton
+          profileOpen={profileOpen}
+          onToggle={() => setProfileOpen((v) => !v)}
+          skullRef={skullRef}
+          username={username}
+          threatCount={threatCount}
+          warnCount={warnCount}
+          onLogout={onLogout}
+        />
+
         <div className="nb2-tools">
-          <span className="nb2-pill nb2-pill-threat">THREATS: {threatCount}</span>
-          <span className="nb2-pill nb2-pill-warn">WARNS: {warnCount}</span>
+          <span className="nb2-chip nb2-chip-threat">
+            <span className="nb2-threat-dot" aria-hidden="true" />
+            THREATS: {threatCount}
+          </span>
+          <span className="nb2-chip nb2-chip-warn">
+            <span className="nb2-warn-triangle" aria-hidden="true">▲</span>
+            WARNS: {warnCount}
+          </span>
           <button type="button" className="nb2-icon-btn" aria-label="Notifications">
             <BellMark />
             {threatCount > 0 && <span className="nb2-dot" />}
-          </button>
-          <button type="button" className="nb2-logout" onClick={onLogout}>
-            [ LOGOUT ]
           </button>
         </div>
 
