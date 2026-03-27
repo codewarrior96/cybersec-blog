@@ -117,6 +117,11 @@ function SkullButton({
 }: {
   skullRef: React.RefObject<HTMLDivElement>
   onLogout?: () => void
+  profileOpen?: boolean
+  onToggle?: () => void
+  username?: string
+  threatCount?: number
+  warnCount?: number
 }) {
   const [isLeaving, setIsLeaving] = useState(false)
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
