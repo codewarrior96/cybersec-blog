@@ -231,17 +231,15 @@ export default function NavigationBar({
   return (
     <>
       <header className="nb2-root">
-        <Link href="/" className="nb2-brand" aria-label="Breach Terminal Home">
-          <ShieldMark size={26} />
-          <div className="nb2-brand-copy">
-            <span className="nb2-brand-title">BREACH TERMINAL</span>
-            <span className="nb2-brand-subtitle">OS v4.1 · secure shell</span>
-          </div>
-          <span className="nb2-online-badge">
-            <span className="nb2-online-dot" aria-hidden="true" />
-            ONLINE
-          </span>
-        </Link>
+        <SkullButton
+          profileOpen={profileOpen}
+          onToggle={() => setProfileOpen((v) => !v)}
+          skullRef={skullRef}
+          username={username}
+          threatCount={threatCount}
+          warnCount={warnCount}
+          onLogout={onLogout}
+        />
 
         <nav className="nb2-links" aria-label="Primary">
           {NAV_LINKS.map((link) => {
@@ -259,18 +257,7 @@ export default function NavigationBar({
               </Link>
             )
           })}
-          <span className="nb2-links-spacer" aria-hidden="true" />
         </nav>
-
-        <SkullButton
-          profileOpen={profileOpen}
-          onToggle={() => setProfileOpen((v) => !v)}
-          skullRef={skullRef}
-          username={username}
-          threatCount={threatCount}
-          warnCount={warnCount}
-          onLogout={onLogout}
-        />
 
         <div className="nb2-tools">
           <span className="nb2-chip nb2-chip-threat">

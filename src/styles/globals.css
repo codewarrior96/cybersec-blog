@@ -887,23 +887,23 @@
     display: flex;
   }
 
-  /* Scale skull down for tablet/mobile */
+  /* Scale skull down for tablet/mobile — 56px navbar, 40px disc */
   .nb2-skull-btn {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
   }
 
   .nb2-skull-disc {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
   }
 
   .nb2-skull-ring-pulse {
-    inset: -12px;
+    inset: -6px;
   }
 
   .nb2-skull-ring-orbit {
-    inset: -6px;
+    inset: -3px;
   }
 }
 
@@ -930,9 +930,9 @@
     display: none;
   }
 
-  /* Skull centered absolutely */
+  /* Skull inline — mobil */
   .nb2-skull-wrap {
-    top: calc(env(safe-area-inset-top, 0px) + 28px);
+    padding: 0 4px 0 6px;
   }
 
   .nb2-skull-btn {
@@ -941,8 +941,8 @@
   }
 
   .nb2-skull-disc {
-    width: 42px;
-    height: 42px;
+    width: 38px;
+    height: 38px;
   }
 
   /* Mobile tools anchored to right */
@@ -1011,7 +1011,7 @@
 /* New keyframes */
 @keyframes nb2-skull-float {
   0%, 100% { transform: translateY(0px); }
-  50%       { transform: translateY(-3px); }
+  50%       { transform: translateY(-2px); }
 }
 
 @keyframes nb2-skull-pulse {
@@ -1178,20 +1178,21 @@
   line-height: 1;
 }
 
-/* Skull button wrap — absolute at navbar center */
+/* Skull button wrap — sol tarafta, inline flow */
 .nb2-skull-wrap {
-  position: absolute;
-  left: 50%;
-  top: calc(env(safe-area-inset-top, 0px) + 32px);
-  transform: translateX(-50%) translateY(-50%);
+  position: relative;
   z-index: 10;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 6px 0 10px;
 }
 
 /* Floating button */
 .nb2-skull-btn {
   position: relative;
-  width: 50px;
-  height: 50px;
+  width: 46px;
+  height: 46px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -1202,10 +1203,10 @@
   padding: 0;
 }
 
-/* Layer 1: outermost pulsing ring */
+/* Layer 1: outermost pulsing ring — inset hesabı: 46+14=60px, 2px float → 64px navbar'a tam sığar */
 .nb2-skull-ring-pulse {
   position: absolute;
-  inset: -14px;
+  inset: -7px;
   border-radius: 50%;
   background: transparent;
   border: 1px solid rgba(0, 230, 64, 0.35);
@@ -1217,7 +1218,7 @@
 /* Layer 2: rotating dashed orbit ring */
 .nb2-skull-ring-orbit {
   position: absolute;
-  inset: -7px;
+  inset: -4px;
   border-radius: 50%;
   border: 1.5px dashed rgba(0, 230, 64, 0.7);
   box-shadow: 0 0 8px rgba(0, 230, 64, 0.25);
@@ -1229,8 +1230,8 @@
 /* Layer 3+4: disc */
 .nb2-skull-disc {
   position: relative;
-  width: 54px;
-  height: 54px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   border: 2.5px solid #00e640;
   box-shadow:
