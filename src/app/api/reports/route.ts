@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireRole, requireSession } from '@/lib/api-auth'
+import { requireRole } from '@/lib/api-auth'
 import { getRequestMetadata } from '@/lib/auth-server'
 import { createReport, deleteReport, listReports } from '@/lib/soc-store-adapter'
 
@@ -18,9 +18,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  const guard = await requireSession(request)
-  if (guard.response) return guard.response
-
+  /* Public read — no auth required */
   const { searchParams } = new URL(request.url)
   const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') ?? 20)))
   const cursorParam = searchParams.get('cursor')

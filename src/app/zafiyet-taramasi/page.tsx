@@ -1,0 +1,912 @@
+'use client';
+import React, { useState, useEffect, useCallback } from 'react';
+import { AlertTriangle, Tag, X, ChevronRight, Filter, FileText, Clock, Shield, Zap } from 'lucide-react';
+import { breachData, type BreachEvent, type BreachCategory } from '@/lib/breachData';
+import CveRadarTab from '@/components/CveRadarTab';
+import { aptProfiles, type AptProfile } from '@/lib/aptData';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell,
+} from 'recharts';
+
+/* ══════════════════════════════════════════════
+   TYPES
+══════════════════════════════════════════════ */
+interface ReportRecord {
+  id: number;
+  title: string;
+  content: string;
+  severity: string;
+  tags: string[];
+  createdAt: string;
+}
+
+/* ══════════════════════════════════════════════
+   CONSTANTS
+══════════════════════════════════════════════ */
+const SEV_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+const SEV_COLOR: Record<string, string> = {
+  CRITICAL: '#ef4444', HIGH: '#f97316', MEDIUM: '#eab308', LOW: '#8b5cf6',
+};
+const SEV_LABEL: Record<string, string> = {
+  CRITICAL: 'KRİTİK', HIGH: 'YÜKSEK', MEDIUM: 'ORTA', LOW: 'DÜŞÜK',
+};
+
+const BREACH_CAT: Record<BreachCategory, { label: string; color: string; bg: string }> = {
+  espionage:  { label: 'ESPIONAGE',  color: '#22d3ee', bg: 'rgba(34,211,238,0.08)'  },
+  ransomware: { label: 'RANSOMWARE', color: '#f87171', bg: 'rgba(248,113,113,0.08)' },
+  datatheft:  { label: 'DATA THEFT', color: '#fbbf24', bg: 'rgba(251,191,36,0.08)'  },
+  sabotage:   { label: 'SABOTAGE',   color: '#fb923c', bg: 'rgba(251,146,60,0.08)'  },
+  hacktivism: { label: 'HACKTIVISM', color: '#a78bfa', bg: 'rgba(167,139,250,0.08)' },
+};
+
+const BREACH_SEV_COLOR: Record<string, string> = {
+  catastrophic: '#ef4444', critical: '#f97316', major: '#eab308',
+};
+
+const NATION_FLAGS: Record<string, string> = {
+  Russia: '🇷🇺', China: '🇨🇳', 'North Korea': '🇰🇵',
+  Iran: '🇮🇷', 'USA/Israel': '🇺🇸🇮🇱',
+};
+
+/* ══════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════ */
+function timeStr(iso: string) {
+  try {
+    return new Date(iso).toLocaleDateString('tr-TR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch { return iso; }
+}
+
+function excerpt(content: string, max = 160) {
+  const plain = content.replace(/^#+\s+/gm, '').replace(/\*\*/g, '').trim();
+  return plain.length > max ? plain.slice(0, max) + '…' : plain;
+}
+
+/** Match report tags to relevant historical breaches */
+function matchHistory(report: ReportRecord): BreachEvent[] {
+  const tags = report.tags.map(t => t.toLowerCase());
+  const titleLow = report.title.toLowerCase();
+
+  return breachData.filter(e => {
+    const vec  = e.attackVector.toLowerCase();
+    const desc = (e.description + ' ' + e.impact).toLowerCase();
+
+    if (tags.some(t => ['sqli', 'sql', 'database', 'injection'].includes(t)) &&
+        (vec.includes('sql') || desc.includes('sql injection'))) return true;
+    if (tags.some(t => ['rce', 'buffer', 'overflow', 'exploit', 'os-injection', 'command'].includes(t)) &&
+        (vec.includes('exploit') || vec.includes('zero-day') || vec.includes('buffer') || vec.includes('usb'))) return true;
+    if (tags.some(t => ['ddos', 'botnet'].includes(t)) && vec.includes('ddos')) return true;
+    if (tags.some(t => ['ransomware'].includes(t)) && e.category === 'ransomware') return true;
+    if (tags.some(t => ['bruteforce', 'brute', 'auth-bypass', 'soap-api'].includes(t)) &&
+        (e.category === 'espionage' || desc.includes('password') || desc.includes('credential'))) return true;
+    if (tags.some(t => ['phishing', 'social-engineering'].includes(t)) &&
+        (vec.includes('phish') || desc.includes('phish') || vec.includes('social'))) return true;
+    if (report.severity === 'CRITICAL' && e.severity === 'catastrophic') return true;
+    if ((titleLow.includes('iran') || tags.includes('iran')) && e.nation === 'Iran') return true;
+    if ((titleLow.includes('russia') || tags.includes('russia')) && e.nation === 'Russia') return true;
+
+    return false;
+  }).slice(0, 3);
+}
+
+/* ══════════════════════════════════════════════
+   REPORT MODAL
+══════════════════════════════════════════════ */
+function ReportModal({ report, onClose }: { report: ReportRecord; onClose: () => void }) {
+  const col = SEV_COLOR[report.severity.toUpperCase()] ?? '#8b5cf6';
+  const related = matchHistory(report);
+
+  useEffect(() => {
+    const fn = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', fn);
+    return () => window.removeEventListener('keydown', fn);
+  }, [onClose]);
+
+  const renderContent = (text: string) =>
+    text.split('\n').map((line, i) => {
+      if (line.startsWith('## '))
+        return <div key={i} className="text-violet-400 font-bold text-xs mt-4 mb-1 tracking-widest uppercase">{line.slice(3)}</div>;
+      if (line.startsWith('# '))
+        return <div key={i} className="text-violet-300 font-bold text-sm mt-3 mb-1">{line.slice(2)}</div>;
+      const parts = line.split(/(\*\*[^*]+\*\*)/g);
+      return (
+        <div key={i} className="text-slate-300 text-xs leading-relaxed">
+          {parts.map((p, j) =>
+            p.startsWith('**') && p.endsWith('**')
+              ? <strong key={j} className="text-slate-200">{p.slice(2, -2)}</strong>
+              : p
+          )}
+        </div>
+      );
+    });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(6,0,15,0.9)', backdropFilter: 'blur(8px)' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl flex flex-col rounded-lg border overflow-hidden font-mono"
+        style={{
+          background: '#0d0018',
+          borderColor: `${col}40`,
+          boxShadow: `0 0 80px ${col}15`,
+          maxHeight: '90vh',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 py-3 border-b shrink-0" style={{ borderColor: `${col}20` }}>
+          <div className="flex-1 min-w-0 pr-3">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[9px] font-bold px-2 py-0.5 rounded border"
+                style={{ color: col, borderColor: `${col}50`, background: `${col}15` }}>
+                {SEV_LABEL[report.severity.toUpperCase()] ?? report.severity}
+              </span>
+              <span className="text-[9px] text-slate-600">{timeStr(report.createdAt)}</span>
+            </div>
+            <div className="text-sm font-bold text-slate-200 leading-snug">{report.title}</div>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Tags */}
+        {report.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-5 py-2 border-b shrink-0" style={{ borderColor: `${col}15` }}>
+            {report.tags.map(t => (
+              <span key={t} className="flex items-center gap-1 bg-violet-900/25 border border-violet-700/35 px-1.5 py-0.5 rounded text-[9px] text-violet-300">
+                <Tag className="w-2.5 h-2.5" />{t}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-0.5">
+          {renderContent(report.content)}
+
+          {/* ── Historical Parallels ── */}
+          {related.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-violet-900/30">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="w-3 h-3 text-slate-600" />
+                <span className="text-[9px] text-slate-600 tracking-widest uppercase">Tarihsel Paralel Olaylar</span>
+              </div>
+              <div className="space-y-2">
+                {related.map(e => {
+                  const cat = BREACH_CAT[e.category];
+                  return (
+                    <div key={e.id}
+                      className="rounded border px-3 py-2"
+                      style={{ borderColor: `${cat.color}25`, background: cat.bg }}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-bold" style={{ color: cat.color }}>{cat.label}</span>
+                          <span className="text-[9px] text-slate-600">{e.year}</span>
+                          {e.nation && <span className="text-xs">{NATION_FLAGS[e.nation] ?? '🏴'}</span>}
+                        </div>
+                        <span className="text-[9px]" style={{ color: BREACH_SEV_COLOR[e.severity] ?? '#eab308' }}>
+                          {e.severity.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="text-[10px] font-bold text-slate-300 mb-0.5">{e.title}</div>
+                      <div className="text-[9px] text-slate-500 leading-relaxed line-clamp-2">{e.description}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════
+   HISTORY TAB — Compact breach cards
+══════════════════════════════════════════════ */
+type BreachCatFilter = 'ALL' | BreachCategory;
+
+function AptModal({ apt, onClose }: { apt: AptProfile; onClose: () => void }) {
+  useEffect(() => {
+    const fn = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', fn);
+    return () => window.removeEventListener('keydown', fn);
+  }, [onClose]);
+
+  const riskCol = apt.riskLevel === 'CRITICAL' ? '#ef4444' : apt.riskLevel === 'HIGH' ? '#f97316' : '#eab308';
+  const linkedBreaches = breachData.filter(b => apt.notableBreachIds.includes(b.id));
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(6,0,15,0.92)', backdropFilter: 'blur(8px)' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-xl flex flex-col rounded-xl border overflow-hidden font-mono"
+        style={{
+          background: 'linear-gradient(160deg,#0d0018 0%,#0a000f 100%)',
+          borderColor: `${apt.color}45`,
+          boxShadow: `0 0 80px ${apt.color}18`,
+          maxHeight: '88vh',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 py-4 shrink-0" style={{ borderBottom: `1px solid ${apt.color}20` }}>
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">{apt.flagEmoji}</span>
+            <div>
+              <div className="font-black text-lg tracking-wider" style={{ color: apt.color }}>{apt.name}</div>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {apt.aliases.map(a => (
+                  <span key={a} className="text-[8px] text-slate-500 border border-slate-700/50 px-1.5 py-0.5 rounded">{a}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 mt-1">
+            <span className="text-[9px] font-black px-2 py-0.5 rounded" style={{ color: riskCol, background: `${riskCol}15`, border: `1px solid ${riskCol}35` }}>
+              {apt.riskLevel}
+            </span>
+            <button onClick={onClose} className="text-slate-600 hover:text-slate-300 transition-colors p-1">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
+
+          {/* Meta row */}
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              ['ÜLKE / KÖKEN', apt.nation],
+              ['AKTİF DÖNEM',  apt.active],
+              ['KATEGORİ',     apt.category === 'nation-state' ? 'Devlet Destekli' : apt.category === 'criminal' ? 'Siber Suç Örgütü' : 'Hacktivist'],
+            ] as [string,string][]).map(([label, val]) => (
+              <div key={label} className="rounded px-2 py-1.5" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                <div className="text-[8px] text-slate-600 tracking-widest uppercase mb-0.5">{label}</div>
+                <div className="text-[10px] font-bold text-slate-300">{val}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Description */}
+          <div>
+            <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-1.5">▸ GRUP HAKKINDA</div>
+            <p className="text-xs text-slate-300 leading-relaxed">{apt.description}</p>
+          </div>
+
+          {/* Motivation */}
+          <div>
+            <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-1.5">▸ MOTİVASYON</div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">{apt.motivation}</p>
+          </div>
+
+          {/* Specialty tags */}
+          <div>
+            <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-1.5">▸ UZMANLIK ALANLARI</div>
+            <div className="flex flex-wrap gap-1.5">
+              {apt.specialty.map(s => (
+                <span key={s} className="text-[9px] px-2 py-1 rounded border font-bold" style={{ color: apt.color, borderColor: `${apt.color}35`, background: `${apt.color}10` }}>
+                  {s}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Linked breaches */}
+          {linkedBreaches.length > 0 && (
+            <div>
+              <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-1.5">▸ BAĞLANTILI OLAYLAR</div>
+              <div className="space-y-2">
+                {linkedBreaches.map(b => {
+                  const cat = BREACH_CAT[b.category];
+                  return (
+                    <div key={b.id} className="flex items-center gap-3 rounded px-3 py-2" style={{ background: `${cat.color}08`, border: `1px solid ${cat.color}20` }}>
+                      <div className="w-1 h-8 rounded-full shrink-0" style={{ background: cat.color }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-bold text-slate-200 truncate">{b.title}</div>
+                        <div className="text-[8px] text-slate-500">{b.year} · {b.target}</div>
+                      </div>
+                      <span className="text-[8px] font-bold shrink-0" style={{ color: cat.color }}>{cat.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="shrink-0 px-5 py-2.5 flex items-center justify-between" style={{ borderTop: `1px solid ${apt.color}15` }}>
+          <span className="text-[8px] text-slate-700 tracking-widest">MITRE ATT&CK · Threat Actor Intelligence</span>
+          <span className="text-[8px]" style={{ color: apt.color }}>ESC ile kapat</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HistoryTab() {
+  const [catFilter, setCatFilter] = useState<BreachCatFilter>('ALL');
+  const [sevFilter, setSevFilter] = useState<'ALL' | 'catastrophic' | 'critical' | 'major'>('ALL');
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [selectedApt, setSelectedApt] = useState<AptProfile | null>(null);
+
+  const filtered = breachData.filter(e => {
+    if (catFilter !== 'ALL' && e.category !== catFilter) return false;
+    if (sevFilter !== 'ALL' && e.severity !== sevFilter) return false;
+    return true;
+  });
+
+  const totalRecords = breachData.reduce((s, e) => s + (e.records ?? 0), 0);
+
+  const catButtons: { value: BreachCatFilter; label: string }[] = [
+    { value: 'ALL', label: 'TÜMÜ' },
+    { value: 'espionage', label: 'ESPIONAGE' },
+    { value: 'ransomware', label: 'RANSOMWARE' },
+    { value: 'datatheft', label: 'DATA THEFT' },
+    { value: 'sabotage', label: 'SABOTAGE' },
+    { value: 'hacktivism', label: 'HACKTIVISM' },
+  ];
+
+  return (
+    <div className="flex-1 min-w-0">
+      {/* Stats strip */}
+      <div className="grid grid-cols-4 gap-2 mb-4">
+        {[
+          { label: 'TOPLAM OLAY', value: breachData.length, col: '#f97316' },
+          { label: 'ETKİLENEN', value: `${(totalRecords / 1000).toFixed(1)}B`, col: '#ef4444' },
+          { label: 'TAHMİNİ ZARAR', value: '$100B+', col: '#eab308' },
+          { label: 'EN YIKICI YIL', value: '2017', col: '#a78bfa' },
+        ].map(s => (
+          <div key={s.label} className="rounded border border-white/5 bg-white/[0.02] px-3 py-2">
+            <div className="text-sm font-bold" style={{ color: s.col }}>{s.value}</div>
+            <div className="text-[9px] text-slate-600 tracking-widest mt-0.5">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter bar */}
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {catButtons.map(b => {
+          const style = b.value !== 'ALL' ? BREACH_CAT[b.value as BreachCategory] : null;
+          const active = catFilter === b.value;
+          return (
+            <button key={b.value} onClick={() => setCatFilter(b.value)}
+              className="text-[9px] px-2 py-1 rounded border transition-all tracking-widest"
+              style={{
+                borderColor: active && style ? `${style.color}50` : active ? '#f97316' : 'rgba(255,255,255,0.08)',
+                background:  active && style ? style.bg : active ? 'rgba(249,115,22,0.1)' : 'transparent',
+                color:       active && style ? style.color : active ? '#f97316' : '#64748b',
+              }}>
+              {b.label}
+            </button>
+          );
+        })}
+        <div className="flex gap-1 ml-2">
+          {(['ALL', 'catastrophic', 'critical', 'major'] as const).map(s => (
+            <button key={s} onClick={() => setSevFilter(s)}
+              className="text-[9px] px-2 py-1 rounded border transition-all"
+              style={{
+                borderColor: sevFilter === s ? `${BREACH_SEV_COLOR[s] ?? '#f97316'}50` : 'rgba(255,255,255,0.08)',
+                background:  sevFilter === s ? `${BREACH_SEV_COLOR[s] ?? '#f97316'}10` : 'transparent',
+                color:       sevFilter === s ? (BREACH_SEV_COLOR[s] ?? '#f97316') : '#64748b',
+              }}>
+              {s === 'ALL' ? 'SEV: TÜMÜ' : s.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Charts Row ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {/* Bar chart: attacks by year */}
+        <div className="rounded-lg border border-violet-500/15 bg-[#0a000f] p-4">
+          <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-3">▸ Yıllara Göre Saldırı Dağılımı</div>
+          <ResponsiveContainer width="100%" height={140}>
+            <BarChart data={(() => {
+              const map: Record<number, number> = {};
+              breachData.forEach(e => { map[e.year] = (map[e.year] || 0) + 1; });
+              return Object.entries(map).sort(([a],[b]) => Number(a)-Number(b)).map(([year,count]) => ({ year: String(year).slice(2), count }));
+            })()} margin={{ top: 0, right: 0, left: -30, bottom: 0 }}>
+              <XAxis dataKey="year" tick={{ fill: '#475569', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#475569', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
+              <Tooltip
+                contentStyle={{ background: '#0d0018', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 6, fontFamily: 'monospace', fontSize: 10 }}
+                labelStyle={{ color: '#c084fc' }}
+                itemStyle={{ color: '#94a3b8' }}
+                formatter={(v) => [v, 'olay']}
+                labelFormatter={(l) => `20${String(l)}`}
+              />
+              <Bar dataKey="count" fill="#8b5cf6" radius={[3,3,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Pie chart: by category */}
+        <div className="rounded-lg border border-violet-500/15 bg-[#0a000f] p-4">
+          <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-3">▸ Kategori Dağılımı</div>
+          <div className="flex items-center gap-4">
+            <ResponsiveContainer width={120} height={120}>
+              <PieChart>
+                <Pie
+                  data={(() => {
+                    const map: Record<string, number> = {};
+                    breachData.forEach(e => { map[e.category] = (map[e.category] || 0) + 1; });
+                    return Object.entries(map).map(([name, value]) => ({ name, value }));
+                  })()}
+                  cx="50%" cy="50%" innerRadius={32} outerRadius={52}
+                  dataKey="value" stroke="none"
+                >
+                  {(['espionage','ransomware','datatheft','sabotage','hacktivism']).map((cat, i) => (
+                    <Cell key={cat} fill={['#22d3ee','#f87171','#fbbf24','#fb923c','#a78bfa'][i]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ background: '#0d0018', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 6, fontFamily: 'monospace', fontSize: 10 }}
+                  itemStyle={{ color: '#94a3b8' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex flex-col gap-1.5 flex-1">
+              {([
+                { cat: 'espionage',  label: 'Espionage',  col: '#22d3ee' },
+                { cat: 'ransomware', label: 'Ransomware', col: '#f87171' },
+                { cat: 'datatheft', label: 'Data Theft',  col: '#fbbf24' },
+                { cat: 'sabotage',  label: 'Sabotage',    col: '#fb923c' },
+                { cat: 'hacktivism',label: 'Hacktivism',  col: '#a78bfa' },
+              ] as { cat: string; label: string; col: string }[]).map(({ cat, label, col }) => {
+                const count = breachData.filter(e => e.category === cat).length;
+                return (
+                  <div key={cat} className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: col }} />
+                    <span className="text-[9px] text-slate-400 flex-1">{label}</span>
+                    <span className="text-[9px] font-bold tabular-nums" style={{ color: col }}>{count}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── APT Profile Cards ── */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-[9px] text-slate-600 tracking-widest uppercase">▸ Tehdit Aktörü Profilleri</span>
+          <span className="text-[8px] bg-red-900/30 border border-red-700/30 text-red-400 px-1.5 py-0.5 rounded">{aptProfiles.length} APT Grubu</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {aptProfiles.map((apt: AptProfile) => (
+            <div
+              key={apt.id}
+              onClick={() => setSelectedApt(apt)}
+              className="rounded-lg border p-3 space-y-2 hover:brightness-125 transition-all cursor-pointer"
+              style={{ borderColor: `${apt.color}25`, background: `${apt.color}06` }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">{apt.flagEmoji}</span>
+                  <div>
+                    <div className="font-bold text-xs" style={{ color: apt.color }}>{apt.name}</div>
+                    <div className="text-[8px] text-slate-600">{apt.aliases[0]}</div>
+                  </div>
+                </div>
+                <span
+                  className="text-[8px] font-black px-1.5 py-0.5 rounded"
+                  style={{
+                    color: apt.riskLevel === 'CRITICAL' ? '#ef4444' : apt.riskLevel === 'HIGH' ? '#f97316' : '#eab308',
+                    background: apt.riskLevel === 'CRITICAL' ? 'rgba(239,68,68,0.12)' : apt.riskLevel === 'HIGH' ? 'rgba(249,115,22,0.12)' : 'rgba(234,179,8,0.12)',
+                    border: `1px solid ${apt.riskLevel === 'CRITICAL' ? 'rgba(239,68,68,0.3)' : apt.riskLevel === 'HIGH' ? 'rgba(249,115,22,0.3)' : 'rgba(234,179,8,0.3)'}`,
+                  }}
+                >
+                  {apt.riskLevel}
+                </span>
+              </div>
+
+              {/* Description */}
+              <p className="text-[9px] text-slate-400 leading-relaxed line-clamp-2">{apt.description}</p>
+
+              {/* Specialty tags */}
+              <div className="flex flex-wrap gap-1">
+                {apt.specialty.slice(0, 3).map(s => (
+                  <span key={s} className="text-[8px] px-1.5 py-0.5 rounded border border-slate-800 text-slate-500">{s}</span>
+                ))}
+              </div>
+
+              {/* Footer: active + motivation */}
+              <div className="flex items-center justify-between pt-1 border-t border-slate-800">
+                <span className="text-[8px] text-slate-600">{apt.active}</span>
+                <span className="text-[8px] text-slate-600 text-right max-w-[120px] truncate">{apt.motivation.split(',')[0]}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Timeline line + cards */}
+      <div className="relative">
+        {/* Vertical glow line */}
+        <div className="absolute left-[11px] top-0 bottom-0 w-px"
+          style={{ background: 'linear-gradient(to bottom, transparent, #f9731630, #ef444430, transparent)' }} />
+
+        <div className="space-y-2 pl-7">
+          {filtered.map(e => {
+            const cat  = BREACH_CAT[e.category];
+            const isEx = expanded === e.id;
+            return (
+              <div key={e.id} className="relative">
+                {/* Timeline dot */}
+                <div className="absolute -left-7 top-3 w-3 h-3 rounded-full border-2 border-[#06000f] z-10"
+                  style={{ background: cat.color, boxShadow: `0 0 8px ${cat.color}80` }} />
+
+                <div
+                  className="rounded border px-3 py-2.5 cursor-pointer transition-all"
+                  style={{
+                    borderColor: isEx ? `${cat.color}45` : 'rgba(255,255,255,0.06)',
+                    background:  isEx ? cat.bg : 'rgba(255,255,255,0.015)',
+                  }}
+                  onClick={() => setExpanded(isEx ? null : e.id)}
+                >
+                  {/* Top row */}
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[9px] text-slate-600 border border-white/5 px-1.5 py-0.5 rounded">
+                        {e.year}.{String(e.month).padStart(2, '0')}
+                      </span>
+                      <span className="text-[9px] font-bold tracking-widest" style={{ color: cat.color }}>
+                        {cat.label}
+                      </span>
+                      <span className="text-[9px]"
+                        style={{ color: BREACH_SEV_COLOR[e.severity] ?? '#eab308' }}>
+                        {e.severity.toUpperCase()}
+                      </span>
+                      {e.nation && <span className="text-xs">{NATION_FLAGS[e.nation] ?? '🏴'}</span>}
+                    </div>
+                    <span className="text-[9px] text-slate-700 border border-white/5 px-1.5 py-0.5 rounded">
+                      {e.attackVector}
+                    </span>
+                  </div>
+
+                  {/* Title */}
+                  <div className="text-xs font-bold text-slate-200 mb-1">{e.title}</div>
+                  <div className="text-[9px] text-slate-600 mb-1">
+                    <span className="text-slate-700">HEDEF: </span>{e.target}
+                  </div>
+
+                  {/* Records */}
+                  {e.records !== undefined && (
+                    <div className="text-[9px] text-red-400/70 mb-1">
+                      ⚠ {e.records >= 1000 ? `${(e.records / 1000).toFixed(1)}B` : `${e.records}M`} kişi etkilendi
+                    </div>
+                  )}
+
+                  {/* Description */}
+                  <div className={`text-[10px] text-slate-400 leading-relaxed ${!isEx ? 'line-clamp-2' : ''}`}>
+                    {e.description}
+                  </div>
+
+                  {/* Expanded: impact */}
+                  {isEx && (
+                    <div className="mt-2 pt-2 border-t border-white/5">
+                      <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-1">ETKİ</div>
+                      <div className="text-[10px] text-slate-300 leading-relaxed">{e.impact}</div>
+                    </div>
+                  )}
+
+                  <div className="mt-1 text-[9px]" style={{ color: cat.color, opacity: 0.6 }}>
+                    {isEx ? '▲ KAPAT' : '▼ DETAY'}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {filtered.length === 0 && (
+            <div className="text-slate-600 text-xs text-center py-12">
+              Seçilen filtrelere uygun olay bulunamadı.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* End marker */}
+      <div className="flex justify-center mt-6">
+        <div className="text-[9px] text-slate-700 border border-white/5 px-4 py-1.5 rounded tracking-widest">
+          — 2000 → 2024 — {breachData.length} OLAY KAYITLI —
+        </div>
+      </div>
+
+      {/* APT Detail Modal */}
+      {selectedApt && <AptModal apt={selectedApt} onClose={() => setSelectedApt(null)} />}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════
+   MAIN PAGE
+══════════════════════════════════════════════ */
+type Tab = 'reports' | 'history' | 'cve';
+
+export default function ZafiyetTaramasiPage() {
+  const [activeTab, setActiveTab]   = useState<Tab>('reports');
+  const [reports, setReports]       = useState<ReportRecord[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [sevFilter, setSevFilter]   = useState<Set<string>>(new Set(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']));
+  const [tagFilter, setTagFilter]   = useState('');
+  const [selected, setSelected]     = useState<ReportRecord | null>(null);
+
+  const fetchReports = useCallback(async () => {
+    try {
+      const res = await fetch('/api/reports?limit=50', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json() as { reports: ReportRecord[] };
+        setReports(data.reports ?? []);
+      }
+    } catch { /* ignore */ } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void fetchReports(); }, [fetchReports]);
+
+  const toggleSev = (s: string) =>
+    setSevFilter(prev => {
+      const next = new Set(prev);
+      next.has(s) ? next.delete(s) : next.add(s);
+      return next;
+    });
+
+  const filtered = reports.filter(r => {
+    const sev = r.severity.toUpperCase();
+    if (!sevFilter.has(sev)) return false;
+    if (tagFilter.trim()) {
+      const q = tagFilter.trim().toLowerCase();
+      return r.tags.some(t => t.includes(q)) || r.title.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const allTags = Array.from(new Set(reports.flatMap(r => r.tags))).slice(0, 20);
+
+  return (
+    <div className="min-h-screen bg-[#06000f] text-slate-200 font-mono">
+
+      {/* ── Page Header ── */}
+      <div className="border-b border-violet-500/20 px-6 py-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center gap-3 mb-3">
+            <Shield className="w-5 h-5 text-violet-400" />
+            <div>
+              <h1 className="text-violet-400 font-bold tracking-widest text-sm uppercase">
+                ⬡ Threat Intelligence Hub
+              </h1>
+              <p className="text-slate-600 text-[10px] mt-0.5">
+                Aktif saldırı raporları, CVE takibi & siber tarih veritabanı
+              </p>
+            </div>
+          </div>
+
+          {/* Tab switcher */}
+          <div className="flex gap-1">
+            <button
+              onClick={() => setActiveTab('reports')}
+              className="flex items-center gap-2 px-4 py-1.5 rounded text-[10px] font-bold tracking-widest transition-all border"
+              style={{
+                borderColor: activeTab === 'reports' ? '#8b5cf680' : 'rgba(255,255,255,0.06)',
+                background:  activeTab === 'reports' ? '#8b5cf615' : 'transparent',
+                color:       activeTab === 'reports' ? '#c084fc' : '#475569',
+              }}
+            >
+              <FileText className="w-3 h-3" />
+              RAPORLAR
+              <span className="bg-violet-900/50 border border-violet-700/40 px-1.5 py-0.5 rounded text-[8px] text-violet-300">
+                {reports.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className="flex items-center gap-2 px-4 py-1.5 rounded text-[10px] font-bold tracking-widest transition-all border"
+              style={{
+                borderColor: activeTab === 'history' ? '#f9731680' : 'rgba(255,255,255,0.06)',
+                background:  activeTab === 'history' ? '#f9731610' : 'transparent',
+                color:       activeTab === 'history' ? '#f97316' : '#475569',
+              }}
+            >
+              <Clock className="w-3 h-3" />
+              TARİHSEL VERİTABANI
+              <span className="bg-orange-900/40 border border-orange-700/30 px-1.5 py-0.5 rounded text-[8px] text-orange-400">
+                {breachData.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveTab('cve')}
+              className="flex items-center gap-2 px-4 py-1.5 rounded text-[10px] font-bold tracking-widest transition-all border"
+              style={{
+                borderColor: activeTab === 'cve' ? '#f59e0b80' : 'rgba(255,255,255,0.06)',
+                background:  activeTab === 'cve' ? '#f59e0b10' : 'transparent',
+                color:       activeTab === 'cve' ? '#f59e0b' : '#475569',
+              }}
+            >
+              <Zap className="w-3 h-3" />
+              CVE RADAR
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Body ── */}
+      <div className="max-w-6xl mx-auto px-4 py-6">
+
+        {/* REPORTS TAB */}
+        {activeTab === 'reports' && (
+          <div className="flex gap-5">
+
+            {/* Sidebar */}
+            <aside className="w-48 shrink-0 space-y-4">
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Filter className="w-3 h-3 text-slate-600" />
+                  <span className="text-[9px] text-slate-600 tracking-widest uppercase">Önem Seviyesi</span>
+                </div>
+                <div className="space-y-1">
+                  {SEV_ORDER.map(s => {
+                    const col    = SEV_COLOR[s];
+                    const active = sevFilter.has(s);
+                    return (
+                      <button key={s} onClick={() => toggleSev(s)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-[10px] transition-all"
+                        style={{
+                          border:     `1px solid ${active ? col + '50' : 'transparent'}`,
+                          background: active ? col + '12' : 'transparent',
+                          color:      active ? col : '#475569',
+                        }}
+                      >
+                        <span className="w-2 h-2 rounded-full shrink-0"
+                          style={{ background: active ? col : '#334155' }} />
+                        {SEV_LABEL[s]}
+                        <span className="ml-auto text-[9px] opacity-60">
+                          {reports.filter(r => r.severity.toUpperCase() === s).length}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {allTags.length > 0 && (
+                <div>
+                  <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-2">Etiket Ara</div>
+                  <input
+                    value={tagFilter}
+                    onChange={e => setTagFilter(e.target.value)}
+                    placeholder="rce, sqli..."
+                    className="w-full bg-[#0a0015] border border-violet-900/40 rounded px-2 py-1.5 text-[10px] text-slate-300 focus:outline-none focus:border-violet-500/50 transition-colors placeholder-slate-700"
+                  />
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {allTags.slice(0, 10).map(t => (
+                      <button key={t} onClick={() => setTagFilter(t)}
+                        className="text-[9px] px-1.5 py-0.5 rounded border border-violet-900/30 text-slate-600 hover:text-violet-400 hover:border-violet-500/40 transition-colors">
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Quick link to history */}
+              <button
+                onClick={() => setActiveTab('history')}
+                className="w-full text-left text-[9px] text-slate-700 hover:text-orange-400 transition-colors border border-white/5 rounded px-2 py-1.5 hover:border-orange-500/20"
+              >
+                📚 Tarihsel veritabanını gör →
+              </button>
+            </aside>
+
+            {/* Report grid */}
+            <main className="flex-1 min-w-0">
+              {loading && (
+                <div className="text-slate-600 text-xs text-center py-16">
+                  <span className="animate-pulse">Raporlar yükleniyor...</span>
+                </div>
+              )}
+
+              {!loading && filtered.length === 0 && (
+                <div className="text-slate-600 text-xs text-center py-16 space-y-2">
+                  <FileText className="w-8 h-8 mx-auto opacity-30" />
+                  <div>Henüz rapor yok.</div>
+                  <div className="text-[10px]">Dashboard'daki kritik saldırılardan rapor oluşturun.</div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {filtered.map(r => {
+                  const sev = r.severity.toUpperCase();
+                  const col = SEV_COLOR[sev] ?? '#8b5cf6';
+                  return (
+                    <div key={r.id}
+                      className="flex flex-col rounded-lg border p-4 cursor-pointer transition-all hover:scale-[1.01]"
+                      style={{ borderColor: `${col}25`, background: `${col}06` }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = `${col}55`)}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = `${col}25`)}
+                      onClick={() => setSelected(r)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border"
+                          style={{ color: col, borderColor: `${col}45`, background: `${col}18` }}>
+                          {SEV_LABEL[sev] ?? sev}
+                        </span>
+                        <span className="text-[9px] text-slate-600">{timeStr(r.createdAt)}</span>
+                      </div>
+
+                      <div className="text-xs font-bold text-slate-200 leading-snug mb-2 line-clamp-2">
+                        {r.title}
+                      </div>
+                      <div className="text-[10px] text-slate-500 leading-relaxed flex-1 mb-3">
+                        {excerpt(r.content)}
+                      </div>
+
+                      {r.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {r.tags.slice(0, 4).map(t => (
+                            <span key={t} className="text-[9px] px-1.5 py-0.5 rounded border border-violet-900/30 text-violet-500">
+                              {t}
+                            </span>
+                          ))}
+                          {r.tags.length > 4 && (
+                            <span className="text-[9px] text-slate-600">+{r.tags.length - 4}</span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Historical match hint */}
+                      {matchHistory(r).length > 0 && (
+                        <div className="flex items-center gap-1 text-[9px] text-orange-500/60 mb-2">
+                          <Clock className="w-2.5 h-2.5" />
+                          {matchHistory(r).length} tarihsel benzer olay
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-1 text-[10px] mt-auto" style={{ color: col }}>
+                        <span>Raporu Oku</span>
+                        <ChevronRight className="w-3 h-3" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </main>
+          </div>
+        )}
+
+        {/* HISTORY TAB */}
+        {activeTab === 'history' && <HistoryTab />}
+
+        {/* CVE RADAR TAB */}
+        {activeTab === 'cve' && (
+          <CveRadarTab />
+        )}
+
+      </div>
+
+      {/* Report Detail Modal */}
+      {selected && (
+        <ReportModal report={selected} onClose={() => setSelected(null)} />
+      )}
+    </div>
+  );
+}

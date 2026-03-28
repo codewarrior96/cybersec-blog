@@ -620,4 +620,81 @@ export const breachData: BreachEvent[] = [
     impact:
       "560 million Ticketmaster customer records stolen. Santander customer and employee data exposed. Total across all victims: hundreds of millions of records. Snowflake faced intense scrutiny for not requiring MFA by default. Mandiant/CrowdStrike led response. Two suspects arrested in Canada and Turkey. Snowflake subsequently mandated MFA for all new accounts. Exposed risks of SaaS data warehouse security.",
   },
+  {
+    id: 'turkey-voter-leak-2016',
+    year: 2016,
+    month: 4,
+    title: 'Türkiye Seçmen Kayıt Veri Sızıntısı',
+    target: 'Türkiye İçişleri Bakanlığı / MERNİS',
+    category: 'datatheft',
+    severity: 'catastrophic',
+    records: 50000000,
+    attackVector: 'Database Exfiltration',
+    description:
+      '50 milyondan fazla Türk vatandaşının kişisel verisi (TC kimlik numarası, ad-soyad, doğum tarihi, adres, anne-baba adı) bir torrent dosyası aracılığıyla internete sızdırıldı. Türkiye\'nin nüfusunun yaklaşık %65\'ini kapsayan bu sızıntı, Doğu Avrupa merkezli aktörler tarafından gerçekleştirildiği değerlendirildi. Veriler MERNİS nüfus kayıt sisteminden elde edildi.',
+    impact:
+      'Türkiye\'nin en büyük veri ihlali olarak kayıtlara geçti. 50 milyonun üzerinde vatandaş kimlik hırsızlığı ve dolandırıcılık riskiyle karşı karşıya kaldı. Olayın ardından Kişisel Verilerin Korunması Kanunu (KVKK) 2016\'da yasalaştı. Kamu kurumlarında siber güvenlik bütçeleri önemli ölçüde artırıldı.',
+    nation: 'Turkey',
+  },
+  {
+    id: 'tbmm-redhack-2015',
+    year: 2015,
+    month: 5,
+    title: 'TBMM RedHack Hacktivizm Saldırısı',
+    target: 'Türkiye Büyük Millet Meclisi / Bakanlıklar',
+    category: 'hacktivism',
+    severity: 'critical',
+    attackVector: 'Spear Phishing / SQL Injection',
+    description:
+      'Sol görüşlü hacktivist grup RedHack, Türkiye Büyük Millet Meclisi ve birden fazla bakanlığın ağ altyapısına sızarak iç yazışmaları, gizli belgeler ve kişisel verileri ele geçirdi. Grup, elde ettiği materyalleri kamuoyuyla paylaştı ve bu durum ciddi güvenlik açıklarını gün yüzüne çıkardı.',
+    impact:
+      'Bakanlıklar arası gizli yazışmalar ifşa oldu. Çok sayıda üst düzey yetkili hakkında soruşturma başlatıldı. Türk Silahlı Kuvvetleri ve kamu kurumları siber güvenlik protokollerini kapsamlı biçimde revize etti. RedHack üyeleri çeşitli davalarla yargılandı.',
+    nation: 'Turkey',
+  },
+  {
+    id: 'apt28-turkey-2016',
+    year: 2016,
+    month: 10,
+    title: 'APT28 Türk Hükümeti Hedefli Operasyon',
+    target: 'Türk Hükümeti Yetkilileri / AKP',
+    category: 'espionage',
+    severity: 'critical',
+    attackVector: 'Spear Phishing / Watering Hole',
+    description:
+      'Rus devlet destekli APT28 (Fancy Bear) grubu, Türk hükümeti yetkililerini ve Adalet ve Kalkınma Partisi üyelerini hedef alan kapsamlı bir spear-phishing kampanyası başlattı. Özellikle Türkiye-Rusya ilişkilerinin gerginleştiği F-16 düşürme krizi sonrasındaki dönemde yoğunlaşan operasyonla binlerce e-posta ve belge elde edildi.',
+    impact:
+      'Üst düzey hükümet yazışmaları ve diplomatik belgeler Wikileaks üzerinden yayımlandı. Türk-Rus ilişkilerindeki derin gerginliğin siber alana yansıması olarak tarihe geçti. Türkiye\'nin kurumsal e-posta güvenliği ve şifreleme politikaları gözden geçirildi.',
+    nation: 'Russia',
+  },
+  {
+    id: 'turkey-telecom-bgp-2022',
+    year: 2022,
+    month: 3,
+    title: 'Türk Telekom BGP Hijack & Altyapı Saldırısı',
+    target: 'Türk Telekom / Türk İnternet Altyapısı',
+    category: 'sabotage',
+    severity: 'critical',
+    attackVector: 'BGP Route Hijacking / DDoS',
+    description:
+      'Ukrayna Savaşı\'nın tırmandığı dönemde Türkiye\'nin kritik internet altyapısı birden fazla koordineli saldırıya maruz kaldı. Anonymous ve pro-Rus grupların ortak hedefi haline gelen Türk Telekom altyapısına yönelik BGP yönlendirme manipülasyonu ve yoğun DDoS saldırıları gerçekleştirildi.',
+    impact:
+      'Türkiye\'nin NATO ile ağ bağlantısında kısa süreli kesintiler yaşandı. Bankacılık ve devlet hizmetleri geçici olarak etkilendi. BTK acil protokolleri devreye alarak trafiği yönlendirdi. Olay, Türkiye\'nin kritik altyapı güvenliği yatırımlarını hızlandırdı.',
+    nation: 'Turkey',
+  },
+  {
+    id: 'turkey-edevlet-phishing-2023',
+    year: 2023,
+    month: 6,
+    title: 'E-Devlet Kimlik Avı Kampanyası',
+    target: 'Türk Vatandaşları / e-Devlet Kapısı',
+    category: 'datatheft',
+    severity: 'major',
+    records: 3500000,
+    attackVector: 'Phishing / Social Engineering',
+    description:
+      'Organize suç örgütleri, Türkiye\'nin e-Devlet portalını taklit eden sahte web siteleri ve SMS kampanyaları aracılığıyla milyonlarca vatandaşı hedef aldı. Doğrulama kodu çalma yöntemiyle hesaplara erişim sağlanarak çeşitli mali dolandırıcılık işlemleri gerçekleştirildi.',
+    impact:
+      '3,5 milyon e-Devlet hesabına yetkisiz erişim girişimi tespit edildi. Yüz binlerce vatandaş mali kayıp yaşadı. BTK ve Emniyet Genel Müdürlüğü Siber Suçlarla Mücadele birimi kapsamlı bir operasyon yürüttü. e-Devlet iki faktörlü kimlik doğrulamayı zorunlu hale getirdi.',
+    nation: 'Turkey',
+  },
 ];

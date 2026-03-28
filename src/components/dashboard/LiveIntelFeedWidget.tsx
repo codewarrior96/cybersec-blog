@@ -1,157 +1,327 @@
 'use client';
-import React from 'react';
-import { Skull, AlertTriangle, ShieldAlert, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import type { AttackEvent } from '@/lib/dashboard-types';
+
+import type { WorkflowMetrics } from '@/lib/dashboard-types';
 
 interface LiveIntelFeedWidgetProps {
   attacks: AttackEvent[];
   threatScore: number;
+  metrics?: WorkflowMetrics | null;
+  onReport?: (attack: AttackEvent) => void;
 }
 
-const severityConfig = {
-  critical: { label: 'CRITICAL', border: 'border-l-red-500', bg: 'bg-red-500/8', text: 'text-red-400', badge: 'bg-red-500/20 border-red-500/60 text-red-400', Icon: Skull, defaultType: 'RANSOMWARE WAVE' },
-  high:     { label: 'HIGH',     border: 'border-l-orange-500', bg: 'bg-orange-500/8', text: 'text-orange-400', badge: 'bg-orange-500/20 border-orange-500/60 text-orange-400', Icon: AlertTriangle, defaultType: 'DDoS AMPLIFICATION' },
-  low:      { label: 'LOW',      border: 'border-l-green-500', bg: 'bg-green-500/8', text: 'text-green-400', badge: 'bg-green-500/20 border-green-500/60 text-green-400', Icon: CheckCircle, defaultType: 'PORT SCAN' },
+interface Blip {
+  id: string;
+  x: number;
+  y: number;
+  severity: 'critical' | 'high' | 'low';
+  age: number;
+  type: string;
+  country: string;
+}
+
+/* Severity → color (semantic: critical=red, high=orange, low=violet) */
+const SEV: Record<string, string> = {
+  critical: '#ef4444',
+  high:     '#f97316',
+  low:      '#8b5cf6',
 };
 
-const amberConfig = { label: 'AMBER', border: 'border-l-yellow-500', bg: 'bg-yellow-500/8', text: 'text-yellow-400', badge: 'bg-yellow-500/20 border-yellow-500/60 text-yellow-400', Icon: ShieldAlert };
-
-function timeAgo(dateStr: string): string {
-  try {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const s = Math.floor(diff / 1000);
-    if (s < 60) return `00:00:${String(s).padStart(2, '0')} ago`;
-    const m = Math.floor(s / 60);
-    if (m < 60) return `00:${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')} ago`;
-    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')} ago`;
-  } catch { return 'just now'; }
+function timeAgo(d: string) {
+  const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  return `${Math.floor(s / 3600)}h`;
 }
 
-export default function LiveIntelFeedWidget({ attacks, threatScore }: LiveIntelFeedWidgetProps) {
-  const getThreatLabel = (score: number) => {
-    if (score < 3) return { text: 'LOW', color: '#00ff41' };
-    if (score < 5) return { text: 'MODERATE', color: '#22d3ee' };
-    if (score < 7.5) return { text: 'ELEVATED', color: '#f59e0b' };
-    return { text: 'CRITICAL', color: '#ef4444' };
-  };
+/** SVG arc sector path */
+function sector(cx: number, cy: number, r: number, a1: number, a2: number) {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const x1 = cx + r * Math.cos(rad(a1)), y1 = cy + r * Math.sin(rad(a1));
+  const x2 = cx + r * Math.cos(rad(a2)), y2 = cy + r * Math.sin(rad(a2));
+  return `M${cx},${cy} L${x1},${y1} A${r},${r} 0 0,1 ${x2},${y2} Z`;
+}
 
-  const threat = getThreatLabel(threatScore);
-  const barPercent = Math.min(100, Math.max(0, (threatScore / 10) * 100));
-  const totalBlocked = 1247 + attacks.length * 3;
+const TRAIL_STEPS = 8;
 
-  // Build cards — real attacks + static examples
-  const staticCards = [
-    { severity: 'critical' as const, type: 'RANSOMWARE WAVE', ip: '203.45.112.7', target: 'TARGET', country: 'RU/Moscow', time: '00:02:14 ago', detail: 'VIEW 460 ↗' },
-    { severity: 'high' as const, type: 'DDoS AMPLIFICATION', ip: '', target: '', country: '', time: '00:08:33 ago', detail: 'BANDWIDTH' },
-    { severity: 'amber' as const, type: 'CREDENTIAL STUFFING', ip: '', target: '', country: 'Tor Exit Node', time: '00:12:18 ago', detail: 'Source:' },
-    { severity: 'safe' as const, type: 'THREAT NEUTRALIZED', ip: '', target: '', country: '', time: '00:01:05 ago', detail: 'Firewall rule #447 applied' },
-  ];
+/* Country → radar polar position [angleDeg, distance 0–1] */
+const COUNTRY_RADAR: Record<string, [number, number]> = {
+  Russia:        [40,  0.76],
+  China:         [18,  0.82],
+  USA:           [248, 0.66],
+  Germany:       [82,  0.60],
+  Brazil:        [218, 0.72],
+  Iran:          [58,  0.74],
+  Netherlands:   [88,  0.56],
+  Turkey:        [68,  0.64],
+  India:         [28,  0.70],
+  Singapore:     [12,  0.84],
+  'North Korea': [22,  0.80],
+  Ukraine:       [76,  0.62],
+  Vietnam:       [15,  0.77],
+  Pakistan:      [34,  0.68],
+  France:        [92,  0.58],
+  'United Kingdom': [95, 0.54],
+  Canada:        [255, 0.62],
+  Australia:     [160, 0.78],
+  Japan:         [10,  0.74],
+  Indonesia:     [155, 0.76],
+};
+
+function countryToRadarXY(country: string, seed: number): [number, number] {
+  const pos = COUNTRY_RADAR[country];
+  if (pos) {
+    const [angleDeg, dist] = pos;
+    const rad = (angleDeg * Math.PI) / 180;
+    return [Math.cos(rad) * dist, Math.sin(rad) * dist];
+  }
+  // unknown country → deterministic position from country string hash
+  const hash = country.split('').reduce((a, c) => a + c.charCodeAt(0), seed);
+  const angle = (hash * 137.508) % 360;
+  const rad = (angle * Math.PI) / 180;
+  return [Math.cos(rad) * 0.65, Math.sin(rad) * 0.65];
+}
+
+export default function LiveIntelFeedWidget({ attacks, threatScore, metrics, onReport }: LiveIntelFeedWidgetProps) {
+  const [blips, setBlips] = useState<Blip[]>([]);
+
+  const threat =
+    threatScore >= 7.5 ? { text: 'CRITICAL', color: '#ef4444' } :
+    threatScore >= 5   ? { text: 'ELEVATED', color: '#f97316' } :
+    threatScore >= 3   ? { text: 'MODERATE', color: '#c084fc' } :
+                         { text: 'NOMINAL',  color: '#8b5cf6' };
+
+  /* ── Sync blips from real attacks — geographic positions ── */
+  useEffect(() => {
+    if (!attacks.length) return;
+    setBlips(attacks.slice(-8).map((a, i) => {
+      const [x, y] = countryToRadarXY(a.sourceCountry, a.id);
+      return {
+        id:       String(a.id),
+        x, y,
+        severity: a.severity,
+        age:      Math.min(i * 2, 8),
+        type:     a.type.toUpperCase(),
+        country:  a.sourceCountry,
+      };
+    }));
+  }, [attacks]);
+
+  /* ── Demo blips when no real data — geographic positions ── */
+  useEffect(() => {
+    if (attacks.length) return;
+    const TYPES     = ['SQL INJECTION','PORT SCAN','DDoS','BRUTE FORCE','RCE ATTEMPT','XSS','MITM'];
+    const COUNTRIES = ['Turkey','USA','Russia','China','Netherlands','Germany','Brazil','India','Iran','Singapore'];
+    const SEVS: Array<'critical' | 'high' | 'low'> = ['critical','high','low'];
+    const iv = setInterval(() => {
+      const country = COUNTRIES[Math.floor(Math.random() * COUNTRIES.length)];
+      const seed    = Math.floor(Math.random() * 1000);
+      const [x, y]  = countryToRadarXY(country, seed);
+      setBlips(prev => [
+        ...prev.filter(b => b.age < 9).slice(-9),
+        {
+          id:       Math.random().toString(36).slice(2),
+          x, y,
+          severity: SEVS[Math.floor(Math.random() * 3)],
+          age:      0,
+          type:     TYPES[Math.floor(Math.random() * TYPES.length)],
+          country,
+        },
+      ]);
+    }, 1500);
+    return () => clearInterval(iv);
+  }, [attacks.length]);
+
+  /* ── Age out blips ── */
+  useEffect(() => {
+    const iv = setInterval(
+      () => setBlips(prev => prev.map(b => ({ ...b, age: b.age + 1 })).filter(b => b.age < 10)),
+      1000,
+    );
+    return () => clearInterval(iv);
+  }, []);
+
+  const S = 150; const cx = S / 2; const cy = S / 2; const R = S / 2 - 4;
+
+  /* Real metrics for footer */
+  const totalBlocked = metrics?.attack.totalLast24h ?? attacks.length;
+  const activeIps    = metrics?.attack.activeIps ?? 0;
+  const apm          = metrics?.attack.attacksPerMinute ?? 0;
 
   return (
-    <div className="absolute inset-0 flex flex-col overflow-hidden">
+    <div className="absolute inset-0 flex flex-col overflow-hidden font-mono text-xs">
+      {/* CSS for radar sweep */}
+      <style>{`@keyframes rdr-sweep { to { transform: rotate(360deg); } }`}</style>
 
-      {/* Header */}
-      <div className="flex justify-between items-center px-3 py-2 border-b border-cyan-500/15 bg-var(--bg-panel)/80 shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-[var(--text-title)] font-bold text-slate-300 tracking-widest uppercase">// LIVE INTEL FEED</span>
-        </div>
-        <span className="text-slate-600 text-[10px]">⋮</span>
+      {/* ── Header ── */}
+      <div className="flex justify-between items-center px-3 py-1.5 border-b border-violet-500/20 shrink-0">
+        <span className="text-violet-400 font-bold tracking-widest">⬡ GHOST RADAR</span>
+        <span
+          className="font-bold px-2 py-0.5 rounded border animate-pulse text-[10px]"
+          style={{ color: threat.color, borderColor: `${threat.color}60`, background: `${threat.color}18` }}
+        >
+          ◀ {threat.text}
+        </span>
       </div>
 
-      {/* Threat Index */}
-      <div className="px-3 py-2.5 border-b border-cyan-500/10 shrink-0">
-        <div className="flex items-center gap-2 mb-1.5 overflow-hidden">
-          <div className="text-[var(--text-body)] text-slate-500 leading-tight shrink-0">GLOBAL<br/>THREAT INDEX</div>
-          <span className="text-[clamp(1.5rem,5vw,2.25rem)] font-black text-white tabular-nums tracking-tight shrink-0 flex-1 ml-2" style={{ textShadow: `0 0 24px ${threat.color}` }}>
+      {/* ── Radar + Score ── */}
+      <div className="flex items-start gap-2 px-2 pt-2 shrink-0">
+
+        {/* Radar SVG */}
+        <div className="shrink-0">
+          <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`}>
+            {/* Background */}
+            <circle cx={cx} cy={cy} r={R} fill="#07000f" />
+
+            {/* Concentric rings */}
+            {[0.28, 0.52, 0.76, 1].map(f => (
+              <circle key={f} cx={cx} cy={cy} r={R * f}
+                fill="none" stroke="#8b5cf6" strokeOpacity={0.15} strokeWidth={0.75} />
+            ))}
+
+            {/* Cross-hair */}
+            <line x1={cx} y1={cy - R} x2={cx} y2={cy + R} stroke="#8b5cf6" strokeOpacity={0.12} strokeWidth={0.7} />
+            <line x1={cx - R} y1={cy} x2={cx + R} y2={cy} stroke="#8b5cf6" strokeOpacity={0.12} strokeWidth={0.7} />
+            <line x1={cx - R * 0.72} y1={cy - R * 0.72} x2={cx + R * 0.72} y2={cy + R * 0.72}
+              stroke="#8b5cf6" strokeOpacity={0.06} strokeWidth={0.6} />
+            <line x1={cx + R * 0.72} y1={cy - R * 0.72} x2={cx - R * 0.72} y2={cy + R * 0.72}
+              stroke="#8b5cf6" strokeOpacity={0.06} strokeWidth={0.6} />
+
+            {/* ── Rotating sweep group ── */}
+            <g style={{ transformOrigin: `${cx}px ${cy}px`, animation: 'rdr-sweep 5s linear infinite' }}>
+              {/* Trailing sectors (violet → pink leading edge) */}
+              {Array.from({ length: TRAIL_STEPS }, (_, i) => {
+                const isLead = i === 0;
+                return (
+                  <path key={i}
+                    d={sector(cx, cy, R, -(i + 1) * 20, -i * 20)}
+                    fill={isLead ? '#c084fc' : '#8b5cf6'}
+                    fillOpacity={Math.max(0.02, 0.24 - i * 0.028)}
+                  />
+                );
+              })}
+              {/* Sweep line pointing right (0°) */}
+              <line x1={cx} y1={cy} x2={cx + R} y2={cy}
+                stroke="#c084fc" strokeWidth={1.6} strokeOpacity={0.95}
+                style={{ filter: 'drop-shadow(0 0 5px #c084fc)' }}
+              />
+            </g>
+
+            {/* Centre dot */}
+            <circle cx={cx} cy={cy} r={2.2} fill="#c084fc"
+              style={{ filter: 'drop-shadow(0 0 6px #c084fc)' }} />
+
+            {/* Blips */}
+            {blips.map(b => {
+              const bx    = cx + b.x * R;
+              const by    = cy + b.y * R;
+              const alpha = Math.max(0.08, 1 - b.age / 10);
+              const col   = SEV[b.severity] ?? '#8b5cf6';
+              return (
+                <g key={b.id}>
+                  <circle cx={bx} cy={by} r={4 + b.age * 0.9}
+                    fill="none" stroke={col} strokeWidth={0.7} strokeOpacity={alpha * 0.45} />
+                  <circle cx={bx} cy={by} r={2.6} fill={col} fillOpacity={alpha}
+                    style={{ filter: `drop-shadow(0 0 ${3 + b.age}px ${col})` }} />
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+
+        {/* Score + LED bar */}
+        <div className="flex-1 min-w-0 pt-1">
+          <div className="text-[9px] text-slate-500 leading-none mb-1 tracking-widest">GLOBAL THREAT INDEX</div>
+
+          <div
+            className="text-[2.4rem] font-black leading-none text-white tabular-nums"
+            style={{ textShadow: `0 0 18px ${threat.color}, 0 0 40px ${threat.color}40` }}
+          >
             {threatScore.toFixed(1)}
-          </span>
-          <span className="text-[var(--text-title)] font-bold px-2 py-0.5 rounded border animate-pulse shrink-0 whitespace-nowrap" 
-            style={{ color: threat.color, borderColor: threat.color + '80', backgroundColor: threat.color + '15' }}>
-            ◀ {threat.text}
-          </span>
-        </div>
-        {/* Gradient bar with needle */}
-        <div className="w-full h-2.5 rounded-full bg-[#1a1a2e] relative overflow-hidden">
-          <div className="absolute inset-0 rounded-full" 
-            style={{ background: 'linear-gradient(90deg, #00ff41 0%, #22d3ee 20%, #f59e0b 50%, #ef4444 80%, #dc2626 100%)' }} />
-          <div className="absolute top-0 right-0 bottom-0 bg-[#1a1a2e]/85 rounded-r-full transition-all duration-500"
-            style={{ width: `${100 - barPercent}%` }} />
-          {/* Needle */}
-          <div className="absolute top-[-3px] w-[3px] h-[16px] bg-white shadow-[0_0_8px_#fff,0_0_16px_#fff] rounded-full transition-all duration-500"
-            style={{ left: `calc(${barPercent}% - 1px)` }} />
-        </div>
-        <div className="flex justify-between mt-0.5">
-          <span className="text-[var(--text-body)] text-slate-600">0</span>
-          <span className="text-[clamp(7px,0.8vw,9px)] text-slate-500 tracking-widest">GLOBAL THREAT INDEX | REAL-TIME</span>
-          <span className="text-[var(--text-body)] text-slate-600">10</span>
+          </div>
+
+          {/* 20-segment LED threat bar */}
+          <div className="flex gap-[2px] mt-2">
+            {Array.from({ length: 20 }, (_, i) => {
+              const t  = ((i + 1) / 20) * 10;
+              const on = threatScore >= t - 0.5;
+              const col = t <= 3 ? '#8b5cf6' : t <= 5 ? '#c084fc' : t <= 7.5 ? '#f97316' : '#ef4444';
+              return (
+                <div key={i}
+                  className="flex-1 h-[5px] rounded-[1px] transition-all duration-300"
+                  style={{ background: on ? col : '#1a0a2e', boxShadow: on ? `0 0 3px ${col}` : 'none' }}
+                />
+              );
+            })}
+          </div>
+          <div className="flex justify-between mt-0.5">
+            <span className="text-[8px] text-slate-600">0</span>
+            <span className="text-[8px] text-slate-600">10</span>
+          </div>
+
+          {blips.length > 0 && (
+            <div className="mt-1.5 text-[9px] truncate" style={{ color: SEV[blips[blips.length - 1].severity] }}>
+              ◀ {blips[blips.length - 1].type} · {blips[blips.length - 1].country}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Cards - Scrollable on mobile */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 py-1.5 space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
-        
-        {/* Real attacks from API */}
-        {attacks.slice().reverse().slice(0, 4).map((attack, i) => {
-          const config = severityConfig[attack.severity] || severityConfig.low;
-          const IconComp = config.Icon;
-          return (
-            <div key={`real-${attack.id}-${i}`}
-              className={`rounded border-l-[3px] ${config.border} ${config.bg} border border-slate-700/30 px-2.5 py-2 touch-target w-full flex flex-col justify-center`}>
-              <div className="flex items-center justify-between mb-1">
-                <span className={`text-[var(--text-body)] font-bold px-1.5 py-0.5 rounded border ${config.badge}`}>{config.label}</span>
-                <span className="text-[var(--text-body)] text-slate-500">{timeAgo(attack.createdAt)}</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <IconComp className={`w-4 h-4 ${config.text} shrink-0 mt-0.5`} />
-                <div className="min-w-0 flex-1">
-                  <div className={`text-[var(--text-title)] font-bold ${config.text} truncate`}>{attack.type.toUpperCase()}</div>
-                  <div className="text-[var(--text-body)] text-slate-400 font-mono truncate">IP: {attack.sourceIP} → {attack.targetPort > 0 ? `:${attack.targetPort}` : 'TARGET'}</div>
-                </div>
-                <span className="text-[var(--text-body)] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded shrink-0">{attack.sourceCountry}</span>
-              </div>
-            </div>
-          );
-        })}
+      {/* ── Threat log ── */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-2 py-1 space-y-[3px]">
+        <div className="text-[9px] text-slate-600 px-0.5 mb-0.5 tracking-wider">▸ NEURAL FEED</div>
 
-        {/* Static example cards when no real attacks */}
-        {attacks.length === 0 && staticCards.map((card, i) => {
-          const isSafe = card.severity === 'safe';
-          const isAmber = card.severity === 'amber';
-          const config = isSafe ? { ...severityConfig.low, label: 'SAFE' } : isAmber ? amberConfig : severityConfig[card.severity as 'critical' | 'high'];
-          const IconComp = isSafe ? CheckCircle : config.Icon;
-          const colorClass = isSafe ? 'text-green-400' : isAmber ? 'text-yellow-400' : config.text;
-          const badgeClass = isSafe ? 'bg-green-500/20 border-green-500/60 text-green-400' : isAmber ? amberConfig.badge : config.badge;
-          const borderClass = isSafe ? 'border-l-green-500' : isAmber ? 'border-l-yellow-500' : config.border;
-          const bgClass = isSafe ? 'bg-green-500/8' : isAmber ? 'bg-yellow-500/8' : config.bg;
-
-          return (
-            <div key={`static-${i}`}
-              className={`rounded border-l-[3px] ${borderClass} ${bgClass} border border-slate-700/30 px-2.5 py-2 touch-target w-full flex flex-col justify-center`}>
-              <div className="flex items-center justify-between mb-1">
-                <span className={`text-[var(--text-body)] font-bold px-1.5 py-0.5 rounded border ${badgeClass}`}>
-                  {isSafe ? '● SAFE' : isAmber ? '● AMBER' : `● ${config.label}`}
-                </span>
-                <span className="text-[var(--text-body)] text-slate-500">{card.time}</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <IconComp className={`w-4 h-4 ${colorClass} shrink-0 mt-0.5`} />
-                <div className="min-w-0 flex-1">
-                  <div className={`text-[var(--text-title)] font-bold ${colorClass} truncate`}>{card.type}</div>
-                  {card.ip && <div className="text-[var(--text-body)] text-slate-400 font-mono truncate">IP: {card.ip} → {card.target}</div>}
-                  {card.detail && <div className="text-[var(--text-body)] text-slate-500 mt-0.5 italic truncate">{card.detail}</div>}
+        {attacks.length > 0
+          ? [...attacks].reverse().slice(0, 5).map(a => {
+              const col = SEV[a.severity] ?? '#8b5cf6';
+              return (
+                <div key={a.id}
+                  className="group flex items-center gap-1.5 px-1.5 py-[5px] rounded border border-violet-900/40 bg-[#0a0015]">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse"
+                    style={{ background: col, boxShadow: `0 0 4px ${col}` }} />
+                  <span className="font-bold truncate flex-1" style={{ color: col }}>{a.type.toUpperCase()}</span>
+                  <span className="text-slate-500 font-mono shrink-0 tabular-nums">{a.sourceIP}</span>
+                  <span className="text-slate-600 shrink-0 w-[22px] text-right">{timeAgo(a.createdAt)}</span>
+                  {onReport && (
+                    <button
+                      onClick={() => onReport(a)}
+                      title="Rapor Oluştur"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-slate-600 hover:text-violet-400 ml-0.5"
+                    >
+                      📋
+                    </button>
+                  )}
                 </div>
-                {card.country && <span className="text-[var(--text-body)] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded shrink-0 ml-auto">{card.country}</span>}
-              </div>
-            </div>
-          );
-        })}
+              );
+            })
+          : [...blips].reverse().slice(0, 5).map(b => {
+              const col = SEV[b.severity] ?? '#8b5cf6';
+              return (
+                <div key={b.id}
+                  className="flex items-center gap-1.5 px-1.5 py-[5px] rounded border border-violet-900/40 bg-[#0a0015]">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse"
+                    style={{ background: col, boxShadow: `0 0 4px ${col}` }} />
+                  <span className="font-bold truncate flex-1" style={{ color: col }}>{b.type}</span>
+                  <span className="text-slate-500 shrink-0">{b.country}</span>
+                  <span className="text-slate-600 shrink-0 w-[22px] text-right">{b.age}s</span>
+                </div>
+              );
+            })
+        }
       </div>
 
-      {/* Bottom Stats */}
-      <div className="shrink-0 flex items-center justify-center gap-2 lg:gap-4 border-t border-cyan-500/15 bg-var(--bg-panel)/80 py-1.5 px-3">
-        <span className="text-[var(--text-body)] text-slate-400 border border-slate-700/50 px-2 py-0.5 rounded whitespace-nowrap">BLOCKED: <span className="text-cyan-400 font-bold">{totalBlocked.toLocaleString()}</span></span>
-        <span className="text-[var(--text-body)] text-slate-400 border border-slate-700/50 px-2 py-0.5 rounded whitespace-nowrap">SCANS: <span className="text-cyan-400 font-bold">89</span></span>
-        <span className="text-[var(--text-body)] text-slate-400 border border-slate-700/50 px-2 py-0.5 rounded whitespace-nowrap">UPTIME: <span className="text-green-400 font-bold">99.97%</span></span>
+      {/* ── Footer stats ── */}
+      <div className="shrink-0 flex items-center justify-center gap-2 border-t border-violet-500/15 py-1.5 px-2">
+        {[
+          ['TOTAL 24H', String(totalBlocked),  '#22d3ee'],
+          ['AKTİF IP',  String(activeIps),     '#22d3ee'],
+          ['ATK/MIN',   String(apm),            '#8b5cf6'],
+        ].map(([label, value, col]) => (
+          <span key={label} className="text-[10px] text-slate-400 border border-violet-900/40 px-2 py-0.5 rounded whitespace-nowrap">
+            {label}: <span className="font-bold" style={{ color: col }}>{value}</span>
+          </span>
+        ))}
       </div>
     </div>
   );

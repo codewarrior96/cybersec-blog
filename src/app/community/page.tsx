@@ -121,13 +121,63 @@ function timeAgo(iso: string): string {
   return `${days} gün önce`
 }
 
+/* ── API helpers (with localStorage fallback) ── */
+async function fetchPostsFromAPI(): Promise<CommunityPost[]> {
+  try {
+    const res = await fetch('/api/community?limit=100', { cache: 'no-store' })
+    if (!res.ok) throw new Error('api error')
+    const data = await res.json() as { posts: CommunityPost[] }
+    // write-through cache
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data.posts))
+    return data.posts
+  } catch {
+    // fallback to localStorage
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? (JSON.parse(raw) as CommunityPost[]) : SEED_POSTS
+  }
+}
+
+async function apiLike(id: string, userId: string): Promise<CommunityPost | null> {
+  try {
+    const res = await fetch('/api/community', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'like', id, userId }),
+    })
+    const data = await res.json() as { post: CommunityPost }
+    return data.post ?? null
+  } catch { return null }
+}
+
+async function apiComment(id: string, author: string, content: string): Promise<CommunityPost | null> {
+  try {
+    const res = await fetch('/api/community', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'comment', id, author, content }),
+    })
+    const data = await res.json() as { post: CommunityPost }
+    return data.post ?? null
+  } catch { return null }
+}
+
+async function apiCreatePost(post: Omit<CommunityPost, 'id' | 'likes' | 'comments' | 'createdAt' | 'views'>): Promise<CommunityPost | null> {
+  try {
+    const res = await fetch('/api/community', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create', ...post }),
+    })
+    const data = await res.json() as { post: CommunityPost }
+    return data.post ?? null
+  } catch { return null }
+}
+
+// kept for compat — no longer primary write path
 function loadPosts(): CommunityPost[] {
   if (typeof window === 'undefined') return SEED_POSTS
   const raw = localStorage.getItem(STORAGE_KEY)
-  if (!raw) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_POSTS))
-    return SEED_POSTS
-  }
+  if (!raw) return SEED_POSTS
   return JSON.parse(raw) as CommunityPost[]
 }
 
@@ -1085,7 +1135,8 @@ export default function CommunityPage() {
 
   useEffect(() => {
     setIsDesktop(window.innerWidth >= 1024)
-    setPosts(loadPosts())
+    // Load from API first, fallback to localStorage
+    void fetchPostsFromAPI().then(setPosts)
     const handleResize = () => setIsDesktop(window.innerWidth >= 1024)
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
@@ -1096,78 +1147,80 @@ export default function CommunityPage() {
   }, [authStatus])
 
   const refresh = useCallback(() => {
-    setPosts(loadPosts())
-    if (selectedPost) {
-      const updated = loadPosts().find((p) => p.id === selectedPost.id)
-      if (updated) setSelectedPost(updated)
-    }
+    void fetchPostsFromAPI().then((fresh) => {
+      setPosts(fresh)
+      if (selectedPost) {
+        const updated = fresh.find((p) => p.id === selectedPost.id)
+        if (updated) setSelectedPost(updated)
+      }
+    })
   }, [selectedPost])
 
   const handleLike = useCallback((postId: string) => {
-    const current = loadPosts()
-    const updated = current.map((p) => {
-      if (p.id !== postId) return p
-      const alreadyLiked = p.likes.includes('ghost')
-      return {
-        ...p,
-        likes: alreadyLiked ? p.likes.filter((u) => u !== 'ghost') : [...p.likes, 'ghost'],
-      }
+    // Optimistic update
+    setPosts(prev => {
+      const updated = prev.map((p) => {
+        if (p.id !== postId) return p
+        const alreadyLiked = p.likes.includes('ghost')
+        return { ...p, likes: alreadyLiked ? p.likes.filter(u => u !== 'ghost') : [...p.likes, 'ghost'] }
+      })
+      savePosts(updated)
+      if (selectedPost?.id === postId) setSelectedPost(updated.find(p => p.id === postId) ?? null)
+      return updated
     })
-    savePosts(updated)
-    setPosts(updated)
-    if (selectedPost?.id === postId) {
-      setSelectedPost(updated.find((p) => p.id === postId) ?? null)
-    }
+    // Sync to API
+    void apiLike(postId, 'ghost').then(post => {
+      if (post) setPosts(prev => prev.map(p => p.id === postId ? post : p))
+    })
   }, [selectedPost])
 
   const handleLikeComment = useCallback((postId: string, commentId: string) => {
-    const current = loadPosts()
-    const updated = current.map((p) => {
-      if (p.id !== postId) return p
-      return {
-        ...p,
-        comments: p.comments.map((c) => {
-          if (c.id !== commentId) return c
-          const liked = c.likes.includes('ghost')
-          return {
-            ...c,
-            likes: liked ? c.likes.filter((u) => u !== 'ghost') : [...c.likes, 'ghost'],
-          }
-        }),
-      }
+    setPosts(prev => {
+      const updated = prev.map((p) => {
+        if (p.id !== postId) return p
+        return {
+          ...p,
+          comments: p.comments.map((c) => {
+            if (c.id !== commentId) return c
+            const liked = c.likes.includes('ghost')
+            return { ...c, likes: liked ? c.likes.filter(u => u !== 'ghost') : [...c.likes, 'ghost'] }
+          }),
+        }
+      })
+      savePosts(updated)
+      if (selectedPost?.id === postId) setSelectedPost(updated.find(p => p.id === postId) ?? null)
+      return updated
     })
-    savePosts(updated)
-    setPosts(updated)
-    if (selectedPost?.id === postId) {
-      setSelectedPost(updated.find((p) => p.id === postId) ?? null)
-    }
   }, [selectedPost])
 
   const handleAddComment = useCallback((postId: string, content: string) => {
-    const current = loadPosts()
+    // Optimistic update
     const newComment: Comment = {
-      id: Date.now().toString(),
-      author: 'ghost',
-      content,
-      createdAt: new Date().toISOString(),
-      likes: [],
+      id: Date.now().toString(), author: 'ghost', content,
+      createdAt: new Date().toISOString(), likes: [],
     }
-    const updated = current.map((p) => {
-      if (p.id !== postId) return p
-      return { ...p, comments: [...p.comments, newComment] }
+    setPosts(prev => {
+      const updated = prev.map(p => p.id !== postId ? p : { ...p, comments: [...p.comments, newComment] })
+      savePosts(updated)
+      if (selectedPost?.id === postId) setSelectedPost(updated.find(p => p.id === postId) ?? null)
+      return updated
     })
-    savePosts(updated)
-    setPosts(updated)
-    if (selectedPost?.id === postId) {
-      setSelectedPost(updated.find((p) => p.id === postId) ?? null)
-    }
+    // Sync to API
+    void apiComment(postId, 'ghost', content).then(post => {
+      if (post) setPosts(prev => prev.map(p => p.id === postId ? post : p))
+    })
   }, [selectedPost])
 
   const handleNewPost = useCallback((post: CommunityPost) => {
-    const current = loadPosts()
-    const updated = [post, ...current]
-    savePosts(updated)
-    setPosts(updated)
+    // Try API first, fallback to local
+    void apiCreatePost({
+      author: post.author, authorRole: post.authorRole,
+      title: post.title, content: post.content,
+      category: post.category, difficulty: post.difficulty, tags: post.tags,
+    }).then(created => {
+      const final = created ?? post
+      setPosts(prev => { const updated = [final, ...prev]; savePosts(updated); return updated })
+    })
     setShowForm(false)
   }, [])
 

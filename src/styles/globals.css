@@ -13,7 +13,15 @@
   --text-muted: #64748b;
   --threat-red: #ff4757;
   --warning-orange: #ffa502;
-  
+
+  /* Ghost Protocol — Dashboard Theme */
+  --ghost-bg:     #06000f;
+  --ghost-panel:  #0d0018;
+  --ghost-violet: #8b5cf6;
+  --ghost-pink:   #c084fc;
+  --ghost-fuchsia:#e879f9;
+  --ghost-border: rgba(139, 92, 246, 0.18);
+
   /* Fluid Typography */
   --text-title: clamp(10px, 1.2vw, 14px);
   --text-body: clamp(9px, 1vw, 12px);
@@ -59,16 +67,19 @@
     z-index: 9998;
   }
 
-  /* Scrollbar — neon green */
+  /* Scrollbar — ghost violet */
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: #0a0a0f; }
-  ::-webkit-scrollbar-thumb { background: #00ff41; border-radius: 2px; }
-  ::-webkit-scrollbar-thumb:hover { background: #00ff41; box-shadow: 0 0 6px #00ff41; }
+  ::-webkit-scrollbar-thumb { background: #8b5cf6; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: #c084fc; box-shadow: 0 0 6px #8b5cf6; }
+
+  /* Firefox scrollbar */
+  html { scrollbar-color: #8b5cf6 #0a0a0f; }
 
   /* Selection */
   ::selection {
-    background: rgba(0, 255, 65, 0.25);
-    color: #00ff41;
+    background: rgba(139, 92, 246, 0.28);
+    color: #c084fc;
   }
 }
 
@@ -222,6 +233,95 @@
 /* V2: Sidebar removed, no offset needed */
 
 /* ═══ KEYFRAMES ═══ */
+
+/* Critical Alert — full-viewport effects */
+@keyframes critical-pulse {
+  0%   { box-shadow: none; background-color: #06000f; }
+  8%   { box-shadow: 0 0 0 8px #ef4444, inset 0 0 200px rgba(239,68,68,0.35); background-color: #1a0006; }
+  18%  { box-shadow: 0 0 0 3px #ef4444aa, inset 0 0 100px rgba(239,68,68,0.15); background-color: #0e0003; }
+  30%  { box-shadow: 0 0 0 10px #ef4444, inset 0 0 250px rgba(239,68,68,0.45); background-color: #200008; }
+  45%  { box-shadow: 0 0 0 4px #ef4444bb, inset 0 0 120px rgba(239,68,68,0.20); background-color: #100004; }
+  58%  { box-shadow: 0 0 0 7px #ef4444dd, inset 0 0 180px rgba(239,68,68,0.30); background-color: #180006; }
+  72%  { box-shadow: 0 0 0 2px rgba(239,68,68,0.5), inset 0 0 80px rgba(239,68,68,0.10); background-color: #0c0002; }
+  85%  { box-shadow: 0 0 0 5px #ef4444bb, inset 0 0 150px rgba(239,68,68,0.22); background-color: #140005; }
+  100% { box-shadow: none; background-color: #06000f; }
+}
+.critical-alert-active {
+  animation: critical-pulse 7s ease-in-out forwards;
+}
+
+/* Scan line sweeping top → bottom */
+@keyframes critical-scan-sweep {
+  0%   { top: -8px;  opacity: 0; }
+  3%   { opacity: 1; }
+  97%  { opacity: 0.9; }
+  100% { top: 100%;  opacity: 0; }
+}
+
+/* Red vignette pulse — intense */
+@keyframes critical-vignette {
+  0%   { opacity: 0; }
+  8%   { opacity: 1; }
+  22%  { opacity: 0.55; }
+  38%  { opacity: 0.95; }
+  52%  { opacity: 0.40; }
+  66%  { opacity: 0.85; }
+  80%  { opacity: 0.30; }
+  92%  { opacity: 0.60; }
+  100% { opacity: 0; }
+}
+
+/* Inset border flash — intense */
+@keyframes critical-border-flash {
+  0%   { box-shadow: inset 0 0 0 0px transparent; }
+  8%   { box-shadow: inset 0 0 0 8px #ef4444ff, 0 0 120px rgba(239,68,68,0.70); }
+  18%  { box-shadow: inset 0 0 0 3px rgba(239,68,68,0.5); }
+  30%  { box-shadow: inset 0 0 0 10px #ef4444ff, 0 0 160px rgba(239,68,68,0.75); }
+  44%  { box-shadow: inset 0 0 0 4px rgba(239,68,68,0.45); }
+  56%  { box-shadow: inset 0 0 0 7px #ef4444ee, 0 0 100px rgba(239,68,68,0.60); }
+  70%  { box-shadow: inset 0 0 0 2px rgba(239,68,68,0.35); }
+  83%  { box-shadow: inset 0 0 0 5px #ef4444cc, 0 0 80px rgba(239,68,68,0.45); }
+  100% { box-shadow: inset 0 0 0 0px transparent; }
+}
+
+/* ── Critical Alert Center Modal Animations ── */
+@keyframes alert-entrance {
+  0%   { opacity: 0; transform: scale(0.82) translateY(24px); filter: blur(4px); }
+  60%  { opacity: 1; transform: scale(1.02) translateY(-3px); filter: blur(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+@keyframes alert-exit {
+  0%   { opacity: 1; transform: scale(1); filter: blur(0); }
+  100% { opacity: 0; transform: scale(0.88) translateY(16px); filter: blur(3px); }
+}
+@keyframes scan-sweep {
+  0%   { top: -2px; opacity: 0.9; }
+  50%  { opacity: 0.5; }
+  100% { top: 100%; opacity: 0; }
+}
+@keyframes alert-glow-pulse {
+  0%,100% { box-shadow: 0 0 20px rgba(239,68,68,0.35), 0 0 60px rgba(239,68,68,0.12), inset 0 0 30px rgba(239,68,68,0.04); }
+  50%     { box-shadow: 0 0 45px rgba(239,68,68,0.65), 0 0 90px rgba(239,68,68,0.25), inset 0 0 50px rgba(239,68,68,0.08); }
+}
+@keyframes critical-text-flicker {
+  0%,89%,91%,93%,100% { opacity: 1; }
+  90%  { opacity: 0.6; }
+  92%  { opacity: 1; }
+}
+@keyframes backdrop-in {
+  from { opacity: 0; backdrop-filter: blur(0); }
+  to   { opacity: 1; backdrop-filter: blur(6px); }
+}
+@keyframes alert-badge-pop {
+  0%   { transform: scale(0); }
+  70%  { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+.alert-entrance  { animation: alert-entrance  0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.alert-exit      { animation: alert-exit      0.25s ease-in both; }
+.alert-glow      { animation: alert-glow-pulse 2s ease-in-out infinite; }
+.critical-flicker{ animation: critical-text-flicker 3.5s ease-in-out infinite; }
+.alert-badge-pop { animation: alert-badge-pop 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 /* Page transition */
 @keyframes page-fade-in {

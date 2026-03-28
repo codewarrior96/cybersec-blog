@@ -15,10 +15,8 @@ const NAV_LINKS = [
   { label: 'HOME', href: '/home' },
   { label: 'BLOG', href: '/blog' },
   { label: 'COMMUNITY', href: '/community' },
-  { label: 'CVE-RADAR', href: '/cve-radar' },
-  { label: 'TIMELINE', href: '/breach-timeline' },
+  { label: 'SENTINEL', href: '/zafiyet-taramasi' },
   { label: 'PORTFOLIO', href: '/portfolio' },
-  { label: 'ABOUT', href: '/about' },
 ] as const
 
 const CVE_BADGE_COUNT = 3
@@ -116,17 +114,22 @@ function SkullButton({
   warnCount?: number
 }) {
   const [isLeaving, setIsLeaving] = useState(false)
+  const [isReady, setIsReady] = useState(false)
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const readyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleMouseLeave = () => {
     if (leaveTimer.current) clearTimeout(leaveTimer.current)
+    if (readyTimer.current) clearTimeout(readyTimer.current)
     setIsLeaving(true)
+    setIsReady(false)
     leaveTimer.current = setTimeout(() => setIsLeaving(false), 580)
   }
 
   const handleMouseEnter = () => {
     if (leaveTimer.current) clearTimeout(leaveTimer.current)
     setIsLeaving(false)
+    readyTimer.current = setTimeout(() => setIsReady(true), 520)
   }
 
   return (
@@ -134,7 +137,7 @@ function SkullButton({
       <button
         type="button"
         className={`nb2-skull-btn ${isLeaving ? 'is-leaving' : ''}`}
-        onClick={() => onLogout?.()}
+        onClick={() => { if (isReady) onLogout?.() }}
         onMouseLeave={handleMouseLeave}
         onMouseEnter={handleMouseEnter}
         aria-label="Logout"
@@ -264,7 +267,6 @@ export default function NavigationBar({
         <nav className="nb2-links" aria-label="Primary">
           {NAV_LINKS.map((link) => {
             const active = isActivePath(currentPath, link.href)
-            const isCVE = link.label === 'CVE-RADAR'
             return (
               <Link
                 key={link.href}
@@ -273,7 +275,6 @@ export default function NavigationBar({
                 aria-current={active ? 'page' : undefined}
               >
                 {active ? `[${link.label}]` : link.label}
-                {isCVE && <span className="nb2-cve-badge">{CVE_BADGE_COUNT}</span>}
               </Link>
             )
           })}
