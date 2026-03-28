@@ -328,11 +328,6 @@ export default function NavigationBar({
               </button>
             </div>
 
-            <div className="nb2-drawer-stats">
-              <span className="nb2-pill nb2-pill-threat">THREATS: {threatCount}</span>
-              <span className="nb2-pill nb2-pill-warn">WARNS: {warnCount}</span>
-            </div>
-
             <nav className="nb2-drawer-links">
               {NAV_LINKS.map((link) => {
                 const active = isActivePath(currentPath, link.href)
@@ -353,18 +348,6 @@ export default function NavigationBar({
               })}
             </nav>
 
-            <div className="nb2-drawer-footer">
-              <button
-                type="button"
-                className="nb2-drawer-logout"
-                onClick={() => {
-                  onLogout?.()
-                  setDrawerOpen(false)
-                }}
-              >
-                LOGOUT
-              </button>
-            </div>
           </aside>
         </>
       )}
