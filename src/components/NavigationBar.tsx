@@ -36,14 +36,6 @@ function ShieldMark({ size }: { size: number }) {
   )
 }
 
-function BellMark() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
 
 function SkullImage({ className }: { className?: string }) {
   return (
@@ -300,12 +292,6 @@ export default function NavigationBar({
           </div>
         </div>
         <div className="nb2-mobile-tools">
-          <span className="nb2-pill nb2-pill-threat nb2-mobile-pill">{threatCount}</span>
-          <span className="nb2-pill nb2-pill-warn nb2-mobile-pill">{warnCount}</span>
-          <button type="button" className="nb2-icon-btn" aria-label="Notifications">
-            <BellMark />
-            {threatCount > 0 && <span className="nb2-dot" />}
-          </button>
           <button
             type="button"
             className="nb2-menu-btn"
