@@ -25,7 +25,7 @@ export default function AppShellClient({
   const isAuthed = session?.authenticated ?? false
 
   const isLoginRoute = pathname === '/login' || pathname?.startsWith('/login/')
-  const isRootRoute = pathname === '/'
+  const isRootRoute = pathname === '/' || pathname === '/home'
 
   const isAuthGatewayRoute = isLoginRoute || (!isAuthed && isRootRoute)
   const showOperatorShell = isAuthed && !isLoginRoute
