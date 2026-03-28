@@ -12,7 +12,7 @@ interface NavigationBarProps {
 }
 
 const NAV_LINKS = [
-  { label: 'HOME', href: '/home' },
+  { label: 'HOME', href: '/' },
   { label: 'BLOG', href: '/blog' },
   { label: 'COMMUNITY', href: '/community' },
   { label: 'SENTINEL', href: '/zafiyet-taramasi' },
@@ -166,7 +166,7 @@ function SkullButton({
 }
 
 function isActivePath(currentPath: string, href: string) {
-  if (href === '/') return currentPath === '/'
+  if (href === '/') return currentPath === '/' || currentPath === '/home'
   return currentPath === href || currentPath.startsWith(`${href}/`)
 }
 
