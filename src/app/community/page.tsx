@@ -370,7 +370,7 @@ function CTFTab({
         </div>
 
         {/* Challenge grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(420px, 100%), 1fr))', gap: '1rem' }}>
           {CHALLENGES.map(ch => (
             <ChallengeCard
               key={ch.level}
@@ -519,7 +519,7 @@ function ChallengeCard({
                 onKeyDown={e => e.key === 'Enter' && handleSubmit()}
                 placeholder="FLAG{...}"
                 style={{
-                  flex: 1, background: 'rgba(255,255,255,0.04)',
+                  flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.04)',
                   border: `1px solid ${
                     submitState === 'valid'   ? '#00ff41' :
                     submitState === 'invalid' ? '#ef4444' :
@@ -534,7 +534,7 @@ function ChallengeCard({
                 padding: '6px 14px', borderRadius: 5, cursor: 'pointer',
                 background: 'rgba(0,255,65,0.1)', border: '1px solid rgba(0,255,65,0.25)',
                 color: '#00ff41', fontSize: 12, fontFamily: 'inherit', fontWeight: 700,
-                outline: 'none',
+                outline: 'none', flexShrink: 0,
               }}>
                 Gönder
               </button>

@@ -1029,6 +1029,10 @@
 
 /* ── 640px: small mobile ── */
 @media (max-width: 640px) {
+  .nb2-retro-segment {
+    display: none;
+  }
+
   .nb2-root {
     height: calc(56px + env(safe-area-inset-top));
     padding: env(safe-area-inset-top) 14px 0;

@@ -234,9 +234,12 @@ export default function Terminal({ wsUrl, onFlagSubmit, pendingCommand, onComman
       </div>
 
       {/* Input */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8,
-        padding: '8px 16px', borderTop: '1px solid #1a1a1a', background: '#080808' }}>
-        <AnsiText text={prompt} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6,
+        padding: '8px 12px', borderTop: '1px solid #1a1a1a', background: '#080808',
+        overflow: 'hidden' }}>
+        <span style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+          <AnsiText text={prompt} />
+        </span>
         <input
           ref={inputRef}
           value={input}
@@ -245,10 +248,10 @@ export default function Terminal({ wsUrl, onFlagSubmit, pendingCommand, onComman
           autoFocus
           autoComplete="off"
           spellCheck={false}
-          style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none',
+          style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none',
             color: '#e2e8f0', fontFamily: 'inherit', fontSize: 13, caretColor: '#00ff41' }}
         />
-        <span style={{ color: '#374151', fontSize: 10 }}>↑↓ · TAB</span>
+        <span style={{ color: '#374151', fontSize: 10, flexShrink: 0, whiteSpace: 'nowrap' }}>↑↓·TAB</span>
       </div>
     </div>
   )
