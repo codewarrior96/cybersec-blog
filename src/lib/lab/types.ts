@@ -84,6 +84,28 @@ export interface Challenge {
   hints: string[]            // 3 kademeli ipucu
 }
 
+// ─── Training Sets ────────────────────────────────────────────────────────────
+
+export type LessonDifficulty = 'kolay' | 'orta' | 'zor'
+
+export interface Lesson {
+  id: string
+  title: string
+  description: string
+  difficulty: LessonDifficulty
+  practiceCmd?: string   // terminale gönderilecek örnek komut
+  duration: number       // dakika
+}
+
+export interface TrainingSet {
+  id: string
+  title: string
+  subtitle: string
+  icon: string
+  color: string
+  lessons: Lesson[]      // kolay/orta/zor karışık — UI gruplar
+}
+
 // ─── Terminal Command Injection ────────────────────────────────────────────────
 
 export interface PendingCommand {

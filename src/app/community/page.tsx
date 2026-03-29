@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
-import { MODULES, TOOLS, CHALLENGES, TOOL_CATEGORIES } from '@/lib/lab/content'
+import { TOOLS, CHALLENGES, TOOL_CATEGORIES, TRAINING_SETS } from '@/lib/lab/content'
 import { VALID_FLAGS, isValidFlag } from '@/lib/lab/engine'
-import type { Module, ToolCard, Challenge, Difficulty, PendingCommand } from '@/lib/lab/types'
+import type { ToolCard, Challenge, Difficulty, PendingCommand, TrainingSet, Lesson, LessonDifficulty } from '@/lib/lab/types'
 
 const Terminal = dynamic(() => import('@/components/lab/Terminal'), { ssr: false })
 
@@ -115,7 +115,9 @@ export default function LabPage() {
 
   function renderContent(tab: ContentTab, isMobile = false) {
     if (tab === 'curriculum') return (
-      <CurriculumTab onNavigateToTool={navigateToTool} />
+      <CurriculumTab onSendCommand={isMobile
+        ? cmd => { sendToTerminal(cmd); setMobileTab('terminal') }
+        : sendToTerminal} />
     )
     if (tab === 'tools') return (
       <ToolsTab
@@ -559,116 +561,244 @@ function ChallengeCard({
 
 // ─── Curriculum Tab ───────────────────────────────────────────────────────────
 
-function CurriculumTab({ onNavigateToTool }: { onNavigateToTool: (toolId: string) => void }) {
-  const [expanded, setExpanded] = useState<string | null>(null)
+const LESSON_DIFF_META: Record<LessonDifficulty, { label: string; color: string; bg: string }> = {
+  kolay: { label: 'KOLAY', color: '#4ade80', bg: 'rgba(74,222,128,0.08)' },
+  orta:  { label: 'ORTA',  color: '#fbbf24', bg: 'rgba(251,191,36,0.08)'  },
+  zor:   { label: 'ZOR',   color: '#f87171', bg: 'rgba(248,113,113,0.08)' },
+}
+
+const DIFF_ORDER: LessonDifficulty[] = ['kolay', 'orta', 'zor']
+
+function useCurriculumProgress() {
+  const [completed, setCompleted] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('breach-curriculum-v2')
+      if (raw) setCompleted(new Set(JSON.parse(raw) as string[]))
+    } catch { /* ignore */ }
+  }, [])
+
+  const toggle = (lessonId: string) => {
+    setCompleted(prev => {
+      const next = new Set(prev)
+      next.has(lessonId) ? next.delete(lessonId) : next.add(lessonId)
+      try { localStorage.setItem('breach-curriculum-v2', JSON.stringify(Array.from(next))) } catch { /* ignore */ }
+      return next
+    })
+  }
+
+  return { completed, toggle }
+}
+
+function isSetUnlocked(setIndex: number, sets: TrainingSet[], completed: Set<string>): boolean {
+  if (setIndex === 0) return true
+  const prev = sets[setIndex - 1]
+  return prev.lessons.every(l => completed.has(l.id))
+}
+
+function setProgress(set: TrainingSet, completed: Set<string>): number {
+  return set.lessons.filter(l => completed.has(l.id)).length
+}
+
+function CurriculumTab({ onSendCommand }: { onSendCommand: (cmd: string) => void }) {
+  const { completed, toggle } = useCurriculumProgress()
+  const [activeSet, setActiveSet] = useState<string>(TRAINING_SETS[0].id)
+  const [activeDiff, setActiveDiff] = useState<LessonDifficulty>('kolay')
+
+  const currentSet = TRAINING_SETS.find(s => s.id === activeSet) ?? TRAINING_SETS[0]
+  const lessons = currentSet.lessons.filter(l => l.difficulty === activeDiff)
+  const totalCompleted = TRAINING_SETS.reduce((acc, s) => acc + setProgress(s, completed), 0)
+  const totalLessons   = TRAINING_SETS.reduce((acc, s) => acc + s.lessons.length, 0)
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: '1.5rem', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
-      <div style={{ maxWidth: 820, margin: '0 auto' }}>
-        <SectionHeader eyebrow="ÖĞRENME YOLU" title="Başlangıçtan Uzmanlığa"
-          subtitle="Siber güvenlikte sıfırdan profesyonel seviyeye kapsamlı müfredat" />
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-          {MODULES.map((mod, i) => (
-            <ModuleCard key={mod.id} module={mod} index={i}
-              isExpanded={expanded === mod.id}
-              onToggle={() => setExpanded(prev => prev === mod.id ? null : mod.id)}
-              onNavigateToTool={onNavigateToTool}
-            />
-          ))}
+      {/* ── Global header ── */}
+      <div style={{ padding: '1.2rem 1.5rem 0.8rem', flexShrink: 0,
+        borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.9rem' }}>
+          <div>
+            <p style={{ color: 'rgba(0,255,65,0.5)', fontSize: 9, letterSpacing: '0.18em', margin: 0 }}>EĞİTİM SETLERİ</p>
+            <h2 style={{ color: '#e2e8f0', fontSize: 15, fontWeight: 800, margin: '2px 0 0', letterSpacing: '0.04em' }}>
+              Öğrenme Yolu
+            </h2>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ color: '#4ade80', fontSize: 18, fontWeight: 800 }}>{totalCompleted}</span>
+            <span style={{ color: '#475569', fontSize: 12 }}>/{totalLessons}</span>
+            <p style={{ color: '#475569', fontSize: 9, margin: '2px 0 0', letterSpacing: '0.1em' }}>DERS TAMAMLANDI</p>
+          </div>
+        </div>
+
+        {/* ── Set tabs ── */}
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+          {TRAINING_SETS.map((set, i) => {
+            const unlocked  = isSetUnlocked(i, TRAINING_SETS, completed)
+            const prog      = setProgress(set, completed)
+            const done      = prog === set.lessons.length
+            const isActive  = activeSet === set.id
+            return (
+              <button key={set.id}
+                onClick={() => { if (unlocked) setActiveSet(set.id) }}
+                disabled={!unlocked}
+                style={{
+                  flexShrink: 0, padding: '6px 14px', borderRadius: 7, cursor: unlocked ? 'pointer' : 'not-allowed',
+                  border: isActive ? `1px solid ${set.color}50` : '1px solid rgba(255,255,255,0.07)',
+                  background: isActive ? `${set.color}12` : unlocked ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.3)',
+                  color: !unlocked ? '#334155' : isActive ? set.color : '#64748b',
+                  fontFamily: 'inherit', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em',
+                  display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s',
+                  opacity: unlocked ? 1 : 0.45,
+                }}>
+                <span>{unlocked ? set.icon : '🔒'}</span>
+                <span>{set.title}</span>
+                {unlocked && (
+                  <span style={{ fontSize: 9, background: done ? `${set.color}20` : 'rgba(255,255,255,0.06)',
+                    color: done ? set.color : '#475569', border: `1px solid ${done ? set.color + '30' : 'transparent'}`,
+                    borderRadius: 3, padding: '1px 5px' }}>
+                    {prog}/{set.lessons.length}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ── Set detail ── */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+        {/* Set info bar */}
+        <div style={{ padding: '0.7rem 1.5rem', flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.04)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <span style={{ color: currentSet.color, fontWeight: 700, fontSize: 12 }}>{currentSet.title}</span>
+            <span style={{ color: '#475569', fontSize: 11, marginLeft: 8 }}>{currentSet.subtitle}</span>
+          </div>
+          {/* Difficulty pills */}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {DIFF_ORDER.map(d => {
+              const m = LESSON_DIFF_META[d]
+              const count = currentSet.lessons.filter(l => l.difficulty === d).length
+              const doneC = currentSet.lessons.filter(l => l.difficulty === d && completed.has(l.id)).length
+              return (
+                <button key={d} onClick={() => setActiveDiff(d)}
+                  style={{ padding: '3px 10px', borderRadius: 5, cursor: 'pointer',
+                    background: activeDiff === d ? m.bg : 'transparent',
+                    border: `1px solid ${activeDiff === d ? m.color + '50' : 'rgba(255,255,255,0.07)'}`,
+                    color: activeDiff === d ? m.color : '#475569',
+                    fontFamily: 'inherit', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+                    transition: 'all 0.12s' }}>
+                  {m.label} <span style={{ opacity: 0.7 }}>{doneC}/{count}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Lessons list */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.5rem',
+          scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            {lessons.map((lesson, i) => (
+              <LessonCard key={lesson.id} lesson={lesson} index={i}
+                isCompleted={completed.has(lesson.id)}
+                onToggle={() => toggle(lesson.id)}
+                onPractice={lesson.practiceCmd ? () => onSendCommand(lesson.practiceCmd!) : undefined}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-function ModuleCard({ module: mod, index, isExpanded, onToggle, onNavigateToTool }: {
-  module: Module; index: number; isExpanded: boolean; onToggle: () => void
-  onNavigateToTool: (toolId: string) => void
+function LessonCard({ lesson, index, isCompleted, onToggle, onPractice }: {
+  lesson: Lesson; index: number; isCompleted: boolean
+  onToggle: () => void; onPractice?: () => void
 }) {
-  const { label: diffLabel, color: diffColor } = DIFFICULTY_META[mod.difficulty]
-  const relatedTools = TOOLS.filter(t => mod.toolIds.includes(t.id))
+  const [expanded, setExpanded] = useState(false)
+  const m = LESSON_DIFF_META[lesson.difficulty]
 
   return (
-    <div style={{ display: 'flex', gap: '0.85rem', paddingLeft: '0.4rem' }}>
-      <div style={{ flexShrink: 0, width: 48, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{ width: 48, height: 48, borderRadius: 8, background: `${mod.color}12`,
-          border: `1px solid ${mod.color}35`, display: 'flex', alignItems: 'center',
-          justifyContent: 'center', fontSize: 20 }}>{mod.icon}</div>
-      </div>
+    <div style={{ border: `1px solid ${isCompleted ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.06)'}`,
+      borderRadius: 8, overflow: 'hidden',
+      background: isCompleted ? 'rgba(74,222,128,0.03)' : 'rgba(255,255,255,0.015)',
+      transition: 'border-color 0.2s' }}>
 
-      <div style={{ flex: 1, border: `1px solid ${isExpanded ? mod.color + '40' : 'rgba(255,255,255,0.06)'}`,
-        borderRadius: 8, overflow: 'hidden', transition: 'border-color 0.2s' }}>
-        <button onClick={onToggle} style={{ width: '100%', textAlign: 'left', padding: '0.85rem 1.1rem',
-          background: isExpanded ? `${mod.color}07` : 'rgba(255,255,255,0.015)',
-          border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
-              <span style={{ color: '#64748b', fontSize: 10, fontWeight: 700 }}>{String(index + 1).padStart(2, '0')}</span>
-              <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 13 }}>{mod.title}</span>
-              <span style={{ padding: '1px 7px', borderRadius: 3, fontSize: 9, fontWeight: 700,
-                background: `${diffColor}15`, color: diffColor, border: `1px solid ${diffColor}30` }}>
-                {diffLabel}
-              </span>
-            </div>
-            <span style={{ color: 'rgba(148,163,184,0.65)', fontSize: 11 }}>{mod.subtitle}</span>
-          </div>
-          <span style={{ color: 'rgba(148,163,184,0.4)', fontSize: 16, transition: 'transform 0.2s',
-            transform: isExpanded ? 'rotate(90deg)' : 'none', flexShrink: 0, marginLeft: 8 }}>›</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', padding: '0.75rem 1rem', cursor: 'pointer' }}
+        onClick={() => setExpanded(v => !v)}>
+
+        {/* Checkbox */}
+        <button onClick={e => { e.stopPropagation(); onToggle() }}
+          style={{ width: 22, height: 22, borderRadius: 5, border: isCompleted ? '2px solid #4ade80' : '2px solid #334155',
+            background: isCompleted ? 'rgba(74,222,128,0.15)' : 'transparent',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}>
+          {isCompleted && <span style={{ color: '#4ade80', fontSize: 12, fontWeight: 900 }}>✓</span>}
         </button>
 
-        {isExpanded && (
-          <div style={{ padding: '0 1.1rem 1.1rem', borderTop: `1px solid ${mod.color}18` }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.9rem' }}>
-              <div>
-                <p style={{ color: 'rgba(0,255,65,0.55)', fontSize: 10, letterSpacing: '0.12em', margin: '0 0 6px' }}>KONULAR</p>
-                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                  {mod.topics.map(topic => (
-                    <li key={topic} style={{ color: 'rgba(226,232,240,0.72)', fontSize: 11, display: 'flex', gap: '0.4rem' }}>
-                      <span style={{ color: mod.color, flexShrink: 0 }}>›</span>{topic}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <p style={{ color: 'rgba(0,255,65,0.55)', fontSize: 10, letterSpacing: '0.12em', margin: '0 0 6px' }}>KAYNAKLAR</p>
-                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                  {mod.resources.map(r => (
-                    <li key={r.url}>
-                      <a href={r.url} target="_blank" rel="noopener noreferrer"
-                        style={{ color: '#60a5fa', fontSize: 11, textDecoration: 'none', display: 'flex', gap: '0.3rem' }}>
-                        <span>↗</span>{r.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            {/* İlgili araçlar */}
-            {relatedTools.length > 0 && (
-              <div style={{ marginTop: '0.9rem', paddingTop: '0.9rem', borderTop: `1px solid ${mod.color}15` }}>
-                <p style={{ color: 'rgba(0,255,65,0.55)', fontSize: 10, letterSpacing: '0.12em', margin: '0 0 8px' }}>
-                  İLGİLİ ARAÇLAR
-                </p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {relatedTools.map(tool => (
-                    <button key={tool.id} onClick={() => onNavigateToTool(tool.id)}
-                      style={{
-                        padding: '3px 10px', borderRadius: 5, cursor: 'pointer',
-                        background: 'rgba(0,255,65,0.06)', border: '1px solid rgba(0,255,65,0.18)',
-                        color: '#4ade80', fontSize: 11, fontFamily: 'inherit', fontWeight: 600,
-                        outline: 'none', transition: 'all 0.12s',
-                      }}>
-                      {tool.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: '#475569', fontSize: 10, fontWeight: 700 }}>
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <span style={{ color: isCompleted ? '#4ade80' : '#e2e8f0', fontWeight: 700, fontSize: 13,
+              textDecoration: isCompleted ? 'line-through' : 'none', opacity: isCompleted ? 0.7 : 1 }}>
+              {lesson.title}
+            </span>
+            <span style={{ padding: '1px 6px', borderRadius: 3, fontSize: 8, fontWeight: 800,
+              background: m.bg, color: m.color, border: `1px solid ${m.color}30`, letterSpacing: '0.08em' }}>
+              {m.label}
+            </span>
           </div>
-        )}
+          <p style={{ color: '#475569', fontSize: 11, margin: '2px 0 0', overflow: 'hidden',
+            textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {lesson.description}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <span style={{ color: '#334155', fontSize: 10 }}>⏱ {lesson.duration}dk</span>
+          <span style={{ color: '#334155', fontSize: 14, transition: 'transform 0.2s',
+            transform: expanded ? 'rotate(90deg)' : 'none' }}>›</span>
+        </div>
       </div>
+
+      {expanded && (
+        <div style={{ padding: '0 1rem 0.9rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <p style={{ color: 'rgba(148,163,184,0.8)', fontSize: 12, margin: '0.7rem 0 0.9rem', lineHeight: 1.6 }}>
+            {lesson.description}
+          </p>
+          {lesson.practiceCmd && onPractice && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8,
+              background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(0,255,65,0.12)',
+              borderRadius: 6, padding: '0.5rem 0.8rem' }}>
+              <code style={{ flex: 1, color: '#4ade80', fontSize: 11, fontFamily: 'monospace' }}>
+                $ {lesson.practiceCmd}
+              </code>
+              <button onClick={onPractice}
+                style={{ padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
+                  background: 'rgba(0,255,65,0.1)', border: '1px solid rgba(0,255,65,0.25)',
+                  color: '#4ade80', fontFamily: 'inherit', fontSize: 10, fontWeight: 700,
+                  letterSpacing: '0.06em', whiteSpace: 'nowrap', transition: 'all 0.12s' }}>
+                ▶ TERMINALE GÖNDER
+              </button>
+            </div>
+          )}
+          <button onClick={onToggle} style={{ marginTop: '0.8rem',
+            padding: '5px 14px', borderRadius: 5, cursor: 'pointer',
+            background: isCompleted ? 'rgba(248,113,113,0.08)' : 'rgba(74,222,128,0.08)',
+            border: `1px solid ${isCompleted ? 'rgba(248,113,113,0.25)' : 'rgba(74,222,128,0.25)'}`,
+            color: isCompleted ? '#f87171' : '#4ade80',
+            fontFamily: 'inherit', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
+            transition: 'all 0.12s' }}>
+            {isCompleted ? '✗ TAMAMLANMAMIŞ İŞARETLE' : '✓ TAMAMLANDI'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
