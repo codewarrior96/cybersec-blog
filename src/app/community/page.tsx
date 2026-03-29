@@ -120,7 +120,9 @@ export default function LabPage() {
     if (tab === 'tools') return (
       <ToolsTab
         initialToolId={selectedToolId}
-        onSendCommand={sendToTerminal}
+        onSendCommand={isMobile
+          ? cmd => { sendToTerminal(cmd); setMobileTab('terminal') }
+          : sendToTerminal}
         onSelectTool={setSelectedToolId}
         isMobile={isMobile}
       />
