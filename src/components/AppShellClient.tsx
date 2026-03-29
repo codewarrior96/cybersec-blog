@@ -1,12 +1,13 @@
 'use client'
 
-import React from 'react'
-import { usePathname } from 'next/navigation'
-import { useAuthSession } from '@/lib/auth-client'
+import React, { useCallback } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { useAuthSession, logoutAuth } from '@/lib/auth-client'
 import OperatorSidebar from '@/components/OperatorSidebar'
 import Footer from '@/components/Footer'
 import SearchModal from '@/components/SearchModal'
 import PageTransition from '@/components/PageTransition'
+import NavigationBar from '@/components/NavigationBar'
 
 export default function AppShellClient({
   children,
@@ -18,6 +19,7 @@ export default function AppShellClient({
   posts: any[]
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   const session = useAuthSession(initialAuth)
   const isAuthed = session?.authenticated ?? false
 
@@ -28,10 +30,21 @@ export default function AppShellClient({
   const showOperatorShell = isAuthed && !isLoginRoute
   const showGlobalTools = !isAuthGatewayRoute && !showOperatorShell
 
+  const handleLogout = useCallback(async () => {
+    await logoutAuth()
+    router.push('/')
+  }, [router])
+
   return (
     <>
       <OperatorSidebar initialAuth={isAuthed} />
       <div className={`transition-all duration-300 flex flex-col flex-1 app-shell`}>
+        {showOperatorShell && (
+          <NavigationBar
+            currentPath={pathname ?? '/'}
+            onLogout={handleLogout}
+          />
+        )}
         <PageTransition>
           <main className="flex-1">{children}</main>
         </PageTransition>
