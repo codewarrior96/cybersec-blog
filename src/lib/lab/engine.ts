@@ -96,6 +96,25 @@ function runSingle(raw: string, ctx: CommandContext, stdin: string): string[] {
     case 'submit':       return cmdSubmit(args)
     case 'exit': case 'logout': return ['\x1b[90mGoodbye, Operator.\x1b[0m']
     case '':             return []
+    // ── Güvenlik Araçları (Simüle) ─────────────────────────────────────────
+    case 'nmap':         return cmdNmap(args)
+    case 'wpscan':       return cmdWpscan(args)
+    case 'nikto':        return cmdNikto(args)
+    case 'sqlmap':       return cmdSqlmap(args)
+    case 'gobuster': case 'dirb': case 'wfuzz': return cmdGobuster(cmd, args)
+    case 'hydra':        return cmdHydra(args)
+    case 'hashcat': case 'john': return cmdHashcat(cmd, args)
+    case 'msfconsole': case 'msfvenom': return cmdMsf(cmd)
+    case 'aircrack-ng': case 'airodump-ng': case 'aireplay-ng': return cmdAircrack(cmd, args)
+    case 'enum4linux':   return cmdEnum4linux(args)
+    case 'responder':    return cmdResponder(args)
+    case 'nuclei':       return cmdNucleI(args)
+    case 'amass': case 'sublist3r': case 'recon-ng': return cmdAmass(cmd, args)
+    case 'wireshark': case 'tcpdump': return cmdTcpdump(cmd, args)
+    case 'netcat': case 'nc':   return cmdNetcat(args)
+    case 'ssh': case 'ftp': case 'telnet': return cmdSsh(cmd, args)
+    case 'burpsuite': case 'burp': return [`\x1b[33m[*] Burp Suite GUI uygulamasıdır, terminal üzerinden başlatılamaz.\x1b[0m`, `\x1b[90m    Gerçek ortamda: java -jar burpsuite.jar\x1b[0m`]
+    case 'ghidra': case 'radare2': case 'r2': return [`\x1b[33m[*] ${cmd} GUI/TUI uygulamasıdır.\x1b[0m`, `\x1b[90m    Gerçek ortamda: ${cmd === 'ghidra' ? 'ghidraRun' : 'r2 <binary>'}\x1b[0m`]
     default:             return [`\x1b[31mbash: ${cmd}: komut bulunamadı\x1b[0m`]
   }
 }
@@ -134,6 +153,14 @@ function cmdHelp(): string[] {
     '\x1b[32m│\x1b[0m \x1b[1mAĞ\x1b[0m      ifconfig  netstat  ss  ping  curl',
     '\x1b[32m│\x1b[0m \x1b[1mARSİV\x1b[0m   xxd  base64  file  strings',
     '\x1b[32m│\x1b[0m \x1b[1mDİĞER\x1b[0m   man  which  bash  python3  submit <FLAG>  clear',
+    '\x1b[32m│\x1b[0m',
+    '\x1b[32m│\x1b[0m \x1b[1;33mGÜVENLİK ARAÇLARI (simülasyon)\x1b[0m',
+    '\x1b[32m│\x1b[0m \x1b[33mTARAMA\x1b[0m  nmap  nikto  nuclei  wpscan',
+    '\x1b[32m│\x1b[0m \x1b[33mWEB\x1b[0m     sqlmap  gobuster  dirb  wfuzz',
+    '\x1b[32m│\x1b[0m \x1b[33mKEŞİF\x1b[0m   amass  sublist3r  recon-ng  enum4linux',
+    '\x1b[32m│\x1b[0m \x1b[33mSALDIRI\x1b[0m hydra  responder  nc  tcpdump',
+    '\x1b[32m│\x1b[0m \x1b[33mŞİFRE\x1b[0m   hashcat  john  aircrack-ng',
+    '\x1b[32m│\x1b[0m \x1b[33mDİĞER\x1b[0m   msfconsole  msfvenom  ssh  ftp',
     '\x1b[1;32m└──────────────────────────────────────────────────────────────┘\x1b[0m',
     '\x1b[90mPipe desteği: cat log.txt | grep "ERROR" | wc -l\x1b[0m',
   ]
@@ -632,4 +659,286 @@ function cmdSubmit(args: string[]): string[] {
     ]
   }
   return ['\x1b[31m✗ Geçersiz bayrak. Tekrar dene.\x1b[0m']
+}
+
+// ─── Güvenlik Araçları (Simülasyon) ──────────────────────────────────────────
+
+function simHeader(tool: string, version: string): string[] {
+  return [`\x1b[1;32m[*]\x1b[0m \x1b[1m${tool}\x1b[0m v${version} \x1b[90m(simülasyon)\x1b[0m`, '']
+}
+
+function cmdNmap(args: string[]): string[] {
+  const target = args.find(a => !a.startsWith('-')) ?? '10.10.10.1'
+  const isSV = args.includes('-sV') || args.includes('-A')
+  const isSC = args.includes('-sC') || args.includes('-A')
+  const ports = args.find(a => a.startsWith('-p'))?.slice(2) ?? '1-1000'
+  return [
+    ...simHeader('Nmap', '7.94'),
+    `\x1b[90mStarting Nmap scan on ${target} (ports: ${ports})\x1b[0m`,
+    '',
+    `Host: \x1b[1;32m${target}\x1b[0m  Status: \x1b[32mUp\x1b[0m  Latency: 0.42ms`,
+    '',
+    '\x1b[1mPORT      STATE  SERVICE' + (isSV ? '    VERSION' : '') + '\x1b[0m',
+    `22/tcp    \x1b[32mopen\x1b[0m   ssh      ${isSV ? 'OpenSSH 8.2p1 Ubuntu' : ''}`,
+    `80/tcp    \x1b[32mopen\x1b[0m   http     ${isSV ? 'Apache httpd 2.4.41' : ''}`,
+    `443/tcp   \x1b[32mopen\x1b[0m   https    ${isSV ? 'Apache httpd 2.4.41' : ''}`,
+    `3306/tcp  \x1b[33mopen\x1b[0m   mysql    ${isSV ? 'MySQL 8.0.28' : ''}`,
+    ...(isSC ? [
+      '',
+      '\x1b[90m| http-title: Welcome to the Lab\x1b[0m',
+      '\x1b[90m| ssh-hostkey: 3072 RSA (2048-bit)\x1b[0m',
+      '\x1b[90m|_http-server-header: Apache/2.4.41\x1b[0m',
+    ] : []),
+    '',
+    `\x1b[90mNmap done: 1 IP (1 host up) scanned in 4.23 seconds\x1b[0m`,
+  ]
+}
+
+function cmdWpscan(args: string[]): string[] {
+  const url     = args.find(a => a.startsWith('http')) ?? 'https://target.com'
+  const enumArg = args.find(a => a.startsWith('--enumerate'))
+  const passwd  = args.includes('--passwords')
+  return [
+    ...simHeader('WPScan', '3.8.25'),
+    `\x1b[90mScanning: ${url}\x1b[0m`,
+    '',
+    '\x1b[32m[+]\x1b[0m WordPress \x1b[1m6.4.2\x1b[0m tespit edildi',
+    '\x1b[33m[!]\x1b[0m XML-RPC aktif → /xmlrpc.php',
+    '\x1b[33m[!]\x1b[0m readme.html açıkta',
+    ...(enumArg ? [
+      '',
+      '\x1b[32m[+]\x1b[0m Kullanıcılar: admin (id:1), editor (id:2)',
+      '\x1b[31m[!]\x1b[0m contact-form-7 4.9 — SQLi (CVE-2023-1234)',
+      '\x1b[31m[!]\x1b[0m woocommerce 7.1 — XSS (CVE-2023-5678)',
+    ] : []),
+    ...(passwd ? [
+      '',
+      '\x1b[32m[BULUNDU]\x1b[0m  admin : \x1b[1mpassword123\x1b[0m',
+    ] : []),
+    '',
+    '\x1b[90mTarama tamamlandı.\x1b[0m',
+  ]
+}
+
+function cmdNikto(args: string[]): string[] {
+  const host = args.find(a => !a.startsWith('-')) ?? 'http://target.com'
+  return [
+    ...simHeader('Nikto', '2.1.6'),
+    `\x1b[90mHedef: ${host}\x1b[0m`,
+    '',
+    '\x1b[32m+\x1b[0m Server: Apache/2.4.41 (Ubuntu)',
+    '\x1b[33m+\x1b[0m /admin/ dizini erişilebilir',
+    '\x1b[33m+\x1b[0m /backup.zip bulundu — backup açıkta!',
+    '\x1b[31m+\x1b[0m X-Frame-Options eksik → Clickjacking riski',
+    '\x1b[33m+\x1b[0m /phpinfo.php → bilgi ifşası',
+    '\x1b[33m+\x1b[0m HTTP TRACE aktif → XST mümkün',
+    '',
+    '\x1b[90m6 bulgu. Süre: 00:01:23\x1b[0m',
+  ]
+}
+
+function cmdSqlmap(args: string[]): string[] {
+  const url = args.find(a => a.startsWith('http')) ?? 'http://target.com/?id=1'
+  return [
+    ...simHeader('sqlmap', '1.7.8'),
+    `\x1b[90mHedef: ${url}\x1b[0m`,
+    '',
+    '\x1b[32m[+]\x1b[0m \x1b[1mid\x1b[0m parametresi savunmasız — Boolean-based blind SQLi',
+    '    Payload: id=1 AND 1=1-- -',
+    '',
+    '\x1b[32m[+]\x1b[0m Veritabanı: MySQL >= 5.0',
+    '\x1b[32m[+]\x1b[0m DB listesi: information_schema, \x1b[1mwebapp\x1b[0m, mysql',
+    ...(args.includes('--dump') ? [
+      '',
+      '\x1b[32m[+]\x1b[0m webapp.users:',
+      '    admin  |  5f4dcc3b5aa765d61d8327deb882cf99  (MD5: "password")',
+      '    user1  |  482c811da5d5b4bc6d497ffa98491e38',
+    ] : []),
+    '',
+    '\x1b[90mTarama tamamlandı.\x1b[0m',
+  ]
+}
+
+function cmdGobuster(cmd: string, args: string[]): string[] {
+  const url = args.find(a => a.startsWith('http')) ?? 'http://target.com'
+  return [
+    ...simHeader(cmd, '3.6.0'),
+    `\x1b[90mHedef: ${url}\x1b[0m`,
+    '',
+    `\x1b[32m/admin\x1b[0m         (Status: 200) [Size: 4821]`,
+    `\x1b[32m/login\x1b[0m         (Status: 200) [Size: 1203]`,
+    `\x1b[33m/backup\x1b[0m        (Status: 301) [→ /backup/]`,
+    `\x1b[32m/uploads\x1b[0m       (Status: 200) [Size: 892]`,
+    `\x1b[31m/.env\x1b[0m          (Status: 200) [Size: 118]  ← DİKKAT!`,
+    `\x1b[32m/api\x1b[0m           (Status: 200) [Size: 44]`,
+    '',
+    '\x1b[90m6 dizin/dosya bulundu.\x1b[0m',
+  ]
+}
+
+function cmdHydra(args: string[]): string[] {
+  const target = args.find(a => !a.startsWith('-') && !a.startsWith('/') && a !== args[args.length - 1]) ?? 'target.com'
+  const svc    = args[args.length - 1] ?? 'ssh'
+  return [
+    ...simHeader('Hydra', '9.5'),
+    `\x1b[90mHedef: ${target}  Servis: ${svc}\x1b[0m`,
+    '',
+    '\x1b[32m[DATA]\x1b[0m 16 task, sözlük saldırısı...',
+    '\x1b[32m[STATUS]\x1b[0m 1024 / 14,344 deneme',
+    `\x1b[32m[BULUNDU]\x1b[0m  login: \x1b[1madmin\x1b[0m  password: \x1b[1mwinter2023\x1b[0m`,
+    '',
+    '\x1b[90m1 geçerli kimlik bulundu. Süre: 00:02:11\x1b[0m',
+  ]
+}
+
+function cmdHashcat(cmd: string, args: string[]): string[] {
+  const hash = args.find(a => !a.startsWith('-')) ?? '5f4dcc3b5aa765d61d8327deb882cf99'
+  const tool = cmd === 'john' ? 'John the Ripper' : 'Hashcat'
+  const ver  = cmd === 'john' ? '1.9.0' : '6.2.6'
+  return [
+    ...simHeader(tool, ver),
+    `\x1b[90mHash: ${hash.slice(0, 32)}\x1b[0m`,
+    '',
+    '\x1b[32m[*]\x1b[0m Tür algılandı: MD5',
+    '\x1b[32m[*]\x1b[0m Sözlük saldırısı — 1,234,567 hash/sn',
+    '\x1b[32m[KRILDI]\x1b[0m  \x1b[1mpassword\x1b[0m',
+    '',
+    '\x1b[90m1/1 hash kırıldı.\x1b[0m',
+  ]
+}
+
+function cmdMsf(cmd: string): string[] {
+  if (cmd === 'msfvenom') return [
+    ...simHeader('msfvenom', '6.3.44'),
+    '\x1b[90mKullanım: msfvenom -p <payload> LHOST=<ip> LPORT=<port> -f <format>\x1b[0m',
+    '',
+    '  linux/x64/shell_reverse_tcp',
+    '  windows/x64/meterpreter/reverse_tcp',
+    '  php/meterpreter_reverse_tcp',
+  ]
+  return [
+    '\x1b[1;31m       =[ metasploit v6.3.44 ]=\x1b[0m',
+    '\x1b[90m+ -- --=[ 2369 exploits | 1232 auxiliary ]=-- -- +\x1b[0m',
+    '',
+    '\x1b[90mmsf6 >\x1b[0m \x1b[33mSimülasyon modu — gerçek exploit çalıştırılamaz.\x1b[0m',
+  ]
+}
+
+function cmdAircrack(cmd: string, args: string[]): string[] {
+  const iface = args.find(a => !a.startsWith('-')) ?? 'wlan0mon'
+  if (cmd === 'airodump-ng') return [
+    ...simHeader('airodump-ng', '1.7'),
+    `\x1b[90mArayüz: ${iface}  CH: 6\x1b[0m`,
+    '',
+    '\x1b[1m BSSID              PWR  CH  ENC   ESSID\x1b[0m',
+    ' AA:BB:CC:DD:EE:FF  -42  6   WPA2  TargetNetwork',
+    ' 11:22:33:44:55:66  -78  11  WPA2  HomeWifi',
+  ]
+  if (cmd === 'aireplay-ng') return [
+    ...simHeader('aireplay-ng', '1.7'),
+    'Sending DeAuth (code 7) to broadcast -- BSSID: AA:BB:CC:DD:EE:FF',
+  ]
+  return [
+    ...simHeader('aircrack-ng', '1.7'),
+    '\x1b[32m[*]\x1b[0m WPA handshake bulundu: AA:BB:CC:DD:EE:FF',
+    '\x1b[32m[KEY FOUND!]\x1b[0m [ \x1b[1mwifi123456\x1b[0m ]',
+  ]
+}
+
+function cmdEnum4linux(args: string[]): string[] {
+  const target = args.find(a => !a.startsWith('-')) ?? '10.10.10.1'
+  return [
+    ...simHeader('enum4linux', '0.9.1'),
+    `\x1b[90mHedef: ${target}\x1b[0m`,
+    '',
+    '\x1b[32m[*]\x1b[0m SMB Paylaşımları:',
+    '    //10.10.10.1/ADMIN$  — Windows Remote Admin',
+    '    //10.10.10.1/Share   — \x1b[32mErişilebilir\x1b[0m',
+    '',
+    '\x1b[32m[*]\x1b[0m Kullanıcılar: Administrator (500), Guest (501), \x1b[1moperator\x1b[0m (1001)',
+    '',
+    '\x1b[90mTarama tamamlandı.\x1b[0m',
+  ]
+}
+
+function cmdResponder(args: string[]): string[] {
+  const iface = args.find(a => !a.startsWith('-')) ?? 'eth0'
+  return [
+    ...simHeader('Responder', '3.1.4.0'),
+    `\x1b[90mArayüz: ${iface}  LLMNR/NBT-NS zehirleme aktif\x1b[0m`,
+    '',
+    '\x1b[32m[+]\x1b[0m LLMNR + NBT-NS Poisoner başlatıldı',
+    '\x1b[33m[SMB]\x1b[0m 10.10.10.50 — kullanıcı: \x1b[1mDOMAIN\\john\x1b[0m',
+    '\x1b[32m[HASH]\x1b[0m NTLMv2: john::DOMAIN:aad3b435...',
+    '\x1b[90mHashcat ile kır: hashcat -m 5600 hash.txt rockyou.txt\x1b[0m',
+  ]
+}
+
+function cmdNucleI(args: string[]): string[] {
+  const target = args.find(a => !a.startsWith('-')) ?? 'https://target.com'
+  return [
+    ...simHeader('Nuclei', '3.1.0'),
+    `\x1b[90mHedef: ${target}  8,432 template\x1b[0m`,
+    '',
+    '\x1b[31m[critical]\x1b[0m CVE-2021-44228 Log4Shell — \x1b[1mSAVUNMASSIZ\x1b[0m',
+    '\x1b[33m[high]\x1b[0m    CVE-2023-44487 HTTP/2 Rapid Reset',
+    '\x1b[33m[medium]\x1b[0m  /server-status açık',
+    '\x1b[32m[info]\x1b[0m    PHP 8.1.12  |  nginx 1.24.0',
+    '',
+    '\x1b[90m4 bulgu. Süre: 00:00:47\x1b[0m',
+  ]
+}
+
+function cmdAmass(cmd: string, args: string[]): string[] {
+  const domain = args.find(a => !a.startsWith('-') && a.includes('.')) ?? 'target.com'
+  return [
+    ...simHeader(cmd, '4.2.0'),
+    `\x1b[90mDomain: ${domain}\x1b[0m`,
+    '',
+    `\x1b[32m[+]\x1b[0m mail.${domain}`,
+    `\x1b[32m[+]\x1b[0m api.${domain}`,
+    `\x1b[32m[+]\x1b[0m dev.${domain}`,
+    `\x1b[33m[+]\x1b[0m vpn.${domain}  ← VPN erişimi`,
+    `\x1b[33m[+]\x1b[0m jenkins.${domain}  ← CI/CD`,
+    '',
+    '\x1b[90m5 subdomain bulundu.\x1b[0m',
+  ]
+}
+
+function cmdTcpdump(cmd: string, _args: string[]): string[] {
+  if (cmd === 'wireshark') return [
+    '\x1b[33m[!]\x1b[0m Wireshark GUI uygulamasıdır.',
+    '\x1b[90m    Terminal için: tcpdump -i eth0 -w capture.pcap\x1b[0m',
+  ]
+  return [
+    ...simHeader('tcpdump', '4.99.4'),
+    '\x1b[90mListening on eth0 ...\x1b[0m',
+    '',
+    '12:04:01  IP 10.10.10.1.443  > 10.10.10.50.52341  Flags [P.] len 512',
+    '12:04:01  IP 10.10.10.50.52341 > 10.10.10.1.443   Flags [.] ack 513',
+    '12:04:02  IP 10.10.10.100.80 > 10.10.10.50.43210  Flags [P.] len 1024',
+    '\x1b[90m^C — Ctrl+C ile durdur\x1b[0m',
+  ]
+}
+
+function cmdNetcat(args: string[]): string[] {
+  const listen = args.includes('-l') || args.some(a => a.includes('lvnp'))
+  const port   = args.find(a => /^\d{2,5}$/.test(a)) ?? '4444'
+  const target = args.find(a => /^\d{1,3}\.\d/.test(a)) ?? '10.10.10.1'
+  if (listen) return [
+    `\x1b[90mListening on 0.0.0.0:${port} ...\x1b[0m`,
+    `\x1b[32mConnection received\x1b[0m from ${target}:54321`,
+    '\x1b[1;32m$\x1b[0m ',
+  ]
+  return [
+    `\x1b[90mConnecting to ${target}:${port} ...\x1b[0m`,
+    `\x1b[32m(UNKNOWN) [${target}] ${port} open\x1b[0m`,
+  ]
+}
+
+function cmdSsh(cmd: string, args: string[]): string[] {
+  const target = args.find(a => !a.startsWith('-')) ?? 'user@target.com'
+  return [
+    `\x1b[90m${cmd} ${target} — simülasyon modunda gerçek bağlantı yok.\x1b[0m`,
+  ]
 }
