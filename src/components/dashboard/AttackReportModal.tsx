@@ -1,6 +1,6 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
-import { X, FileText, Send, CheckCircle, AlertCircle, Tag, Users, Bot, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, FileText, Send, CheckCircle, AlertCircle, Tag, Users, Shield } from 'lucide-react';
 import type { AttackEvent } from '@/lib/dashboard-types';
 
 interface AttackReportModalProps {
@@ -8,6 +8,114 @@ interface AttackReportModalProps {
   open: boolean;
   onClose: () => void;
 }
+
+// ─── Static attack explanations (Turkish) ────────────────────────────────────
+
+function getAttackExplanation(type: string): { title: string; description: string; mitre: string } {
+  const t = type.toLowerCase();
+
+  if (t.includes('sql') || t.includes('sqli')) return {
+    title: 'SQL Injection (SQLi)',
+    description:
+      'SQL Injection, saldırganın uygulama giriş alanlarına kötü amaçlı SQL sorguları enjekte ederek veritabanı üzerinde yetkisiz işlemler gerçekleştirdiği bir saldırı vektörüdür. ' +
+      'Saldırgan; kullanıcı verilerini sızdırabilir, kimlik doğrulamayı atlayabilir veya veritabanını tamamen silebilir. ' +
+      'Klasik SQLi vektörleri: hata tabanlı, kör (blind) ve zamanlama tabanlı enjeksiyonlardır.',
+    mitre: 'MITRE ATT&CK: T1190 — Exploit Public-Facing Application',
+  };
+
+  if (t.includes('xss') || t.includes('cross-site scripting')) return {
+    title: 'Cross-Site Scripting (XSS)',
+    description:
+      'XSS saldırıları, saldırganın web sayfasına kötü amaçlı JavaScript kodu enjekte etmesiyle gerçekleşir. ' +
+      'Kurban tarayıcısında çalışan bu kod; oturum çerezlerini çalabilir, kullanıcıyı sahte sayfalara yönlendirebilir veya tuş kaydı yapabilir. ' +
+      'Reflected, Stored ve DOM-based olmak üzere üç ana türü vardır. Stored XSS en tehlikeli varyantıdır.',
+    mitre: 'MITRE ATT&CK: T1059.007 — JavaScript / XSS',
+  };
+
+  if (t.includes('rce') || t.includes('remote code')) return {
+    title: 'Remote Code Execution (RCE)',
+    description:
+      'RCE, saldırganın hedef sistemde uzaktan rastgele kod çalıştırabildiği kritik bir güvenlik açığıdır. ' +
+      'Genellikle işletim sistemi veya uygulama katmanındaki tampon taşması, deserialization veya komut enjeksiyonu zafiyetleri üzerinden tetiklenir. ' +
+      'Başarılı bir RCE, saldırgana tam sistem kontrolü sağlayabilir ve ağ içinde lateral movement için zemin hazırlar.',
+    mitre: 'MITRE ATT&CK: T1203 — Exploitation for Client Execution',
+  };
+
+  if (t.includes('ssh') || t.includes('brute') || t.includes('bruteforce')) return {
+    title: 'SSH Brute Force Saldırısı',
+    description:
+      'Brute force saldırısında saldırgan, hedef servise (genellikle SSH port 22) sistematik şifre kombinasyonları deneyerek yetkisiz erişim elde etmeye çalışır. ' +
+      'Sözlük saldırıları (dictionary attack), credential stuffing ve pure brute force yöntemleri kullanılır. ' +
+      'Başarılı bir SSH erişimi; sistem üzerinde kalıcı arka kapı kurulumu, veri sızdırma ve yatay hareket için kullanılabilir.',
+    mitre: 'MITRE ATT&CK: T1110 — Brute Force',
+  };
+
+  if (t.includes('ddos') || t.includes('dos') || t.includes('flood')) return {
+    title: 'DDoS / DoS Saldırısı',
+    description:
+      'Dağıtık Hizmet Engelleme (DDoS) saldırısında, botnet ağından gelen yüksek hacimli trafik hedef sistemi veya ağı kullanılamaz hale getirir. ' +
+      'Volumetric (UDP/ICMP flood), Protocol (SYN flood) ve Application Layer (HTTP flood) katmanlarında gerçekleşebilir. ' +
+      'Botnet altyapısı genellikle IoT cihazları veya ele geçirilmiş sunuculardan oluşur.',
+    mitre: 'MITRE ATT&CK: T1498 — Network Denial of Service',
+  };
+
+  if (t.includes('phishing') || t.includes('spear')) return {
+    title: 'Phishing / Spear Phishing',
+    description:
+      'Phishing, kullanıcıları sahte e-posta, sayfa veya mesajlar aracılığıyla kimlik bilgilerini açıklamaya veya zararlı yazılım çalıştırmaya ikna eden sosyal mühendislik saldırısıdır. ' +
+      'Spear phishing ise belirli bir hedef veya kuruluşa özel olarak hazırlanmış, çok daha ikna edici bir varyanttır. ' +
+      'Başarılı kimlik avı; credential harvest, malware deployment veya BEC (Business Email Compromise) ile sonuçlanabilir.',
+    mitre: 'MITRE ATT&CK: T1566 — Phishing',
+  };
+
+  if (t.includes('port') || t.includes('scan') || t.includes('recon')) return {
+    title: 'Port Tarama / Keşif (Reconnaissance)',
+    description:
+      'Port tarama, saldırganın hedef sistemdeki açık portları, çalışan servisleri ve güvenlik açıklarını tespit etmek amacıyla gerçekleştirdiği keşif faaliyetidir. ' +
+      'Nmap, Masscan gibi araçlarla TCP SYN, UDP ve servis versiyon taramaları yapılır. ' +
+      'Bu aşama genellikle bir saldırının ilk adımıdır ve hedef profili çıkarmak için kullanılır.',
+    mitre: 'MITRE ATT&CK: T1046 — Network Service Discovery',
+  };
+
+  if (t.includes('malware') || t.includes('ransomware') || t.includes('trojan')) return {
+    title: 'Malware / Zararlı Yazılım',
+    description:
+      'Zararlı yazılımlar; fidye yazılımı (ransomware), Truva atı (trojan), casus yazılım (spyware) ve rootkit gibi çeşitli biçimlerde karşımıza çıkar. ' +
+      'Genellikle phishing e-postaları, güvenli olmayan indirmeler veya exploit kitler aracılığıyla sisteme bulaşır. ' +
+      'Ransomware, dosyaları şifreleyerek fidye talep eder; trojanlar ise arka kapı açarak uzaktan komuta-kontrol (C2) bağlantısı kurar.',
+    mitre: 'MITRE ATT&CK: T1204 — User Execution / T1486 — Data Encrypted for Impact',
+  };
+
+  if (t.includes('lfi') || t.includes('rfi') || t.includes('file inclusion')) return {
+    title: 'File Inclusion (LFI/RFI)',
+    description:
+      'Local File Inclusion (LFI) ve Remote File Inclusion (RFI) saldırıları, web uygulamalarındaki dosya yükleme parametrelerinin yetersiz doğrulanmasından kaynaklanır. ' +
+      'LFI ile saldırgan /etc/passwd gibi yerel sistem dosyalarını okuyabilir; RFI ile uzak sunucudaki zararlı kod çalıştırılabilir. ' +
+      'Path traversal (../../../) teknikleri sıklıkla bu saldırılarla birlikte kullanılır.',
+    mitre: 'MITRE ATT&CK: T1190 — Exploit Public-Facing Application',
+  };
+
+  if (t.includes('mitm') || t.includes('man-in-the-middle') || t.includes('arp')) return {
+    title: 'Man-in-the-Middle (MitM) Saldırısı',
+    description:
+      'MitM saldırısında saldırgan, iki taraf arasındaki iletişime gizlice aracılık ederek veri trafiğini dinler veya değiştirir. ' +
+      'ARP poisoning, DNS spoofing ve SSL stripping bu saldırının yaygın teknikleridir. ' +
+      'Şifrelenmemiş protokoller (HTTP, FTP, Telnet) MitM saldırılarına en açık iletişim kanallarıdır.',
+    mitre: 'MITRE ATT&CK: T1557 — Adversary-in-the-Middle',
+  };
+
+  // Generic fallback
+  return {
+    title: type,
+    description:
+      `${type} saldırısı, hedef sisteme veya ağa yetkisiz erişim elde etmek ya da normal işleyişi bozmak amacıyla gerçekleştirilen bir siber saldırıdır. ` +
+      'Saldırının tam vektörü ve kullanılan teknikler, derinlemesine log analizi ve ağ trafiği incelemesiyle belirlenmelidir. ' +
+      'Olay müdahale ekibinin mevcut bulgular doğrultusunda detaylı bir inceleme başlatması önerilir.',
+    mitre: 'MITRE ATT&CK: Detaylı analiz gereklidir',
+  };
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function deriveTags(attack: AttackEvent): string[] {
   const type = attack.type.toLowerCase();
@@ -36,81 +144,39 @@ function toCategory(type: string): string {
   return 'NETWORK';
 }
 
-export default function AttackReportModal({ attack, open, onClose }: AttackReportModalProps) {
-  const [title,       setTitle]       = useState('');
-  const [content,     setContent]     = useState('');
-  const [severity,    setSeverity]    = useState('CRITICAL');
-  const [tags,        setTags]        = useState<string[]>([]);
-  const [tagInput,    setTagInput]    = useState('');
-  const [toCommunity, setToCommunity] = useState(false);
-  const [status,      setStatus]      = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [errorMsg,    setErrorMsg]    = useState('');
-  const [aiStatus,    setAiStatus]    = useState<'idle' | 'streaming' | 'done' | 'error'>('idle');
-  const abortRef = useRef<AbortController | null>(null);
+// ─── Component ────────────────────────────────────────────────────────────────
 
-  /* Pre-fill + trigger Claude stream */
+export default function AttackReportModal({ attack, open, onClose }: AttackReportModalProps) {
+  const [title,        setTitle]        = useState('');
+  const [severity,     setSeverity]     = useState('CRITICAL');
+  const [tags,         setTags]         = useState<string[]>([]);
+  const [tagInput,     setTagInput]     = useState('');
+  const [toCommunity,  setToCommunity]  = useState(false);
+  const [status,       setStatus]       = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMsg,     setErrorMsg]     = useState('');
+
+  // Editable analyst sections
+  const [bulgular,  setBulgular]  = useState('');
+  const [etki,      setEtki]      = useState('');
+  const [oneriler,  setOneriler]  = useState('');
+  const [savunma,   setSavunma]   = useState('');
+
+  // Derived static explanation
+  const [explanation, setExplanation] = useState<ReturnType<typeof getAttackExplanation> | null>(null);
+
   useEffect(() => {
     if (!attack || !open) return;
-
     const sev = attack.severity.toUpperCase();
     setTitle(`[${sev}] ${attack.type} — ${attack.sourceCountry} (${attack.sourceIP})`);
-    setContent('');
     setSeverity(sev);
     setTags(deriveTags(attack));
     setStatus('idle');
     setErrorMsg('');
-
-    // Abort any previous stream
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    setAiStatus('streaming');
-
-    (async () => {
-      try {
-        const res = await fetch('/api/analyze-attack', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sourceIP:      attack.sourceIP,
-            sourceCountry: attack.sourceCountry,
-            type:          attack.type,
-            targetPort:    attack.targetPort,
-            severity:      attack.severity,
-            time:          new Date(attack.createdAt).toLocaleString('tr-TR'),
-          }),
-          signal: controller.signal,
-        });
-
-        if (!res.ok || !res.body) {
-          setAiStatus('error');
-          setContent(
-            `## Saldırı Özeti\n\n` +
-            `**Kaynak IP:** ${attack.sourceIP}\n**Kaynak Ülke:** ${attack.sourceCountry}\n` +
-            `**Saldırı Tipi:** ${attack.type}\n**Hedef Port:** ${attack.targetPort}\n` +
-            `**Önem Seviyesi:** ${sev}\n\n## Bulgular\n\n[Analiz yapılamadı — API anahtarı eksik olabilir]\n\n## Etki Değerlendirmesi\n\n[...]\n\n## Öneriler\n\n[...]`
-          );
-          return;
-        }
-
-        const reader = res.body.getReader();
-        const dec = new TextDecoder();
-        let acc = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          acc += dec.decode(value, { stream: true });
-          setContent(acc);
-        }
-        setAiStatus('done');
-      } catch (e: unknown) {
-        if (e instanceof Error && e.name === 'AbortError') return;
-        setAiStatus('error');
-      }
-    })();
-
-    return () => controller.abort();
+    setBulgular('');
+    setEtki('');
+    setOneriler('');
+    setSavunma('');
+    setExplanation(getAttackExplanation(attack.type));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attack, open]);
 
@@ -119,12 +185,39 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
     if (t && !tags.includes(t)) setTags(prev => [...prev, t]);
     setTagInput('');
   };
-
   const removeTag = (t: string) => setTags(prev => prev.filter(x => x !== t));
 
+  const buildContent = () => [
+    `## Saldırı Özeti`,
+    ``,
+    `**Kaynak IP:** ${attack?.sourceIP}`,
+    `**Kaynak Ülke:** ${attack?.sourceCountry}`,
+    `**Saldırı Tipi:** ${attack?.type}`,
+    `**Hedef Port:** ${attack?.targetPort}`,
+    `**Önem Seviyesi:** ${severity}`,
+    `**Zaman:** ${attack ? new Date(attack.createdAt).toLocaleString('tr-TR') : ''}`,
+    ``,
+    `### Saldırı Hakkında`,
+    explanation?.description ?? '',
+    ``,
+    `_${explanation?.mitre ?? ''}_`,
+    ``,
+    `## Bulgular`,
+    bulgular || '[Analist notu girilmedi]',
+    ``,
+    `## Etki Değerlendirmesi`,
+    etki || '[Analist notu girilmedi]',
+    ``,
+    `## Öneriler`,
+    oneriler || '[Analist notu girilmedi]',
+    ``,
+    `## Savunma Hattı`,
+    savunma || '[Analist notu girilmedi]',
+  ].join('\n');
+
   const handleSubmit = async () => {
-    if (!title.trim() || !content.trim()) {
-      setErrorMsg('Başlık ve içerik zorunludur.');
+    if (!title.trim()) {
+      setErrorMsg('Başlık zorunludur.');
       setStatus('error');
       return;
     }
@@ -134,7 +227,7 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
       const res = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, content, severity, tags }),
+        body: JSON.stringify({ title, content: buildContent(), severity, tags }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({})) as { error?: string };
@@ -147,7 +240,7 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
           const newPost = {
             id: `report-${Date.now()}`,
             author: 'Ghost Admin', authorRole: 'Admin',
-            title, content,
+            title, content: buildContent(),
             category: toCategory(attack.type),
             difficulty: toDifficulty(attack.severity),
             tags, likes: [], comments: [],
@@ -165,48 +258,17 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
     }
   };
 
-  if (!open) return null;
+  if (!open || !attack) return null;
 
-  // AI status badge
-  const AiBadge = () => {
-    if (aiStatus === 'streaming') return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6,
-        background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)',
-        borderRadius: 4, padding: '3px 8px' }}>
-        <Loader2 size={11} style={{ color: '#a78bfa', animation: 'spin 1s linear infinite' }} />
-        <span style={{ fontSize: 10, color: '#a78bfa', fontWeight: 700, letterSpacing: '0.08em' }}>
-          CLAUDE ANALİZ EDİYOR
-        </span>
-      </div>
-    );
-    if (aiStatus === 'done') return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6,
-        background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)',
-        borderRadius: 4, padding: '3px 8px' }}>
-        <Bot size={11} style={{ color: '#4ade80' }} />
-        <span style={{ fontSize: 10, color: '#4ade80', fontWeight: 700, letterSpacing: '0.08em' }}>
-          AI ANALİZ TAMAMLANDI
-        </span>
-      </div>
-    );
-    if (aiStatus === 'error') return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6,
-        background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)',
-        borderRadius: 4, padding: '3px 8px' }}>
-        <span style={{ fontSize: 10, color: '#f87171', fontWeight: 700, letterSpacing: '0.08em' }}>
-          API ANAHTARI EKSİK
-        </span>
-      </div>
-    );
-    return null;
-  };
+  const sev = attack.severity.toUpperCase();
+  const sevColor = sev === 'CRITICAL' ? '#ef4444' : sev === 'HIGH' ? '#f97316' : '#eab308';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(6,0,15,0.85)', backdropFilter: 'blur(6px)' }}>
       <div className="w-full max-w-2xl flex flex-col rounded-lg border overflow-hidden font-mono"
         style={{ background: '#0d0018', borderColor: 'rgba(139,92,246,0.3)',
-          boxShadow: '0 0 60px rgba(139,92,246,0.12)', maxHeight: '90vh' }}>
+          boxShadow: '0 0 60px rgba(139,92,246,0.12)', maxHeight: '92vh' }}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-violet-500/20 shrink-0">
@@ -215,7 +277,13 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
             <span className="text-violet-400 font-bold tracking-widest text-xs uppercase">
               Saldırı İnceleme Raporu
             </span>
-            <AiBadge />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5,
+              background: 'rgba(239,68,68,0.08)', border: `1px solid ${sevColor}40`,
+              borderRadius: 4, padding: '2px 8px' }}>
+              <span style={{ fontSize: 9, color: sevColor, fontWeight: 700, letterSpacing: '0.1em' }}>
+                ● {sev}
+              </span>
+            </div>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors">
             <X className="w-4 h-4" />
@@ -237,9 +305,30 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
 
+            {/* Attack summary (read-only) */}
+            {explanation && (
+              <div className="rounded border p-4 space-y-2"
+                style={{ background: 'rgba(139,92,246,0.04)', borderColor: 'rgba(139,92,246,0.2)' }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Shield className="w-3.5 h-3.5 text-violet-400" />
+                  <span className="text-[10px] text-violet-400 font-bold tracking-widest uppercase">
+                    {explanation.title}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">{explanation.description}</p>
+                <p className="text-[10px] text-slate-600 italic">{explanation.mitre}</p>
+                <div className="pt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px] text-slate-500">
+                  <span><span className="text-slate-600">IP:</span> {attack.sourceIP}</span>
+                  <span><span className="text-slate-600">ÜLKE:</span> {attack.sourceCountry}</span>
+                  <span><span className="text-slate-600">PORT:</span> {attack.targetPort}</span>
+                  <span><span className="text-slate-600">ZAMAN:</span> {new Date(attack.createdAt).toLocaleString('tr-TR')}</span>
+                </div>
+              </div>
+            )}
+
             {/* Title */}
             <div className="space-y-1.5">
-              <label className="text-[9px] text-slate-500 tracking-widest uppercase">Başlık</label>
+              <label className="text-[9px] text-slate-500 tracking-widest uppercase">Rapor Başlığı</label>
               <input value={title} onChange={e => setTitle(e.target.value)}
                 className="w-full bg-[#06000f] border border-violet-900/40 rounded px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-violet-500/60 transition-colors"
                 placeholder="Rapor başlığı..." />
@@ -275,21 +364,24 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
               </div>
             </div>
 
-            {/* Content — streams in */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-[9px] text-slate-500 tracking-widest uppercase">Bulgular & Analiz</label>
-                {aiStatus === 'streaming' && (
-                  <span style={{ fontSize: 9, color: 'rgba(167,139,250,0.6)', letterSpacing: '0.08em' }}>
-                    ● YAZILIYOR...
-                  </span>
-                )}
+            {/* Analyst sections */}
+            {[
+              { label: 'Bulgular', value: bulgular, set: setBulgular,
+                placeholder: 'Bu saldırıda gözlemlenen teknik bulgular, IoC\'ler, saldırı vektörü...' },
+              { label: 'Etki Değerlendirmesi', value: etki, set: setEtki,
+                placeholder: 'Potansiyel etki, risk skoru, etkilenen sistemler, veri ihlali riski...' },
+              { label: 'Öneriler', value: oneriler, set: setOneriler,
+                placeholder: '1. IP engelle\n2. Port kapat\n3. Log incele\n4. Yama uygula...' },
+              { label: 'Savunma Hattı', value: savunma, set: setSavunma,
+                placeholder: 'Güvenlik duvarı kuralları, IDS/IPS imzaları, SIEM korelasyonu, hardening...' },
+            ].map(({ label, value, set, placeholder }) => (
+              <div key={label} className="space-y-1.5">
+                <label className="text-[9px] text-slate-500 tracking-widest uppercase">{label}</label>
+                <textarea value={value} onChange={e => set(e.target.value)} rows={3}
+                  className="w-full bg-[#06000f] border border-violet-900/40 rounded px-3 py-2 text-sm text-slate-300 font-mono resize-none focus:outline-none focus:border-violet-500/60 transition-colors leading-relaxed"
+                  placeholder={placeholder} />
               </div>
-              <textarea value={content} onChange={e => setContent(e.target.value)} rows={14}
-                className="w-full bg-[#06000f] border border-violet-900/40 rounded px-3 py-2 text-sm text-slate-300 font-mono resize-none focus:outline-none focus:border-violet-500/60 transition-colors leading-relaxed"
-                style={{ borderColor: aiStatus === 'streaming' ? 'rgba(139,92,246,0.5)' : undefined }}
-                placeholder={aiStatus === 'streaming' ? 'Claude analiz ediyor...' : 'Saldırı analizi ve bulgular...'} />
-            </div>
+            ))}
 
             {/* Community toggle */}
             <label className="flex items-center gap-3 cursor-pointer group">
@@ -325,13 +417,11 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
               İptal
             </button>
             <button onClick={handleSubmit}
-              disabled={status === 'loading' || aiStatus === 'streaming'}
+              disabled={status === 'loading'}
               className="flex items-center gap-2 px-5 py-2 rounded font-bold text-xs transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
               style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.45)', color: '#c084fc' }}>
               {status === 'loading'
                 ? <><span className="animate-spin w-3.5 h-3.5 border border-t-transparent border-violet-400 rounded-full" /> Gönderiliyor...</>
-                : aiStatus === 'streaming'
-                ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Analiz ediliyor...</>
                 : <><Send className="w-3.5 h-3.5" /> Raporu Kaydet</>
               }
             </button>
