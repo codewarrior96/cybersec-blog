@@ -565,18 +565,14 @@ function CurriculumTab({ onNavigateToTool }: { onNavigateToTool: (toolId: string
         <SectionHeader eyebrow="ÖĞRENME YOLU" title="Başlangıçtan Uzmanlığa"
           subtitle="Siber güvenlikte sıfırdan profesyonel seviyeye kapsamlı müfredat" />
 
-        <div style={{ position: 'relative' }}>
-          <div style={{ position: 'absolute', left: 23, top: 0, bottom: 0, width: 2,
-            background: 'linear-gradient(to bottom, #00ff41, #7c3aed)', opacity: 0.2 }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-            {MODULES.map((mod, i) => (
-              <ModuleCard key={mod.id} module={mod} index={i}
-                isExpanded={expanded === mod.id}
-                onToggle={() => setExpanded(prev => prev === mod.id ? null : mod.id)}
-                onNavigateToTool={onNavigateToTool}
-              />
-            ))}
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+          {MODULES.map((mod, i) => (
+            <ModuleCard key={mod.id} module={mod} index={i}
+              isExpanded={expanded === mod.id}
+              onToggle={() => setExpanded(prev => prev === mod.id ? null : mod.id)}
+              onNavigateToTool={onNavigateToTool}
+            />
+          ))}
         </div>
       </div>
     </div>
