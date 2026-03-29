@@ -1,1597 +1,617 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { useAuthStatus } from '@/lib/auth-client'
+import { useState } from 'react'
+import dynamic from 'next/dynamic'
+import { MODULES, TOOLS, CHALLENGES, TOOL_CATEGORIES } from '@/lib/lab/content'
+import { VALID_FLAGS } from '@/lib/lab/engine'
+import type { Module, ToolCard, Challenge, Difficulty } from '@/lib/lab/types'
+
+// Terminal dinamik import — SSR devre dışı (window/WebSocket)
+const Terminal = dynamic(() => import('@/components/lab/Terminal'), { ssr: false })
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Comment {
-  id: string
-  author: string
-  content: string
-  createdAt: string
-  likes: string[]
-}
-
-interface CommunityPost {
-  id: string
-  author: string
-  authorRole: string
-  title: string
-  content: string
-  category: 'CTF' | 'WEB' | 'PENTEST' | 'MALWARE' | 'OSINT' | 'NETWORK' | 'GENERAL'
-  difficulty: 'beginner' | 'intermediate' | 'advanced'
-  tags: string[]
-  likes: string[]
-  comments: Comment[]
-  createdAt: string
-  views: number
-}
-
-type CategoryType = CommunityPost['category'] | 'ALL'
-type DifficultyType = CommunityPost['difficulty'] | 'ALL'
-type SortType = 'newest' | 'popular' | 'views'
+type Tab = 'terminal' | 'curriculum' | 'tools' | 'setup'
+type ToolCategory = typeof TOOL_CATEGORIES[number]
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = 'community_posts'
-
-const CATEGORY_COLORS: Record<CommunityPost['category'], string> = {
-  CTF: '#00ff41',
-  WEB: '#3b82f6',
-  PENTEST: '#f59e0b',
-  MALWARE: '#ef4444',
-  OSINT: '#8b5cf6',
-  NETWORK: '#06b6d4',
-  GENERAL: 'rgba(100,116,139,1)',
+const DIFFICULTY_META: Record<Difficulty, { label: string; color: string }> = {
+  beginner:     { label: 'Başlangıç',  color: '#00ff41' },
+  intermediate: { label: 'Orta',       color: '#f59e0b' },
+  advanced:     { label: 'İleri',      color: '#ef4444' },
+  expert:       { label: 'Uzman',      color: '#7c3aed' },
 }
 
-const DIFFICULTY_COLORS: Record<CommunityPost['difficulty'], string> = {
-  beginner: '#00ff41',
-  intermediate: '#f59e0b',
-  advanced: '#ef4444',
-}
-
-const SEED_POSTS: CommunityPost[] = [
-  {
-    id: 'seed1',
-    author: 'ghost',
-    authorRole: 'Security Researcher',
-    title: 'SQL Injection ile Admin Panel Bypass',
-    content:
-      "Bu writeup'ta gerçek bir bug bounty programında bulduğum SQL injection açığını anlatacağım. Hedef site login formunda parameterized query kullanmıyordu...",
-    category: 'WEB',
-    difficulty: 'intermediate',
-    tags: ['sql', 'bypass', 'bugbounty'],
-    likes: ['user1', 'user2', 'user3'],
-    comments: [
-      {
-        id: 'c1',
-        author: 'user1',
-        content: 'Harika writeup, özellikle UNION based kısmı çok açıklayıcı!',
-        createdAt: new Date().toISOString(),
-        likes: [],
-      },
-    ],
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    views: 142,
-  },
-  {
-    id: 'seed2',
-    author: 'ghost',
-    authorRole: 'Security Researcher',
-    title: 'Linux Privilege Escalation: SUID Binaries',
-    content:
-      "CTF çözümünde karşılaştığım ilginç bir privesc vektörü. SUID bit'i aktif olan custom binary üzerinden root shell aldım...",
-    category: 'PENTEST',
-    difficulty: 'advanced',
-    tags: ['linux', 'privesc', 'ctf'],
-    likes: ['user2'],
-    comments: [],
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    views: 89,
-  },
-  {
-    id: 'seed3',
-    author: 'ghost',
-    authorRole: 'Security Researcher',
-    title: 'Wireshark ile Şifreli Trafik Analizi',
-    content:
-      'TLS trafiğini Wireshark ile nasıl analiz edebiliriz? Bu yazıda pre-master secret log dosyası kullanarak şifrelenmiş HTTPS trafiğini çözümlemeyi göstereceğim...',
-    category: 'NETWORK',
-    difficulty: 'beginner',
-    tags: ['wireshark', 'network', 'tls'],
-    likes: [],
-    comments: [],
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    views: 203,
-  },
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'terminal',   label: '⌨  Terminal'   },
+  { id: 'curriculum', label: '📚 Müfredat'   },
+  { id: 'tools',      label: '🛠  Araçlar'   },
+  { id: 'setup',      label: '⚙  Kurulum'   },
 ]
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return 'az önce'
-  if (minutes < 60) return `${minutes}d önce`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}sa önce`
-  const days = Math.floor(hours / 24)
-  return `${days} gün önce`
-}
+export default function LabPage() {
+  const [activeTab,      setActiveTab]      = useState<Tab>('terminal')
+  const [submittedFlags, setSubmittedFlags] = useState<Set<string>>(new Set())
 
-/* ── API helpers (with localStorage fallback) ── */
-async function fetchPostsFromAPI(): Promise<CommunityPost[]> {
-  try {
-    const res = await fetch('/api/community?limit=100', { cache: 'no-store' })
-    if (!res.ok) throw new Error('api error')
-    const data = await res.json() as { posts: CommunityPost[] }
-    // write-through cache
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data.posts))
-    return data.posts
-  } catch {
-    // fallback to localStorage
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as CommunityPost[]) : SEED_POSTS
+  function handleFlagSubmit(flag: string) {
+    setSubmittedFlags(prev => new Set([...Array.from(prev), flag]))
   }
-}
 
-async function apiLike(id: string, userId: string): Promise<CommunityPost | null> {
-  try {
-    const res = await fetch('/api/community', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'like', id, userId }),
-    })
-    const data = await res.json() as { post: CommunityPost }
-    return data.post ?? null
-  } catch { return null }
-}
+  const progress = submittedFlags.size
+  const total    = VALID_FLAGS.size
 
-async function apiComment(id: string, author: string, content: string): Promise<CommunityPost | null> {
-  try {
-    const res = await fetch('/api/community', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'comment', id, author, content }),
-    })
-    const data = await res.json() as { post: CommunityPost }
-    return data.post ?? null
-  } catch { return null }
-}
-
-async function apiCreatePost(post: Omit<CommunityPost, 'id' | 'likes' | 'comments' | 'createdAt' | 'views'>): Promise<CommunityPost | null> {
-  try {
-    const res = await fetch('/api/community', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'create', ...post }),
-    })
-    const data = await res.json() as { post: CommunityPost }
-    return data.post ?? null
-  } catch { return null }
-}
-
-// kept for compat — no longer primary write path
-function loadPosts(): CommunityPost[] {
-  if (typeof window === 'undefined') return SEED_POSTS
-  const raw = localStorage.getItem(STORAGE_KEY)
-  if (!raw) return SEED_POSTS
-  return JSON.parse(raw) as CommunityPost[]
-}
-
-function savePosts(posts: CommunityPost[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(posts))
-}
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function SkullAvatar({ size = 28 }: { size?: number }) {
   return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        border: '1px solid rgba(0,255,65,0.3)',
-        background: 'black',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-      }}
-    >
-      <svg
-        viewBox="0 0 100 120"
-        fill="#00ff41"
-        style={{ width: size * 0.55, height: size * 0.55 }}
-      >
-        <path d="M50 8 C28 8 12 24 12 46 C12 58 17 68 26 75 L26 95 C26 98 29 100 32 100 L44 100 L44 88 L56 88 L56 100 L68 100 C71 100 74 98 74 95 L74 75 C83 68 88 58 88 46 C88 24 72 8 50 8 Z M37 60 C32 60 28 56 28 51 C28 46 32 42 37 42 C42 42 46 46 46 51 C46 56 42 60 37 60 Z M63 60 C58 60 54 56 54 51 C54 46 58 42 63 42 C68 42 72 46 72 51 C72 56 68 60 63 60 Z" />
-      </svg>
+    <div style={{ minHeight: '100vh', background: '#000', color: '#e2e8f0', fontFamily: 'monospace' }}>
+      <PageHeader progress={progress} total={total} />
+      <TabBar activeTab={activeTab} onSelect={setActiveTab} />
+
+      <div style={{ height: 'calc(100vh - 110px)' }}>
+        {activeTab === 'terminal'   && <TerminalTab onFlagSubmit={handleFlagSubmit} />}
+        {activeTab === 'curriculum' && <CurriculumTab />}
+        {activeTab === 'tools'      && <ToolsTab />}
+        {activeTab === 'setup'      && <SetupTab />}
+      </div>
     </div>
   )
 }
 
-function HeartIcon({ filled }: { filled: boolean }) {
+// ─── Page Header ──────────────────────────────────────────────────────────────
+
+function PageHeader({ progress, total }: { progress: number; total: number }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill={filled ? '#ef4444' : 'none'}
-      stroke={filled ? '#ef4444' : 'currentColor'}
-      strokeWidth="2"
-      style={{ width: 16, height: 16 }}
-    >
-      <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
-    </svg>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '0.7rem 1.5rem', background: 'linear-gradient(90deg,#000 0%,#001206 100%)',
+      borderBottom: '1px solid rgba(0,255,65,0.15)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00ff41', boxShadow: '0 0 8px #00ff41' }} />
+        <span style={{ color: '#00ff41', fontWeight: 700, letterSpacing: '0.15em', fontSize: 13 }}>
+          BREACH LAB
+        </span>
+        <span style={{ color: 'rgba(0,255,65,0.4)', fontSize: 11 }}>
+          Siber Güvenlik Eğitim Platformu
+        </span>
+      </div>
+      <ProgressBadge progress={progress} total={total} />
+    </div>
   )
 }
 
-// ─── Post Card ────────────────────────────────────────────────────────────────
-
-function PostCard({
-  post,
-  isLoggedIn,
-  onLike,
-  onClick,
-}: {
-  post: CommunityPost
-  isLoggedIn: boolean
-  onLike: (id: string) => void
-  onClick: (post: CommunityPost) => void
-}) {
-  const [hovered, setHovered] = useState(false)
-  const liked = post.likes.includes('ghost')
-  const preview =
-    post.content.length > 120 ? post.content.slice(0, 120) + '...' : post.content
-
+function ProgressBadge({ progress, total }: { progress: number; total: number }) {
   return (
-    <div
-      onClick={() => onClick(post)}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: 'rgba(0,0,0,0.4)',
-        border: hovered ? '1px solid rgba(0,255,65,0.3)' : '1px solid rgba(255,255,255,0.06)',
-        marginBottom: 12,
-        cursor: 'pointer',
-        transition: 'all 300ms',
-        boxShadow: hovered ? '0 0 20px rgba(0,255,65,0.05)' : 'none',
-      }}
-    >
-      {/* Top bar */}
-      <div
-        style={{
-          background: 'rgba(0,255,65,0.03)',
-          borderBottom: '1px solid rgba(0,255,65,0.06)',
-          padding: '6px 16px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <span
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+      <span style={{ color: 'rgba(0,255,65,0.6)', fontSize: 11 }}>
+        🚩 {progress}/{total} bayrak
+      </span>
+      <div style={{ width: 80, height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2 }}>
+        <div style={{ width: `${(progress / total) * 100}%`, height: '100%',
+          background: '#00ff41', borderRadius: 2, transition: 'width 0.4s' }} />
+      </div>
+    </div>
+  )
+}
+
+// ─── Tab Bar ──────────────────────────────────────────────────────────────────
+
+function TabBar({ activeTab, onSelect }: { activeTab: Tab; onSelect: (t: Tab) => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 2, padding: '0 1.5rem',
+      borderBottom: '1px solid rgba(0,255,65,0.1)', background: '#000' }}>
+      {TABS.map(tab => (
+        <button
+          key={tab.id}
+          onClick={() => onSelect(tab.id)}
           style={{
-            fontSize: 8,
-            fontFamily: 'monospace',
-            color: CATEGORY_COLORS[post.category],
-            border: `1px solid ${CATEGORY_COLORS[post.category]}40`,
-            padding: '2px 8px',
+            padding: '0.45rem 1.2rem',
+            fontFamily: 'monospace', fontSize: 12, fontWeight: 700,
+            letterSpacing: '0.05em', cursor: 'pointer',
+            background: activeTab === tab.id ? 'rgba(0,255,65,0.1)' : 'transparent',
+            border: 'none',
+            borderBottom: activeTab === tab.id ? '2px solid #00ff41' : '2px solid transparent',
+            color: activeTab === tab.id ? '#00ff41' : 'rgba(0,255,65,0.4)',
+            transition: 'all 0.15s',
           }}
         >
-          [{post.category}]
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                background: DIFFICULTY_COLORS[post.difficulty],
-                display: 'inline-block',
-              }}
-            />
-            <span
-              style={{
-                fontSize: 8,
-                fontFamily: 'monospace',
-                color: DIFFICULTY_COLORS[post.difficulty],
-              }}
-            >
-              {post.difficulty.toUpperCase()}
-            </span>
-          </span>
-          <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'rgba(100,116,139,0.4)' }}>
-            {post.views} görüntüleme
-          </span>
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ─── Terminal Tab ─────────────────────────────────────────────────────────────
+
+function TerminalTab({ onFlagSubmit }: { onFlagSubmit: (flag: string) => void }) {
+  return (
+    <div style={{ height: '100%' }}>
+      <Terminal onFlagSubmit={onFlagSubmit} />
+    </div>
+  )
+}
+
+// ─── Curriculum Tab ───────────────────────────────────────────────────────────
+
+function CurriculumTab() {
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  return (
+    <div style={{ height: '100%', overflowY: 'auto', padding: '2rem 1.5rem' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto' }}>
+        <SectionHeader
+          eyebrow="ÖĞRENME YOLU"
+          title="Başlangıçtan Uzmanlığa"
+          subtitle="Siber güvenlikte sıfırdan profesyonel seviyeye kapsamlı müfredat"
+        />
+
+        <div style={{ position: 'relative' }}>
+          {/* Vertical timeline line */}
+          <div style={{ position: 'absolute', left: 23, top: 0, bottom: 0, width: 2,
+            background: 'linear-gradient(to bottom, #00ff41, #7c3aed)', opacity: 0.3 }} />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {MODULES.map((mod, i) => (
+              <ModuleCard
+                key={mod.id}
+                module={mod}
+                index={i}
+                isExpanded={expanded === mod.id}
+                onToggle={() => setExpanded(prev => prev === mod.id ? null : mod.id)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <ChallengesSection />
+      </div>
+    </div>
+  )
+}
+
+function ModuleCard({ module: mod, index, isExpanded, onToggle }: {
+  module: Module; index: number; isExpanded: boolean; onToggle: () => void
+}) {
+  const { label: diffLabel, color: diffColor } = DIFFICULTY_META[mod.difficulty]
+
+  return (
+    <div style={{ display: 'flex', gap: '1rem', paddingLeft: '0.5rem' }}>
+      {/* Timeline dot */}
+      <div style={{ flexShrink: 0, width: 48, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ width: 48, height: 48, borderRadius: 8, background: `${mod.color}15`,
+          border: `1px solid ${mod.color}40`, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', fontSize: 22 }}>
+          {mod.icon}
         </div>
       </div>
 
-      {/* Content */}
-      <div style={{ padding: '12px 16px' }}>
-        {/* Author row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <SkullAvatar size={24} />
-          <span style={{ color: '#00ff41', fontSize: 11, fontFamily: 'monospace' }}>
-            {post.author}
-          </span>
-          <span style={{ color: 'rgba(0,255,65,0.3)', fontSize: 8, fontFamily: 'monospace' }}>
-            [ SECURITY RESEARCHER ]
-          </span>
-          <span style={{ flex: 1 }} />
-          <span style={{ color: 'rgba(100,116,139,0.4)', fontSize: 8, fontFamily: 'monospace' }}>
-            {timeAgo(post.createdAt)}
-          </span>
-        </div>
-
-        {/* Title */}
-        <div
-          style={{
-            color: hovered ? '#00ff41' : 'rgba(255,255,255,0.9)',
-            fontSize: 14,
-            fontWeight: 'bold',
-            marginBottom: 6,
-            fontFamily: 'monospace',
-            transition: 'color 200ms',
-          }}
+      {/* Card */}
+      <div style={{ flex: 1, border: `1px solid ${isExpanded ? mod.color + '40' : 'rgba(255,255,255,0.07)'}`,
+        borderRadius: 8, overflow: 'hidden', transition: 'border-color 0.2s' }}>
+        <button
+          onClick={onToggle}
+          style={{ width: '100%', textAlign: 'left', padding: '1rem 1.25rem',
+            background: isExpanded ? `${mod.color}08` : 'rgba(255,255,255,0.02)',
+            border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
+            justifyContent: 'space-between' }}
         >
-          {post.title}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.2rem' }}>
+              <span style={{ color: '#94a3b8', fontSize: 11 }}>
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 14, fontFamily: 'monospace' }}>
+                {mod.title}
+              </span>
+              <span style={{ padding: '1px 8px', borderRadius: 3, fontSize: 10, fontWeight: 700,
+                background: `${diffColor}18`, color: diffColor, border: `1px solid ${diffColor}35` }}>
+                {diffLabel}
+              </span>
+            </div>
+            <span style={{ color: 'rgba(148,163,184,0.7)', fontSize: 12 }}>{mod.subtitle}</span>
+          </div>
+          <span style={{ color: 'rgba(148,163,184,0.5)', fontSize: 18, transition: 'transform 0.2s',
+            transform: isExpanded ? 'rotate(90deg)' : 'none' }}>›</span>
+        </button>
+
+        {isExpanded && (
+          <div style={{ padding: '0 1.25rem 1.25rem', borderTop: `1px solid ${mod.color}20` }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+              <div>
+                <p style={{ color: 'rgba(0,255,65,0.6)', fontSize: 11, letterSpacing: '0.1em', marginBottom: '0.6rem' }}>
+                  KONULAR
+                </p>
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  {mod.topics.map(topic => (
+                    <li key={topic} style={{ color: 'rgba(226,232,240,0.75)', fontSize: 12, display: 'flex', gap: '0.4rem' }}>
+                      <span style={{ color: mod.color, flexShrink: 0 }}>›</span>
+                      {topic}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p style={{ color: 'rgba(0,255,65,0.6)', fontSize: 11, letterSpacing: '0.1em', marginBottom: '0.6rem' }}>
+                  KAYNAKLAR
+                </p>
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {mod.resources.map(r => (
+                    <li key={r.url}>
+                      <a href={r.url} target="_blank" rel="noopener noreferrer"
+                        style={{ color: '#60a5fa', fontSize: 12, textDecoration: 'none', display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                        <span>↗</span> {r.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ChallengesSection() {
+  return (
+    <div style={{ marginTop: '3rem' }}>
+      <SectionHeader eyebrow="PRATİK" title="CTF Görevleri" subtitle="Terminalde çöz, bayrak gönder" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.75rem' }}>
+        {CHALLENGES.map(ch => <ChallengeCard key={ch.level} challenge={ch} />)}
+      </div>
+    </div>
+  )
+}
+
+function ChallengeCard({ challenge: ch }: { challenge: Challenge }) {
+  return (
+    <div style={{ border: `1px solid ${ch.color}25`, borderRadius: 6, padding: '1rem',
+      background: `${ch.color}05` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+        <span style={{ color: ch.color, fontWeight: 800, fontSize: 20, fontFamily: 'monospace' }}>
+          {String(ch.level).padStart(2, '0')}
+        </span>
+        <div>
+          <div style={{ color: ch.color, fontWeight: 700, fontSize: 13 }}>{ch.title}</div>
+          <span style={{ padding: '1px 6px', borderRadius: 2, fontSize: 9, fontWeight: 700,
+            background: `${ch.color}20`, color: ch.color }}>{ch.difficulty}</span>
+        </div>
+      </div>
+      <p style={{ color: 'rgba(226,232,240,0.6)', fontSize: 12, lineHeight: 1.5, margin: 0 }}>
+        {ch.description}
+      </p>
+      <code style={{ display: 'block', marginTop: '0.6rem', padding: '0.4rem 0.6rem',
+        background: 'rgba(0,0,0,0.5)', borderRadius: 4, fontSize: 11, color: 'rgba(0,255,65,0.7)' }}>
+        cd {ch.path} && cat mission.txt
+      </code>
+    </div>
+  )
+}
+
+// ─── Tools Tab ────────────────────────────────────────────────────────────────
+
+function ToolsTab() {
+  const [category, setCategory] = useState<ToolCategory>('Tümü')
+  const [search,   setSearch]   = useState('')
+  const [selected, setSelected] = useState<ToolCard | null>(null)
+
+  const filtered = TOOLS.filter(t => {
+    const matchCat = category === 'Tümü' || t.category === category
+    const q = search.toLowerCase()
+    const matchSearch = !q || t.name.toLowerCase().includes(q) ||
+      t.description.toLowerCase().includes(q) ||
+      t.tags.some(tag => tag.includes(q))
+    return matchCat && matchSearch
+  })
+
+  return (
+    <div style={{ display: 'flex', height: '100%' }}>
+      {/* Left panel */}
+      <div style={{ width: 280, borderRight: '1px solid rgba(255,255,255,0.06)',
+        overflowY: 'auto', background: '#050505' }}>
+        <div style={{ padding: '1rem' }}>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Araç ara..."
+            style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 6, padding: '0.5rem 0.75rem', color: '#e2e8f0', fontSize: 12,
+              fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box' }}
+          />
         </div>
 
-        {/* Preview */}
-        <div
-          style={{
-            color: 'rgba(100,116,139,0.6)',
-            fontSize: 11,
-            lineHeight: 1.6,
-            fontFamily: 'monospace',
-          }}
-        >
-          {preview}
-        </div>
-
-        {/* Tags */}
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
-          {post.tags.map((tag) => (
-            <span
-              key={tag}
-              style={{
-                fontSize: 8,
-                color: 'rgba(0,255,65,0.4)',
-                border: '1px solid rgba(0,255,65,0.15)',
-                padding: '2px 6px',
-                fontFamily: 'monospace',
-              }}
-            >
-              #{tag}
-            </span>
+        <div style={{ padding: '0 0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.75rem' }}>
+          {TOOL_CATEGORIES.map(cat => (
+            <button key={cat} onClick={() => setCategory(cat)}
+              style={{ padding: '2px 10px', borderRadius: 12, fontSize: 11, cursor: 'pointer',
+                fontFamily: 'monospace', border: '1px solid',
+                borderColor: category === cat ? '#00ff41' : 'rgba(255,255,255,0.1)',
+                background: category === cat ? 'rgba(0,255,65,0.12)' : 'transparent',
+                color: category === cat ? '#00ff41' : 'rgba(255,255,255,0.4)' }}>
+              {cat}
+            </button>
           ))}
         </div>
-      </div>
 
-      {/* Bottom bar */}
-      <div
-        style={{
-          borderTop: '1px solid rgba(255,255,255,0.04)',
-          padding: '8px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-        }}
-      >
-        {/* Like */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            if (!isLoggedIn) {
-              alert('Beğenmek için giriş yapmalısınız')
-              return
-            }
-            onLike(post.id)
-          }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            cursor: 'pointer',
-            background: 'none',
-            border: 'none',
-            color: liked ? '#ef4444' : 'rgba(100,116,139,0.4)',
-            fontFamily: 'monospace',
-            fontSize: 10,
-          }}
-        >
-          <HeartIcon filled={liked} />
-          {post.likes.length}
-        </button>
-
-        {/* Comments */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            color: 'rgba(100,116,139,0.4)',
-            fontFamily: 'monospace',
-            fontSize: 10,
-          }}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            style={{ width: 14, height: 14 }}
-          >
-            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-          </svg>
-          {post.comments.length}
-        </div>
-
-        <span
-          style={{
-            marginLeft: 'auto',
-            fontSize: 9,
-            fontFamily: 'monospace',
-            color: hovered ? '#00ff41' : 'rgba(0,255,65,0.4)',
-            transition: 'color 200ms',
-          }}
-        >
-          DETAY →
-        </span>
-      </div>
-    </div>
-  )
-}
-
-// ─── Post Detail Modal ────────────────────────────────────────────────────────
-
-function PostDetailModal({
-  post,
-  isLoggedIn,
-  onClose,
-  onLike,
-  onLikeComment,
-  onAddComment,
-}: {
-  post: CommunityPost
-  isLoggedIn: boolean
-  onClose: () => void
-  onLike: (id: string) => void
-  onLikeComment: (postId: string, commentId: string) => void
-  onAddComment: (postId: string, content: string) => void
-}) {
-  const [commentText, setCommentText] = useState('')
-  const liked = post.likes.includes('ghost')
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    background: 'rgba(0,0,0,0.6)',
-    border: '1px solid rgba(0,255,65,0.15)',
-    color: 'rgba(255,255,255,0.9)',
-    fontFamily: 'monospace',
-    fontSize: 12,
-    padding: '10px 14px',
-    outline: 'none',
-    transition: 'all 200ms',
-    boxSizing: 'border-box',
-    resize: 'vertical' as const,
-  }
-
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 50,
-        background: 'rgba(0,0,0,0.85)',
-        backdropFilter: 'blur(4px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          maxWidth: 768,
-          width: '100%',
-          margin: '0 16px',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          background: '#050508',
-          border: '1px solid rgba(0,255,65,0.2)',
-          position: 'relative',
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            background: 'rgba(0,255,65,0.03)',
-            borderBottom: '1px solid rgba(0,255,65,0.06)',
-            padding: '8px 16px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span
-              style={{
-                fontSize: 8,
-                fontFamily: 'monospace',
-                color: CATEGORY_COLORS[post.category],
-                border: `1px solid ${CATEGORY_COLORS[post.category]}40`,
-                padding: '2px 8px',
-              }}
-            >
-              [{post.category}]
-            </span>
-            <span
-              style={{
-                fontSize: 8,
-                fontFamily: 'monospace',
-                color: DIFFICULTY_COLORS[post.difficulty],
-              }}
-            >
-              {post.difficulty.toUpperCase()}
-            </span>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'rgba(0,255,65,0.4)',
-              fontFamily: 'monospace',
-              fontSize: 11,
+        {filtered.map(tool => (
+          <button key={tool.id} onClick={() => setSelected(tool)}
+            style={{ width: '100%', textAlign: 'left', padding: '0.75rem 1rem', border: 'none',
+              borderBottom: '1px solid rgba(255,255,255,0.04)',
+              background: selected?.id === tool.id ? 'rgba(0,255,65,0.06)' : 'transparent',
               cursor: 'pointer',
-            }}
-          >
-            [ X ]
+              borderLeft: selected?.id === tool.id ? '2px solid #00ff41' : '2px solid transparent' }}>
+            <div style={{ color: selected?.id === tool.id ? '#00ff41' : '#e2e8f0',
+              fontSize: 13, fontWeight: 600, fontFamily: 'monospace' }}>
+              {tool.name}
+            </div>
+            <div style={{ color: 'rgba(148,163,184,0.6)', fontSize: 11, marginTop: 2 }}>
+              {tool.category}
+            </div>
           </button>
-        </div>
+        ))}
+      </div>
 
-        {/* Body */}
-        <div style={{ padding: '24px 16px' }}>
-          {/* Author */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <SkullAvatar size={28} />
-            <span style={{ color: '#00ff41', fontSize: 11, fontFamily: 'monospace' }}>
-              {post.author}
-            </span>
-            <span style={{ color: 'rgba(0,255,65,0.3)', fontSize: 8, fontFamily: 'monospace' }}>
-              [ SECURITY RESEARCHER ]
-            </span>
-            <span style={{ flex: 1 }} />
-            <span style={{ color: 'rgba(100,116,139,0.4)', fontSize: 8, fontFamily: 'monospace' }}>
-              {timeAgo(post.createdAt)}
-            </span>
+      {/* Right panel */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+        {selected ? <ToolDetail tool={selected} /> : (
+          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'rgba(255,255,255,0.2)', fontFamily: 'monospace', fontSize: 13 }}>
+            ← Soldan bir araç seç
           </div>
-
-          {/* Title */}
-          <div
-            style={{
-              fontSize: 20,
-              fontWeight: 'bold',
-              color: 'white',
-              marginBottom: 16,
-              fontFamily: 'monospace',
-            }}
-          >
-            {post.title}
-          </div>
-
-          {/* Content */}
-          <div
-            style={{
-              color: 'rgba(200,200,200,0.8)',
-              fontSize: 13,
-              lineHeight: 1.8,
-              fontFamily: 'monospace',
-              whiteSpace: 'pre-wrap',
-              marginBottom: 16,
-            }}
-          >
-            {post.content}
-          </div>
-
-          {/* Tags */}
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 20 }}>
-            {post.tags.map((tag) => (
-              <span
-                key={tag}
-                style={{
-                  fontSize: 8,
-                  color: 'rgba(0,255,65,0.4)',
-                  border: '1px solid rgba(0,255,65,0.15)',
-                  padding: '2px 6px',
-                  fontFamily: 'monospace',
-                }}
-              >
-                #{tag}
-              </span>
-            ))}
-          </div>
-
-          {/* Like + Share */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              paddingBottom: 20,
-              borderBottom: '1px solid rgba(0,255,65,0.1)',
-              marginBottom: 20,
-            }}
-          >
-            <button
-              onClick={() => {
-                if (!isLoggedIn) {
-                  alert('Beğenmek için giriş yapmalısınız')
-                  return
-                }
-                onLike(post.id)
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 16px',
-                background: liked ? 'rgba(239,68,68,0.1)' : 'rgba(0,0,0,0.4)',
-                border: liked ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(255,255,255,0.1)',
-                color: liked ? '#ef4444' : 'rgba(100,116,139,0.6)',
-                fontFamily: 'monospace',
-                fontSize: 11,
-                cursor: 'pointer',
-              }}
-            >
-              <HeartIcon filled={liked} />
-              {post.likes.length} Beğeni
-            </button>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href + '?post=' + post.id)
-                alert('Link kopyalandı!')
-              }}
-              style={{
-                padding: '8px 16px',
-                background: 'rgba(0,0,0,0.4)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: 'rgba(100,116,139,0.6)',
-                fontFamily: 'monospace',
-                fontSize: 11,
-                cursor: 'pointer',
-              }}
-            >
-              [ PAYLAŞ ]
-            </button>
-          </div>
-
-          {/* Comments */}
-          <div
-            style={{
-              color: '#00ff41',
-              fontSize: 12,
-              fontFamily: 'monospace',
-              borderBottom: '1px solid rgba(0,255,65,0.1)',
-              paddingBottom: 8,
-              marginBottom: 16,
-            }}
-          >
-            // yorumlar ({post.comments.length})
-          </div>
-
-          {post.comments.map((comment) => {
-            const commentLiked = comment.likes.includes('ghost')
-            return (
-              <div
-                key={comment.id}
-                style={{
-                  display: 'flex',
-                  gap: 12,
-                  paddingTop: 12,
-                  paddingBottom: 12,
-                  borderBottom: '1px solid rgba(255,255,255,0.04)',
-                }}
-              >
-                <SkullAvatar size={28} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <span style={{ color: '#00ff41', fontSize: 11, fontFamily: 'monospace' }}>
-                      {comment.author}
-                    </span>
-                    <span
-                      style={{ color: 'rgba(100,116,139,0.4)', fontSize: 8, fontFamily: 'monospace' }}
-                    >
-                      {timeAgo(comment.createdAt)}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: 'rgba(200,200,200,0.7)',
-                      lineHeight: 1.6,
-                      fontFamily: 'monospace',
-                      marginBottom: 6,
-                    }}
-                  >
-                    {comment.content}
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (!isLoggedIn) return
-                      onLikeComment(post.id, comment.id)
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      background: 'none',
-                      border: 'none',
-                      color: commentLiked ? '#ef4444' : 'rgba(100,116,139,0.4)',
-                      fontFamily: 'monospace',
-                      fontSize: 9,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <HeartIcon filled={commentLiked} />
-                    {comment.likes.length}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-
-          {post.comments.length === 0 && (
-            <div
-              style={{
-                color: 'rgba(100,116,139,0.3)',
-                fontSize: 11,
-                fontFamily: 'monospace',
-                textAlign: 'center',
-                padding: '20px 0',
-              }}
-            >
-              // henüz yorum yok — ilk yorumu sen yaz
-            </div>
-          )}
-
-          {/* Add comment */}
-          {isLoggedIn && (
-            <div style={{ marginTop: 20 }}>
-              <textarea
-                rows={3}
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Yorumunu yaz..."
-                style={inputStyle}
-                onFocus={(e) => {
-                  e.target.style.borderColor = 'rgba(0,255,65,0.5)'
-                  e.target.style.boxShadow = '0 0 10px rgba(0,255,65,0.08)'
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = 'rgba(0,255,65,0.15)'
-                  e.target.style.boxShadow = 'none'
-                }}
-              />
-              <button
-                onClick={() => {
-                  if (!commentText.trim()) return
-                  onAddComment(post.id, commentText.trim())
-                  setCommentText('')
-                }}
-                style={{
-                  marginTop: 8,
-                  padding: '8px 20px',
-                  fontFamily: 'monospace',
-                  fontSize: 10,
-                  fontWeight: 'bold',
-                  letterSpacing: '0.1em',
-                  cursor: 'pointer',
-                  background: 'rgba(0,255,65,0.1)',
-                  border: '1px solid rgba(0,255,65,0.5)',
-                  color: '#00ff41',
-                  transition: 'all 200ms',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(0,255,65,0.2)'
-                  e.currentTarget.style.boxShadow = '0 0 20px rgba(0,255,65,0.2)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(0,255,65,0.1)'
-                  e.currentTarget.style.boxShadow = 'none'
-                }}
-              >
-                [ YORUM EKLE ]
-              </button>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   )
 }
 
-// ─── New Post Form Modal ──────────────────────────────────────────────────────
-
-function NewPostForm({
-  onClose,
-  onSubmit,
-}: {
-  onClose: () => void
-  onSubmit: (post: CommunityPost) => void
-}) {
-  const [title, setTitle] = useState('')
-  const [category, setCategory] = useState<CommunityPost['category']>('GENERAL')
-  const [difficulty, setDifficulty] = useState<CommunityPost['difficulty']>('beginner')
-  const [content, setContent] = useState('')
-  const [tagsInput, setTagsInput] = useState('')
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    background: 'rgba(0,0,0,0.6)',
-    border: '1px solid rgba(0,255,65,0.15)',
-    color: 'rgba(255,255,255,0.9)',
-    fontFamily: 'monospace',
-    fontSize: 12,
-    padding: '10px 14px',
-    outline: 'none',
-    transition: 'all 200ms',
-    boxSizing: 'border-box',
-  }
-
-  const labelStyle: React.CSSProperties = {
-    color: 'rgba(0,255,65,0.5)',
-    fontSize: 9,
-    fontFamily: 'monospace',
-    marginBottom: 6,
-    display: 'block',
-  }
-
-  const handleSubmit = () => {
-    if (!title.trim() || !content.trim()) return
-    const newPost: CommunityPost = {
-      id: Date.now().toString(),
-      author: 'ghost',
-      authorRole: 'Security Researcher',
-      title: title.trim(),
-      content: content.trim(),
-      category,
-      difficulty,
-      tags: tagsInput
-        .split(',')
-        .map((t) => t.trim().toLowerCase())
-        .filter(Boolean),
-      likes: [],
-      comments: [],
-      createdAt: new Date().toISOString(),
-      views: 0,
-    }
-    onSubmit(newPost)
-  }
-
+function ToolDetail({ tool }: { tool: ToolCard }) {
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 50,
-        background: 'rgba(0,0,0,0.8)',
-        backdropFilter: 'blur(4px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          maxWidth: 672,
-          width: '100%',
-          margin: '0 16px',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          background: '#050508',
-          border: '1px solid rgba(0,255,65,0.25)',
-          padding: '24px 16px',
-          position: 'relative',
-        }}
-      >
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <span
-            style={{
-              color: '#00ff41',
-              fontSize: 14,
-              fontFamily: 'monospace',
-              fontWeight: 'bold',
-            }}
-          >
-            [ YENİ POST OLUŞTUR ]
+    <div style={{ maxWidth: 700 }}>
+      <div style={{ marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+          <h2 style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 22, fontWeight: 800, margin: 0 }}>
+            {tool.name}
+          </h2>
+          <span style={{ padding: '2px 10px', borderRadius: 12, fontSize: 11,
+            background: 'rgba(0,255,65,0.1)', color: '#00ff41', border: '1px solid rgba(0,255,65,0.25)' }}>
+            {tool.category}
           </span>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'rgba(0,255,65,0.4)',
-              fontFamily: 'monospace',
-              fontSize: 11,
-              cursor: 'pointer',
-            }}
-          >
-            [ X ]
-          </button>
         </div>
+        <p style={{ color: 'rgba(226,232,240,0.7)', fontSize: 13, lineHeight: 1.7, margin: 0 }}>
+          {tool.description}
+        </p>
+      </div>
 
-        {/* Title */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>BAŞLIK:</label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            style={inputStyle}
-            onFocus={(e) => {
-              e.target.style.borderColor = 'rgba(0,255,65,0.5)'
-              e.target.style.boxShadow = '0 0 10px rgba(0,255,65,0.08)'
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = 'rgba(0,255,65,0.15)'
-              e.target.style.boxShadow = 'none'
-            }}
-          />
+      <CodeBlock label="Kurulum" code={tool.install} />
+
+      <Section title="Önemli Parametreler">
+        <div style={{ display: 'grid', gap: '0.4rem' }}>
+          {tool.flags.map(f => (
+            <div key={f.flag} style={{ display: 'flex', gap: '1rem', padding: '0.5rem 0.75rem',
+              borderRadius: 4, background: 'rgba(255,255,255,0.02)', alignItems: 'flex-start' }}>
+              <code style={{ color: '#00ff41', fontSize: 12, minWidth: 140, flexShrink: 0,
+                fontFamily: 'monospace' }}>{f.flag}</code>
+              <span style={{ color: 'rgba(226,232,240,0.65)', fontSize: 12 }}>{f.description}</span>
+            </div>
+          ))}
         </div>
+      </Section>
 
-        {/* Category */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>KATEGORİ:</label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value as CommunityPost['category'])}
-            style={{ ...inputStyle, appearance: 'none' as const }}
-            onFocus={(e) => {
-              e.target.style.borderColor = 'rgba(0,255,65,0.5)'
-              e.target.style.boxShadow = '0 0 10px rgba(0,255,65,0.08)'
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = 'rgba(0,255,65,0.15)'
-              e.target.style.boxShadow = 'none'
-            }}
-          >
-            {(['CTF', 'WEB', 'PENTEST', 'MALWARE', 'OSINT', 'NETWORK', 'GENERAL'] as const).map(
-              (cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              )
-            )}
-          </select>
+      <Section title="Kullanım Örnekleri">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {tool.examples.map((ex, i) => (
+            <div key={i} style={{ borderRadius: 6, overflow: 'hidden',
+              border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div style={{ background: '#111', padding: '0.75rem 1rem' }}>
+                <pre style={{ margin: 0, color: '#e2e8f0', fontSize: 12, fontFamily: 'monospace',
+                  whiteSpace: 'pre-wrap' }}>{ex.command}</pre>
+              </div>
+              <div style={{ padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.02)',
+                color: 'rgba(148,163,184,0.7)', fontSize: 11 }}>
+                {ex.description}
+              </div>
+            </div>
+          ))}
         </div>
+      </Section>
 
-        {/* Difficulty */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>ZORLUK SEVİYESİ:</label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {(['beginner', 'intermediate', 'advanced'] as const).map((d) => (
-              <button
-                key={d}
-                onClick={() => setDifficulty(d)}
-                style={{
-                  padding: '6px 14px',
-                  fontFamily: 'monospace',
-                  fontSize: 9,
-                  cursor: 'pointer',
-                  background:
-                    difficulty === d
-                      ? `${DIFFICULTY_COLORS[d]}18`
-                      : 'transparent',
-                  border:
-                    difficulty === d
-                      ? `1px solid ${DIFFICULTY_COLORS[d]}80`
-                      : '1px solid rgba(255,255,255,0.1)',
-                  color: difficulty === d ? DIFFICULTY_COLORS[d] : 'rgba(100,116,139,0.5)',
-                  transition: 'all 200ms',
-                }}
-              >
-                {d.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Content */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>İÇERİK:</label>
-          <textarea
-            rows={8}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            required
-            placeholder="Deneyimini anlat... Teknikler, araçlar, öğrendiklerin..."
-            style={{ ...inputStyle, resize: 'vertical' }}
-            onFocus={(e) => {
-              e.target.style.borderColor = 'rgba(0,255,65,0.5)'
-              e.target.style.boxShadow = '0 0 10px rgba(0,255,65,0.08)'
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = 'rgba(0,255,65,0.15)'
-              e.target.style.boxShadow = 'none'
-            }}
-          />
-        </div>
-
-        {/* Tags */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={labelStyle}>ETİKETLER: (virgülle ayır)</label>
-          <input
-            type="text"
-            value={tagsInput}
-            onChange={(e) => setTagsInput(e.target.value)}
-            placeholder="sql, injection, bypass"
-            style={inputStyle}
-            onFocus={(e) => {
-              e.target.style.borderColor = 'rgba(0,255,65,0.5)'
-              e.target.style.boxShadow = '0 0 10px rgba(0,255,65,0.08)'
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = 'rgba(0,255,65,0.15)'
-              e.target.style.boxShadow = 'none'
-            }}
-          />
-        </div>
-
-        {/* Submit */}
-        <button
-          onClick={handleSubmit}
-          style={{
-            width: '100%',
-            paddingTop: 12,
-            paddingBottom: 12,
-            fontFamily: 'monospace',
-            fontSize: 12,
-            fontWeight: 'bold',
-            letterSpacing: '0.1em',
-            cursor: 'pointer',
-            background: 'rgba(0,255,65,0.1)',
-            border: '1px solid rgba(0,255,65,0.5)',
-            color: '#00ff41',
-            transition: 'all 200ms',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(0,255,65,0.2)'
-            e.currentTarget.style.boxShadow = '0 0 20px rgba(0,255,65,0.2)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(0,255,65,0.1)'
-            e.currentTarget.style.boxShadow = 'none'
-          }}
-        >
-          [ POSTU YAYINLA ]
-        </button>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '1.5rem' }}>
+        {tool.tags.map(tag => (
+          <span key={tag} style={{ padding: '2px 10px', borderRadius: 12, fontSize: 11,
+            background: 'rgba(255,255,255,0.05)', color: 'rgba(148,163,184,0.6)',
+            border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'monospace' }}>
+            #{tag}
+          </span>
+        ))}
       </div>
     </div>
   )
 }
 
-// ─── Sidebar Widgets ──────────────────────────────────────────────────────────
+// ─── Setup Tab ────────────────────────────────────────────────────────────────
 
-function SidebarWidget({ title, children }: { title: string; children: React.ReactNode }) {
+function SetupTab() {
   return (
-    <div
-      style={{
-        background: 'rgba(0,0,0,0.4)',
-        border: '1px solid rgba(255,255,255,0.06)',
-        padding: 16,
-        marginBottom: 16,
-      }}
-    >
-      <div
-        style={{
-          color: 'rgba(0,255,65,0.4)',
-          fontSize: 9,
-          fontFamily: 'monospace',
-          marginBottom: 12,
-          letterSpacing: '0.05em',
-        }}
-      >
-        {title}
+    <div style={{ height: '100%', overflowY: 'auto', padding: '2rem 1.5rem' }}>
+      <div style={{ maxWidth: 760, margin: '0 auto' }}>
+        <SectionHeader
+          eyebrow="GERÇEK SUNUCU"
+          title="Terminal Kurulum Rehberi"
+          subtitle="node-pty + WebSocket ile tarayıcıdan gerçek Linux shell"
+        />
+
+        <InfoBox type="warning">
+          Bu kurulum bir <strong>VPS veya yerel sunucu</strong> gerektirir.
+          Vercel gibi serverless platformlarda çalışmaz (process spawn + persistent WebSocket).
+          <br /><br />
+          Önerilen: <strong>DigitalOcean Droplet $6/ay</strong> veya yerel Ubuntu makinesi.
+        </InfoBox>
+
+        <Section title="1. Sunucu Kurulumu">
+          <CodeBlock label="Ubuntu 22.04 — Gereksinimler" code={`# Node.js 20 kur
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
+sudo apt install -y nodejs build-essential python3
+
+# node-pty için derleme araçları
+sudo apt install -y libpty-dev`} />
+        </Section>
+
+        <Section title="2. Terminal Server Oluştur">
+          <CodeBlock label="terminal-server/server.js" code={`const { WebSocketServer } = require('ws')
+const pty = require('node-pty')
+
+const wss = new WebSocketServer({ port: 3001 })
+
+wss.on('connection', (ws) => {
+  // Her bağlantı için ayrı shell process
+  const shell = pty.spawn('bash', [], {
+    name: 'xterm-256color',
+    cols: 120,
+    rows: 35,
+    cwd: '/home/operator',
+    env: {
+      ...process.env,
+      PS1: '\\\\u@breach-lab:\\\\w$ ',
+      HOME: '/home/operator',
+      USER: 'operator',
+    },
+  })
+
+  // Shell → Browser
+  shell.onData((data) => ws.send(data))
+
+  // Browser → Shell
+  ws.on('message', (data) => shell.write(data))
+
+  // Temizlik
+  ws.on('close', () => shell.kill())
+})`} />
+
+          <CodeBlock label="Bağımlılıklar" code={`cd terminal-server
+npm init -y
+npm install ws node-pty
+node server.js`} />
+        </Section>
+
+        <Section title="3. Güvenli Kullanıcı Ortamı">
+          <CodeBlock label="Sandbox kullanıcı oluştur" code={`# Kısıtlı operator kullanıcısı
+sudo useradd -m -s /bin/bash operator
+sudo passwd operator
+
+# İzole dizin
+sudo mkdir -p /home/operator/challenges
+sudo chown -R operator:operator /home/operator
+
+# Sadece belirli komutlara izin ver (opsiyonel)
+# /etc/sudoers.d/operator dosyası ile kısıtla`} />
+        </Section>
+
+        <Section title="4. Next.js'e Bağla">
+          <CodeBlock label="Sayfada wsUrl prop'unu ver" code={`// src/app/community/page.tsx
+<Terminal wsUrl="ws://sunucu-ip:3001" onFlagSubmit={handleFlagSubmit} />
+
+// .env.local
+NEXT_PUBLIC_TERMINAL_WS=ws://sunucu-ip:3001`} />
+        </Section>
+
+        <Section title="5. Production — Nginx + SSL">
+          <CodeBlock label="/etc/nginx/sites-available/breach-lab" code={`server {
+  listen 443 ssl;
+  server_name terminal.siteniz.com;
+
+  ssl_certificate /etc/letsencrypt/live/terminal.siteniz.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/terminal.siteniz.com/privkey.pem;
+
+  location /terminal {
+    proxy_pass http://localhost:3001;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "Upgrade";
+    proxy_set_header Host $host;
+  }
+}`} />
+
+          <InfoBox type="info">
+            SSL ile birlikte WebSocket adresi <code>wss://</code> olur.
+            <br />
+            <code>NEXT_PUBLIC_TERMINAL_WS=wss://terminal.siteniz.com/terminal</code>
+          </InfoBox>
+        </Section>
+
+        <Section title="Mimariye Genel Bakış">
+          <div style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)',
+            borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)', fontFamily: 'monospace', fontSize: 12,
+            color: 'rgba(226,232,240,0.7)', lineHeight: 2 }}>
+            <div style={{ color: '#00ff41' }}>Tarayıcı (xterm.js)</div>
+            <div style={{ paddingLeft: '1rem' }}>↕ WebSocket (ws:// veya wss://)</div>
+            <div style={{ color: '#60a5fa' }}>Node.js Server (node-pty)</div>
+            <div style={{ paddingLeft: '1rem' }}>↕ PTY (pseudo-terminal)</div>
+            <div style={{ color: '#f59e0b' }}>Bash Process (/home/operator)</div>
+          </div>
+        </Section>
       </div>
+    </div>
+  )
+}
+
+// ─── Shared UI Helpers ────────────────────────────────────────────────────────
+
+function SectionHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle: string }) {
+  return (
+    <div style={{ marginBottom: '2rem' }}>
+      <p style={{ color: 'rgba(0,255,65,0.5)', fontSize: 11, letterSpacing: '0.2em',
+        textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+        {eyebrow}
+      </p>
+      <h2 style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 22,
+        fontFamily: 'monospace', margin: '0 0 0.4rem' }}>
+        {title}
+      </h2>
+      <p style={{ color: 'rgba(148,163,184,0.7)', fontSize: 13, margin: 0 }}>{subtitle}</p>
+    </div>
+  )
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: '2rem' }}>
+      <h3 style={{ color: '#00ff41', fontFamily: 'monospace', fontSize: 14,
+        fontWeight: 700, letterSpacing: '0.05em', margin: '0 0 0.75rem',
+        borderBottom: '1px solid rgba(0,255,65,0.15)', paddingBottom: '0.4rem' }}>
+        {title}
+      </h3>
       {children}
     </div>
   )
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
-const POPULAR_TAGS = [
-  '#sql', '#xss', '#ctf', '#linux', '#privesc',
-  '#network', '#malware', '#osint', '#pentest', '#crypto',
-]
-
-const MEMBERS = [
-  { name: 'ghost', status: 'online' as const },
-  { name: 'r3d_phantom', status: 'online' as const },
-  { name: 'n3t_hunter', status: 'away' as const },
-]
-
-export default function CommunityPage() {
-  const authStatus = useAuthStatus()
-  const [posts, setPosts] = useState<CommunityPost[]>([])
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [isDesktop, setIsDesktop] = useState(false)
-  const [showForm, setShowForm] = useState(false)
-  const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null)
-
-  const [categoryFilter, setCategoryFilter] = useState<CategoryType>('ALL')
-  const [difficultyFilter, setDifficultyFilter] = useState<DifficultyType>('ALL')
-  const [sort, setSort] = useState<SortType>('newest')
-  const [tagFilter, setTagFilter] = useState<string | null>(null)
-
-  useEffect(() => {
-    setIsDesktop(window.innerWidth >= 1024)
-    // Load from API first, fallback to localStorage
-    void fetchPostsFromAPI().then(setPosts)
-    const handleResize = () => setIsDesktop(window.innerWidth >= 1024)
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
-  useEffect(() => {
-    setIsLoggedIn(authStatus === true)
-  }, [authStatus])
-
-  const refresh = useCallback(() => {
-    void fetchPostsFromAPI().then((fresh) => {
-      setPosts(fresh)
-      if (selectedPost) {
-        const updated = fresh.find((p) => p.id === selectedPost.id)
-        if (updated) setSelectedPost(updated)
-      }
-    })
-  }, [selectedPost])
-
-  const handleLike = useCallback((postId: string) => {
-    // Optimistic update
-    setPosts(prev => {
-      const updated = prev.map((p) => {
-        if (p.id !== postId) return p
-        const alreadyLiked = p.likes.includes('ghost')
-        return { ...p, likes: alreadyLiked ? p.likes.filter(u => u !== 'ghost') : [...p.likes, 'ghost'] }
-      })
-      savePosts(updated)
-      if (selectedPost?.id === postId) setSelectedPost(updated.find(p => p.id === postId) ?? null)
-      return updated
-    })
-    // Sync to API
-    void apiLike(postId, 'ghost').then(post => {
-      if (post) setPosts(prev => prev.map(p => p.id === postId ? post : p))
-    })
-  }, [selectedPost])
-
-  const handleLikeComment = useCallback((postId: string, commentId: string) => {
-    setPosts(prev => {
-      const updated = prev.map((p) => {
-        if (p.id !== postId) return p
-        return {
-          ...p,
-          comments: p.comments.map((c) => {
-            if (c.id !== commentId) return c
-            const liked = c.likes.includes('ghost')
-            return { ...c, likes: liked ? c.likes.filter(u => u !== 'ghost') : [...c.likes, 'ghost'] }
-          }),
-        }
-      })
-      savePosts(updated)
-      if (selectedPost?.id === postId) setSelectedPost(updated.find(p => p.id === postId) ?? null)
-      return updated
-    })
-  }, [selectedPost])
-
-  const handleAddComment = useCallback((postId: string, content: string) => {
-    // Optimistic update
-    const newComment: Comment = {
-      id: Date.now().toString(), author: 'ghost', content,
-      createdAt: new Date().toISOString(), likes: [],
-    }
-    setPosts(prev => {
-      const updated = prev.map(p => p.id !== postId ? p : { ...p, comments: [...p.comments, newComment] })
-      savePosts(updated)
-      if (selectedPost?.id === postId) setSelectedPost(updated.find(p => p.id === postId) ?? null)
-      return updated
-    })
-    // Sync to API
-    void apiComment(postId, 'ghost', content).then(post => {
-      if (post) setPosts(prev => prev.map(p => p.id === postId ? post : p))
-    })
-  }, [selectedPost])
-
-  const handleNewPost = useCallback((post: CommunityPost) => {
-    // Try API first, fallback to local
-    void apiCreatePost({
-      author: post.author, authorRole: post.authorRole,
-      title: post.title, content: post.content,
-      category: post.category, difficulty: post.difficulty, tags: post.tags,
-    }).then(created => {
-      const final = created ?? post
-      setPosts(prev => { const updated = [final, ...prev]; savePosts(updated); return updated })
-    })
-    setShowForm(false)
-  }, [])
-
-  // Filter + sort
-  let filtered = [...posts]
-  if (categoryFilter !== 'ALL') filtered = filtered.filter((p) => p.category === categoryFilter)
-  if (difficultyFilter !== 'ALL') filtered = filtered.filter((p) => p.difficulty === difficultyFilter)
-  if (tagFilter) filtered = filtered.filter((p) => p.tags.includes(tagFilter.replace('#', '')))
-
-  if (sort === 'newest') filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-  else if (sort === 'popular') filtered.sort((a, b) => b.likes.length - a.likes.length)
-  else filtered.sort((a, b) => b.views - a.views)
-
-  const totalLikes = posts.reduce((acc, p) => acc + p.likes.length, 0)
-  const totalComments = posts.reduce((acc, p) => acc + p.comments.length, 0)
-
-  const pillBase: React.CSSProperties = {
-    fontFamily: 'monospace',
-    fontSize: 9,
-    padding: '4px 10px',
-    cursor: 'pointer',
-    transition: 'all 200ms',
-    border: '1px solid rgba(255,255,255,0.1)',
-    color: 'rgba(100,116,139,0.5)',
-    background: 'transparent',
-  }
-
+function CodeBlock({ label, code }: { label: string; code: string }) {
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#08080f',
-        fontFamily: 'monospace',
-      }}
-    >
-      {/* Page Header */}
-      <div
-        style={{
-          borderBottom: '1px solid rgba(0,255,65,0.1)',
-          padding: isDesktop ? '20px 24px' : '20px 16px',
-          background: '#050508',
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-        }}
-      >
-        <div>
-          <div
-            style={{
-              color: '#00ff41',
-              fontSize: 18,
-              fontWeight: 'bold',
-              letterSpacing: '0.2em',
-              fontFamily: 'monospace',
-            }}
-          >
-            [ COMMUNITY INTEL ]
-          </div>
-          <div
-            style={{
-              color: 'rgba(100,116,139,0.6)',
-              fontSize: 11,
-              fontFamily: 'monospace',
-              marginTop: 4,
-            }}
-          >
-            Topluluk deneyimlerini paylaş — Öğren, paylaş, büyü
-          </div>
-        </div>
-        {isLoggedIn && (
-          <button
-            onClick={() => setShowForm(true)}
-            style={{
-              padding: '8px 16px',
-              fontFamily: 'monospace',
-              fontSize: 11,
-              cursor: 'pointer',
-              background: 'rgba(0,255,65,0.08)',
-              border: '1px solid rgba(0,255,65,0.4)',
-              color: '#00ff41',
-              transition: 'all 200ms',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(0,255,65,0.15)'
-              e.currentTarget.style.boxShadow = '0 0 15px rgba(0,255,65,0.2)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(0,255,65,0.08)'
-              e.currentTarget.style.boxShadow = 'none'
-            }}
-          >
-            + YENİ POST
-          </button>
-        )}
+    <div style={{ marginBottom: '1rem', borderRadius: 6, overflow: 'hidden',
+      border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div style={{ padding: '0.4rem 1rem', background: 'rgba(255,255,255,0.04)',
+        color: 'rgba(148,163,184,0.6)', fontSize: 11, fontFamily: 'monospace',
+        borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        {label}
       </div>
+      <pre style={{ margin: 0, padding: '0.75rem 1rem', background: '#0a0a0a',
+        color: '#e2e8f0', fontSize: 12, fontFamily: 'monospace',
+        overflowX: 'auto', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+        {code}
+      </pre>
+    </div>
+  )
+}
 
-      {/* Filter Bar */}
-      <div
-        style={{
-          padding: isDesktop ? '12px 24px' : '12px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
-          background: 'rgba(5,5,8,0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          flexWrap: 'wrap',
-        }}
-      >
-        {/* Category filters */}
-        {(['ALL', 'CTF', 'WEB', 'PENTEST', 'MALWARE', 'OSINT', 'NETWORK', 'GENERAL'] as const).map(
-          (cat) => (
-            <button
-              key={cat}
-              onClick={() => setCategoryFilter(cat)}
-              style={{
-                ...pillBase,
-                ...(categoryFilter === cat
-                  ? {
-                      border: '1px solid rgba(0,255,65,0.6)',
-                      color: '#00ff41',
-                      background: 'rgba(0,255,65,0.08)',
-                    }
-                  : {}),
-              }}
-              onMouseEnter={(e) => {
-                if (categoryFilter !== cat) {
-                  e.currentTarget.style.borderColor = 'rgba(0,255,65,0.3)'
-                  e.currentTarget.style.color = 'rgba(0,255,65,0.6)'
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (categoryFilter !== cat) {
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
-                  e.currentTarget.style.color = 'rgba(100,116,139,0.5)'
-                }
-              }}
-            >
-              {cat}
-            </button>
-          )
-        )}
-
-        <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
-
-        {/* Difficulty filters */}
-        {(['ALL', 'beginner', 'intermediate', 'advanced'] as const).map((d) => (
-          <button
-            key={d}
-            onClick={() => setDifficultyFilter(d)}
-            style={{
-              ...pillBase,
-              ...(difficultyFilter === d
-                ? {
-                    border: '1px solid rgba(245,158,11,0.6)',
-                    color: '#f59e0b',
-                    background: 'rgba(245,158,11,0.08)',
-                  }
-                : {}),
-            }}
-            onMouseEnter={(e) => {
-              if (difficultyFilter !== d) {
-                e.currentTarget.style.borderColor = 'rgba(245,158,11,0.3)'
-                e.currentTarget.style.color = 'rgba(245,158,11,0.6)'
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (difficultyFilter !== d) {
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
-                e.currentTarget.style.color = 'rgba(100,116,139,0.5)'
-              }
-            }}
-          >
-            {d === 'ALL' ? 'ALL' : d.toUpperCase()}
-          </button>
-        ))}
-
-        <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
-
-        {/* Sort */}
-        {(
-          [
-            { key: 'newest', label: 'EN YENİ' },
-            { key: 'popular', label: 'EN POPÜLER' },
-            { key: 'views', label: 'EN ÇOK GÖRÜNTÜLENEN' },
-          ] as { key: SortType; label: string }[]
-        ).map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setSort(key)}
-            style={{
-              ...pillBase,
-              ...(sort === key
-                ? {
-                    border: '1px solid rgba(0,255,65,0.4)',
-                    color: 'rgba(0,255,65,0.8)',
-                    background: 'rgba(0,255,65,0.05)',
-                  }
-                : {}),
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Stats bar */}
-      <div
-        style={{
-          padding: isDesktop ? '8px 24px' : '8px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
-          display: 'flex',
-          gap: 24,
-        }}
-      >
-        {[
-          `[ ${posts.length} POST ]`,
-          `[ ${totalLikes} BEĞENİ ]`,
-          `[ ${totalComments} YORUM ]`,
-        ].map((stat) => (
-          <span
-            key={stat}
-            style={{ color: 'rgba(0,255,65,0.4)', fontSize: 9, fontFamily: 'monospace' }}
-          >
-            {stat}
-          </span>
-        ))}
-      </div>
-
-      {/* Main grid */}
-      <div
-        style={{
-          padding: isDesktop ? '24px' : '16px',
-          display: 'grid',
-          gridTemplateColumns: isDesktop ? '1fr 1fr 1fr' : '1fr',
-          gap: 24,
-        }}
-      >
-        {/* Left: posts (2 cols on desktop) */}
-        <div style={{ gridColumn: isDesktop ? 'span 2' : 'span 1' }}>
-          {filtered.length === 0 ? (
-            <div
-              style={{
-                color: 'rgba(100,116,139,0.4)',
-                fontFamily: 'monospace',
-                fontSize: 12,
-                textAlign: 'center',
-                paddingTop: 40,
-              }}
-            >
-              // Filtrelere uyan post bulunamadı
-            </div>
-          ) : (
-            filtered.map((post) => (
-              <PostCard
-                key={post.id}
-                post={post}
-                isLoggedIn={isLoggedIn}
-                onLike={handleLike}
-                onClick={(p) => setSelectedPost(p)}
-              />
-            ))
-          )}
-        </div>
-
-        {/* Right: sidebar */}
-        <div>
-          {/* Active members */}
-          <SidebarWidget title="// aktif üyeler">
-            {MEMBERS.map((member) => (
-              <div
-                key={member.name}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}
-              >
-                <div
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    background: member.status === 'online' ? '#00ff41' : '#f59e0b',
-                    flexShrink: 0,
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontFamily: 'monospace',
-                    color:
-                      member.name === 'ghost' ? '#00ff41' : 'rgba(255,255,255,0.7)',
-                  }}
-                >
-                  {member.name === 'ghost' ? '[ GHOST ]' : member.name}
-                </span>
-              </div>
-            ))}
-          </SidebarWidget>
-
-          {/* Popular tags */}
-          <SidebarWidget title="// popüler etiketler">
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {POPULAR_TAGS.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
-                  style={{
-                    fontSize: 9,
-                    fontFamily: 'monospace',
-                    padding: '3px 8px',
-                    cursor: 'pointer',
-                    transition: 'all 200ms',
-                    background:
-                      tagFilter === tag ? 'rgba(0,255,65,0.1)' : 'transparent',
-                    border:
-                      tagFilter === tag
-                        ? '1px solid rgba(0,255,65,0.4)'
-                        : '1px solid rgba(0,255,65,0.15)',
-                    color:
-                      tagFilter === tag ? '#00ff41' : 'rgba(0,255,65,0.4)',
-                  }}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </SidebarWidget>
-
-          {/* Community stats */}
-          <SidebarWidget title="// topluluk istatistikleri">
-            {[
-              { label: 'Toplam Post', value: posts.length.toString() },
-              { label: 'Üyeler', value: '3' },
-              { label: 'Bu Hafta', value: posts.filter((p) => Date.now() - new Date(p.createdAt).getTime() < 604800000).length.toString() },
-              {
-                label: 'En Aktif',
-                value: (() => {
-                  const counts: Record<string, number> = {}
-                  posts.forEach((p) => { counts[p.category] = (counts[p.category] ?? 0) + 1 })
-                  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '-'
-                })(),
-              },
-            ].map(({ label, value }) => (
-              <div
-                key={label}
-                style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}
-              >
-                <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(100,116,139,0.5)' }}>
-                  {label}
-                </span>
-                <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(0,255,65,0.7)' }}>
-                  {value}
-                </span>
-              </div>
-            ))}
-          </SidebarWidget>
-        </div>
-      </div>
-
-      {/* Modals */}
-      {showForm && (
-        <NewPostForm onClose={() => setShowForm(false)} onSubmit={handleNewPost} />
-      )}
-
-      {selectedPost && (
-        <PostDetailModal
-          post={selectedPost}
-          isLoggedIn={isLoggedIn}
-          onClose={() => setSelectedPost(null)}
-          onLike={handleLike}
-          onLikeComment={handleLikeComment}
-          onAddComment={handleAddComment}
-        />
-      )}
+function InfoBox({ type, children }: { type: 'warning' | 'info'; children: React.ReactNode }) {
+  const color = type === 'warning' ? '#f59e0b' : '#60a5fa'
+  return (
+    <div style={{ padding: '1rem 1.25rem', borderRadius: 6, marginBottom: '1.5rem',
+      border: `1px solid ${color}30`, background: `${color}08`,
+      color: 'rgba(226,232,240,0.75)', fontSize: 13, lineHeight: 1.7,
+      borderLeft: `3px solid ${color}` }}>
+      {children}
     </div>
   )
 }
