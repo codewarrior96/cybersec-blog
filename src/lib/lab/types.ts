@@ -41,6 +41,7 @@ export interface Module {
   icon: string
   topics: string[]
   resources: Resource[]
+  toolIds: string[]          // araç-modül çapraz bağlantı
 }
 
 export interface Resource {
@@ -57,6 +58,9 @@ export interface ToolCard {
   flags: Flag[]
   examples: Example[]
   tags: string[]
+  difficulty: Difficulty     // öğrenme zorluğu
+  version: string            // ör: "7.94"
+  os: string[]               // ör: ['Linux', 'Windows', 'macOS']
 }
 
 export interface Flag {
@@ -77,4 +81,12 @@ export interface Challenge {
   color: string
   description: string
   flagKey: string
+  hints: string[]            // 3 kademeli ipucu
+}
+
+// ─── Terminal Command Injection ────────────────────────────────────────────────
+
+export interface PendingCommand {
+  cmd: string
+  id: number   // Date.now() — aynı komut tekrar gönderilebilsin
 }

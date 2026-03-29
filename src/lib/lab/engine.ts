@@ -14,6 +14,11 @@ export const VALID_FLAGS: ReadonlySet<string> = new Set([
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+/** Flag doğrulama helper — CTFTab bağımsız kullanabilsin */
+export function isValidFlag(flag: string): boolean {
+  return VALID_FLAGS.has(flag.trim())
+}
+
 /** Runs a raw command string (supports pipes). Returns output lines. */
 export function runCommand(raw: string, ctx: CommandContext): string[] {
   const trimmed = raw.trim()

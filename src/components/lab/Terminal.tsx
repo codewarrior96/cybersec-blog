@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import AnsiText from './AnsiText'
 import { runCommand, VALID_FLAGS } from '@/lib/lab/engine'
 import { resolvePath, getNode } from '@/lib/lab/filesystem'
-import type { CommandContext, TerminalLine } from '@/lib/lab/types'
+import type { CommandContext, TerminalLine, PendingCommand } from '@/lib/lab/types'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -13,7 +13,7 @@ const HOME = '/home/operator'
 const MOTD: string[] = [
   '\x1b[1;32m╔══════════════════════════════════════════════════════════╗\x1b[0m',
   '\x1b[1;32m║\x1b[0m  \x1b[1mBREACH LAB\x1b[0m — Ubuntu 22.04.3 LTS Eğitim Terminali       \x1b[1;32m║\x1b[0m',
-  '\x1b[1;32m║\x1b[0m  \x1b[90mGerçek sunucu için bkz. → Kurulum Rehberi sekmesi\x1b[0m        \x1b[1;32m║\x1b[0m',
+  '\x1b[1;32m║\x1b[0m  \x1b[90mGerçek sunucu için .env → NEXT_PUBLIC_TERMINAL_WS=ws://...\x1b[0m \x1b[1;32m║\x1b[0m',
   '\x1b[1;32m╚══════════════════════════════════════════════════════════╝\x1b[0m',
   '\x1b[90mYardım: \x1b[0mhelp\x1b[90m  |  Görevler: \x1b[0mcd challenges && cat README.txt\x1b[0m',
   '',
@@ -60,13 +60,17 @@ function tabComplete(input: string, cwd: string): string | null {
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
-  wsUrl?:        string
-  onFlagSubmit?: (flag: string) => void
+  wsUrl?:             string
+  onFlagSubmit?:      (flag: string) => void
+  pendingCommand?:    PendingCommand | null
+  onCommandConsumed?: () => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function Terminal({ wsUrl, onFlagSubmit }: Props) {
+export default function Terminal({ wsUrl, onFlagSubmit, pendingCommand, onCommandConsumed }: Props) {
+  // Env var'dan gelen wsUrl varsa kullan (prop yoksa)
+  const resolvedWsUrl = wsUrl ?? process.env.NEXT_PUBLIC_TERMINAL_WS
   const [cwd,     setCwd]     = useState(HOME)
   const [lines,   setLines]   = useState<TerminalLine[]>(() => MOTD.map(t => mkLine(t)))
   const [input,   setInput]   = useState('')
@@ -81,12 +85,19 @@ export default function Terminal({ wsUrl, onFlagSubmit }: Props) {
 
   cwdRef.current = cwd
 
+  // ── Pending command injection (from content panel) ───────────────────────
+  useEffect(() => {
+    if (!pendingCommand) return
+    execute(pendingCommand.cmd)
+    onCommandConsumed?.()
+  }, [pendingCommand?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── WebSocket setup ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (!wsUrl) { setWsStatus('simulated'); return }
+    if (!resolvedWsUrl) { setWsStatus('simulated'); return }
     setWsStatus('connecting')
 
-    const ws = new WebSocket(wsUrl)
+    const ws = new WebSocket(resolvedWsUrl)
     wsRef.current = ws
 
     ws.onopen    = () => setWsStatus('connected')
@@ -96,7 +107,7 @@ export default function Terminal({ wsUrl, onFlagSubmit }: Props) {
       setLines(prev => [...prev, mkLine(e.data)])
 
     return () => { ws.close(); wsRef.current = null }
-  }, [wsUrl])
+  }, [resolvedWsUrl])
 
   // ── Auto-scroll ──────────────────────────────────────────────────────────
   useEffect(() => {
