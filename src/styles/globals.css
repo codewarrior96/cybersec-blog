@@ -1029,9 +1029,6 @@
 
 /* ── 640px: small mobile ── */
 @media (max-width: 640px) {
-  .nb2-retro-segment {
-    display: none;
-  }
 
   .nb2-root {
     height: calc(56px + env(safe-area-inset-top));
@@ -1075,6 +1072,25 @@
     margin-left: auto;
   }
 
+  /* Clock — brand metni gizlenince clock geniş kalır */
+  .nb2-brand-copy {
+    display: none;
+  }
+
+  .nb2-retro-clock {
+    width: clamp(160px, 44vw, 200px);
+  }
+
+  .nb2-retro-time {
+    font-size: 13px;
+    letter-spacing: 0.10em;
+  }
+
+  .nb2-retro-segment {
+    font-size: 8px;
+    padding: 1px 5px;
+    letter-spacing: 0.06em;
+  }
 
   .nb2-menu-btn {
     width: 36px;
