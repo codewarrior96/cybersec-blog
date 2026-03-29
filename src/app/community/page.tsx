@@ -40,7 +40,7 @@ const MOBILE_TABS: { id: MobileTab; icon: string; label: string }[] = [
 
 export default function LabPage() {
   const [contentTab,     setContentTab]     = useState<ContentTab>('curriculum')
-  const [mobileTab,      setMobileTab]      = useState<MobileTab>('terminal')
+  const [mobileTab,      setMobileTab]      = useState<MobileTab>('curriculum')
   const [submittedFlags, setSubmittedFlags] = useState<Set<string>>(new Set())
 
   // ── Çapraz panel komut enjeksiyonu ──────────────────────────────────────
@@ -137,9 +137,10 @@ export default function LabPage() {
     return null
   }
 
+  // display intentionally omitted — Tailwind hidden/flex classes control visibility
   const shellStyle: React.CSSProperties = {
     height: 'calc(100vh - 64px)',
-    display: 'flex', flexDirection: 'column',
+    flexDirection: 'column',
     background: '#000', color: '#e2e8f0',
     fontFamily: '"JetBrains Mono", "Fira Code", monospace',
     overflow: 'hidden',
