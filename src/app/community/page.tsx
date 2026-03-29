@@ -44,11 +44,16 @@ export default function LabPage() {
   const total    = VALID_FLAGS.size
 
   return (
-    <div style={{ minHeight: '100vh', background: '#000', color: '#e2e8f0', fontFamily: 'monospace' }}>
+    <div style={{
+      height: 'calc(100vh - 64px)',   /* 64px = sticky NavigationBar height */
+      display: 'flex', flexDirection: 'column',
+      background: '#000', color: '#e2e8f0', fontFamily: 'monospace',
+      overflow: 'hidden',
+    }}>
       <PageHeader progress={progress} total={total} />
       <TabBar activeTab={activeTab} onSelect={setActiveTab} />
 
-      <div style={{ height: 'calc(100vh - 110px)' }}>
+      <div style={{ flex: 1, minHeight: 0 }}>
         {activeTab === 'terminal'   && <TerminalTab onFlagSubmit={handleFlagSubmit} />}
         {activeTab === 'curriculum' && <CurriculumTab />}
         {activeTab === 'tools'      && <ToolsTab />}
@@ -62,16 +67,23 @@ export default function LabPage() {
 
 function PageHeader({ progress, total }: { progress: number; total: number }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0.7rem 1.5rem', background: 'linear-gradient(90deg,#000 0%,#001206 100%)',
-      borderBottom: '1px solid rgba(0,255,65,0.15)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#00ff41', boxShadow: '0 0 8px #00ff41' }} />
-        <span style={{ color: '#00ff41', fontWeight: 700, letterSpacing: '0.15em', fontSize: 13 }}>
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '10px 20px', flexShrink: 0,
+      background: 'linear-gradient(90deg, #050f05 0%, #071407 100%)',
+      borderBottom: '1px solid #00ff41',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{
+          width: 9, height: 9, borderRadius: '50%',
+          background: '#00ff41', boxShadow: '0 0 10px #00ff41, 0 0 20px #00ff4188',
+          flexShrink: 0,
+        }} />
+        <span style={{ color: '#00ff41', fontWeight: 800, letterSpacing: '0.2em', fontSize: 14 }}>
           BREACH LAB
         </span>
-        <span style={{ color: 'rgba(0,255,65,0.4)', fontSize: 11 }}>
-          Siber Güvenlik Eğitim Platformu
+        <span style={{ color: '#4ade80', fontSize: 12, opacity: 0.8 }}>
+          — Siber Güvenlik Eğitim Platformu
         </span>
       </div>
       <ProgressBadge progress={progress} total={total} />
@@ -81,13 +93,17 @@ function PageHeader({ progress, total }: { progress: number; total: number }) {
 
 function ProgressBadge({ progress, total }: { progress: number; total: number }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-      <span style={{ color: 'rgba(0,255,65,0.6)', fontSize: 11 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ color: '#4ade80', fontSize: 12 }}>
         🚩 {progress}/{total} bayrak
       </span>
-      <div style={{ width: 80, height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2 }}>
-        <div style={{ width: `${(progress / total) * 100}%`, height: '100%',
-          background: '#00ff41', borderRadius: 2, transition: 'width 0.4s' }} />
+      <div style={{ width: 90, height: 5, background: 'rgba(0,255,65,0.12)', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{
+          width: `${total ? (progress / total) * 100 : 0}%`, height: '100%',
+          background: 'linear-gradient(90deg, #00ff41, #4ade80)',
+          borderRadius: 3, transition: 'width 0.5s ease',
+          boxShadow: '0 0 6px #00ff41',
+        }} />
       </div>
     </div>
   )
@@ -97,26 +113,35 @@ function ProgressBadge({ progress, total }: { progress: number; total: number })
 
 function TabBar({ activeTab, onSelect }: { activeTab: Tab; onSelect: (t: Tab) => void }) {
   return (
-    <div style={{ display: 'flex', gap: 2, padding: '0 1.5rem',
-      borderBottom: '1px solid rgba(0,255,65,0.1)', background: '#000' }}>
-      {TABS.map(tab => (
-        <button
-          key={tab.id}
-          onClick={() => onSelect(tab.id)}
-          style={{
-            padding: '0.45rem 1.2rem',
-            fontFamily: 'monospace', fontSize: 12, fontWeight: 700,
-            letterSpacing: '0.05em', cursor: 'pointer',
-            background: activeTab === tab.id ? 'rgba(0,255,65,0.1)' : 'transparent',
-            border: 'none',
-            borderBottom: activeTab === tab.id ? '2px solid #00ff41' : '2px solid transparent',
-            color: activeTab === tab.id ? '#00ff41' : 'rgba(0,255,65,0.4)',
-            transition: 'all 0.15s',
-          }}
-        >
-          {tab.label}
-        </button>
-      ))}
+    <div style={{
+      display: 'flex', flexShrink: 0,
+      background: '#0a0a0a',
+      borderBottom: '2px solid #1a2e1a',
+    }}>
+      {TABS.map(tab => {
+        const isActive = activeTab === tab.id
+        return (
+          <button
+            key={tab.id}
+            onClick={() => onSelect(tab.id)}
+            style={{
+              padding: '11px 22px',
+              fontFamily: 'monospace', fontSize: 13, fontWeight: 700,
+              letterSpacing: '0.06em', cursor: 'pointer',
+              background: isActive ? 'rgba(0,255,65,0.08)' : 'transparent',
+              border: 'none',
+              borderBottom: isActive ? '2px solid #00ff41' : '2px solid transparent',
+              borderTop: isActive ? '1px solid rgba(0,255,65,0.3)' : '1px solid transparent',
+              color: isActive ? '#00ff41' : '#6b7280',
+              transition: 'all 0.15s ease',
+              marginBottom: -2,
+              outline: 'none',
+            }}
+          >
+            {tab.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -125,7 +150,7 @@ function TabBar({ activeTab, onSelect }: { activeTab: Tab; onSelect: (t: Tab) =>
 
 function TerminalTab({ onFlagSubmit }: { onFlagSubmit: (flag: string) => void }) {
   return (
-    <div style={{ height: '100%' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Terminal onFlagSubmit={onFlagSubmit} />
     </div>
   )
