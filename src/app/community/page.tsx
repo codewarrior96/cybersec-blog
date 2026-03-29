@@ -113,7 +113,7 @@ export default function LabPage() {
   const progress = submittedFlags.size
   const total    = VALID_FLAGS.size
 
-  function renderContent(tab: ContentTab) {
+  function renderContent(tab: ContentTab, isMobile = false) {
     if (tab === 'curriculum') return (
       <CurriculumTab onNavigateToTool={navigateToTool} />
     )
@@ -122,6 +122,7 @@ export default function LabPage() {
         initialToolId={selectedToolId}
         onSendCommand={sendToTerminal}
         onSelectTool={setSelectedToolId}
+        isMobile={isMobile}
       />
     )
     if (tab === 'ctf') return (
@@ -182,7 +183,7 @@ export default function LabPage() {
         <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {mobileTab === 'terminal'
             ? <Terminal pendingCommand={pendingCommand} onCommandConsumed={handleCommandConsumed} onFlagSubmit={handleFlagSubmit} />
-            : renderContent(mobileTab as ContentTab)
+            : renderContent(mobileTab as ContentTab, true)
           }
         </div>
         <MobileBottomNav activeTab={mobileTab} onTabChange={setMobileTab} />
@@ -338,7 +339,7 @@ function CTFTab({
   const completed = CHALLENGES.filter(ch => submittedFlags.has(ch.flagKey)).length
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: '1.25rem' }}>
+    <div style={{ height: '100%', overflowY: 'auto', padding: '1.25rem', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
       <div style={{ maxWidth: 900, margin: '0 auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
@@ -560,7 +561,7 @@ function CurriculumTab({ onNavigateToTool }: { onNavigateToTool: (toolId: string
   const [expanded, setExpanded] = useState<string | null>(null)
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: '1.5rem' }}>
+    <div style={{ height: '100%', overflowY: 'auto', padding: '1.5rem', scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
       <div style={{ maxWidth: 820, margin: '0 auto' }}>
         <SectionHeader eyebrow="ÖĞRENME YOLU" title="Başlangıçtan Uzmanlığa"
           subtitle="Siber güvenlikte sıfırdan profesyonel seviyeye kapsamlı müfredat" />
@@ -672,10 +673,11 @@ function ModuleCard({ module: mod, index, isExpanded, onToggle, onNavigateToTool
 
 // ─── Tools Tab ────────────────────────────────────────────────────────────────
 
-function ToolsTab({ initialToolId, onSendCommand, onSelectTool }: {
+function ToolsTab({ initialToolId, onSendCommand, onSelectTool, isMobile = false }: {
   initialToolId: string | null
   onSendCommand: (cmd: string) => void
   onSelectTool: (id: string | null) => void
+  isMobile?: boolean
 }) {
   const [category, setCategory] = useState<ToolCategory>('Tümü')
   const [search,   setSearch]   = useState('')
@@ -683,7 +685,6 @@ function ToolsTab({ initialToolId, onSendCommand, onSelectTool }: {
     () => initialToolId ? (TOOLS.find(t => t.id === initialToolId) ?? null) : null
   )
 
-  // initialToolId dışarıdan değişince güncelle
   useEffect(() => {
     if (initialToolId) {
       const tool = TOOLS.find(t => t.id === initialToolId)
@@ -699,16 +700,89 @@ function ToolsTab({ initialToolId, onSendCommand, onSelectTool }: {
     return matchCat && matchSearch
   })
 
+  const noScrollbar: React.CSSProperties = { scrollbarWidth: 'none', msOverflowStyle: 'none' }
+
   function selectTool(tool: ToolCard) {
     setSelected(tool)
     onSelectTool(tool.id)
   }
 
+  // ── Mobil: master-detail akışı ──────────────────────────────────────────────
+  if (isMobile) {
+    // Araç seçili → detay ekranı (tam genişlik)
+    if (selected) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+          <button onClick={() => { setSelected(null); onSelectTool(null) }} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '10px 14px', background: '#060906',
+            border: 'none', borderBottom: '1px solid #172517',
+            color: '#4ade80', fontSize: 12, fontFamily: 'inherit',
+            cursor: 'pointer', flexShrink: 0, outline: 'none',
+          }}>
+            ← Araç Listesi
+          </button>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', ...noScrollbar }}>
+            <ToolDetail tool={selected} onSendCommand={onSendCommand} />
+          </div>
+        </div>
+      )
+    }
+
+    // Araç seçili değil → tam genişlik liste
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+        {/* Arama + kategori */}
+        <div style={{ padding: '0.65rem 0.85rem', flexShrink: 0, background: '#030303',
+          borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Araç ara..."
+            style={{ width: '100%', background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.09)', borderRadius: 5,
+              padding: '0.45rem 0.7rem', color: '#e2e8f0', fontSize: 12,
+              fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', marginBottom: 8 }} />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+            {TOOL_CATEGORIES.map(cat => (
+              <button key={cat} onClick={() => setCategory(cat)}
+                style={{ padding: '3px 10px', borderRadius: 10, fontSize: 11, cursor: 'pointer',
+                  fontFamily: 'inherit', border: '1px solid',
+                  borderColor: category === cat ? '#00ff41' : 'rgba(255,255,255,0.09)',
+                  background: category === cat ? 'rgba(0,255,65,0.1)' : 'transparent',
+                  color: category === cat ? '#00ff41' : 'rgba(255,255,255,0.35)', outline: 'none' }}>
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Liste */}
+        <div style={{ flex: 1, overflowY: 'auto', ...noScrollbar }}>
+          {filtered.map(tool => (
+            <button key={tool.id} onClick={() => selectTool(tool)}
+              style={{ width: '100%', textAlign: 'left', padding: '0.75rem 1rem', border: 'none',
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                background: 'transparent', cursor: 'pointer', outline: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ color: '#d1d5db', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' }}>
+                  {tool.name}
+                </div>
+                <div style={{ color: 'rgba(148,163,184,0.5)', fontSize: 11, marginTop: 2 }}>
+                  {tool.category}
+                </div>
+              </div>
+              <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 14 }}>›</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Desktop: split-pane ──────────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
       {/* Sidebar */}
       <div style={{ width: 240, flexShrink: 0, borderRight: '1px solid rgba(255,255,255,0.05)',
-        overflowY: 'auto', background: '#030303', display: 'flex', flexDirection: 'column' }}>
+        overflowY: 'auto', background: '#030303', display: 'flex', flexDirection: 'column', ...noScrollbar }}>
         <div style={{ padding: '0.75rem' }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Araç ara..."
             style={{ width: '100%', background: 'rgba(255,255,255,0.04)',
@@ -745,7 +819,7 @@ function ToolsTab({ initialToolId, onSendCommand, onSelectTool }: {
       </div>
 
       {/* Detail */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', ...noScrollbar }}>
         {selected
           ? <ToolDetail tool={selected} onSendCommand={onSendCommand} />
           : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
