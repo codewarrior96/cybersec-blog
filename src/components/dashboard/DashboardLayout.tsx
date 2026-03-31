@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { AttackEvent } from '@/lib/dashboard-types'
 import AttackReportModal from '@/components/dashboard/AttackReportModal'
@@ -9,53 +9,122 @@ import CriticalOverlayFx from '@/components/dashboard/CriticalOverlayFx'
 import { useSocRuntime } from '@/lib/soc-runtime/use-soc-runtime'
 import { CRITICAL_EFFECT_TOKENS } from '@/lib/soc-runtime/critical-effects'
 
+type RegionFilter = 'all' | 'americas' | 'emea' | 'apac'
+type SeverityFilter = 'all' | AttackEvent['severity']
+
+interface DonutSegment {
+  label: string
+  value: number
+  color: string
+}
+
+const COUNTRY_COORDS: Record<string, { x: number; y: number }> = {
+  'united states': { x: 21, y: 36 },
+  usa: { x: 21, y: 36 },
+  canada: { x: 18, y: 24 },
+  mexico: { x: 18, y: 46 },
+  brazil: { x: 32, y: 69 },
+  argentina: { x: 30, y: 82 },
+  uk: { x: 45, y: 28 },
+  'united kingdom': { x: 45, y: 28 },
+  france: { x: 47, y: 33 },
+  germany: { x: 49, y: 31 },
+  italy: { x: 50, y: 38 },
+  spain: { x: 45, y: 38 },
+  turkey: { x: 55, y: 37 },
+  russia: { x: 63, y: 22 },
+  ukraine: { x: 54, y: 30 },
+  india: { x: 67, y: 45 },
+  china: { x: 72, y: 39 },
+  japan: { x: 82, y: 36 },
+  'south korea': { x: 79, y: 36 },
+  singapore: { x: 72, y: 58 },
+  indonesia: { x: 74, y: 62 },
+  australia: { x: 82, y: 76 },
+  'south africa': { x: 53, y: 74 },
+  egypt: { x: 53, y: 44 },
+  nigeria: { x: 49, y: 56 },
+}
+
+const INCIDENT_COLORS = ['#38bdf8', '#f59e0b', '#22d3ee', '#fb7185', '#14b8a6', '#6366f1']
+
 function formatClock(iso: string) {
   return new Date(iso).toLocaleTimeString('tr-TR', {
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
   })
 }
 
-function seeded(seed: number) {
-  const value = Math.sin(seed * 12.9898) * 43758.5453
-  return value - Math.floor(value)
+function formatPercent(value: number) {
+  return `${value.toFixed(1)}%`
 }
 
-function severityColor(severity: AttackEvent['severity']) {
-  if (severity === 'critical') return 'var(--threat-red)'
-  if (severity === 'high') return 'var(--warning-orange)'
-  return 'var(--accent-cyan)'
+function getCountryRegion(country: string): RegionFilter {
+  const key = country.toLowerCase()
+  if (
+    ['united states', 'usa', 'canada', 'mexico', 'brazil', 'argentina', 'chile', 'colombia'].some((item) =>
+      key.includes(item),
+    )
+  ) {
+    return 'americas'
+  }
+
+  if (
+    ['uk', 'united kingdom', 'france', 'germany', 'spain', 'italy', 'russia', 'turkey', 'ukraine', 'africa'].some(
+      (item) => key.includes(item),
+    )
+  ) {
+    return 'emea'
+  }
+
+  return 'apac'
 }
 
-function cardTone(severity: AttackEvent['severity']) {
-  if (severity === 'critical') return 'border-red-400/45 bg-red-500/10 text-red-200'
-  if (severity === 'high') return 'border-orange-400/45 bg-orange-500/10 text-orange-200'
-  return 'border-cyan-400/45 bg-cyan-500/10 text-cyan-200'
+function normalizeIncidentType(rawType: string): string {
+  const type = rawType.toLowerCase()
+  if (type.includes('ddos') || type.includes('dos') || type.includes('flood')) return 'DDoS'
+  if (type.includes('phishing') || type.includes('spear')) return 'Phishing'
+  if (type.includes('ransom')) return 'Ransomware'
+  if (type.includes('breach') || type.includes('leak') || type.includes('exfil')) return 'Data Breach'
+  if (type.includes('scan') || type.includes('recon') || type.includes('port')) return 'Recon'
+  if (type.includes('sql') || type.includes('rce') || type.includes('xss')) return 'Exploit'
+  return 'Other'
 }
 
-function WarCard({
+function resolveCountryCoords(country: string) {
+  const normalized = country.toLowerCase().trim()
+  if (COUNTRY_COORDS[normalized]) return COUNTRY_COORDS[normalized]
+
+  const found = Object.entries(COUNTRY_COORDS).find(([name]) =>
+    normalized.includes(name) || name.includes(normalized),
+  )
+
+  return found ? found[1] : null
+}
+
+function severityGlow(severity: AttackEvent['severity']) {
+  if (severity === 'critical') return '#fb7185'
+  if (severity === 'high') return '#f59e0b'
+  return '#22d3ee'
+}
+
+function GlassCard({
   title,
-  subtitle,
   right,
   children,
   className = '',
 }: {
   title: string
-  subtitle?: string
   right?: ReactNode
   children: ReactNode
   className?: string
 }) {
   return (
     <section
-      className={`rounded-2xl border border-emerald-400/18 bg-[rgba(7,14,18,0.62)] backdrop-blur-xl shadow-[0_0_0_1px_rgba(0,255,136,0.08),0_22px_48px_rgba(0,0,0,0.45)] ${className}`}
+      className={`rounded-xl border border-cyan-400/20 bg-[linear-gradient(165deg,rgba(6,20,35,0.86),rgba(4,13,25,0.78))] shadow-[0_0_0_1px_rgba(56,189,248,0.08),0_20px_45px_rgba(0,0,0,0.45)] backdrop-blur-md ${className}`}
     >
-      <header className="flex items-start justify-between border-b border-emerald-400/14 px-4 py-3">
-        <div>
-          <h2 className="text-[10px] font-bold uppercase tracking-[0.24em] text-emerald-200/90">{title}</h2>
-          {subtitle ? <p className="mt-1 text-[10px] text-slate-400">{subtitle}</p> : null}
-        </div>
+      <header className="flex items-center justify-between border-b border-cyan-500/15 px-4 py-3">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-100/90">{title}</h2>
         {right}
       </header>
       <div className="p-4">{children}</div>
@@ -63,102 +132,12 @@ function WarCard({
   )
 }
 
-function HeaderMiniStat({
-  label,
-  value,
-  colorClass,
-}: {
-  label: string
-  value: string | number
-  colorClass: string
-}) {
+function MetricTile({ label, value, tone }: { label: string; value: string | number; tone: string }) {
   return (
-    <div className="rounded-xl border border-slate-500/30 bg-black/25 px-3 py-2">
+    <article className="rounded-lg border border-cyan-500/20 bg-black/25 px-3 py-2">
       <p className="text-[9px] uppercase tracking-[0.2em] text-slate-400">{label}</p>
-      <p className={`mt-1 text-xl font-black tabular-nums ${colorClass}`}>{value}</p>
-    </div>
-  )
-}
-
-function HealthGauge({ score }: { score: number }) {
-  const bounded = Math.max(1, Math.min(100, score))
-  const color =
-    bounded >= 80
-      ? 'var(--accent-green)'
-      : bounded >= 60
-        ? 'var(--warning-orange)'
-        : 'var(--threat-red)'
-
-  return (
-    <div className="flex items-center gap-4 rounded-xl border border-emerald-400/25 bg-black/25 px-3 py-2">
-      <div
-        className="relative flex h-16 w-16 items-center justify-center rounded-full"
-        style={{
-          background: `conic-gradient(${color} 0 ${bounded}%, rgba(148,163,184,0.18) ${bounded}% 100%)`,
-        }}
-      >
-        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-emerald-300/20 bg-[#04110f]">
-          <span className="text-xs font-bold text-emerald-100">{bounded}</span>
-        </div>
-      </div>
-      <div>
-        <p className="text-[10px] uppercase tracking-[0.22em] text-slate-400">Cyber Security Health Score</p>
-        <p className="text-xl font-black tabular-nums text-emerald-100">{bounded}/100</p>
-      </div>
-    </div>
-  )
-}
-
-function buildTrajectoryStyle(attack: AttackEvent, index: number): CSSProperties {
-  const angle = -75 + seeded(attack.id + index * 3.3) * 150
-  const length = 65 + seeded(attack.id * 1.7 + index) * 130
-  const top = 15 + seeded(attack.id * 2.1 + index) * 70
-  const left = 12 + seeded(attack.id * 2.7 + index) * 72
-  const duration = 2.6 + seeded(attack.id * 5.7 + index) * 2.2
-  const delay = seeded(attack.id * 7.3 + index) * 2.4
-  const color = severityColor(attack.severity)
-
-  return {
-    top: `${top}%`,
-    left: `${left}%`,
-    width: `${Math.round(length)}px`,
-    transform: `rotate(${angle}deg)`,
-    transformOrigin: '0 50%',
-    background: `linear-gradient(90deg, ${color} 0%, rgba(226,232,240,0.95) 34%, transparent 100%)`,
-    boxShadow: `0 0 12px ${color}`,
-    animation: `sentinel-comet ${duration}s ease-in-out ${delay}s infinite`,
-  }
-}
-
-function HoloGlobe({ attacks }: { attacks: AttackEvent[] }) {
-  const trajectories = attacks.slice(0, 18)
-  const focus = attacks[0]
-
-  return (
-    <div className="relative mx-auto aspect-square w-full max-w-[620px]">
-      <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_35%_25%,rgba(56,189,248,0.35),rgba(4,18,26,0.92)_55%,rgba(1,4,7,0.98)_100%)] shadow-[0_0_80px_rgba(34,211,238,0.16),inset_0_0_80px_rgba(34,211,238,0.08)]" />
-      <div className="absolute inset-0 rounded-full border border-cyan-300/25 [animation:sentinel-spin_30s_linear_infinite]" />
-      <div className="absolute inset-[7%] rounded-full border border-cyan-300/15 [animation:sentinel-scan_5.5s_ease-in-out_infinite]" />
-      <div className="absolute inset-[12%] rounded-full bg-[radial-gradient(circle_at_50%_50%,rgba(20,184,166,0.18),transparent_72%)]" />
-      <div className="absolute inset-[8%] rounded-full bg-[conic-gradient(from_30deg,rgba(34,211,238,0.28),transparent_22%,rgba(16,185,129,0.24)_36%,transparent_58%,rgba(34,211,238,0.20)_73%,transparent_100%)] opacity-60 [animation:sentinel-spin_42s_linear_infinite_reverse]" />
-      <div className="absolute inset-[14%] rounded-full [background:repeating-radial-gradient(circle_at_center,rgba(148,163,184,0.08)_0px,rgba(148,163,184,0.08)_1px,transparent_2px,transparent_11px)]" />
-
-      {trajectories.map((attack, index) => (
-        <span key={`${attack.id}-${index}`} className="absolute block h-[2px] rounded-full opacity-90" style={buildTrajectoryStyle(attack, index)} />
-      ))}
-
-      <div className="absolute left-1/2 top-1/2 h-[14px] w-[14px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300 shadow-[0_0_16px_rgba(34,211,238,0.95)]" />
-      <div className="absolute inset-[24%] rounded-full border border-cyan-300/20 [animation:sentinel-pulse_3.2s_ease-in-out_infinite]" />
-      <div className="absolute inset-[33%] rounded-full border border-emerald-300/20 [animation:sentinel-pulse_4.5s_ease-in-out_infinite]" />
-      {focus ? (
-        <div className="absolute bottom-[12%] left-1/2 -translate-x-1/2 rounded-lg border border-cyan-300/35 bg-[rgba(3,12,16,0.82)] px-3 py-2 text-[10px] text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,0.2)]">
-          <p className="font-bold uppercase tracking-[0.16em]">{focus.type}</p>
-          <p className="mt-1 text-cyan-100/75">
-            {focus.sourceCountry} | {focus.sourceIP} | Port {focus.targetPort}
-          </p>
-        </div>
-      ) : null}
-    </div>
+      <p className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>{value}</p>
+    </article>
   )
 }
 
@@ -167,282 +146,441 @@ export default function DashboardLayout() {
     overlayDurationMs: CRITICAL_EFFECT_TOKENS.overlayDurationMs,
   })
 
-  const [displayedRisk, setDisplayedRisk] = useState(2.4)
-  const [replayCursor, setReplayCursor] = useState(72)
-
-  const targetRisk = useMemo(() => {
-    const density = snapshot.metrics?.attack.liveDensity ?? 2.2
-    const pressure = snapshot.criticalQueue.length * 0.85
-    const active = snapshot.alertCount * 0.045
-    const value = Math.min(10, Math.max(1, density + pressure + active))
-    return Number(value.toFixed(1))
-  }, [snapshot.alertCount, snapshot.criticalQueue.length, snapshot.metrics?.attack.liveDensity])
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setDisplayedRisk((prev) => {
-        const diff = targetRisk - prev
-        if (Math.abs(diff) < 0.02) return targetRisk
-        return Number((prev + diff * 0.22).toFixed(2))
-      })
-    }, 85)
-    return () => window.clearInterval(timer)
-  }, [targetRisk])
+  const [regionFilter, setRegionFilter] = useState<RegionFilter>('all')
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all')
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [timeWindowHours, setTimeWindowHours] = useState(24)
+  const [timelineCursor, setTimelineCursor] = useState(72)
 
   const attacks = [...snapshot.attacks].reverse()
-  const recentAttacks = attacks.slice(0, 16)
-  const transitions = [...snapshot.transitions].reverse().slice(0, 8)
 
-  const healthScore = Math.max(
-    10,
-    Math.min(
-      99,
-      Math.round(
-        100 - displayedRisk * 7.4 - snapshot.criticalQueue.length * 3.8 - snapshot.alertCount * 0.34,
-      ),
-    ),
-  )
-
-  const activeAnalysts = Math.max(
-    2,
-    (snapshot.metrics?.triageBoard.inProgress ?? 0) + Math.ceil(snapshot.alertCount / 6),
-  )
-
-  const mttr = Math.max(1, Math.round(snapshot.metrics?.sla.avgResolutionMinutes ?? 0))
-  const attacksPerMinute = snapshot.metrics?.attack.attacksPerMinute ?? 0
-  const totalLast24h = snapshot.metrics?.attack.totalLast24h ?? 0
-  const liveDensity = snapshot.metrics?.attack.liveDensity ?? 0
-  const mttd = Math.max(
-    1, Number((60 / Math.max(1, attacksPerMinute)).toFixed(1)),
-  )
-
-  const barSeries = useMemo(() => {
+  const filteredAttacks = useMemo(() => {
     const now = Date.now()
-    const buckets = Array.from({ length: 24 }, () => 0)
-    for (const attack of attacks.slice(0, 140)) {
-      const diff = now - new Date(attack.createdAt).getTime()
-      if (!Number.isFinite(diff) || diff < 0) continue
-      const minutes = Math.floor(diff / 60_000)
-      if (minutes > 23) continue
-      const index = 23 - minutes
+    const cutoff = now - timeWindowHours * 60 * 60 * 1000
+
+    return attacks.filter((attack) => {
+      const createdAt = new Date(attack.createdAt).getTime()
+      const inWindow = Number.isFinite(createdAt) && createdAt >= cutoff
+      if (!inWindow) return false
+
+      if (severityFilter !== 'all' && attack.severity !== severityFilter) return false
+      if (regionFilter !== 'all' && getCountryRegion(attack.sourceCountry) !== regionFilter) return false
+
+      const incidentType = normalizeIncidentType(attack.type)
+      if (typeFilter !== 'all' && incidentType !== typeFilter) return false
+
+      return true
+    })
+  }, [attacks, regionFilter, severityFilter, timeWindowHours, typeFilter])
+
+  const typeOptions = useMemo(() => {
+    const unique = Array.from(new Set(attacks.map((attack) => normalizeIncidentType(attack.type))))
+    return ['all', ...unique]
+  }, [attacks])
+
+  const countryBreakdown = useMemo(() => {
+    const counts = new Map<string, number>()
+
+    for (const attack of filteredAttacks) {
+      counts.set(attack.sourceCountry, (counts.get(attack.sourceCountry) ?? 0) + 1)
+    }
+
+    if (counts.size === 0 && snapshot.metrics?.attack.topCountries?.length) {
+      return snapshot.metrics.attack.topCountries.map((item) => ({ name: item.name, count: item.count }))
+    }
+
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((left, right) => right.count - left.count)
+  }, [filteredAttacks, snapshot.metrics?.attack.topCountries])
+
+  const topCountries = countryBreakdown.slice(0, 5)
+
+  const incidentTypeBreakdown = useMemo<DonutSegment[]>(() => {
+    const counts = new Map<string, number>()
+
+    for (const attack of filteredAttacks) {
+      const label = normalizeIncidentType(attack.type)
+      counts.set(label, (counts.get(label) ?? 0) + 1)
+    }
+
+    const ordered = Array.from(counts.entries())
+      .map(([label, value], index) => ({
+        label,
+        value,
+        color: INCIDENT_COLORS[index % INCIDENT_COLORS.length],
+      }))
+      .sort((left, right) => right.value - left.value)
+
+    return ordered.slice(0, 6)
+  }, [filteredAttacks])
+
+  const donutGradient = useMemo(() => {
+    if (incidentTypeBreakdown.length === 0) {
+      return 'conic-gradient(#1e293b 0% 100%)'
+    }
+
+    const total = incidentTypeBreakdown.reduce((sum, item) => sum + item.value, 0)
+    let cursor = 0
+    const slices: string[] = []
+
+    for (const segment of incidentTypeBreakdown) {
+      const pct = (segment.value / Math.max(1, total)) * 100
+      const next = cursor + pct
+      slices.push(`${segment.color} ${cursor}% ${next}%`)
+      cursor = next
+    }
+
+    return `conic-gradient(${slices.join(',')})`
+  }, [incidentTypeBreakdown])
+
+  const geoPoints = useMemo(() => {
+    return filteredAttacks
+      .slice(0, 30)
+      .map((attack) => {
+        const point = resolveCountryCoords(attack.sourceCountry)
+        if (!point) return null
+        return { attack, point }
+      })
+      .filter((value): value is { attack: AttackEvent; point: { x: number; y: number } } => value !== null)
+  }, [filteredAttacks])
+
+  const timelineSeries = useMemo(() => {
+    const bucketCount = 16
+    const buckets = Array.from({ length: bucketCount }, () => 0)
+    const now = Date.now()
+    const totalWindowMinutes = Math.max(60, timeWindowHours * 60)
+    const bucketSpan = totalWindowMinutes / bucketCount
+
+    for (const attack of filteredAttacks) {
+      const diffMs = now - new Date(attack.createdAt).getTime()
+      if (!Number.isFinite(diffMs) || diffMs < 0) continue
+      const diffMin = diffMs / 60_000
+      if (diffMin > totalWindowMinutes) continue
+      const rawIndex = bucketCount - 1 - Math.floor(diffMin / bucketSpan)
+      const index = Math.max(0, Math.min(bucketCount - 1, rawIndex))
       const weight = attack.severity === 'critical' ? 3 : attack.severity === 'high' ? 2 : 1
       buckets[index] += weight
     }
+
     const max = Math.max(1, ...buckets)
     return buckets.map((value) => Math.max(8, Math.round((value / max) * 100)))
-  }, [attacks])
+  }, [filteredAttacks, timeWindowHours])
 
-  const replayThreshold = Math.round((replayCursor / 100) * (barSeries.length - 1))
+  const timelineThreshold = Math.round((timelineCursor / 100) * (timelineSeries.length - 1))
+
+  const totalIncidents = filteredAttacks.length
+  const ongoingIncidents = snapshot.metrics?.triageBoard.inProgress ?? snapshot.alertCount
+  const resolvedIncidents = snapshot.metrics?.triageBoard.resolved ?? 0
+  const criticalIncidents = filteredAttacks.filter((attack) => attack.severity === 'critical').length
+  const attacksPerMinute = snapshot.metrics?.attack.attacksPerMinute ?? 0
+
+  const liveFeed = filteredAttacks.slice(0, 8)
+  const countryTotal = Math.max(1, countryBreakdown.reduce((sum, item) => sum + item.count, 0))
+
+  const healthScore = Math.max(
+    12,
+    Math.min(99, Math.round(96 - criticalIncidents * 3.6 - (snapshot.metrics?.attack.liveDensity ?? 0) * 4.1 - ongoingIncidents * 0.4)),
+  )
 
   if (!mounted) return null
 
   return (
-    <div className="relative min-h-[calc(100vh-64px)] overflow-hidden bg-[var(--bg-primary)] text-slate-100">
-      <div className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_20%_10%,rgba(56,189,248,0.10),transparent_35%),radial-gradient(circle_at_80%_85%,rgba(255,68,68,0.10),transparent_42%),linear-gradient(120deg,rgba(15,23,42,0.25),rgba(30,41,59,0.05))]" />
-      <div className="pointer-events-none absolute inset-0 opacity-20 [background:linear-gradient(to_right,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.06)_1px,transparent_1px)] [background-size:42px_42px] [animation:sentinel-grid-parallax_18s_linear_infinite]" />
+    <div className="relative min-h-[calc(100vh-64px)] overflow-hidden bg-[#040d17] text-slate-100">
+      <div className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_12%_18%,rgba(14,165,233,0.14),transparent_34%),radial-gradient(circle_at_78%_24%,rgba(245,158,11,0.12),transparent_30%),linear-gradient(180deg,#02070f_0%,#040d17_48%,#030b15_100%)]" />
+      <div className="pointer-events-none absolute inset-0 opacity-30 [background:linear-gradient(to_right,rgba(56,189,248,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(56,189,248,0.05)_1px,transparent_1px)] [background-size:42px_42px]" />
 
-      {snapshot.overlayActive && <CriticalOverlayFx cycle={snapshot.overlayCycle} />}
+      {snapshot.overlayActive ? <CriticalOverlayFx cycle={snapshot.overlayCycle} /> : null}
 
-      <div className="relative z-10 flex h-full flex-col gap-3 p-3 md:p-4">
-        <WarCard
-          title="Sentinel Prime"
-          subtitle="War Room Command Deck"
+      <div className="relative z-10 mx-auto flex w-full max-w-[1700px] flex-col gap-3 p-3 md:p-4">
+        <GlassCard
+          title="Sentinel Prime SOC Matrix"
           right={
             <div className="flex items-center gap-2 text-[10px]">
               <button
                 type="button"
-                className="rounded border border-emerald-400/35 px-2 py-1 text-emerald-300 hover:bg-emerald-400/10"
+                className="rounded border border-cyan-400/40 px-2 py-1 text-cyan-200 hover:bg-cyan-400/10"
                 onClick={() => void actions.refreshMetrics()}
               >
                 sync metrics
               </button>
               <button
                 type="button"
-                className="rounded border border-cyan-400/35 px-2 py-1 text-cyan-300 hover:bg-cyan-400/10"
+                className="rounded border border-amber-400/40 px-2 py-1 text-amber-200 hover:bg-amber-400/10"
                 onClick={() => void actions.refreshSummary()}
               >
-                sync summary
+                sync incidents
               </button>
             </div>
           }
         >
-          <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_auto_auto_auto]">
-            <HealthGauge score={healthScore} />
-            <HeaderMiniStat label="Active Analysts" value={activeAnalysts} colorClass="text-emerald-200" />
-            <HeaderMiniStat label="Threats / Min" value={attacksPerMinute} colorClass="text-cyan-200" />
-            <HeaderMiniStat label="24h Incidents" value={totalLast24h} colorClass="text-orange-200" />
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
+            <MetricTile label="Health Score" value={`${healthScore}/100`} tone="text-cyan-200" />
+            <MetricTile label="Total Incidents" value={totalIncidents} tone="text-slate-100" />
+            <MetricTile label="Resolver" value={resolvedIncidents} tone="text-emerald-200" />
+            <MetricTile label="Ongoing" value={ongoingIncidents} tone="text-amber-200" />
+            <MetricTile label="Critical" value={criticalIncidents} tone="text-rose-200" />
+            <MetricTile label="Threats / Min" value={attacksPerMinute} tone="text-sky-200" />
           </div>
-        </WarCard>
+        </GlassCard>
 
-        <section className="grid min-h-[560px] grid-cols-1 gap-3 xl:grid-cols-[340px_minmax(0,1fr)_340px]">
-          <WarCard
-            title="Incident Stream"
-            subtitle="Live tactical feed"
-            className="min-h-[460px]"
-          >
-            <div className="max-h-[560px] space-y-2 overflow-y-auto pr-1">
-              {recentAttacks.length === 0 ? (
-                <p className="text-sm text-slate-400">No incidents in the stream yet.</p>
-              ) : (
-                recentAttacks.map((attack) => (
-                  <article
-                    key={attack.id}
-                    className={`rounded-lg border px-3 py-2 ${
-                      attack.severity === 'critical'
-                        ? 'border-red-400/55 bg-red-500/12 shadow-[0_0_20px_rgba(255,68,68,0.25)]'
-                        : attack.severity === 'high'
-                          ? 'border-orange-400/45 bg-orange-500/10'
-                          : 'border-cyan-400/35 bg-cyan-500/10'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${cardTone(attack.severity)}`}>
-                        {attack.severity}
-                      </span>
-                      {attack.severity === 'critical' ? (
-                        <span className="rounded border border-red-400/65 bg-red-500/25 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-red-100 animate-pulse">
-                          Critical
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-xs font-semibold text-slate-100">{attack.type}</p>
-                    <p className="text-[11px] text-slate-300/75">
-                      {attack.sourceIP} | {attack.sourceCountry} | Port {attack.targetPort}
-                    </p>
-                    <p className="mt-1 text-[10px] text-slate-400">{formatClock(attack.createdAt)}</p>
-                  </article>
-                ))
-              )}
-            </div>
-          </WarCard>
-
-          <WarCard
-            title="Global Threat Hologram"
-            subtitle="Real-time trajectories and global pressure field"
-            className="min-h-[460px]"
-            right={
-              <div className="flex items-center gap-2 text-[10px]">
-                <span className="rounded border border-cyan-400/35 bg-cyan-500/10 px-2 py-1 text-cyan-200">
-                  live trajectories
-                </span>
+        <section className="grid min-h-[690px] grid-cols-1 gap-3 xl:grid-cols-[240px_minmax(0,1fr)_330px]">
+          <GlassCard title="Filter Control" className="min-h-[690px]">
+            <div className="space-y-5 text-sm">
+              <div>
+                <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-400">Date Range (hours)</p>
+                <input
+                  type="range"
+                  min={1}
+                  max={72}
+                  value={timeWindowHours}
+                  onChange={(event) => setTimeWindowHours(Number(event.target.value))}
+                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-800 accent-cyan-400"
+                />
+                <p className="mt-2 text-xs text-cyan-200">Last {timeWindowHours} hours</p>
               </div>
-            }
-          >
-            <HoloGlobe attacks={attacks} />
-          </WarCard>
 
-          <WarCard
-            title="Response Widgets"
-            subtitle="MTTR / MTTD high-contrast panel"
-            className="min-h-[460px] font-mono"
-          >
-            <div className="space-y-3">
-              <article className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 p-3">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-cyan-200/80">MTTR</p>
-                <p className="mt-1 text-3xl font-black tabular-nums text-cyan-100">{mttr}</p>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-200/60">minutes to respond</p>
-              </article>
+              <div>
+                <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-400">Region</p>
+                <select
+                  value={regionFilter}
+                  onChange={(event) => setRegionFilter(event.target.value as RegionFilter)}
+                  className="w-full rounded-md border border-cyan-600/25 bg-[#071827] px-3 py-2 text-sm text-cyan-100 outline-none focus:border-cyan-400/70"
+                >
+                  <option value="all">All Regions</option>
+                  <option value="americas">Americas</option>
+                  <option value="emea">EMEA</option>
+                  <option value="apac">APAC</option>
+                </select>
+              </div>
 
-              <article className="rounded-xl border border-orange-400/30 bg-orange-500/10 p-3">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-orange-200/85">MTTD</p>
-                <p className="mt-1 text-3xl font-black tabular-nums text-orange-100">{mttd}</p>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-orange-200/65">minutes to detect</p>
-              </article>
+              <div>
+                <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-400">Severity</p>
+                <select
+                  value={severityFilter}
+                  onChange={(event) => setSeverityFilter(event.target.value as SeverityFilter)}
+                  className="w-full rounded-md border border-cyan-600/25 bg-[#071827] px-3 py-2 text-sm text-cyan-100 outline-none focus:border-cyan-400/70"
+                >
+                  <option value="all">All</option>
+                  <option value="critical">Critical</option>
+                  <option value="high">High</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
 
-              <article className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 p-3">
-                <p className="text-[10px] uppercase tracking-[0.22em] text-emerald-200/80">Live Density</p>
-                <p className="mt-1 text-3xl font-black tabular-nums text-emerald-100">{liveDensity}</p>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-200/65">signal pressure index</p>
-              </article>
+              <div>
+                <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-400">Incident Type</p>
+                <select
+                  value={typeFilter}
+                  onChange={(event) => setTypeFilter(event.target.value)}
+                  className="w-full rounded-md border border-cyan-600/25 bg-[#071827] px-3 py-2 text-sm text-cyan-100 outline-none focus:border-cyan-400/70"
+                >
+                  {typeOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option === 'all' ? 'All Types' : option}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              <article className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 p-3">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-200/80">Critical Queue</p>
-                {snapshot.criticalQueue.length === 0 ? (
-                  <p className="mt-2 text-sm text-emerald-100/55">Queue is currently clear.</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {snapshot.criticalQueue.slice(0, 4).map((incident) => (
-                      <li key={incident.id} className="rounded border border-red-400/35 bg-red-500/10 px-2 py-2">
-                        <p className="text-[11px] font-semibold text-red-100">{incident.type}</p>
-                        <p className="text-[10px] text-red-100/70">{incident.sourceCountry} | {incident.sourceIP}</p>
-                        <button
-                          type="button"
-                          className="mt-2 rounded border border-red-400/45 px-2 py-1 text-[10px] uppercase tracking-wider text-red-200 hover:bg-red-500/20"
-                          onClick={() => actions.openReport(incident.id)}
-                        >
-                          open report
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </article>
-
-              <article className="rounded-xl border border-slate-500/30 bg-black/20 p-3">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300/80">Transition Feed</p>
-                {transitions.length === 0 ? (
-                  <p className="mt-2 text-sm text-slate-400">No transition records yet.</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {transitions.map((transition, index) => (
-                      <li key={`${transition.at}-${index}`} className="rounded border border-slate-500/30 bg-slate-800/30 px-2 py-1.5">
-                        <p className="text-[10px] text-slate-200">
-                          {transition.from} {'->'} {transition.to}
-                        </p>
-                        <p className="text-[9px] text-slate-400">{formatClock(transition.at)}</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </article>
+              <div className="rounded-lg border border-cyan-500/20 bg-black/20 p-3">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Live Cursor</p>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={timelineCursor}
+                  onChange={(event) => setTimelineCursor(Number(event.target.value))}
+                  className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-800 accent-amber-400"
+                />
+                <p className="mt-2 text-xs text-amber-200">Replay {timelineCursor}%</p>
+              </div>
             </div>
-          </WarCard>
+          </GlassCard>
+
+          <div className="grid min-h-[690px] grid-cols-1 gap-3 xl:grid-rows-[1fr_220px]">
+            <GlassCard title="Severity Heatmap">
+              <div className="relative overflow-hidden rounded-xl border border-cyan-500/20 bg-[#020a14]">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_30%,rgba(56,189,248,0.14),transparent_42%),radial-gradient(circle_at_72%_44%,rgba(245,158,11,0.18),transparent_34%),linear-gradient(to_bottom,rgba(7,18,31,0.95),rgba(3,11,22,0.96))]" />
+                <img
+                  src="/world.svg"
+                  alt="Global threat map"
+                  className="relative z-10 h-[430px] w-full object-cover opacity-30 [filter:contrast(1.1)_brightness(0.7)_hue-rotate(150deg)_saturate(1.2)]"
+                  draggable={false}
+                />
+
+                <div className="absolute inset-0 z-20">
+                  {geoPoints.map(({ attack, point }, index) => {
+                    const glow = severityGlow(attack.severity)
+                    const style: CSSProperties = {
+                      left: `${point.x}%`,
+                      top: `${point.y}%`,
+                      boxShadow: `0 0 16px ${glow}`,
+                      animationDelay: `${(index % 10) * 0.15}s`,
+                    }
+
+                    return (
+                      <button
+                        key={`${attack.id}-${index}`}
+                        type="button"
+                        className="group absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/40"
+                        style={{ ...style, backgroundColor: glow }}
+                        onClick={() => actions.openReport(attack.id)}
+                      >
+                        <span
+                          className="absolute inset-0 rounded-full"
+                          style={{ backgroundColor: glow, animation: 'soc-map-ping 2.6s ease-out infinite' }}
+                        />
+                        <span className="pointer-events-none absolute left-1/2 top-[-28px] hidden -translate-x-1/2 whitespace-nowrap rounded border border-slate-500/35 bg-[#04111f]/95 px-2 py-1 text-[10px] text-slate-100 group-hover:block">
+                          {attack.sourceCountry} | {normalizeIncidentType(attack.type)}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard title="Top Countries by Incident Count">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_180px]">
+                <div className="space-y-3">
+                  {topCountries.length === 0 ? (
+                    <p className="text-sm text-slate-400">No country incidents found in selected filters.</p>
+                  ) : (
+                    topCountries.map((country) => {
+                      const pct = (country.count / countryTotal) * 100
+                      return (
+                        <div key={country.name} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-200">{country.name}</span>
+                            <span className="tabular-nums text-slate-400">{formatPercent(pct)}</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-slate-800/80">
+                            <div
+                              className="h-full rounded-full bg-[linear-gradient(90deg,#22d3ee,#0ea5e9)] shadow-[0_0_12px_rgba(56,189,248,0.45)]"
+                              style={{ width: `${Math.max(8, pct)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+
+                <div className="flex items-center justify-center">
+                  <div
+                    className="relative h-36 w-36 rounded-full border border-cyan-400/20"
+                    style={{ background: donutGradient }}
+                  >
+                    <div className="absolute inset-[24%] rounded-full border border-cyan-400/20 bg-[#04101f]" />
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+
+          <div className="grid min-h-[690px] grid-cols-1 gap-3 xl:grid-rows-[220px_190px_1fr]">
+            <GlassCard title="Top Countries Snapshot">
+              <div className="space-y-2">
+                {topCountries.length === 0 ? (
+                  <p className="text-sm text-slate-400">No regional data.</p>
+                ) : (
+                  topCountries.map((country) => {
+                    const pct = (country.count / countryTotal) * 100
+                    return (
+                      <div key={`right-${country.name}`} className="flex items-center gap-2">
+                        <span className="w-24 truncate text-xs text-slate-300">{country.name}</span>
+                        <div className="h-2 flex-1 rounded-full bg-slate-800/75">
+                          <div
+                            className="h-full rounded-full bg-[linear-gradient(90deg,#22d3ee,#38bdf8)]"
+                            style={{ width: `${Math.max(10, pct)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </GlassCard>
+
+            <GlassCard title="Incident Types">
+              <div className="grid grid-cols-[96px_1fr] items-center gap-3">
+                <div className="relative h-24 w-24 rounded-full border border-cyan-400/20" style={{ background: donutGradient }}>
+                  <div className="absolute inset-[28%] rounded-full bg-[#061320]" />
+                </div>
+                <ul className="space-y-1">
+                  {incidentTypeBreakdown.length === 0 ? (
+                    <li className="text-xs text-slate-400">No incident distribution.</li>
+                  ) : (
+                    incidentTypeBreakdown.map((item) => {
+                      const pct = (item.value / Math.max(1, totalIncidents)) * 100
+                      return (
+                        <li key={item.label} className="flex items-center justify-between gap-2 text-xs">
+                          <span className="flex items-center gap-2 text-slate-200">
+                            <i className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
+                            {item.label}
+                          </span>
+                          <span className="tabular-nums text-slate-400">{formatPercent(pct)}</span>
+                        </li>
+                      )
+                    })
+                  )}
+                </ul>
+              </div>
+            </GlassCard>
+
+            <GlassCard title="Live Incident Feed">
+              <div className="space-y-2">
+                {liveFeed.length === 0 ? (
+                  <p className="text-sm text-slate-400">No live incidents for current filters.</p>
+                ) : (
+                  liveFeed.map((attack) => (
+                    <button
+                      key={attack.id}
+                      type="button"
+                      className="grid w-full grid-cols-[46px_1fr_auto] items-center gap-2 rounded-md border border-slate-700/70 bg-black/20 px-2 py-1.5 text-left transition hover:border-cyan-400/45 hover:bg-cyan-500/10"
+                      onClick={() => actions.openReport(attack.id)}
+                    >
+                      <span className="text-[11px] tabular-nums text-slate-400">{formatClock(attack.createdAt)}</span>
+                      <span className="truncate text-xs text-slate-100">{normalizeIncidentType(attack.type)}</span>
+                      <span className="text-[11px] text-slate-300">{attack.sourceCountry}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </GlassCard>
+          </div>
         </section>
 
-        <WarCard title="Timeline Replay" subtitle="Time-bar and frequency spike analytics">
-          <div className="space-y-4">
-            <div className="rounded-lg border border-slate-500/30 bg-black/25 px-3 py-3">
-              <div className="mb-2 flex items-center justify-between text-[10px] uppercase tracking-[0.18em] text-slate-400">
-                <span>Replay Cursor</span>
-                <span>{replayCursor}%</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={replayCursor}
-                onChange={(event) => setReplayCursor(Number(event.target.value))}
-                className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-800 accent-cyan-400"
-              />
+        <GlassCard title="Dynamic Frequency">
+          <div className="space-y-3">
+            <div className="flex h-24 items-end gap-1">
+              {timelineSeries.map((value, index) => {
+                const active = index <= timelineThreshold
+                return (
+                  <span
+                    key={`timeline-${index}`}
+                    className={`w-full rounded-t-sm ${value > 72 ? 'bg-amber-400/85' : 'bg-cyan-400/80'}`}
+                    style={{
+                      height: `${value}%`,
+                      opacity: active ? 1 : 0.22,
+                      boxShadow: active
+                        ? value > 72
+                          ? '0 0 12px rgba(245,158,11,0.45)'
+                          : '0 0 12px rgba(34,211,238,0.45)'
+                        : 'none',
+                    }}
+                  />
+                )
+              })}
             </div>
-
-            <div className="rounded-lg border border-cyan-400/25 bg-black/25 p-3">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-200/80">Log Frequency Spikes</p>
-              <div className="mt-3 flex h-28 items-end gap-1">
-                {barSeries.map((value, index) => {
-                  const active = index <= replayThreshold
-                  const danger = value > 72
-                  return (
-                    <span
-                      key={index}
-                      className={`w-full rounded-t-sm transition-all ${danger ? 'bg-red-400/80' : 'bg-cyan-400/70'}`}
-                      style={{
-                        height: `${value}%`,
-                        opacity: active ? 1 : 0.26,
-                        boxShadow: active ? `0 0 10px ${danger ? 'rgba(255,68,68,0.45)' : 'rgba(34,211,238,0.45)'}` : 'none',
-                      }}
-                    />
-                  )
-                })}
-              </div>
-              <div className="mt-2 flex items-center justify-between text-[9px] uppercase tracking-[0.14em] text-slate-500">
-                <span>T-24m</span>
-                <span>T-12m</span>
-                <span>Now</span>
-              </div>
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.15em] text-slate-500">
+              <span>T-{timeWindowHours}h</span>
+              <span>Replay {timelineCursor}%</span>
+              <span>Now</span>
             </div>
           </div>
-        </WarCard>
+        </GlassCard>
       </div>
 
       <CriticalAlertPanel
@@ -453,70 +591,21 @@ export default function DashboardLayout() {
         onClose={actions.closePanel}
       />
 
-      <AttackReportModal
-        attack={snapshot.reportTarget}
-        open={snapshot.reportModalOpen}
-        onClose={actions.closeReport}
-      />
+      <AttackReportModal attack={snapshot.reportTarget} open={snapshot.reportModalOpen} onClose={actions.closeReport} />
 
       <style jsx global>{`
-        @keyframes sentinel-spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        @keyframes sentinel-pulse {
-          0%,
-          100% {
-            opacity: 0.28;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.95;
-            transform: scale(1.04);
-          }
-        }
-
-        @keyframes sentinel-comet {
+        @keyframes soc-map-ping {
           0% {
-            opacity: 0;
-            filter: blur(2px);
-          }
-          20% {
-            opacity: 1;
-            filter: blur(0);
+            transform: scale(0.6);
+            opacity: 0.95;
           }
           75% {
-            opacity: 0.85;
-          }
-          100% {
+            transform: scale(2.8);
             opacity: 0;
-            filter: blur(1px);
           }
-        }
-
-        @keyframes sentinel-scan {
-          0%,
           100% {
-            transform: scale(0.98);
-            opacity: 0.34;
-          }
-          50% {
-            transform: scale(1.03);
-            opacity: 0.9;
-          }
-        }
-
-        @keyframes sentinel-grid-parallax {
-          from {
-            transform: translateY(0px);
-          }
-          to {
-            transform: translateY(42px);
+            transform: scale(3.2);
+            opacity: 0;
           }
         }
       `}</style>
