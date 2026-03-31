@@ -14,7 +14,17 @@
       "Bash(find /c/Users/salim/Desktop/cybersec-blog -path ./node_modules -prune -o -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\) -print)",
       "Bash(npx next:*)",
       "Bash(npx tsc:*)",
-      "Bash(find /c/Users/salim/AppData -path *claude* -name *.png -o -path *claude* -name *.jpg -o -path *Claude* -name *.png -o -path *Claude* -name *.jpg)"
+      "Bash(find /c/Users/salim/AppData -path *claude* -name *.png -o -path *claude* -name *.jpg -o -path *Claude* -name *.png -o -path *Claude* -name *.jpg)",
+      "Bash(node -e \":*)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"const c = require\\(''cobe''\\); console.log\\(Object.keys\\(c\\)\\)\")",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); text=data[0][''''text'''']; parsed=json.loads\\(text\\); cves=parsed.get\\(''''cves'''',[]\\); print\\(json.dumps\\([{''''id'''':c[''''id''''],''''description'''':c[''''description''''][:200],''''severity'''':c[''''severity''''],''''score'''':c[''''score''''],''''published'''':c[''''published''''],''''weaknesses'''':c.get\\(''''weaknesses'''',''''''''\\)} for c in cves[:15]], indent=2\\)\\)\")",
+      "Bash(python -c \":*)",
+      "Bash(find '/c/Users/salim/Desktop/GİTHUB PROJE/cybersec-blog/src/components/dashboard' -name *.tsx)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(find 'C:\\\\Users\\\\salim\\\\Desktop\\\\GİTHUB PROJE\\\\cybersec-blog\\\\src' -name *threat* -o -name *Threat*)",
+      "Bash(find 'C:\\\\Users\\\\salim\\\\Desktop\\\\GİTHUB PROJE\\\\cybersec-blog' -type f -name *Tab*)"
     ]
   }
 }

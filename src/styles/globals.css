@@ -4,23 +4,23 @@
 
 :root {
   /* Color Palette */
-  --bg-primary: #0a0f1a;
-  --bg-panel: #0d1526;
+  --bg-primary: #000000;
+  --bg-panel: #0a0a0a;
   --border-color: rgba(0, 255, 136, 0.15);
   --accent-green: #00ff88;
   --accent-cyan: #00d4ff;
-  --text-primary: #e2e8f0;
-  --text-muted: #64748b;
-  --threat-red: #ff4757;
-  --warning-orange: #ffa502;
+  --text-primary: #d4d4d4;
+  --text-muted: #525252;
+  --threat-red: #ff4444;
+  --warning-orange: #ffaa00;
 
-  /* Ghost Protocol — Dashboard Theme */
-  --ghost-bg:     #06000f;
-  --ghost-panel:  #0d0018;
-  --ghost-violet: #8b5cf6;
-  --ghost-pink:   #c084fc;
-  --ghost-fuchsia:#e879f9;
-  --ghost-border: rgba(139, 92, 246, 0.18);
+  /* Matrix SOC — Dashboard Theme */
+  --ghost-bg:     #000000;
+  --ghost-panel:  #0a0a0a;
+  --ghost-violet: #00ff88;
+  --ghost-pink:   #00d4ff;
+  --ghost-fuchsia:#39ff14;
+  --ghost-border: rgba(0, 255, 136, 0.15);
 
   /* Fluid Typography */
   --text-title: clamp(10px, 1.2vw, 14px);
@@ -42,44 +42,24 @@
   }
 
   body {
-    background-color: var(--bg-primary);
+    background-color: #000000;
     color: var(--text-primary);
     font-family: var(--font-inter), system-ui, sans-serif;
-    /* Subtle grid pattern */
-    background-image:
-      repeating-linear-gradient(0deg, transparent, transparent 50px, rgba(0,255,136,0.018) 50px, rgba(0,255,136,0.018) 51px),
-      repeating-linear-gradient(90deg, transparent, transparent 50px, rgba(0,255,136,0.018) 50px, rgba(0,255,136,0.018) 51px);
   }
 
-  /* CRT scanline overlay */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0, 0, 0, 0.04) 2px,
-      rgba(0, 0, 0, 0.04) 4px
-    );
-    pointer-events: none;
-    z-index: 9998;
-  }
-
-  /* Scrollbar — ghost violet */
+  /* Scrollbar — matrix green */
   ::-webkit-scrollbar { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: #0a0a0f; }
-  ::-webkit-scrollbar-thumb { background: #8b5cf6; border-radius: 2px; }
-  ::-webkit-scrollbar-thumb:hover { background: #c084fc; box-shadow: 0 0 6px #8b5cf6; }
+  ::-webkit-scrollbar-track { background: #0a0a0a; }
+  ::-webkit-scrollbar-thumb { background: #00ff88; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: #00d4ff; box-shadow: 0 0 6px #00ff88; }
 
   /* Firefox scrollbar */
-  html { scrollbar-color: #8b5cf6 #0a0a0f; }
+  html { scrollbar-color: #00ff88 #0a0a0a; }
 
   /* Selection */
   ::selection {
-    background: rgba(139, 92, 246, 0.28);
-    color: #c084fc;
+    background: rgba(0, 255, 136, 0.25);
+    color: #00ff88;
   }
 }
 
@@ -236,7 +216,7 @@
 
 /* Critical Alert — full-viewport effects */
 @keyframes critical-pulse {
-  0%   { box-shadow: none; background-color: #06000f; }
+  0%   { box-shadow: none; background-color: #000000; }
   8%   { box-shadow: 0 0 0 8px #ef4444, inset 0 0 200px rgba(239,68,68,0.35); background-color: #1a0006; }
   18%  { box-shadow: 0 0 0 3px #ef4444aa, inset 0 0 100px rgba(239,68,68,0.15); background-color: #0e0003; }
   30%  { box-shadow: 0 0 0 10px #ef4444, inset 0 0 250px rgba(239,68,68,0.45); background-color: #200008; }
@@ -244,7 +224,7 @@
   58%  { box-shadow: 0 0 0 7px #ef4444dd, inset 0 0 180px rgba(239,68,68,0.30); background-color: #180006; }
   72%  { box-shadow: 0 0 0 2px rgba(239,68,68,0.5), inset 0 0 80px rgba(239,68,68,0.10); background-color: #0c0002; }
   85%  { box-shadow: 0 0 0 5px #ef4444bb, inset 0 0 150px rgba(239,68,68,0.22); background-color: #140005; }
-  100% { box-shadow: none; background-color: #06000f; }
+  100% { box-shadow: none; background-color: #000000; }
 }
 .critical-alert-active {
   animation: critical-pulse 7s ease-in-out forwards;

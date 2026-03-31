@@ -1,30 +1,55 @@
 'use client';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import CveFeedWidget from './CveFeedWidget';
-import ThreatMapWidget from './ThreatMapWidget';
-import SystemMonitorWidget from './SystemMonitorWidget';
-import LiveIntelFeedWidget from './LiveIntelFeedWidget';
-import AttackOriginWidget from './AttackOriginWidget';
-import SocTriageWidget from './SocTriageWidget';
+import ThreatBanner from './ThreatBanner';
+import CyberNewsWidget from './CyberNewsWidget';
+import AlertManagementWidget from './AlertManagementWidget';
+import ThreatIntelWidget from './ThreatIntelWidget';
 import CriticalAlertPanel from './CriticalAlertPanel';
 import AttackReportModal from './AttackReportModal';
-import ThreatBanner from './ThreatBanner';
-import KillChainWidget from './KillChainWidget';
-import type { AttackEvent, CVEItem, WorkflowMetrics } from '@/lib/dashboard-types';
+import type { AttackEvent, WorkflowMetrics } from '@/lib/dashboard-types';
 
+interface StatCardProps {
+  label: string;
+  value: string | number;
+  sub?: string;
+  color?: string;
+}
+
+function StatCard({ label, value, sub, color = '#00ff88' }: StatCardProps) {
+  return (
+    <div
+      className="flex flex-col justify-between px-3 py-2.5 rounded-lg border"
+      style={{
+        background: `${color}05`,
+        borderColor: `${color}20`,
+      }}
+    >
+      <span className="text-[9px] uppercase tracking-widest font-bold text-[#525252]">{label}</span>
+      <div className="flex items-baseline gap-1.5 mt-1">
+        <span
+          className="text-[20px] font-black tabular-nums leading-none"
+          style={{ color, textShadow: `0 0 20px ${color}60` }}
+        >
+          {value}
+        </span>
+        {sub && <span className="text-[9px] text-[#525252]">{sub}</span>}
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardLayout() {
   const [mounted, setMounted] = useState(false);
-  const [cves, setCves] = useState<CVEItem[]>([]);
   const [attacks, setAttacks] = useState<AttackEvent[]>([]);
   const [metrics, setMetrics] = useState<WorkflowMetrics | null>(null);
+  const [alertCount, setAlertCount] = useState<number>(0);
+  const [cveCount, setCveCount] = useState<number>(0);
 
   const [threatScore, setThreatScore] = useState(2.5);
   const [displayedScore, setDisplayedScore] = useState(2.5);
   const [criticalActive, setCriticalActive] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
 
-  /* ── Critical alert panel ── */
   const [criticalQueue, setCriticalQueue] = useState<AttackEvent[]>([]);
   const [panelOpen, setPanelOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<AttackEvent | null>(null);
@@ -33,30 +58,47 @@ export default function DashboardLayout() {
 
   const coreFetchSeqRef = useRef(0);
 
-  const fetchCorePanels = useCallback(async () => {
-    const fetchSeq = ++coreFetchSeqRef.current;
+  const fetchMetrics = useCallback(async () => {
+    const seq = ++coreFetchSeqRef.current;
     try {
-      const response = await fetch('/api/metrics/live', { cache: 'no-store' });
-      if (response.ok && fetchSeq === coreFetchSeqRef.current) {
-        const payload = (await response.json()) as WorkflowMetrics;
-        setMetrics(payload);
+      const res = await fetch('/api/metrics/live', { cache: 'no-store' });
+      if (res.ok && seq === coreFetchSeqRef.current) {
+        setMetrics(await res.json());
       }
-    } catch (e) { }
+    } catch { }
   }, []);
 
-  const loadIntelPanels = useCallback(async () => {
+  const fetchStatCounts = useCallback(async () => {
     try {
-      const cvesRes = await fetch('/api/cves?days=1', { cache: 'no-store' });
-      if (cvesRes.ok) { const p = await cvesRes.json(); setCves((p.cves ?? []).slice(0, 10)); }
-    } catch (e) { }
+      const [alertsRes, cvesRes] = await Promise.allSettled([
+        fetch('/api/alerts?limit=1', { cache: 'no-store' }),
+        fetch('/api/cves?days=1', { cache: 'no-store' }),
+      ]);
+      if (alertsRes.status === 'fulfilled' && alertsRes.value.ok) {
+        const d = await alertsRes.value.json();
+        setAlertCount(d.total ?? d.alerts?.length ?? 0);
+      }
+      if (cvesRes.status === 'fulfilled' && cvesRes.value.ok) {
+        const d = await cvesRes.value.json();
+        const high = (d.cves ?? []).filter((c: { cvssScore?: number }) => (c.cvssScore ?? 0) >= 9).length;
+        setCveCount(high);
+      }
+    } catch { }
   }, []);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    void fetchMetrics();
+    const i = setInterval(() => void fetchMetrics(), 15_000);
+    return () => clearInterval(i);
+  }, [fetchMetrics]);
 
-  useEffect(() => { void loadIntelPanels(); const i = setInterval(() => { void loadIntelPanels(); }, 60_000); return () => clearInterval(i); }, [loadIntelPanels]);
-  useEffect(() => { void fetchCorePanels(); const i = setInterval(() => { void fetchCorePanels(); }, 15_000); return () => clearInterval(i); }, [fetchCorePanels]);
+  useEffect(() => {
+    void fetchStatCounts();
+    const i = setInterval(() => void fetchStatCounts(), 60_000);
+    return () => clearInterval(i);
+  }, [fetchStatCounts]);
 
   useEffect(() => {
     let disposed = false;
@@ -66,21 +108,18 @@ export default function DashboardLayout() {
         const res = await fetch('/api/live-attacks', { cache: 'no-store' });
         if (res.ok) {
           const payload = await res.json() as AttackEvent;
-          if (payload && payload.id) { setAttacks(prev => [...prev, payload].slice(-15)); }
+          if (payload?.id) setAttacks(prev => [...prev, payload].slice(-15));
         }
       } catch { }
     };
     void fetchAttack();
     const interval = demoMode ? 4_000 : 90_000;
-    const attackInterval = setInterval(() => { void fetchAttack(); }, interval);
-    return () => { disposed = true; clearInterval(attackInterval); };
+    const t = setInterval(() => void fetchAttack(), interval);
+    return () => { disposed = true; clearInterval(t); };
   }, [demoMode]);
 
-  /* ── Critical alert trigger (screen pulse + panel) ── */
   useEffect(() => {
-    const newCriticals = attacks.filter(
-      a => a.severity === 'critical' && !seenCriticalIds.current.has(a.id)
-    );
+    const newCriticals = attacks.filter(a => a.severity === 'critical' && !seenCriticalIds.current.has(a.id));
     if (newCriticals.length > 0) {
       newCriticals.forEach(a => seenCriticalIds.current.add(a.id));
       setCriticalQueue(prev => [...prev, ...newCriticals]);
@@ -93,7 +132,7 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     let baseScore = 2.5;
-    if (metrics) { baseScore = Math.max(2.0, Math.min(6.0, metrics.attack.liveDensity || 2.0)); }
+    if (metrics) baseScore = Math.max(2.0, Math.min(6.0, metrics.attack.liveDensity || 2.0));
     setThreatScore(Math.min(10.0, baseScore + attacks.length * 0.4));
   }, [attacks, metrics]);
 
@@ -117,25 +156,25 @@ export default function DashboardLayout() {
 
   if (!mounted) return null;
 
-  const cardStyle = "relative rounded-lg border border-violet-500/20 bg-[#0d0018]/70 overflow-hidden shadow-[inset_0_0_30px_rgba(139,92,246,0.04)]";
+  const cardStyle = "relative rounded-lg border border-[#00ff88]/15 bg-[#0a0a0a] overflow-hidden";
+  const now = new Date();
+  const lastUpdate = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
   return (
     <div
-      className={`fixed inset-0 bg-[#06000f] text-slate-200 font-mono flex flex-col overflow-hidden select-none${criticalActive ? ' critical-alert-active' : ''}`}
+      className={`fixed inset-0 bg-black text-[#d4d4d4] font-mono flex flex-col overflow-hidden select-none${criticalActive ? ' critical-alert-active' : ''}`}
       style={{ zIndex: 10 }}
     >
 
       {/* ═══ CRITICAL ALERT FULL-SCREEN FX ═══ */}
       {criticalActive && (
         <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 48 }}>
-          {/* Scan line 1 — immediate sweep */}
           <div style={{
             position: 'absolute', left: 0, right: 0, height: 7,
             background: 'linear-gradient(90deg, transparent 0%, rgba(239,68,68,0.6) 8%, #ef4444 25%, #ff6666 45%, #ffffff 50%, #ff6666 55%, #ef4444 75%, rgba(239,68,68,0.6) 92%, transparent 100%)',
             boxShadow: '0 0 40px 20px rgba(239,68,68,0.80), 0 0 120px 60px rgba(239,68,68,0.35)',
             animation: 'critical-scan-sweep 1.6s cubic-bezier(0.3,0,0.7,1) forwards',
           }} />
-          {/* Scan line 2 — second sweep */}
           <div style={{
             position: 'absolute', left: 0, right: 0, height: 6,
             background: 'linear-gradient(90deg, transparent 0%, rgba(239,68,68,0.5) 10%, #ef4444dd 30%, #ff8888 50%, #ffffffaa 55%, #ff8888 60%, #ef4444dd 80%, rgba(239,68,68,0.5) 90%, transparent 100%)',
@@ -143,43 +182,19 @@ export default function DashboardLayout() {
             animation: 'critical-scan-sweep 1.7s cubic-bezier(0.3,0,0.7,1) 1.8s forwards',
             opacity: 0,
           }} />
-          {/* Scan line 3 — third sweep */}
-          <div style={{
-            position: 'absolute', left: 0, right: 0, height: 5,
-            background: 'linear-gradient(90deg, transparent 0%, rgba(239,68,68,0.4) 12%, #ef4444bb 32%, #ff9999 50%, #ffffff80 55%, #ff9999 60%, #ef4444bb 78%, rgba(239,68,68,0.4) 88%, transparent 100%)',
-            boxShadow: '0 0 22px 10px rgba(239,68,68,0.55), 0 0 70px 35px rgba(239,68,68,0.20)',
-            animation: 'critical-scan-sweep 1.8s cubic-bezier(0.3,0,0.7,1) 3.8s forwards',
-            opacity: 0,
-          }} />
-          {/* Scan line 4 — final sweep */}
-          <div style={{
-            position: 'absolute', left: 0, right: 0, height: 5,
-            background: 'linear-gradient(90deg, transparent 0%, rgba(239,68,68,0.35) 12%, #ef4444aa 32%, #ff9999 50%, #ffffff60 55%, #ff9999 60%, #ef4444aa 78%, rgba(239,68,68,0.35) 88%, transparent 100%)',
-            boxShadow: '0 0 18px 8px rgba(239,68,68,0.45), 0 0 55px 28px rgba(239,68,68,0.16)',
-            animation: 'critical-scan-sweep 1.9s cubic-bezier(0.3,0,0.7,1) 5.6s forwards',
-            opacity: 0,
-          }} />
-          {/* Inset border flash */}
           <div style={{
             position: 'absolute', inset: 0,
             animation: 'critical-border-flash 7s ease-in-out forwards',
           }} />
-          {/* Red edge vignette — heavy */}
           <div style={{
             position: 'absolute', inset: 0,
             background: 'radial-gradient(ellipse at center, transparent 25%, rgba(239,68,68,0.30) 70%, rgba(239,68,68,0.55) 100%)',
             animation: 'critical-vignette 7s ease-in-out forwards',
           }} />
-          {/* Corner bleeds */}
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'radial-gradient(ellipse at top left, rgba(239,68,68,0.25) 0%, transparent 40%), radial-gradient(ellipse at top right, rgba(239,68,68,0.25) 0%, transparent 40%), radial-gradient(ellipse at bottom left, rgba(239,68,68,0.20) 0%, transparent 35%), radial-gradient(ellipse at bottom right, rgba(239,68,68,0.20) 0%, transparent 35%)',
-            animation: 'critical-vignette 7s ease-in-out forwards',
-          }} />
         </div>
       )}
 
-      {/* ═══ NATIONAL THREAT BANNER ═══ */}
+      {/* ═══ THREAT BANNER ═══ */}
       <ThreatBanner
         threatScore={displayedScore}
         totalLast24h={metrics?.attack.totalLast24h ?? attacks.length}
@@ -188,60 +203,54 @@ export default function DashboardLayout() {
         onToggleDemo={() => setDemoMode(d => !d)}
       />
 
-      {/* ═══ DASHBOARD — RESPONSIVE GRID LAYOUT ═══ */}
-      {/* 
-        Mobile (<1024px): Single column, natural flex layout, scrolls vertically.
-        Desktop (>=1024px): CSS Grid (12 cols, 2 specific rows), fills viewport, no scroll.
-      */}
-      {/*
-        Layout — 12 kolon, 2 satır
-        Row 1 (3fr ~60%): GHOST RADAR [3] | CYBER THREAT MAP [6] | NEURAL CORTEX [3]
-        Row 2 (2fr ~40%): VULN STREAM [3] | ATTACK ORIGIN    [5] | SOC TRIAGE    [4]
-      */}
-      <div className="flex-1 w-full p-2 overflow-y-auto lg:overflow-hidden flex flex-col lg:grid lg:grid-cols-12 lg:grid-rows-[minmax(0,3fr)_minmax(0,2fr)] gap-3">
+      {/* ═══ DASHBOARD GRID ═══ */}
+      <div className="flex-1 w-full p-2 overflow-y-auto lg:overflow-hidden flex flex-col gap-2">
 
-        {/* ─── ROW 1 ─── */}
-
-        {/* GHOST RADAR — 3 kolon */}
-        <div className={`lg:col-span-3 lg:row-start-1 min-h-[400px] lg:min-h-0 ${cardStyle}`}>
-          <LiveIntelFeedWidget
-            attacks={attacks}
-            threatScore={displayedScore}
-            metrics={metrics}
-            onReport={a => { setReportTarget(a); setReportModalOpen(true); }}
+        {/* ROW 1: Stat Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 shrink-0">
+          <StatCard
+            label="Aktif Alertler"
+            value={alertCount}
+            sub="açık"
+            color="#ff4444"
+          />
+          <StatCard
+            label="CVSS 9+ CVE"
+            value={cveCount}
+            sub="bugün"
+            color="#ffaa00"
+          />
+          <StatCard
+            label="Gözlemlenen IP"
+            value={metrics?.attack.totalLast24h ?? 0}
+            sub="24s"
+            color="#00d4ff"
+          />
+          <StatCard
+            label="Son Güncelleme"
+            value={lastUpdate}
+            color="#00ff88"
           />
         </div>
 
-        {/* CYBER THREAT MAP — 6 kolon, merkez */}
-        <div className={`lg:col-span-6 lg:row-start-1 min-h-[350px] lg:min-h-0 ${cardStyle}`}>
-          <ThreatMapWidget attacks={attacks} />
+        {/* ROW 2: Alert Management + Cyber News */}
+        <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-12 gap-2">
+          <div className={`lg:col-span-7 min-h-[400px] lg:min-h-0 ${cardStyle}`}>
+            <AlertManagementWidget />
+          </div>
+          <div className={`lg:col-span-5 min-h-[400px] lg:min-h-0 ${cardStyle}`}>
+            <CyberNewsWidget />
+          </div>
         </div>
 
-        {/* NEURAL CORTEX — 3 kolon, tek başına */}
-        <div className={`lg:col-span-3 lg:row-start-1 min-h-[300px] lg:min-h-0 ${cardStyle}`}>
-          <SystemMonitorWidget metrics={metrics} />
-        </div>
-
-        {/* ─── ROW 2 ─── */}
-
-        {/* VULN STREAM — 3 kolon */}
-        <div className={`lg:col-span-3 lg:row-start-2 min-h-[280px] lg:min-h-0 ${cardStyle}`}>
-          <CveFeedWidget cves={cves} />
-        </div>
-
-        {/* KILL CHAIN — 5 kolon */}
-        <div className={`lg:col-span-5 lg:row-start-2 min-h-[280px] lg:min-h-0 ${cardStyle}`}>
-          <KillChainWidget attacks={attacks} metrics={metrics} />
-        </div>
-
-        {/* SOC TRIAGE — 4 kolon */}
-        <div className={`lg:col-span-4 lg:row-start-2 min-h-[280px] lg:min-h-0 ${cardStyle}`}>
-          <SocTriageWidget metrics={metrics} />
+        {/* ROW 3: Threat Intel */}
+        <div className={`h-[280px] lg:h-[220px] shrink-0 ${cardStyle}`}>
+          <ThreatIntelWidget />
         </div>
 
       </div>
 
-      {/* ── Critical Alert Slide-in Panel ── */}
+      {/* ── Critical Alert Panel ── */}
       <CriticalAlertPanel
         queue={criticalQueue}
         open={panelOpen}
@@ -254,7 +263,7 @@ export default function DashboardLayout() {
         onClose={() => setPanelOpen(false)}
       />
 
-      {/* ── Attack Investigation Report Modal ── */}
+      {/* ── Attack Report Modal ── */}
       <AttackReportModal
         attack={reportTarget}
         open={reportModalOpen}
