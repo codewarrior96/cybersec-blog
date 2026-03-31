@@ -50,8 +50,7 @@ function HalfGauge({ value, max = 100, label, color, size = 200 }: { value: numb
   return (
     <div className="relative flex items-center justify-center flex-col" style={{ width: size, height: size * 0.75 }}>
       <div className="absolute top-0 left-0 w-full h-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
+        <PieChart width={size} height={size * 0.75}>
             <Pie
               data={data}
               cx="50%"
@@ -64,12 +63,12 @@ function HalfGauge({ value, max = 100, label, color, size = 200 }: { value: numb
               paddingAngle={2}
               dataKey="value"
               stroke="none"
+              isAnimationActive={false}
             >
               <Cell key="cell-0" fill={color} />
               <Cell key="cell-1" fill="#292e40" />
             </Pie>
-          </PieChart>
-        </ResponsiveContainer>
+        </PieChart>
       </div>
       {/* Gauge Arc Overlay for styling */}
       <div className="absolute top-[20%] z-10 flex flex-col items-center justify-center pointer-events-none">
@@ -91,7 +90,7 @@ const COUNTRY_COORDS: Record<string, { x: number; y: number }> = {
 function resolveCountryCoords(country: string) {
   const normalized = country.toLowerCase().trim()
   const found = Object.entries(COUNTRY_COORDS).find(([name]) => normalized.includes(name) || name.includes(normalized))
-  return found ? found[1] : { x: 50 + (Math.random() * 20 - 10), y: 50 + (Math.random() * 20 - 10) } // Random fallback
+  return found ? found[1] : { x: 50, y: 50 } // Static fallback
 }
 
 // --- MAIN LAYOUT ---
@@ -106,7 +105,7 @@ export default function DashboardLayout() {
   const recentAttacks = attacks.slice(0, 100)
   
   // KPI Metrics
-  const totalIncidents = snapshot.alertCount || Math.floor(Math.random() * 2000)
+  const totalIncidents = snapshot.alertCount || 0
   const criticalAlerts = snapshot.criticalQueue.length || 65
   const activeThreats = totalIncidents + (snapshot.metrics?.triageBoard.inProgress || 0)
   const systemVulnerabilities = 342 // Mocked to match image
@@ -169,8 +168,8 @@ export default function DashboardLayout() {
                     </linearGradient>
                   </defs>
                   <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
-                  <Area type="monotone" dataKey="network" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorNet)" />
-                  <Area type="monotone" dataKey="threats" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorThreats)" />
+                  <Area type="monotone" dataKey="network" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorNet)" isAnimationActive={false} />
+                  <Area type="monotone" dataKey="threats" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorThreats)" isAnimationActive={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -195,7 +194,7 @@ export default function DashboardLayout() {
                 <div className="h-[60px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={timeSeriesData.slice(-10)}>
-                      <Line type="monotone" dataKey="network" stroke="#10b981" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="network" stroke="#10b981" strokeWidth={2} dot={false} isAnimationActive={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -238,7 +237,7 @@ export default function DashboardLayout() {
           <DarkCard className="lg:col-span-2 p-5 flex flex-col justify-center">
             <p className="text-2xl font-bold text-white flex items-center gap-2">
               <span className="text-slate-500 text-sm"><ArrowUp size={16}/></span> 
-              <CountUp to={activeThreats} />
+              {activeThreats}
             </p>
             <p className="text-xs text-slate-400 uppercase font-semibold mt-1 flex items-center gap-2">
               <span className="w-4 h-4 rounded bg-amber-500/20 text-amber-500 flex items-center justify-center">
@@ -249,7 +248,7 @@ export default function DashboardLayout() {
           </DarkCard>
 
           <DarkCard className="lg:col-span-2 p-5 flex flex-col justify-center">
-            <p className="text-2xl font-bold text-white"><CountUp to={criticalAlerts} /></p>
+            <p className="text-2xl font-bold text-white">{criticalAlerts}</p>
             <p className="text-xs text-slate-400 uppercase font-semibold mt-1 flex items-center gap-2">
               <span className="w-4 h-4 rounded bg-red-500/20 text-red-500 flex items-center justify-center">
                 <TriangleAlert size={10} />
@@ -259,7 +258,7 @@ export default function DashboardLayout() {
           </DarkCard>
 
           <DarkCard className="lg:col-span-2 p-5 flex flex-col justify-center">
-            <p className="text-2xl font-bold text-white"><CountUp to={systemVulnerabilities} /></p>
+            <p className="text-2xl font-bold text-white">{systemVulnerabilities}</p>
             <p className="text-xs text-slate-400 uppercase font-semibold mt-1 flex items-center gap-2">
               <span className="w-4 h-4 rounded bg-red-500/20 text-red-500 flex items-center justify-center">
                 <ShieldAlert size={10} />
@@ -290,14 +289,12 @@ export default function DashboardLayout() {
                </ul>
              </div>
              <div className="w-[110px] h-[90px] relative shrink-0">
-               <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={[{ value: riskScore }, { value: 100 - riskScore }]} cx="50%" cy="50%" innerRadius={35} outerRadius={45} stroke="none" startAngle={225} endAngle={-45}>
+               <PieChart width={110} height={90}>
+                    <Pie data={[{ value: riskScore }, { value: 100 - riskScore }]} cx="50%" cy="50%" innerRadius={35} outerRadius={45} stroke="none" startAngle={225} endAngle={-45} isAnimationActive={false}>
                       <Cell fill={riskColor} />
                       <Cell fill="#292e40" />
                     </Pie>
-                  </PieChart>
-               </ResponsiveContainer>
+               </PieChart>
                <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-lg font-bold text-white">{riskScore}%</span>
                   <span className="text-[8px] uppercase font-bold text-slate-400 w-16 text-center leading-tight mt-1">RISK LEVEL HIGH</span>
