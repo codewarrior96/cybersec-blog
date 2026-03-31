@@ -264,7 +264,12 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
   if (!open || !attack) return null;
 
   const sev = attack.severity.toUpperCase();
-  const sevColor = sev === 'CRITICAL' ? '#ef4444' : sev === 'HIGH' ? '#f97316' : '#eab308';
+  const sevColor =
+    sev === 'CRITICAL'
+      ? 'var(--threat-red)'
+      : sev === 'HIGH'
+        ? 'var(--warning-orange)'
+        : 'var(--accent-cyan)';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
