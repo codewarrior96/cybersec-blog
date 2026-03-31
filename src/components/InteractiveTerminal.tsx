@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, KeyboardEvent } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import MatrixRain from '@/components/MatrixRain';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -82,6 +83,7 @@ function lineColorClass(kind: LineKind): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function InteractiveTerminal() {
+  const router = useRouter();
   // Pre-typed animation
   const [preLines, setPreLines] = useState<TerminalLine[]>([]);
   const [typingText, setTypingText] = useState('');
@@ -173,13 +175,13 @@ export default function InteractiveTerminal() {
 
     if (cmd === 'blog') {
       setHistory((prev) => [...prev, inputLine, { kind: 'output' as const, text: 'Navigating to /blog...' }].slice(-20));
-      window.location.href = '/blog';
+      router.push('/blog');
       return;
     }
 
     if (cmd === 'portfolio') {
       setHistory((prev) => [...prev, inputLine, { kind: 'output' as const, text: 'Navigating to /portfolio...' }].slice(-20));
-      window.location.href = '/portfolio';
+      router.push('/portfolio');
       return;
     }
 

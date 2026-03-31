@@ -331,6 +331,9 @@ export interface AlertRecord {
 export interface AlertListResult {
   alerts: AlertRecord[]
   nextCursor: number | null
+  total: number
+  activeTotal: number
+  resolvedTotal: number
 }
 
 export interface ListAlertsFilters {
@@ -509,6 +512,9 @@ export async function listAssignableUsers(): Promise<UserWorkload[]> {
 export async function listAlerts(filters: ListAlertsFilters): Promise<AlertListResult> {
   const store = getStore()
   const limit = Math.min(50, Math.max(1, filters.limit ?? 12))
+  const total = store.alerts.length
+  const activeTotal = store.alerts.filter((alert) => alert.status !== 'resolved').length
+  const resolvedTotal = total - activeTotal
 
   const filtered = store.alerts
     .filter((alert) => {
@@ -532,6 +538,9 @@ export async function listAlerts(filters: ListAlertsFilters): Promise<AlertListR
   return {
     alerts: sliced.map(toAlertRecord),
     nextCursor,
+    total,
+    activeTotal,
+    resolvedTotal,
   }
 }
 

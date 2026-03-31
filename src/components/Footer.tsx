@@ -1,3 +1,5 @@
+﻿import Link from 'next/link';
+
 const socialLinks = [
   {
     label: 'GitHub',
@@ -71,13 +73,13 @@ export default function Footer() {
                   { href: '/about',     label: 'Hakkımda' },
                 ].map((l) => (
                   <li key={l.href}>
-                    <a
+                    <Link
                       href={l.href}
                       className="font-mono text-xs text-slate-500 hover:text-green-400 transition-colors flex items-center gap-1.5"
                     >
                       <span className="text-green-400/30">›</span>
                       {l.label}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -125,3 +127,4 @@ export default function Footer() {
     </footer>
   );
 }
+

@@ -2,10 +2,15 @@ import * as memoryStore from '@/lib/soc-store-memory'
 import { getSupabaseAttackMetrics, isSupabaseAttackStoreEnabled, recordAttackEventToSupabase } from '@/lib/supabase-attack-metrics'
 import type { AttackEventInput, LiveMetrics } from '@/lib/soc-store-memory'
 
-const USE_MEMORY_STORE = process.env.SOC_STORAGE === 'memory' || process.env.VERCEL === '1'
+const STORAGE_MODE = (process.env.SOC_STORAGE ?? 'sqlite').toLowerCase()
+const USE_MEMORY_STORE = STORAGE_MODE === 'memory'
 type StoreModule = typeof import('@/lib/soc-store-memory')
 
 let sqliteStorePromise: Promise<StoreModule> | null = null
+
+if (STORAGE_MODE !== 'memory' && STORAGE_MODE !== 'sqlite') {
+  console.warn(`[soc-store-adapter] Unsupported SOC_STORAGE="${STORAGE_MODE}". Falling back to sqlite.`)
+}
 
 async function getActiveStore(): Promise<StoreModule> {
   if (USE_MEMORY_STORE) return memoryStore

@@ -227,7 +227,7 @@
   100% { box-shadow: none; background-color: #000000; }
 }
 .critical-alert-active {
-  animation: critical-pulse 7s ease-in-out forwards;
+  animation: critical-pulse var(--critical-overlay-duration, 7s) ease-in-out forwards;
 }
 
 /* Scan line sweeping top → bottom */

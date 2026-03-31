@@ -1,6 +1,7 @@
-import { getAllPosts } from '@/lib/posts';
+﻿import { getAllPosts } from '@/lib/posts';
 import BlogCard from '@/components/BlogCard';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = { title: 'Blog' };
 
@@ -63,9 +64,9 @@ export default async function BlogPage({
         <p className="text-slate-500 mt-1 text-sm font-mono">
           {filtered.length}/{posts.length} yazı
           {q && (
-            <a href="/blog" className="ml-3 text-green-400/70 hover:text-green-400 transition-colors">
+            <Link href="/blog" className="ml-3 text-green-400/70 hover:text-green-400 transition-colors">
               [× temizle]
-            </a>
+            </Link>
           )}
         </p>
       </div>
@@ -114,7 +115,7 @@ export default async function BlogPage({
             <ul className="space-y-1.5">
               {categories.map((cat) => (
                 <li key={cat.label}>
-                  <a
+                  <Link
                     href={`/blog?q=${cat.label.toLowerCase()}`}
                     className="flex items-center justify-between font-mono text-xs text-slate-400 hover:text-green-400 transition-colors group"
                   >
@@ -125,7 +126,7 @@ export default async function BlogPage({
                     <span className="text-slate-600 group-hover:text-green-400/60 tabular-nums">
                       {cat.count}
                     </span>
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -136,14 +137,14 @@ export default async function BlogPage({
             <div className="sidebar-card-title">Etiketler</div>
             <div className="flex flex-wrap gap-1.5">
               {topTags.map(([tag, count]) => (
-                <a
+                <Link
                   key={tag}
                   href={`/blog?q=${encodeURIComponent(tag)}`}
                   className="px-2 py-0.5 font-mono text-xs border border-slate-700 text-slate-500 rounded hover:border-green-400/50 hover:text-green-400 transition-all"
                 >
                   #{tag}
                   <span className="text-slate-700 ml-1">{count}</span>
-                </a>
+                </Link>
               ))}
             </div>
           </div>
@@ -154,12 +155,12 @@ export default async function BlogPage({
             <p className="font-mono text-xs text-slate-500 leading-relaxed">
               Siber güvenlik araştırmacısı. CTF çözüyorum, sızma testi öğreniyorum, burada paylaşıyorum.
             </p>
-            <a
+            <Link
               href="/about"
               className="mt-3 inline-block font-mono text-xs text-green-400/70 hover:text-green-400 transition-colors"
             >
               → daha fazla
-            </a>
+            </Link>
           </div>
 
           {/* Search hint */}
@@ -174,3 +175,4 @@ export default async function BlogPage({
     </div>
   );
 }
+

@@ -1,11 +1,20 @@
 'use client'
 
 import NavigationBar from '@/components/NavigationBar'
+import { useRouter } from 'next/navigation'
 
 export default function NavPreviewPage() {
+  const router = useRouter()
+
+  const handleLogout = () => {
+    void fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => {
+      router.push('/login')
+    })
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: '#050a14' }}>
-      <NavigationBar threatCount={6} warnCount={14} currentPath="/portfolio" onLogout={() => { void fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => { window.location.href = '/login' }) }} />
+      <NavigationBar threatCount={6} warnCount={14} currentPath="/portfolio" onLogout={handleLogout} />
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '28px 20px', color: '#94a3b8', fontFamily: 'monospace' }}>
         <h1 style={{ color: '#00ff88', fontSize: 18, letterSpacing: '0.08em' }}>NAV PREVIEW</h1>
         <p style={{ marginTop: 10, fontSize: 13, lineHeight: 1.6 }}>

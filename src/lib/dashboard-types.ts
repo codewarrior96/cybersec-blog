@@ -5,6 +5,10 @@ export interface CVEItem {
   description: string;
   severity: string | null;
   score: number | null;
+  published?: string;
+  lastModified?: string;
+  references?: string[];
+  weaknesses?: string | null;
 }
 
 export interface NewsItem {
@@ -49,6 +53,42 @@ export interface WorkflowMetrics {
     liveDensity: number;
     totalLast24h: number;
   };
+}
+
+export type AlarmQueueState = 'idle' | 'alarm_active' | 'queue_draining';
+
+export type AlarmTransitionReason =
+  | 'critical_ingest'
+  | 'overlay_timeout'
+  | 'queue_drained'
+  | 'panel_closed'
+  | 'manual_reset';
+
+export interface CriticalIncident extends AttackEvent {
+  detectedAt: string;
+}
+
+export interface AlarmTransition {
+  from: AlarmQueueState;
+  to: AlarmQueueState;
+  at: string;
+  reason: AlarmTransitionReason;
+}
+
+export interface SocRuntimeSnapshot {
+  alarmState: AlarmQueueState;
+  overlayActive: boolean;
+  overlayCycle: number;
+  panelOpen: boolean;
+  reportModalOpen: boolean;
+  criticalQueue: CriticalIncident[];
+  reportTarget: CriticalIncident | null;
+  attacks: AttackEvent[];
+  metrics: WorkflowMetrics | null;
+  alertCount: number;
+  cveCount: number;
+  demoMode: boolean;
+  transitions: AlarmTransition[];
 }
 
 export interface PostMeta {

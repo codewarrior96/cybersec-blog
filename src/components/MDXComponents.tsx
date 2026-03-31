@@ -1,4 +1,5 @@
 import type { MDXComponents } from 'mdx/types';
+import Link from 'next/link';
 import CodeBlock from './CodeBlock';
 
 const components: MDXComponents = {
@@ -17,16 +18,22 @@ const components: MDXComponents = {
   p: ({ children }) => (
     <p className="text-slate-300 leading-7 mb-5">{children}</p>
   ),
-  a: ({ href, children }) => (
-    <a
-      href={href}
-      className="text-cyan-400 underline underline-offset-2 hover:text-cyan-300 transition-colors"
-      target={href?.startsWith('http') ? '_blank' : undefined}
-      rel={href?.startsWith('http') ? 'noopener noreferrer' : undefined}
-    >
-      {children}
-    </a>
-  ),
+  a: ({ href, children }) => {
+    const className = 'text-cyan-400 underline underline-offset-2 hover:text-cyan-300 transition-colors';
+    if (!href) return <span className={className}>{children}</span>;
+    if (href.startsWith('http')) {
+      return (
+        <a href={href} className={className} target="_blank" rel="noopener noreferrer">
+          {children}
+        </a>
+      );
+    }
+    return (
+      <Link href={href} className={className}>
+        {children}
+      </Link>
+    );
+  },
   code: ({ children }) => (
     <code className="font-mono text-sm bg-slate-800/80 text-green-400 px-1.5 py-0.5 rounded border border-slate-700">
       {children}

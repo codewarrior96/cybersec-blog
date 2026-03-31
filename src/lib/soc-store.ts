@@ -56,6 +56,9 @@ export interface AlertRecord {
 export interface AlertListResult {
   alerts: AlertRecord[]
   nextCursor: number | null
+  total: number
+  activeTotal: number
+  resolvedTotal: number
 }
 
 export interface ListAlertsFilters {
@@ -514,53 +517,57 @@ export async function listAlerts(filters: ListAlertsFilters): Promise<AlertListR
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
   const db = await getDb()
-
-  const rows = await db.all<AlertJoinedRow[]>(
-    `
-      SELECT
-        a.id,
-        a.title,
-        a.description,
-        a.status,
-        a.priority,
-        a.source_event_id,
-        a.source_ip,
-        a.source_country,
-        a.attack_type,
-        a.created_at,
-        a.updated_at,
-        a.resolved_at,
-        assignee.id AS assignee_id,
-        assignee.username AS assignee_username,
-        assignee.display_name AS assignee_display_name,
-        assignee.role AS assignee_role,
-        creator.id AS creator_id,
-        creator.username AS creator_username,
-        creator.display_name AS creator_display_name,
-        creator.role AS creator_role,
-        (
-          SELECT COUNT(*)
-          FROM alert_notes notes
-          WHERE notes.alert_id = a.id
-        ) AS note_count
-      FROM alerts a
-      LEFT JOIN users assignee ON assignee.id = a.assignee_user_id
-      LEFT JOIN users creator ON creator.id = a.created_by_user_id
-      ${whereSql}
-      ORDER BY
-        CASE a.priority
-          WHEN 'P1' THEN 1
-          WHEN 'P2' THEN 2
-          WHEN 'P3' THEN 3
-          ELSE 4
-        END ASC,
-        datetime(a.created_at) DESC,
-        a.id DESC
-      LIMIT ?
-    `,
-    ...params,
-    limit + 1,
-  )
+  const [totalRow, activeRow, resolvedRow, rows] = await Promise.all([
+    db.get<{ count: number }>('SELECT COUNT(*) AS count FROM alerts'),
+    db.get<{ count: number }>("SELECT COUNT(*) AS count FROM alerts WHERE status != 'resolved'"),
+    db.get<{ count: number }>("SELECT COUNT(*) AS count FROM alerts WHERE status = 'resolved'"),
+    db.all<AlertJoinedRow[]>(
+      `
+        SELECT
+          a.id,
+          a.title,
+          a.description,
+          a.status,
+          a.priority,
+          a.source_event_id,
+          a.source_ip,
+          a.source_country,
+          a.attack_type,
+          a.created_at,
+          a.updated_at,
+          a.resolved_at,
+          assignee.id AS assignee_id,
+          assignee.username AS assignee_username,
+          assignee.display_name AS assignee_display_name,
+          assignee.role AS assignee_role,
+          creator.id AS creator_id,
+          creator.username AS creator_username,
+          creator.display_name AS creator_display_name,
+          creator.role AS creator_role,
+          (
+            SELECT COUNT(*)
+            FROM alert_notes notes
+            WHERE notes.alert_id = a.id
+          ) AS note_count
+        FROM alerts a
+        LEFT JOIN users assignee ON assignee.id = a.assignee_user_id
+        LEFT JOIN users creator ON creator.id = a.created_by_user_id
+        ${whereSql}
+        ORDER BY
+          CASE a.priority
+            WHEN 'P1' THEN 1
+            WHEN 'P2' THEN 2
+            WHEN 'P3' THEN 3
+            ELSE 4
+          END ASC,
+          datetime(a.created_at) DESC,
+          a.id DESC
+        LIMIT ?
+      `,
+      ...params,
+      limit + 1,
+    ),
+  ])
 
   const hasNext = rows.length > limit
   const sliced = hasNext ? rows.slice(0, limit) : rows
@@ -569,6 +576,9 @@ export async function listAlerts(filters: ListAlertsFilters): Promise<AlertListR
   return {
     alerts: sliced.map(toAlertRecord),
     nextCursor,
+    total: Number(totalRow?.count ?? 0),
+    activeTotal: Number(activeRow?.count ?? 0),
+    resolvedTotal: Number(resolvedRow?.count ?? 0),
   }
 }
 

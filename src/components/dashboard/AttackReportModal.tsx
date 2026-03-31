@@ -1,7 +1,9 @@
-'use client';
+﻿'use client';
 import React, { useState, useEffect } from 'react';
 import { X, FileText, Send, CheckCircle, AlertCircle, Tag, Users, Shield } from 'lucide-react';
+import Link from 'next/link';
 import type { AttackEvent } from '@/lib/dashboard-types';
+import { dispatchReportsUpdatedEvent } from '@/lib/reports-events';
 
 interface AttackReportModalProps {
   attack: AttackEvent | null;
@@ -249,6 +251,7 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
           localStorage.setItem('community_posts', JSON.stringify([newPost, ...existing]));
         } catch { /* ignore */ }
       }
+      dispatchReportsUpdatedEvent();
 
       setStatus('success');
       setTimeout(() => { onClose(); setStatus('idle'); }, 2400);
@@ -297,10 +300,10 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
             <p className="text-slate-500 text-sm text-center">
               Rapor kaydedildi.{toCommunity && ' Community\'ye gönderildi.'}
             </p>
-            <a href="/zafiyet-taramasi"
+            <Link href="/zafiyet-taramasi"
               className="text-violet-400 text-xs underline underline-offset-2 hover:text-violet-300">
               Sentinel'de görüntüle →
-            </a>
+            </Link>
           </div>
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
@@ -431,3 +434,4 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
     </div>
   );
 }
+

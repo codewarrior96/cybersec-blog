@@ -8,6 +8,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
+import { REPORTS_UPDATED_EVENT } from '@/lib/reports-events';
 
 /* ══════════════════════════════════════════════
    TYPES
@@ -662,7 +663,22 @@ export default function ZafiyetTaramasiPage() {
     }
   }, []);
 
-  useEffect(() => { void fetchReports(); }, [fetchReports]);
+  useEffect(() => {
+    void fetchReports();
+    if (typeof window === 'undefined') return;
+
+    const onReportsUpdated = () => {
+      void fetchReports();
+    };
+
+    window.addEventListener(REPORTS_UPDATED_EVENT, onReportsUpdated as EventListener);
+    window.addEventListener('focus', onReportsUpdated);
+
+    return () => {
+      window.removeEventListener(REPORTS_UPDATED_EVENT, onReportsUpdated as EventListener);
+      window.removeEventListener('focus', onReportsUpdated);
+    };
+  }, [fetchReports]);
 
   const toggleSev = (s: string) =>
     setSevFilter(prev => {
