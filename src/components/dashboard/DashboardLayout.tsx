@@ -8,6 +8,8 @@ import CriticalAlertPanel from '@/components/dashboard/CriticalAlertPanel'
 import CriticalOverlayFx from '@/components/dashboard/CriticalOverlayFx'
 import { useSocRuntime } from '@/lib/soc-runtime/use-soc-runtime'
 import { CRITICAL_EFFECT_TOKENS } from '@/lib/soc-runtime/critical-effects'
+import CountUp from '@/components/CountUp'
+import MatrixRain from '@/components/MatrixRain'
 
 type RegionFilter = 'all' | 'americas' | 'emea' | 'apac'
 type SeverityFilter = 'all' | AttackEvent['severity']
@@ -53,6 +55,7 @@ function formatClock(iso: string) {
   return new Date(iso).toLocaleTimeString('tr-TR', {
     hour: '2-digit',
     minute: '2-digit',
+    second: '2-digit'
   })
 }
 
@@ -155,22 +158,46 @@ function GlassCard({
 }) {
   return (
     <section
-      className={`rounded-xl border border-cyan-400/20 bg-[linear-gradient(165deg,rgba(6,20,35,0.86),rgba(4,13,25,0.78))] shadow-[0_0_0_1px_rgba(56,189,248,0.08),0_20px_45px_rgba(0,0,0,0.45)] backdrop-blur-md ${className}`}
+      className={`relative rounded-none border-[1.5px] border-cyan-500/30 bg-[#030a11]/80 backdrop-blur-md shadow-[inset_0_0_20px_rgba(34,211,238,0.05),0_0_15px_rgba(0,0,0,0.6)] ${className}`}
     >
-      <header className="flex items-center justify-between border-b border-cyan-500/15 px-4 py-3">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-100/90">{title}</h2>
+      {/* Sci-fi Corner Brackets */}
+      <div className="absolute top-0 left-0 w-3 h-3 border-t-[2.5px] border-l-[2.5px] border-cyan-400/90 -translate-x-[1.5px] -translate-y-[1.5px]" />
+      <div className="absolute top-0 right-0 w-3 h-3 border-t-[2.5px] border-r-[2.5px] border-cyan-400/90 translate-x-[1.5px] -translate-y-[1.5px]" />
+      <div className="absolute bottom-0 left-0 w-3 h-3 border-b-[2.5px] border-l-[2.5px] border-cyan-400/90 -translate-x-[1.5px] translate-y-[1.5px]" />
+      <div className="absolute bottom-0 right-0 w-3 h-3 border-b-[2.5px] border-r-[2.5px] border-cyan-400/90 translate-x-[1.5px] translate-y-[1.5px]" />
+      
+      {/* Scanline pattern */}
+      <div className="pointer-events-none absolute inset-0 opacity-[0.04] bg-[linear-gradient(transparent_50%,rgba(0,0,0,1)_50%)] bg-[length:100%_4px]" />
+
+      <header className="relative flex items-center justify-between border-b border-cyan-500/20 bg-gradient-to-r from-cyan-950/50 to-transparent px-4 py-3">
+        <h2 className="text-[11px] font-bold uppercase tracking-[0.25em] text-cyan-50 flex items-center gap-2">
+          <span className="flex h-2 w-2 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+          </span>
+          {title}
+        </h2>
         {right}
       </header>
-      <div className="p-4">{children}</div>
+      <div className="relative p-4 z-10">{children}</div>
     </section>
   )
 }
 
-function MetricTile({ label, value, tone }: { label: string; value: string | number; tone: string }) {
+function MetricTile({ label, value, tone, isCountUp = true, suffix = '' }: { label: string; value: number | string; tone: string; isCountUp?: boolean; suffix?: string }) {
   return (
-    <article className="rounded-lg border border-cyan-500/20 bg-black/25 px-3 py-2">
-      <p className="text-[9px] uppercase tracking-[0.2em] text-slate-400">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>{value}</p>
+    <article className="group relative overflow-hidden rounded-md border border-cyan-500/20 bg-[#06101a]/80 px-3 py-3 transition-colors hover:bg-cyan-950/40 hover:border-cyan-400/40">
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent -translate-x-full group-hover:animate-shimmer" />
+      
+      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 flex items-center justify-between">
+        {label}
+        <span className="opacity-0 group-hover:opacity-100 transition-opacity text-cyan-400 text-[8px] tracking-widest font-mono">ACTV</span>
+      </p>
+      <p className={`relative mt-2 text-2xl font-bold tabular-nums tracking-wide drop-shadow-[0_0_8px_currentColor] ${tone}`}>
+        {isCountUp && typeof value === 'number' ? <CountUp to={value} suffix={suffix} /> : value}
+      </p>
+      {/* Bottom accent line */}
+      <div className="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-cyan-400 to-transparent transition-all duration-300 group-hover:w-full" />
     </article>
   )
 }
@@ -251,7 +278,7 @@ export default function DashboardLayout() {
 
   const donutGradient = useMemo(() => {
     if (incidentTypeBreakdown.length === 0) {
-      return 'conic-gradient(#1e293b 0% 100%)'
+      return 'conic-gradient(#0a1929 0% 100%)'
     }
 
     const total = incidentTypeBreakdown.reduce((sum, item) => sum + item.value, 0)
@@ -333,135 +360,178 @@ export default function DashboardLayout() {
   if (!mounted) return null
 
   return (
-    <div className="relative min-h-[calc(100vh-64px)] overflow-hidden bg-[#040d17] text-slate-100">
-      <div className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_12%_18%,rgba(14,165,233,0.14),transparent_34%),radial-gradient(circle_at_78%_24%,rgba(245,158,11,0.12),transparent_30%),linear-gradient(180deg,#02070f_0%,#040d17_48%,#030b15_100%)]" />
-      <div className="pointer-events-none absolute inset-0 opacity-30 [background:linear-gradient(to_right,rgba(56,189,248,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(56,189,248,0.05)_1px,transparent_1px)] [background-size:42px_42px]" />
+    <div className="relative min-h-[calc(100vh-64px)] overflow-hidden bg-[#02060c] text-slate-100 font-sans">
+      {/* Deep Cyberpunk Backgrounds */}
+      <div className="absolute inset-0 z-0 opacity-15 mix-blend-screen pointer-events-none">
+        <MatrixRain />
+      </div>
+
+      <div className="pointer-events-none absolute inset-0 z-0 [background:radial-gradient(circle_at_12%_18%,rgba(14,165,233,0.18),transparent_40%),radial-gradient(circle_at_78%_24%,rgba(245,158,11,0.15),transparent_35%),linear-gradient(180deg,transparent_0%,rgba(2,6,12,0.8)_80%,#02060c_100%)]" />
+      <div className="pointer-events-none absolute inset-0 z-0 opacity-30 [background:linear-gradient(to_right,rgba(56,189,248,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(56,189,248,0.06)_1px,transparent_1px)] [background-size:48px_48px]" />
+      
+      {/* Global CRT subtle line */}
+      <div className="pointer-events-none absolute inset-0 z-50 mix-blend-overlay opacity-10 bg-[linear-gradient(transparent_50%,rgba(0,0,0,1)_50%)] bg-[length:100%_4px]" />
 
       {snapshot.overlayActive ? <CriticalOverlayFx cycle={snapshot.overlayCycle} /> : null}
 
-      <div className="relative z-10 mx-auto flex w-full max-w-[1700px] flex-col gap-3 p-3 md:p-4">
+      <div className="relative z-10 mx-auto flex w-full max-w-[1700px] flex-col gap-4 p-3 md:p-5">
         <GlassCard
           title="Sentinel Prime SOC Matrix"
           right={
-            <div className="flex items-center gap-2 text-[10px]">
+            <div className="flex items-center gap-3 text-[10px] font-mono tracking-wider">
               <button
                 type="button"
-                className="rounded border border-cyan-400/40 px-2 py-1 text-cyan-200 hover:bg-cyan-400/10"
+                className="group relative rounded border border-cyan-400/30 bg-cyan-950/20 px-3 py-1.5 text-cyan-200 transition-colors hover:border-cyan-400 hover:bg-cyan-400/20 hover:text-cyan-50"
                 onClick={() => void actions.refreshMetrics()}
               >
-                sync metrics
+                <div className="absolute inset-0 bg-cyan-400/20 opacity-0 group-hover:animate-pulse group-hover:opacity-100" />
+                SYNC METRICS
               </button>
               <button
                 type="button"
-                className="rounded border border-amber-400/40 px-2 py-1 text-amber-200 hover:bg-amber-400/10"
+                className="group relative rounded border border-amber-400/30 bg-amber-950/20 px-3 py-1.5 text-amber-200 transition-colors hover:border-amber-400 hover:bg-amber-400/20 hover:text-amber-50"
                 onClick={() => void actions.refreshSummary()}
               >
-                sync incidents
+                <div className="absolute inset-0 bg-amber-400/20 opacity-0 group-hover:animate-pulse group-hover:opacity-100" />
+                SYNC INCIDENTS
               </button>
             </div>
           }
         >
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
-            <MetricTile label="Health Score" value={`${healthScore}/100`} tone="text-cyan-200" />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+            <MetricTile label="Health Score" value={healthScore} suffix="/100" tone="text-cyan-300" />
             <MetricTile label="Total Incidents" value={totalIncidents} tone="text-slate-100" />
-            <MetricTile label="Resolved" value={resolvedIncidents} tone="text-emerald-200" />
-            <MetricTile label="Ongoing" value={ongoingIncidents} tone="text-amber-200" />
-            <MetricTile label="Critical" value={criticalIncidents} tone="text-rose-200" />
-            <MetricTile label="Threats / Min" value={attacksPerMinute} tone="text-sky-200" />
+            <MetricTile label="Resolved" value={resolvedIncidents} tone="text-emerald-300" />
+            <MetricTile label="Ongoing" value={ongoingIncidents} tone="text-amber-300" />
+            <MetricTile label="Critical" value={criticalIncidents} tone="text-rose-400" />
+            <MetricTile label="Threats / Min" value={attacksPerMinute} tone="text-sky-300" />
           </div>
         </GlassCard>
 
-        <section className="grid grid-cols-1 gap-3 xl:grid-cols-[250px_minmax(0,1fr)_340px]">
+        <section className="grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
           <GlassCard title="Filter Control">
-            <div className="space-y-5 text-sm">
-              <div>
-                <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-400">Date Range (hours)</p>
-                <input
-                  type="range"
-                  min={1}
-                  max={72}
-                  value={timeWindowHours}
-                  onChange={(event) => setTimeWindowHours(Number(event.target.value))}
-                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-800 accent-cyan-400"
-                />
-                <p className="mt-2 text-xs text-cyan-200">Last {timeWindowHours} hours</p>
+            <div className="space-y-6 text-sm">
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Date Range (hours)</p>
+                <div className="relative group">
+                  <input
+                    type="range"
+                    min={1}
+                    max={72}
+                    value={timeWindowHours}
+                    onChange={(event) => setTimeWindowHours(Number(event.target.value))}
+                    className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-800 accent-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  />
+                  <div className="absolute top-1/2 left-0 h-1.5 rounded-full bg-cyan-400 pointer-events-none" style={{ width: `${(timeWindowHours / 72) * 100}%` }} />
+                </div>
+                <p className="text-xs font-mono text-cyan-300">T-MINUS {timeWindowHours} HOURS</p>
               </div>
 
-              <div>
-                <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-400">Region</p>
-                <select
-                  value={regionFilter}
-                  onChange={(event) => setRegionFilter(event.target.value as RegionFilter)}
-                  className="w-full rounded-md border border-cyan-600/25 bg-[#071827] px-3 py-2 text-sm text-cyan-100 outline-none focus:border-cyan-400/70"
-                >
-                  <option value="all">All Regions</option>
-                  <option value="americas">Americas</option>
-                  <option value="emea">EMEA</option>
-                  <option value="apac">APAC</option>
-                </select>
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Region</p>
+                <div className="relative">
+                  <select
+                    value={regionFilter}
+                    onChange={(event) => setRegionFilter(event.target.value as RegionFilter)}
+                    className="w-full appearance-none rounded border border-cyan-800/80 bg-[#05111d] px-3 py-2.5 text-xs font-mono text-cyan-100 outline-none transition-colors hover:border-cyan-500/80 focus:border-cyan-400"
+                  >
+                    <option value="all">ALL REGIONS</option>
+                    <option value="americas">AMERICAS</option>
+                    <option value="emea">EMEA</option>
+                    <option value="apac">APAC</option>
+                  </select>
+                  <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-cyan-500" />
+                </div>
               </div>
 
-              <div>
-                <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-400">Severity</p>
-                <select
-                  value={severityFilter}
-                  onChange={(event) => setSeverityFilter(event.target.value as SeverityFilter)}
-                  className="w-full rounded-md border border-cyan-600/25 bg-[#071827] px-3 py-2 text-sm text-cyan-100 outline-none focus:border-cyan-400/70"
-                >
-                  <option value="all">All</option>
-                  <option value="critical">Critical</option>
-                  <option value="high">High</option>
-                  <option value="low">Low</option>
-                </select>
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Severity</p>
+                <div className="relative">
+                  <select
+                    value={severityFilter}
+                    onChange={(event) => setSeverityFilter(event.target.value as SeverityFilter)}
+                    className="w-full appearance-none rounded border border-cyan-800/80 bg-[#05111d] px-3 py-2.5 text-xs font-mono text-cyan-100 outline-none transition-colors hover:border-cyan-500/80 focus:border-cyan-400"
+                  >
+                    <option value="all">ALL LEVELS</option>
+                    <option value="critical">CRITICAL</option>
+                    <option value="high">HIGH</option>
+                    <option value="low">LOW</option>
+                  </select>
+                  <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-cyan-500" />
+                </div>
               </div>
 
-              <div>
-                <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-400">Incident Type</p>
-                <select
-                  value={typeFilter}
-                  onChange={(event) => setTypeFilter(event.target.value)}
-                  className="w-full rounded-md border border-cyan-600/25 bg-[#071827] px-3 py-2 text-sm text-cyan-100 outline-none focus:border-cyan-400/70"
-                >
-                  {typeOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option === 'all' ? 'All Types' : option}
-                    </option>
-                  ))}
-                </select>
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Incident Type</p>
+                <div className="relative">
+                  <select
+                    value={typeFilter}
+                    onChange={(event) => setTypeFilter(event.target.value)}
+                    className="w-full appearance-none rounded border border-cyan-800/80 bg-[#05111d] px-3 py-2.5 text-xs font-mono text-cyan-100 outline-none transition-colors hover:border-cyan-500/80 focus:border-cyan-400"
+                  >
+                    {typeOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option === 'all' ? 'ALL VECTORS' : option.toUpperCase()}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-cyan-500" />
+                </div>
               </div>
 
-              <div className="rounded-lg border border-cyan-500/20 bg-black/20 p-3">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Live Cursor</p>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={timelineCursor}
-                  onChange={(event) => setTimelineCursor(Number(event.target.value))}
-                  className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-800 accent-amber-400"
-                />
-                <p className="mt-2 text-xs text-amber-200">Replay {timelineCursor}%</p>
+              <div className="relative overflow-hidden rounded-lg border border-amber-500/30 bg-[#0a0802]/60 p-4">
+                <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(245,158,11,0.05)_50%,transparent_75%)] bg-[length:10px_10px]" />
+                <p className="relative text-[10px] font-bold uppercase tracking-[0.2em] text-amber-500/80">Replay Timeline</p>
+                <div className="relative group mt-3">
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={timelineCursor}
+                    onChange={(event) => setTimelineCursor(Number(event.target.value))}
+                    className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-slate-900 accent-amber-400 focus:outline-none"
+                  />
+                  <div className="absolute top-1/2 left-0 h-1.5 rounded-full bg-amber-400 pointer-events-none" style={{ width: `${timelineCursor}%` }} />
+                </div>
+                <p className="relative mt-2 text-xs font-mono font-bold text-amber-400 drop-shadow-[0_0_5px_rgba(245,158,11,0.8)]">RUNTIME: {timelineCursor}%</p>
               </div>
             </div>
           </GlassCard>
 
-          <div className="grid grid-cols-1 gap-3 xl:grid-rows-[minmax(420px,1fr)_auto]">
-            <GlassCard title="Severity Heatmap">
-              <div className="relative h-[360px] overflow-hidden rounded-xl border border-cyan-500/20 bg-[#020a14] md:h-[430px] xl:h-[500px]">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_30%,rgba(56,189,248,0.14),transparent_42%),radial-gradient(circle_at_72%_44%,rgba(245,158,11,0.18),transparent_34%),linear-gradient(to_bottom,rgba(7,18,31,0.95),rgba(3,11,22,0.96))]" />
+          <div className="grid grid-cols-1 gap-4 xl:grid-rows-[minmax(420px,1fr)_auto]">
+            <GlassCard title="Global Severity Heatmap">
+              <div className="relative h-[360px] w-full overflow-hidden rounded border border-cyan-600/30 bg-[#010811] shadow-[inset_0_0_40px_rgba(0,0,0,0.8)] md:h-[430px] xl:h-[500px]">
+                
+                {/* Advanced Radar Glow */}
+                <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_35%_40%,rgba(14,165,233,0.18),transparent_50%),radial-gradient(circle_at_70%_55%,rgba(245,158,11,0.15),transparent_40%),linear-gradient(to_bottom,rgba(1,8,17,0.95),rgba(3,11,22,0.98))]" />
+                
+                {/* Map Grid */}
+                <div className="absolute inset-0 z-0 bg-[linear-gradient(rgba(56,189,248,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(56,189,248,0.08)_1px,transparent_1px)] bg-[size:50px_50px]" />
+
+                {/* World Map SVG */}
                 <img
                   src="/world-lite.svg"
                   alt="Global threat map"
-                  className="relative z-10 h-full w-full object-cover opacity-46 [filter:contrast(1.1)_brightness(0.78)_saturate(1.1)]"
+                  className="relative z-10 h-full w-full object-cover opacity-60 [filter:contrast(1.2)_brightness(0.9)_saturate(1.2)_drop-shadow(0_0_10px_rgba(56,189,248,0.3))]"
                   draggable={false}
                 />
 
-                <div className="absolute inset-0 z-20">
+                <div className="absolute inset-0 z-20 overflow-hidden">
+                  {/* Rotating Radar Sweep */}
+                  <div className="absolute left-1/2 top-1/2 aspect-square w-[140%] -translate-x-1/2 -translate-y-1/2 origin-center animate-[spin_6s_linear_infinite] rounded-full pointer-events-none mix-blend-screen"
+                       style={{ background: 'conic-gradient(from 0deg, transparent 70%, rgba(34,211,238,0.15) 98%, rgba(255,255,255,0.4) 100%)' }} />
+                  {/* Radar Crosshairs */}
+                  <div className="absolute left-1/2 top-0 bottom-0 w-[1px] -translate-x-1/2 bg-cyan-500/20 pointer-events-none" />
+                  <div className="absolute top-1/2 left-0 right-0 h-[1px] -translate-y-1/2 bg-cyan-500/20 pointer-events-none" />
+
                   {trajectoryPoints.map(({ attack, point }, index) => (
                     <span
                       key={`trajectory-${attack.id}-${index}`}
-                      className="absolute block h-[2px] rounded-full"
-                      style={buildTrajectoryStyle(point, TARGET_HUB, attack.severity, index)}
+                      className="absolute block h-[3px] rounded-full"
+                      style={{
+                        ...buildTrajectoryStyle(point, TARGET_HUB, attack.severity, index),
+                        boxShadow: `0 0 12px ${severityGlow(attack.severity)}`,
+                      }}
                     />
                   ))}
 
@@ -470,55 +540,66 @@ export default function DashboardLayout() {
                     const style: CSSProperties = {
                       left: `${point.x}%`,
                       top: `${point.y}%`,
-                      boxShadow: `0 0 16px ${glow}`,
-                      animationDelay: `${(index % 10) * 0.15}s`,
+                      boxShadow: `0 0 20px ${glow}`,
+                      animationDelay: `${(index % 10) * 0.1}s`,
                     }
 
                     return (
                       <button
                         key={`${attack.id}-${index}`}
                         type="button"
-                        className="group absolute z-30 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/40"
+                        className="group absolute z-30 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/60"
                         style={{ ...style, backgroundColor: glow }}
                         onClick={() => actions.openReport(attack.id)}
                       >
                         <span
                           className="absolute inset-0 rounded-full"
-                          style={{ backgroundColor: glow, animation: 'soc-map-ping 2.6s ease-out infinite' }}
+                          style={{ backgroundColor: glow, animation: 'soc-map-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite' }}
                         />
-                        <span className="pointer-events-none absolute left-1/2 top-[-28px] hidden -translate-x-1/2 whitespace-nowrap rounded border border-slate-500/35 bg-[#04111f]/95 px-2 py-1 text-[10px] text-slate-100 group-hover:block">
-                          {attack.sourceCountry} | {normalizeIncidentType(attack.type)}
+                        <span className="pointer-events-none absolute left-1/2 bottom-full mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded border border-cyan-500/50 bg-[#04111f]/95 px-2.5 py-1.5 text-[10px] font-mono text-cyan-50 backdrop-blur-sm group-hover:block transition-all animate-in zoom-in-75 duration-200">
+                          <span className="text-slate-400">LOC:</span> {attack.sourceCountry.toUpperCase()}
+                          <br/>
+                          <span className="text-slate-400">VEC:</span> {normalizeIncidentType(attack.type).toUpperCase()}
                         </span>
                       </button>
                     )
                   })}
 
+                  {/* Enhanced Target Hub */}
                   <div
-                    className="absolute z-30 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-100/50 bg-cyan-300/90 shadow-[0_0_20px_rgba(34,211,238,0.95)]"
+                    className="group absolute z-30 -translate-x-1/2 -translate-y-1/2"
                     style={{ left: `${TARGET_HUB.x}%`, top: `${TARGET_HUB.y}%` }}
-                  />
+                  >
+                    <div className="relative flex h-6 w-6 items-center justify-center">
+                       <span className="absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-40 animate-ping"></span>
+                       <div className="h-3 w-3 rounded-full border border-cyan-100 bg-cyan-400 shadow-[0_0_20px_rgba(34,211,238,1)]"></div>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             </GlassCard>
 
-            <GlassCard title="Top Countries by Incident Count">
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_180px]">
-                <div className="space-y-3">
+            <GlassCard title="Top Countries by Incident Volume">
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_200px]">
+                <div className="flex flex-col justify-center space-y-4">
                   {topCountries.length === 0 ? (
-                    <p className="text-sm text-slate-400">No country incidents found in selected filters.</p>
+                    <div className="flex h-20 items-center justify-center rounded border border-dashed border-cyan-800/50">
+                      <p className="text-xs font-mono text-cyan-600 animate-pulse">NO GEOSPATIAL DATA</p>
+                    </div>
                   ) : (
-                    topCountries.map((country) => {
+                    topCountries.map((country, idx) => {
                       const pct = (country.count / countryTotal) * 100
                       return (
-                        <div key={country.name} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-200">{country.name}</span>
-                            <span className="tabular-nums text-slate-400">{formatPercent(pct)}</span>
+                        <div key={country.name} className="relative space-y-1.5 animate-in slide-in-from-left-4 fade-in" style={{ animationDelay: `${idx * 100}ms`, animationFillMode: 'both' }}>
+                          <div className="flex items-center justify-between text-xs font-mono">
+                            <span className="text-cyan-100 font-bold">{country.name.toUpperCase()}</span>
+                            <span className="tabular-nums text-cyan-400">{formatPercent(pct)}</span>
                           </div>
-                          <div className="h-2 rounded-full bg-slate-800/80">
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-900 shadow-inner">
                             <div
-                              className="h-full rounded-full bg-[linear-gradient(90deg,#22d3ee,#0ea5e9)] shadow-[0_0_12px_rgba(56,189,248,0.45)]"
-                              style={{ width: `${Math.max(8, pct)}%` }}
+                              className="h-full rounded-full bg-gradient-to-r from-cyan-600 via-cyan-400 to-sky-300 shadow-[0_0_12px_rgba(34,211,238,0.7)]"
+                              style={{ width: `${Math.max(4, pct)}%` }}
                             />
                           </div>
                         </div>
@@ -527,46 +608,49 @@ export default function DashboardLayout() {
                   )}
                 </div>
 
-                <div className="flex items-center justify-center">
+                <div className="flex items-center justify-center relative">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.1),transparent_60%)] pointer-events-none" />
                   <div
-                    className="relative h-36 w-36 rounded-full border border-cyan-400/20"
+                    className="relative flex h-40 w-40 items-center justify-center rounded-full border-2 border-cyan-900/40 shadow-[0_0_30px_rgba(0,0,0,0.5)]"
                     style={{ background: donutGradient }}
                   >
-                    <div className="absolute inset-[24%] rounded-full border border-cyan-400/20 bg-[#04101f]" />
+                    <div className="absolute inset-[26%] rounded-full border border-cyan-800/60 bg-[#030a11] shadow-inner flex items-center justify-center">
+                      <span className="text-[10px] font-mono font-bold text-cyan-500/60">VOL</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </GlassCard>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 xl:grid-rows-[auto_auto_1fr]">
+          <div className="grid grid-cols-1 gap-4 xl:grid-rows-[auto_auto_1fr]">
             <GlassCard title="Operational KPIs">
-              <div className="grid grid-cols-2 gap-2">
-                <MetricTile label="MTTR" value={mttr} tone="text-cyan-100" />
-                <MetricTile label="MTTD" value={mttd} tone="text-amber-100" />
-                <MetricTile label="Active IPs" value={activeIps} tone="text-sky-100" />
-                <MetricTile label="Queue" value={snapshot.criticalQueue.length} tone="text-rose-100" />
+              <div className="grid grid-cols-2 gap-3">
+                <MetricTile label="MTTR" value={mttr} tone="text-cyan-300" suffix="m" />
+                <MetricTile label="MTTD" value={mttd} tone="text-amber-300" suffix="m" />
+                <MetricTile label="Active IPs" value={activeIps} tone="text-sky-300" />
+                <MetricTile label="Queue" value={snapshot.criticalQueue.length} tone="text-rose-400" />
               </div>
             </GlassCard>
 
-            <GlassCard title="Incident Types">
-              <div className="grid grid-cols-[96px_1fr] items-center gap-3">
-                <div className="relative h-24 w-24 rounded-full border border-cyan-400/20" style={{ background: donutGradient }}>
-                  <div className="absolute inset-[28%] rounded-full bg-[#061320]" />
+            <GlassCard title="Incident Vectors">
+              <div className="grid grid-cols-[100px_1fr] items-center gap-5">
+                <div className="relative flex h-24 w-24 items-center justify-center rounded-full border border-cyan-800/40 shadow-[0_0_20px_rgba(0,0,0,0.5)]" style={{ background: donutGradient }}>
+                  <div className="absolute inset-[30%] rounded-full bg-[#030a11] shadow-inner" />
                 </div>
-                <ul className="space-y-1">
+                <ul className="space-y-2">
                   {incidentTypeBreakdown.length === 0 ? (
-                    <li className="text-xs text-slate-400">No incident distribution.</li>
+                    <li className="text-xs font-mono text-cyan-600 animate-pulse">AWAITING TELEMETRY</li>
                   ) : (
-                    incidentTypeBreakdown.map((item) => {
+                    incidentTypeBreakdown.map((item, idx) => {
                       const pct = (item.value / Math.max(1, totalIncidents)) * 100
                       return (
-                        <li key={item.label} className="flex items-center justify-between gap-2 text-xs">
-                          <span className="flex items-center gap-2 text-slate-200">
-                            <i className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
-                            {item.label}
+                        <li key={item.label} className="group flex items-center justify-between text-[11px] font-mono animate-in slide-in-from-right-4 fade-in" style={{ animationDelay: `${idx * 100}ms`, animationFillMode: 'both' }}>
+                          <span className="flex items-center gap-2 text-cyan-100">
+                            <i className="h-2 w-2 rounded-sm shadow-[0_0_8px_currentColor]" style={{ backgroundColor: item.color, color: item.color }} />
+                            {item.label.toUpperCase()}
                           </span>
-                          <span className="tabular-nums text-slate-400">{formatPercent(pct)}</span>
+                          <span className="tabular-nums text-cyan-400 group-hover:text-cyan-300 transition-colors">{formatPercent(pct)}</span>
                         </li>
                       )
                     })
@@ -576,22 +660,32 @@ export default function DashboardLayout() {
             </GlassCard>
 
             <GlassCard title="Live Incident Feed">
-              <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
+              <div className="max-h-[380px] space-y-1.5 overflow-y-auto pr-2 overflow-x-hidden custom-scrollbar">
                 {liveFeed.length === 0 ? (
-                  <p className="text-sm text-slate-400">No live incidents for current filters.</p>
+                  <div className="flex h-32 flex-col items-center justify-center rounded border border-dashed border-cyan-800/50 bg-cyan-950/10">
+                    <span className="w-4 h-4 rounded-full border-[2px] border-cyan-500/20 border-t-cyan-400 animate-spin mb-3"></span>
+                    <p className="animate-pulse text-xs font-mono text-cyan-500">SCANNING FOR ANOMALIES...</p>
+                  </div>
                 ) : (
-                  liveFeed.map((attack) => (
+                  liveFeed.map((attack, index) => (
                     <button
                       key={attack.id}
                       type="button"
-                      className={`grid w-full grid-cols-[50px_1fr_auto] items-center gap-2 rounded-md border border-slate-700/70 bg-black/20 px-2 py-1.5 text-left transition hover:border-cyan-400/45 hover:bg-cyan-500/10 ${
-                        attack.severity === 'critical' ? 'shadow-[0_0_0_1px_rgba(251,113,133,0.45)]' : ''
+                      className={`group relative grid w-full grid-cols-[65px_1fr_auto] items-center gap-3 overflow-hidden rounded border border-cyan-900/40 bg-[#06101c]/60 px-3 py-2.5 text-left transition-all hover:border-cyan-400/60 hover:bg-cyan-900/30 hover:pl-4 animate-in slide-in-from-right-4 fade-in duration-300 ${
+                        attack.severity === 'critical' ? 'shadow-[0_0_0_1px_rgba(251,113,133,0.5)] border-rose-500/50 bg-rose-950/10' : ''
                       }`}
+                      style={{ animationDelay: `${(index % 15) * 50}ms`, animationFillMode: 'both' }}
                       onClick={() => actions.openReport(attack.id)}
                     >
-                      <span className="text-[11px] tabular-nums text-slate-400">{formatClock(attack.createdAt)}</span>
-                      <span className="truncate text-xs text-slate-100">{normalizeIncidentType(attack.type)}</span>
-                      <span className="truncate text-[11px] text-slate-300">{attack.sourceCountry}</span>
+                      {/* Tech decorative vertical line */}
+                      <span className="absolute left-0 top-0 h-full w-[2px] bg-cyan-600/50 group-hover:bg-cyan-400 transition-colors" />
+
+                      <span className="text-[10px] font-mono tabular-nums text-cyan-500/80 group-hover:text-cyan-300">{formatClock(attack.createdAt)}</span>
+                      <span className="flex items-center gap-2 truncate text-[11px] font-bold tracking-wide text-slate-200 group-hover:text-white">
+                        {attack.severity === 'critical' && <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(251,113,133,1)] animate-pulse" />}
+                        {normalizeIncidentType(attack.type).toUpperCase()}
+                      </span>
+                      <span className="truncate text-[10px] font-mono text-slate-500 group-hover:text-cyan-200">{attack.sourceCountry.toUpperCase()}</span>
                     </button>
                   ))
                 )}
@@ -600,32 +694,44 @@ export default function DashboardLayout() {
           </div>
         </section>
 
-        <GlassCard title="Dynamic Frequency">
-          <div className="space-y-3">
-            <div className="flex h-24 items-end gap-1">
+        <GlassCard title="Dynamic Frequency Analysis">
+          <div className="space-y-4">
+            <div className="flex h-28 items-end gap-1.5 px-2">
               {timelineSeries.map((value, index) => {
                 const active = index <= timelineThreshold
+                const isHigh = value > 72
                 return (
-                  <span
+                  <div
                     key={`timeline-${index}`}
-                    className={`w-full rounded-t-sm ${value > 72 ? 'bg-amber-400/85' : 'bg-cyan-400/80'}`}
-                    style={{
-                      height: `${value}%`,
-                      opacity: active ? 1 : 0.22,
-                      boxShadow: active
-                        ? value > 72
-                          ? '0 0 12px rgba(245,158,11,0.45)'
-                          : '0 0 12px rgba(34,211,238,0.45)'
-                        : 'none',
-                    }}
-                  />
+                    className="group relative flex-1 h-full flex items-end justify-center"
+                  >
+                    <span
+                      className={`w-full max-w-[40px] rounded-t-sm transition-all duration-500 ease-out ${
+                        isHigh ? 'bg-gradient-to-t from-amber-600 to-amber-400' : 'bg-gradient-to-t from-cyan-600 to-cyan-400'
+                      }`}
+                      style={{
+                        height: `${value}%`,
+                        opacity: active ? (isHigh ? 0.95 : 0.85) : 0.2,
+                        boxShadow: active
+                          ? isHigh
+                            ? '0 0 16px rgba(245,158,11,0.5)'
+                            : '0 0 12px rgba(34,211,238,0.4)'
+                          : 'none',
+                        filter: active ? 'drop-shadow(0 -2px 4px rgba(255,255,255,0.2))' : 'none'
+                      }}
+                    />
+                    {/* Hover tooltip for bars */}
+                    <div className="absolute bottom-full mb-2 hidden scale-95 opacity-0 transition-all group-hover:block group-hover:scale-100 group-hover:opacity-100">
+                       <span className="rounded bg-slate-900 border border-slate-700 px-2 py-1 text-[10px] font-mono text-white tabular-nums">{value}%</span>
+                    </div>
+                  </div>
                 )
               })}
             </div>
-            <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.15em] text-slate-500">
-              <span>T-{timeWindowHours}h</span>
-              <span>Replay {timelineCursor}%</span>
-              <span>Now</span>
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-600">
+              <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-sm bg-cyan-500"></span>T-{timeWindowHours}H</span>
+              <span className="text-amber-500/80">REPLAY {timelineCursor}%</span>
+              <span className="flex items-center gap-2">REAL-TIME <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span></span>
             </div>
           </div>
         </GlassCard>
@@ -644,35 +750,59 @@ export default function DashboardLayout() {
       <style jsx global>{`
         @keyframes soc-map-ping {
           0% {
-            transform: scale(0.6);
-            opacity: 0.95;
+            transform: scale(0.5);
+            opacity: 1;
+            box-shadow: 0 0 0 0 rgba(inherit, 0.7);
           }
-          75% {
-            transform: scale(2.8);
+          70% {
+            transform: scale(3.5);
             opacity: 0;
+            box-shadow: 0 0 0 10px rgba(inherit, 0);
           }
           100% {
-            transform: scale(3.2);
+            transform: scale(4);
             opacity: 0;
+            box-shadow: 0 0 0 0 rgba(inherit, 0);
           }
         }
 
         @keyframes soc-trajectory {
           0% {
-            opacity: 0.12;
-            filter: blur(1px);
+            opacity: 0;
+            filter: blur(2px);
           }
-          25% {
+          20% {
             opacity: 1;
             filter: blur(0);
           }
-          70% {
-            opacity: 0.7;
+          80% {
+            opacity: 0.8;
           }
           100% {
-            opacity: 0.15;
-            filter: blur(1px);
+            opacity: 0;
+            filter: blur(2px);
           }
+        }
+
+        @keyframes shimmer {
+          100% {
+            transform: translateX(100%);
+          }
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(4, 13, 23, 0.5);
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(34, 211, 238, 0.3);
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(34, 211, 238, 0.6);
         }
       `}</style>
     </div>
