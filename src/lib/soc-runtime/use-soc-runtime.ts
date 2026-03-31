@@ -1,10 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import {
   fetchAlertSummary,
   fetchCriticalCveCount,
-  fetchLiveAttack,
+  fetchRecentAlertAttacks,
   fetchLiveMetrics,
 } from '@/lib/soc-runtime/adapter'
 import {
@@ -15,22 +15,17 @@ import {
 import { CRITICAL_EFFECT_TOKENS } from '@/lib/soc-runtime/critical-effects'
 
 interface UseSocRuntimeOptions {
-  initialDemoMode?: boolean
   overlayDurationMs?: number
 }
 
 export function useSocRuntime(options: UseSocRuntimeOptions = {}) {
-  const {
-    initialDemoMode = false,
-    overlayDurationMs = CRITICAL_EFFECT_TOKENS.overlayDurationMs,
-  } = options
+  const { overlayDurationMs = CRITICAL_EFFECT_TOKENS.overlayDurationMs } = options
   const [mounted, setMounted] = useState(false)
-  const [state, dispatch] = useReducer(
-    reduceSocRuntime,
-    createSocRuntimeInitialState(initialDemoMode),
-  )
+  const [state, dispatch] = useReducer(reduceSocRuntime, createSocRuntimeInitialState())
 
   const snapshot = useMemo(() => toSocRuntimeSnapshot(state), [state])
+  const seenAttackIdsRef = useRef<Set<number>>(new Set<number>())
+  const hasPrimedLiveFeedRef = useRef(false)
 
   useEffect(() => {
     setMounted(true)
@@ -55,13 +50,30 @@ export function useSocRuntime(options: UseSocRuntimeOptions = {}) {
   }, [])
 
   const ingestLiveAttack = useCallback(async () => {
-    const attack = await fetchLiveAttack()
-    if (!attack) return
-    dispatch({
-      type: 'ingest_attack',
-      payload: attack,
-      now: new Date().toISOString(),
-    })
+    const attacks = await fetchRecentAlertAttacks(25)
+    if (attacks.length === 0) return
+
+    if (!hasPrimedLiveFeedRef.current) {
+      for (const attack of attacks) {
+        seenAttackIdsRef.current.add(attack.id)
+      }
+      hasPrimedLiveFeedRef.current = true
+      return
+    }
+
+    const sorted = [...attacks].sort(
+      (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+    )
+
+    for (const attack of sorted) {
+      if (seenAttackIdsRef.current.has(attack.id)) continue
+      seenAttackIdsRef.current.add(attack.id)
+      dispatch({
+        type: 'ingest_attack',
+        payload: attack,
+        now: new Date().toISOString(),
+      })
+    }
   }, [])
 
   useEffect(() => {
@@ -78,10 +90,9 @@ export function useSocRuntime(options: UseSocRuntimeOptions = {}) {
 
   useEffect(() => {
     void ingestLiveAttack()
-    const intervalMs = snapshot.demoMode ? 4_000 : 90_000
-    const timer = setInterval(() => void ingestLiveAttack(), intervalMs)
+    const timer = setInterval(() => void ingestLiveAttack(), 15_000)
     return () => clearInterval(timer)
-  }, [ingestLiveAttack, snapshot.demoMode])
+  }, [ingestLiveAttack])
 
   useEffect(() => {
     if (snapshot.alarmState !== 'alarm_active' || !snapshot.overlayActive) return
@@ -95,10 +106,6 @@ export function useSocRuntime(options: UseSocRuntimeOptions = {}) {
     snapshot.overlayActive,
     snapshot.overlayCycle,
   ])
-
-  const toggleDemoMode = useCallback(() => {
-    dispatch({ type: 'set_demo_mode', payload: !snapshot.demoMode })
-  }, [snapshot.demoMode])
 
   const dismissIncident = useCallback((id: number) => {
     dispatch({ type: 'dismiss_incident', payload: id, now: new Date().toISOString() })
@@ -127,7 +134,6 @@ export function useSocRuntime(options: UseSocRuntimeOptions = {}) {
       refreshMetrics,
       refreshSummary,
       ingestLiveAttack,
-      toggleDemoMode,
       dismissIncident,
       closePanel,
       openReport,

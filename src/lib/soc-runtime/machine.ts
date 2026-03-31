@@ -22,7 +22,6 @@ interface InternalState {
   metrics: WorkflowMetrics | null
   alertCount: number
   cveCount: number
-  demoMode: boolean
   transitions: AlarmTransition[]
   seenCriticalIds: Set<number>
 }
@@ -31,7 +30,6 @@ export type SocRuntimeAction =
   | { type: 'set_metrics'; payload: WorkflowMetrics }
   | { type: 'set_alert_count'; payload: number }
   | { type: 'set_cve_count'; payload: number }
-  | { type: 'set_demo_mode'; payload: boolean }
   | { type: 'ingest_attack'; payload: AttackEvent; now: string }
   | { type: 'overlay_timeout'; now: string }
   | { type: 'dismiss_incident'; payload: number; now: string }
@@ -94,7 +92,7 @@ function withQueue(state: InternalState, queue: CriticalIncident[], now: string)
   }
 }
 
-export function createSocRuntimeInitialState(demoMode = false): InternalState {
+export function createSocRuntimeInitialState(): InternalState {
   return {
     alarmState: 'idle',
     overlayActive: false,
@@ -107,7 +105,6 @@ export function createSocRuntimeInitialState(demoMode = false): InternalState {
     metrics: null,
     alertCount: 0,
     cveCount: 0,
-    demoMode,
     transitions: [],
     seenCriticalIds: new Set<number>(),
   }
@@ -121,8 +118,6 @@ export function reduceSocRuntime(state: InternalState, action: SocRuntimeAction)
       return { ...state, alertCount: action.payload }
     case 'set_cve_count':
       return { ...state, cveCount: action.payload }
-    case 'set_demo_mode':
-      return { ...state, demoMode: action.payload }
     case 'ingest_attack': {
       const attack = action.payload
       const attacks = [...state.attacks, attack].slice(-MAX_ATTACK_HISTORY)
@@ -221,8 +216,6 @@ export function toSocRuntimeSnapshot(state: InternalState): SocRuntimeSnapshot {
     metrics: state.metrics,
     alertCount: state.alertCount,
     cveCount: state.cveCount,
-    demoMode: state.demoMode,
     transitions: state.transitions,
   }
 }
-

@@ -268,16 +268,16 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(6,0,15,0.85)', backdropFilter: 'blur(6px)' }}>
+      style={{ background: 'rgba(1,8,6,0.85)', backdropFilter: 'blur(6px)' }}>
       <div className="w-full max-w-2xl flex flex-col rounded-lg border overflow-hidden font-mono"
-        style={{ background: '#0d0018', borderColor: 'rgba(139,92,246,0.3)',
-          boxShadow: '0 0 60px rgba(139,92,246,0.12)', maxHeight: '92vh' }}>
+        style={{ background: '#020d0a', borderColor: 'rgba(16,185,129,0.35)',
+          boxShadow: '0 0 70px rgba(16,185,129,0.12)', maxHeight: '92vh' }}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-violet-500/20 shrink-0">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-emerald-500/20 shrink-0">
           <div className="flex items-center gap-3">
-            <FileText className="w-4 h-4 text-violet-400" />
-            <span className="text-violet-400 font-bold tracking-widest text-xs uppercase">
+            <FileText className="w-4 h-4 text-emerald-300" />
+            <span className="text-emerald-300 font-bold tracking-widest text-xs uppercase">
               Saldırı İnceleme Raporu
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5,
@@ -301,7 +301,7 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
               Rapor kaydedildi.{toCommunity && ' Community\'ye gönderildi.'}
             </p>
             <Link href="/zafiyet-taramasi"
-              className="text-violet-400 text-xs underline underline-offset-2 hover:text-violet-300">
+              className="text-cyan-300 text-xs underline underline-offset-2 hover:text-cyan-200">
               Sentinel'de görüntüle →
             </Link>
           </div>
@@ -311,10 +311,10 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
             {/* Attack summary (read-only) */}
             {explanation && (
               <div className="rounded border p-4 space-y-2"
-                style={{ background: 'rgba(139,92,246,0.04)', borderColor: 'rgba(139,92,246,0.2)' }}>
+                style={{ background: 'rgba(16,185,129,0.05)', borderColor: 'rgba(16,185,129,0.25)' }}>
                 <div className="flex items-center gap-2 mb-1">
-                  <Shield className="w-3.5 h-3.5 text-violet-400" />
-                  <span className="text-[10px] text-violet-400 font-bold tracking-widest uppercase">
+                  <Shield className="w-3.5 h-3.5 text-emerald-300" />
+                  <span className="text-[10px] text-emerald-300 font-bold tracking-widest uppercase">
                     {explanation.title}
                   </span>
                 </div>
@@ -333,7 +333,7 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
             <div className="space-y-1.5">
               <label className="text-[9px] text-slate-500 tracking-widest uppercase">Rapor Başlığı</label>
               <input value={title} onChange={e => setTitle(e.target.value)}
-                className="w-full bg-[#06000f] border border-violet-900/40 rounded px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-violet-500/60 transition-colors"
+                className="w-full bg-[#03100d] border border-emerald-900/40 rounded px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-cyan-400/60 transition-colors"
                 placeholder="Rapor başlığı..." />
             </div>
 
@@ -342,7 +342,7 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
               <div className="space-y-1.5 w-36 shrink-0">
                 <label className="text-[9px] text-slate-500 tracking-widest uppercase">Önem</label>
                 <select value={severity} onChange={e => setSeverity(e.target.value)}
-                  className="w-full bg-[#06000f] border border-violet-900/40 rounded px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-violet-500/60">
+                  className="w-full bg-[#03100d] border border-emerald-900/40 rounded px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-cyan-400/60">
                   <option value="CRITICAL">KRİTİK</option>
                   <option value="HIGH">YÜKSEK</option>
                   <option value="MEDIUM">ORTA</option>
@@ -351,9 +351,9 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
               </div>
               <div className="flex-1 space-y-1.5">
                 <label className="text-[9px] text-slate-500 tracking-widest uppercase">Etiketler</label>
-                <div className="flex flex-wrap gap-1.5 min-h-[38px] bg-[#06000f] border border-violet-900/40 rounded px-2 py-1.5 items-center focus-within:border-violet-500/60 transition-colors">
+                <div className="flex flex-wrap gap-1.5 min-h-[38px] bg-[#03100d] border border-emerald-900/40 rounded px-2 py-1.5 items-center focus-within:border-cyan-400/60 transition-colors">
                   {tags.map(t => (
-                    <span key={t} className="flex items-center gap-1 bg-violet-900/30 border border-violet-700/40 px-1.5 py-0.5 rounded text-[10px] text-violet-300">
+                    <span key={t} className="flex items-center gap-1 bg-cyan-900/30 border border-cyan-700/40 px-1.5 py-0.5 rounded text-[10px] text-cyan-200">
                       <Tag className="w-2.5 h-2.5" />
                       {t}
                       <button onClick={() => removeTag(t)} className="text-slate-500 hover:text-red-400 ml-0.5">×</button>
@@ -381,7 +381,7 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
               <div key={label} className="space-y-1.5">
                 <label className="text-[9px] text-slate-500 tracking-widest uppercase">{label}</label>
                 <textarea value={value} onChange={e => set(e.target.value)} rows={3}
-                  className="w-full bg-[#06000f] border border-violet-900/40 rounded px-3 py-2 text-sm text-slate-300 font-mono resize-none focus:outline-none focus:border-violet-500/60 transition-colors leading-relaxed"
+                  className="w-full bg-[#03100d] border border-emerald-900/40 rounded px-3 py-2 text-sm text-slate-300 font-mono resize-none focus:outline-none focus:border-cyan-400/60 transition-colors leading-relaxed"
                   placeholder={placeholder} />
               </div>
             ))}
@@ -390,15 +390,15 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
             <label className="flex items-center gap-3 cursor-pointer group">
               <div onClick={() => setToCommunity(v => !v)}
                 className="w-9 h-5 rounded-full border transition-all duration-200 flex items-center px-0.5"
-                style={{ background: toCommunity ? 'rgba(139,92,246,0.3)' : '#0a0015',
-                  borderColor: toCommunity ? 'rgba(139,92,246,0.6)' : 'rgba(139,92,246,0.2)' }}>
+                style={{ background: toCommunity ? 'rgba(16,185,129,0.3)' : '#03110d',
+                  borderColor: toCommunity ? 'rgba(16,185,129,0.65)' : 'rgba(16,185,129,0.25)' }}>
                 <div className="w-4 h-4 rounded-full transition-transform duration-200"
-                  style={{ background: toCommunity ? '#8b5cf6' : '#334155',
+                  style={{ background: toCommunity ? '#10b981' : '#334155',
                     transform: toCommunity ? 'translateX(16px)' : 'translateX(0)',
-                    boxShadow: toCommunity ? '0 0 8px #8b5cf6' : 'none' }} />
+                    boxShadow: toCommunity ? '0 0 8px #10b981' : 'none' }} />
               </div>
               <div className="flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-slate-500 group-hover:text-violet-400 transition-colors" />
+                <Users className="w-3.5 h-3.5 text-slate-500 group-hover:text-cyan-300 transition-colors" />
                 <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
                   Community'ye de paylaş
                 </span>
@@ -415,16 +415,16 @@ export default function AttackReportModal({ attack, open, onClose }: AttackRepor
         )}
 
         {status !== 'success' && (
-          <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-violet-500/15">
+          <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-emerald-500/15">
             <button onClick={onClose} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
               İptal
             </button>
             <button onClick={handleSubmit}
               disabled={status === 'loading'}
               className="flex items-center gap-2 px-5 py-2 rounded font-bold text-xs transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-              style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.45)', color: '#c084fc' }}>
+              style={{ background: 'rgba(16,185,129,0.18)', border: '1px solid rgba(34,211,238,0.45)', color: '#a7f3d0' }}>
               {status === 'loading'
-                ? <><span className="animate-spin w-3.5 h-3.5 border border-t-transparent border-violet-400 rounded-full" /> Gönderiliyor...</>
+                ? <><span className="animate-spin w-3.5 h-3.5 border border-t-transparent border-cyan-300 rounded-full" /> Gönderiliyor...</>
                 : <><Send className="w-3.5 h-3.5" /> Raporu Kaydet</>
               }
             </button>

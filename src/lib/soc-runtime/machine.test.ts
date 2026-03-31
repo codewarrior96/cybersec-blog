@@ -20,7 +20,7 @@ function buildAttack(id: number, severity: AttackEvent['severity'] = 'critical')
 
 describe('soc runtime machine', () => {
   test('critical event always triggers alarm lifecycle and drains deterministically', () => {
-    let state = createSocRuntimeInitialState(false)
+    let state = createSocRuntimeInitialState()
 
     state = reduceSocRuntime(state, {
       type: 'ingest_attack',
@@ -58,7 +58,7 @@ describe('soc runtime machine', () => {
   })
 
   test('dedup prevents duplicate alarm enqueue for same critical event id', () => {
-    let state = createSocRuntimeInitialState(false)
+    let state = createSocRuntimeInitialState()
 
     state = reduceSocRuntime(state, {
       type: 'ingest_attack',
@@ -79,7 +79,7 @@ describe('soc runtime machine', () => {
   })
 
   test('new critical id while active must re-trigger overlay cycle', () => {
-    let state = createSocRuntimeInitialState(false)
+    let state = createSocRuntimeInitialState()
 
     state = reduceSocRuntime(state, {
       type: 'ingest_attack',

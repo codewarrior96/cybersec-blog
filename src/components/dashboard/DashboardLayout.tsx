@@ -139,7 +139,6 @@ function IntelCard({
 
 export default function DashboardLayout() {
   const { mounted, snapshot, actions } = useSocRuntime({
-    initialDemoMode: false,
     overlayDurationMs: CRITICAL_EFFECT_TOKENS.overlayDurationMs,
   })
 
@@ -181,7 +180,7 @@ export default function DashboardLayout() {
   const levelColor =
     displayedRisk >= 8 ? '#ef4444' : displayedRisk >= 6 ? '#f97316' : displayedRisk >= 4 ? '#facc15' : '#22c55e'
   const alarmStateLabel = snapshot.alarmState.replace('_', ' ').toUpperCase()
-  const responseProfile = snapshot.demoMode ? 'SIMULATED STREAM' : 'LIVE RESPONSE'
+  const responseProfile = 'LIVE RESPONSE'
 
   return (
     <div className="relative min-h-[calc(100vh-64px)] overflow-hidden bg-[#010605] text-emerald-50">
@@ -205,7 +204,7 @@ export default function DashboardLayout() {
           <MetricCard
             label="LAST SYNC"
             value={lastUpdate}
-            hint={snapshot.demoMode ? 'demo mode' : 'live mode'}
+            hint="live mode"
             color="#4ade80"
           />
         </section>
@@ -250,13 +249,6 @@ export default function DashboardLayout() {
                   onClick={() => void actions.refreshMetrics()}
                 >
                   sync metrics
-                </button>
-                <button
-                  type="button"
-                  className="rounded border border-cyan-400/35 px-2 py-1 text-cyan-300 hover:bg-cyan-400/10"
-                  onClick={() => actions.toggleDemoMode()}
-                >
-                  {snapshot.demoMode ? 'live mode' : 'demo mode'}
                 </button>
               </div>
             }
@@ -423,7 +415,7 @@ export default function DashboardLayout() {
                   <div className="space-y-2 text-[11px] text-emerald-100/75">
                     <div className="flex items-center justify-between rounded border border-emerald-400/20 bg-emerald-500/5 px-2 py-1.5">
                       <span>Runtime mode</span>
-                      <span className="font-semibold">{snapshot.demoMode ? 'DEMO' : 'LIVE'}</span>
+                      <span className="font-semibold">LIVE</span>
                     </div>
                     <div className="flex items-center justify-between rounded border border-emerald-400/20 bg-emerald-500/5 px-2 py-1.5">
                       <span>Overlay status</span>

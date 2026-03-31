@@ -87,7 +87,6 @@ export interface SocRuntimeSnapshot {
   metrics: WorkflowMetrics | null;
   alertCount: number;
   cveCount: number;
-  demoMode: boolean;
   transitions: AlarmTransition[];
 }
 
