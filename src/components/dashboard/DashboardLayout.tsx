@@ -189,8 +189,6 @@ export default function DashboardLayout() {
     return () => window.clearInterval(timer)
   }, [targetRisk])
 
-  if (!mounted) return null
-
   const attacks = [...snapshot.attacks].reverse()
   const recentAttacks = attacks.slice(0, 16)
   const transitions = [...snapshot.transitions].reverse().slice(0, 8)
@@ -235,6 +233,8 @@ export default function DashboardLayout() {
   }, [attacks])
 
   const replayThreshold = Math.round((replayCursor / 100) * (barSeries.length - 1))
+
+  if (!mounted) return null
 
   return (
     <div className="relative min-h-[calc(100vh-64px)] overflow-hidden bg-[var(--bg-primary)] text-slate-100">
