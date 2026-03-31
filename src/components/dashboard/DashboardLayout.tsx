@@ -47,6 +47,7 @@ const COUNTRY_COORDS: Record<string, { x: number; y: number }> = {
 }
 
 const INCIDENT_COLORS = ['#38bdf8', '#f59e0b', '#22d3ee', '#fb7185', '#14b8a6', '#6366f1']
+const TARGET_HUB = { x: 55, y: 46 }
 
 function formatClock(iso: string) {
   return new Date(iso).toLocaleTimeString('tr-TR', {
@@ -106,6 +107,39 @@ function severityGlow(severity: AttackEvent['severity']) {
   if (severity === 'critical') return '#fb7185'
   if (severity === 'high') return '#f59e0b'
   return '#22d3ee'
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const clean = hex.replace('#', '')
+  const bigint = Number.parseInt(clean, 16)
+  const r = (bigint >> 16) & 255
+  const g = (bigint >> 8) & 255
+  const b = bigint & 255
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+function buildTrajectoryStyle(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  severity: AttackEvent['severity'],
+  index: number,
+): CSSProperties {
+  const dx = to.x - from.x
+  const dy = to.y - from.y
+  const length = Math.sqrt(dx * dx + dy * dy)
+  const angle = (Math.atan2(dy, dx) * 180) / Math.PI
+  const color = severityGlow(severity)
+
+  return {
+    left: `${from.x}%`,
+    top: `${from.y}%`,
+    width: `${Math.max(4, length)}%`,
+    transform: `translateY(-50%) rotate(${angle}deg)`,
+    transformOrigin: '0 50%',
+    background: `linear-gradient(90deg, ${hexToRgba(color, 0.2)} 0%, ${hexToRgba(color, 0.92)} 38%, transparent 100%)`,
+    boxShadow: `0 0 9px ${hexToRgba(color, 0.62)}`,
+    animation: `soc-trajectory 2.9s ease-in-out ${index * 0.12}s infinite`,
+  }
 }
 
 function GlassCard({
@@ -236,7 +270,7 @@ export default function DashboardLayout() {
 
   const geoPoints = useMemo(() => {
     return filteredAttacks
-      .slice(0, 30)
+      .slice(0, 40)
       .map((attack) => {
         const point = resolveCountryCoords(attack.sourceCountry)
         if (!point) return null
@@ -244,6 +278,8 @@ export default function DashboardLayout() {
       })
       .filter((value): value is { attack: AttackEvent; point: { x: number; y: number } } => value !== null)
   }, [filteredAttacks])
+
+  const trajectoryPoints = geoPoints.slice(0, 24)
 
   const timelineSeries = useMemo(() => {
     const bucketCount = 16
@@ -274,13 +310,24 @@ export default function DashboardLayout() {
   const resolvedIncidents = snapshot.metrics?.triageBoard.resolved ?? 0
   const criticalIncidents = filteredAttacks.filter((attack) => attack.severity === 'critical').length
   const attacksPerMinute = snapshot.metrics?.attack.attacksPerMinute ?? 0
+  const mttr = Math.max(1, Math.round(snapshot.metrics?.sla.avgResolutionMinutes ?? 0))
+  const mttd = Math.max(1, Number((60 / Math.max(1, attacksPerMinute)).toFixed(1)))
+  const activeIps = snapshot.metrics?.attack.activeIps ?? new Set(filteredAttacks.map((attack) => attack.sourceIP)).size
 
-  const liveFeed = filteredAttacks.slice(0, 8)
+  const liveFeed = filteredAttacks.slice(0, 40)
   const countryTotal = Math.max(1, countryBreakdown.reduce((sum, item) => sum + item.count, 0))
 
   const healthScore = Math.max(
     12,
-    Math.min(99, Math.round(96 - criticalIncidents * 3.6 - (snapshot.metrics?.attack.liveDensity ?? 0) * 4.1 - ongoingIncidents * 0.4)),
+    Math.min(
+      99,
+      Math.round(
+        96 -
+          criticalIncidents * 3.6 -
+          (snapshot.metrics?.attack.liveDensity ?? 0) * 4.1 -
+          ongoingIncidents * 0.4,
+      ),
+    ),
   )
 
   if (!mounted) return null
@@ -317,15 +364,15 @@ export default function DashboardLayout() {
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-6">
             <MetricTile label="Health Score" value={`${healthScore}/100`} tone="text-cyan-200" />
             <MetricTile label="Total Incidents" value={totalIncidents} tone="text-slate-100" />
-            <MetricTile label="Resolver" value={resolvedIncidents} tone="text-emerald-200" />
+            <MetricTile label="Resolved" value={resolvedIncidents} tone="text-emerald-200" />
             <MetricTile label="Ongoing" value={ongoingIncidents} tone="text-amber-200" />
             <MetricTile label="Critical" value={criticalIncidents} tone="text-rose-200" />
             <MetricTile label="Threats / Min" value={attacksPerMinute} tone="text-sky-200" />
           </div>
         </GlassCard>
 
-        <section className="grid min-h-[690px] grid-cols-1 gap-3 xl:grid-cols-[240px_minmax(0,1fr)_330px]">
-          <GlassCard title="Filter Control" className="min-h-[690px]">
+        <section className="grid grid-cols-1 gap-3 xl:grid-cols-[250px_minmax(0,1fr)_340px]">
+          <GlassCard title="Filter Control">
             <div className="space-y-5 text-sm">
               <div>
                 <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-400">Date Range (hours)</p>
@@ -398,18 +445,26 @@ export default function DashboardLayout() {
             </div>
           </GlassCard>
 
-          <div className="grid min-h-[690px] grid-cols-1 gap-3 xl:grid-rows-[1fr_220px]">
+          <div className="grid grid-cols-1 gap-3 xl:grid-rows-[minmax(420px,1fr)_auto]">
             <GlassCard title="Severity Heatmap">
-              <div className="relative overflow-hidden rounded-xl border border-cyan-500/20 bg-[#020a14]">
+              <div className="relative h-[360px] overflow-hidden rounded-xl border border-cyan-500/20 bg-[#020a14] md:h-[430px] xl:h-[500px]">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_30%,rgba(56,189,248,0.14),transparent_42%),radial-gradient(circle_at_72%_44%,rgba(245,158,11,0.18),transparent_34%),linear-gradient(to_bottom,rgba(7,18,31,0.95),rgba(3,11,22,0.96))]" />
                 <img
-                  src="/world.svg"
+                  src="/world-lite.svg"
                   alt="Global threat map"
-                  className="relative z-10 h-[430px] w-full object-cover opacity-30 [filter:contrast(1.1)_brightness(0.7)_hue-rotate(150deg)_saturate(1.2)]"
+                  className="relative z-10 h-full w-full object-cover opacity-46 [filter:contrast(1.1)_brightness(0.78)_saturate(1.1)]"
                   draggable={false}
                 />
 
                 <div className="absolute inset-0 z-20">
+                  {trajectoryPoints.map(({ attack, point }, index) => (
+                    <span
+                      key={`trajectory-${attack.id}-${index}`}
+                      className="absolute block h-[2px] rounded-full"
+                      style={buildTrajectoryStyle(point, TARGET_HUB, attack.severity, index)}
+                    />
+                  ))}
+
                   {geoPoints.map(({ attack, point }, index) => {
                     const glow = severityGlow(attack.severity)
                     const style: CSSProperties = {
@@ -423,7 +478,7 @@ export default function DashboardLayout() {
                       <button
                         key={`${attack.id}-${index}`}
                         type="button"
-                        className="group absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/40"
+                        className="group absolute z-30 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/40"
                         style={{ ...style, backgroundColor: glow }}
                         onClick={() => actions.openReport(attack.id)}
                       >
@@ -437,12 +492,17 @@ export default function DashboardLayout() {
                       </button>
                     )
                   })}
+
+                  <div
+                    className="absolute z-30 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-100/50 bg-cyan-300/90 shadow-[0_0_20px_rgba(34,211,238,0.95)]"
+                    style={{ left: `${TARGET_HUB.x}%`, top: `${TARGET_HUB.y}%` }}
+                  />
                 </div>
               </div>
             </GlassCard>
 
             <GlassCard title="Top Countries by Incident Count">
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_180px]">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_180px]">
                 <div className="space-y-3">
                   {topCountries.length === 0 ? (
                     <p className="text-sm text-slate-400">No country incidents found in selected filters.</p>
@@ -479,27 +539,13 @@ export default function DashboardLayout() {
             </GlassCard>
           </div>
 
-          <div className="grid min-h-[690px] grid-cols-1 gap-3 xl:grid-rows-[220px_190px_1fr]">
-            <GlassCard title="Top Countries Snapshot">
-              <div className="space-y-2">
-                {topCountries.length === 0 ? (
-                  <p className="text-sm text-slate-400">No regional data.</p>
-                ) : (
-                  topCountries.map((country) => {
-                    const pct = (country.count / countryTotal) * 100
-                    return (
-                      <div key={`right-${country.name}`} className="flex items-center gap-2">
-                        <span className="w-24 truncate text-xs text-slate-300">{country.name}</span>
-                        <div className="h-2 flex-1 rounded-full bg-slate-800/75">
-                          <div
-                            className="h-full rounded-full bg-[linear-gradient(90deg,#22d3ee,#38bdf8)]"
-                            style={{ width: `${Math.max(10, pct)}%` }}
-                          />
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
+          <div className="grid grid-cols-1 gap-3 xl:grid-rows-[auto_auto_1fr]">
+            <GlassCard title="Operational KPIs">
+              <div className="grid grid-cols-2 gap-2">
+                <MetricTile label="MTTR" value={mttr} tone="text-cyan-100" />
+                <MetricTile label="MTTD" value={mttd} tone="text-amber-100" />
+                <MetricTile label="Active IPs" value={activeIps} tone="text-sky-100" />
+                <MetricTile label="Queue" value={snapshot.criticalQueue.length} tone="text-rose-100" />
               </div>
             </GlassCard>
 
@@ -530,7 +576,7 @@ export default function DashboardLayout() {
             </GlassCard>
 
             <GlassCard title="Live Incident Feed">
-              <div className="space-y-2">
+              <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
                 {liveFeed.length === 0 ? (
                   <p className="text-sm text-slate-400">No live incidents for current filters.</p>
                 ) : (
@@ -538,12 +584,14 @@ export default function DashboardLayout() {
                     <button
                       key={attack.id}
                       type="button"
-                      className="grid w-full grid-cols-[46px_1fr_auto] items-center gap-2 rounded-md border border-slate-700/70 bg-black/20 px-2 py-1.5 text-left transition hover:border-cyan-400/45 hover:bg-cyan-500/10"
+                      className={`grid w-full grid-cols-[50px_1fr_auto] items-center gap-2 rounded-md border border-slate-700/70 bg-black/20 px-2 py-1.5 text-left transition hover:border-cyan-400/45 hover:bg-cyan-500/10 ${
+                        attack.severity === 'critical' ? 'shadow-[0_0_0_1px_rgba(251,113,133,0.45)]' : ''
+                      }`}
                       onClick={() => actions.openReport(attack.id)}
                     >
                       <span className="text-[11px] tabular-nums text-slate-400">{formatClock(attack.createdAt)}</span>
                       <span className="truncate text-xs text-slate-100">{normalizeIncidentType(attack.type)}</span>
-                      <span className="text-[11px] text-slate-300">{attack.sourceCountry}</span>
+                      <span className="truncate text-[11px] text-slate-300">{attack.sourceCountry}</span>
                     </button>
                   ))
                 )}
@@ -606,6 +654,24 @@ export default function DashboardLayout() {
           100% {
             transform: scale(3.2);
             opacity: 0;
+          }
+        }
+
+        @keyframes soc-trajectory {
+          0% {
+            opacity: 0.12;
+            filter: blur(1px);
+          }
+          25% {
+            opacity: 1;
+            filter: blur(0);
+          }
+          70% {
+            opacity: 0.7;
+          }
+          100% {
+            opacity: 0.15;
+            filter: blur(1px);
           }
         }
       `}</style>
