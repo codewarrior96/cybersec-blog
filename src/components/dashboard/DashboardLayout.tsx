@@ -83,6 +83,38 @@ function MetricCard({
   )
 }
 
+function RiskDial({
+  value,
+  color,
+  label,
+}: {
+  value: number
+  color: string
+  label: string
+}) {
+  const pct = Math.max(0, Math.min(100, Math.round((value / 10) * 100)))
+  return (
+    <div className="rounded-xl border border-emerald-400/20 bg-black/25 p-4">
+      <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-200/60">Risk Dial</p>
+      <div className="mt-4 flex items-center justify-center">
+        <div
+          className="relative flex h-32 w-32 items-center justify-center rounded-full"
+          style={{
+            background: `conic-gradient(${color} 0 ${pct}%, rgba(16,185,129,0.15) ${pct}% 100%)`,
+          }}
+        >
+          <div className="flex h-24 w-24 flex-col items-center justify-center rounded-full border border-emerald-300/20 bg-[#04100d]">
+            <span className="text-2xl font-black tabular-nums" style={{ color }}>
+              {value.toFixed(1)}
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-emerald-100/55">{label}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function DashboardLayout() {
   const { mounted, snapshot, actions } = useSocRuntime({
     initialDemoMode: false,
@@ -122,6 +154,8 @@ export default function DashboardLayout() {
     displayedRisk >= 8 ? 'CRITICAL' : displayedRisk >= 6 ? 'HIGH' : displayedRisk >= 4 ? 'MEDIUM' : 'STABLE'
   const levelColor =
     displayedRisk >= 8 ? '#ef4444' : displayedRisk >= 6 ? '#f97316' : displayedRisk >= 4 ? '#facc15' : '#22c55e'
+  const alarmStateLabel = snapshot.alarmState.replace('_', ' ').toUpperCase()
+  const responseProfile = snapshot.demoMode ? 'SIMULATED STREAM' : 'LIVE RESPONSE'
 
   return (
     <div className="relative min-h-[calc(100vh-64px)] overflow-hidden bg-[#010605] text-emerald-50">
@@ -199,7 +233,33 @@ export default function DashboardLayout() {
               </div>
             }
           >
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[220px_minmax(0,1fr)]">
+              <RiskDial value={displayedRisk} color={levelColor} label={levelLabel} />
+
+              <div className="rounded-xl border border-emerald-400/20 bg-black/25 p-3">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-200/65">Mission State</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-lg border border-emerald-400/20 bg-emerald-500/5 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-emerald-200/60">Alarm State</p>
+                    <p className="mt-1 text-xs font-bold text-emerald-100">{alarmStateLabel}</p>
+                  </div>
+                  <div className="rounded-lg border border-cyan-400/20 bg-cyan-500/5 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-cyan-200/60">Runtime Profile</p>
+                    <p className="mt-1 text-xs font-bold text-cyan-100">{responseProfile}</p>
+                  </div>
+                  <div className="rounded-lg border border-red-400/20 bg-red-500/5 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-red-200/60">Queue Pressure</p>
+                    <p className="mt-1 text-xs font-bold text-red-100">{snapshot.criticalQueue.length} incidents</p>
+                  </div>
+                  <div className="rounded-lg border border-amber-400/20 bg-amber-500/5 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-amber-200/60">Overlay</p>
+                    <p className="mt-1 text-xs font-bold text-amber-100">{snapshot.overlayActive ? 'ACTIVE' : 'STANDBY'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
               <div className="rounded-xl border border-emerald-400/20 bg-black/25 p-3">
                 <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-200/65">Critical Queue</p>
                 {snapshot.criticalQueue.length === 0 ? (

@@ -1,322 +1,188 @@
-'use client';
-import React, { useEffect, useRef, useState } from 'react';
-import { FileText, X, AlertTriangle, Shield, Zap } from 'lucide-react';
-import type { AttackEvent } from '@/lib/dashboard-types';
+'use client'
+
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, FileText, Shield, X } from 'lucide-react'
+import type { AttackEvent } from '@/lib/dashboard-types'
 
 interface CriticalAlertPanelProps {
-  queue: AttackEvent[];
-  open: boolean;
-  onReport: (attack: AttackEvent) => void;
-  onDismiss: (id: number) => void;
-  onClose: () => void;
+  queue: AttackEvent[]
+  open: boolean
+  onReport: (attack: AttackEvent) => void
+  onDismiss: (id: number) => void
+  onClose: () => void
 }
 
-const SEV_COLOR: Record<string, string> = {
-  critical: '#ef4444',
-  high:     '#f97316',
-  low:      '#8b5cf6',
-};
-
-const SEV_LABEL: Record<string, string> = {
-  critical: 'KRİTİK',
-  high:     'YÜKSEK',
-  low:      'DÜŞÜK',
-};
-
-const TYPE_ICON: Record<string, string> = {
-  'RCE Attempt':    '💀',
-  'SQL Injection':  '🔓',
-  'SSH Brute Force':'🔑',
-  'DDoS':           '⚡',
-  'Port Scan':      '🔍',
-  'Phishing':       '🎣',
-};
-
-const TYPE_DESC: Record<string, string> = {
-  'RCE Attempt':    'Uzaktan Kod Yürütme girişimi tespit edildi',
-  'SQL Injection':  'Veritabanı enjeksiyon saldırısı algılandı',
-  'SSH Brute Force':'Brute-force kimlik doğrulama saldırısı',
-  'DDoS':           'Dağıtık hizmet engelleme saldırısı',
-  'Port Scan':      'Hedef sistem port taraması gerçekleşti',
-  'Phishing':       'Kimlik avı saldırı vektörü tespit edildi',
-};
-
-function timeStr(iso: string) {
-  try { return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
-  catch { return iso; }
+const SEVERITY_STYLE: Record<AttackEvent['severity'], { label: string; tone: string; badge: string }> = {
+  critical: {
+    label: 'CRITICAL',
+    tone: 'text-red-200',
+    badge: 'border-red-400/50 bg-red-500/20 text-red-200',
+  },
+  high: {
+    label: 'HIGH',
+    tone: 'text-amber-200',
+    badge: 'border-amber-400/50 bg-amber-500/20 text-amber-200',
+  },
+  low: {
+    label: 'LOW',
+    tone: 'text-cyan-200',
+    badge: 'border-cyan-400/50 bg-cyan-500/20 text-cyan-200',
+  },
 }
 
-function ScanLine() {
-  return (
-    <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
-      <div
-        className="absolute left-0 right-0 h-[2px] pointer-events-none"
-        style={{
-          background: 'linear-gradient(90deg, transparent, rgba(239,68,68,0.6), rgba(255,255,255,0.3), rgba(239,68,68,0.6), transparent)',
-          animation: 'scan-sweep 2.4s linear infinite',
-        }}
-      />
-    </div>
-  );
+const TYPE_DESCRIPTION: Record<string, string> = {
+  'RCE Attempt': 'Remote code execution pattern observed on exposed surface.',
+  'SQL Injection': 'Database-oriented payload signature detected from source.',
+  'SSH Brute Force': 'Credential stuffing or brute-force activity detected on SSH.',
+  DDoS: 'Sustained service saturation activity has exceeded baseline.',
+  'Port Scan': 'Recon sequence indicates broad target enumeration.',
+  Phishing: 'Social engineering vector with credential harvest indicators.',
 }
 
-function CornerDeco({ pos }: { pos: 'tl' | 'tr' | 'bl' | 'br' }) {
-  const styles: Record<string, React.CSSProperties> = {
-    tl: { top: 0, left: 0, borderTop: '2px solid', borderLeft: '2px solid' },
-    tr: { top: 0, right: 0, borderTop: '2px solid', borderRight: '2px solid' },
-    bl: { bottom: 0, left: 0, borderBottom: '2px solid', borderLeft: '2px solid' },
-    br: { bottom: 0, right: 0, borderBottom: '2px solid', borderRight: '2px solid' },
-  };
-  return (
-    <div
-      className="absolute w-4 h-4 pointer-events-none"
-      style={{ ...styles[pos], borderColor: 'rgba(239,68,68,0.7)' }}
-    />
-  );
+function formatTime(iso: string) {
+  try {
+    return new Date(iso).toLocaleTimeString('tr-TR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+  } catch {
+    return iso
+  }
 }
 
 export default function CriticalAlertPanel({
-  queue, open, onReport, onDismiss, onClose,
+  queue,
+  open,
+  onReport,
+  onDismiss,
+  onClose,
 }: CriticalAlertPanelProps) {
-  const [visible, setVisible] = useState(false);
-  const [exiting, setExiting] = useState(false);
-  const prevOpen = useRef(false);
+  const [visible, setVisible] = useState(false)
+  const [exiting, setExiting] = useState(false)
+  const prevOpen = useRef(false)
 
   useEffect(() => {
     if (open && !prevOpen.current) {
-      setExiting(false);
-      setVisible(true);
+      setExiting(false)
+      setVisible(true)
     }
     if (!open && prevOpen.current && visible) {
-      setExiting(true);
-      const t = setTimeout(() => setVisible(false), 260);
-      return () => clearTimeout(t);
+      setExiting(true)
+      const timeout = setTimeout(() => setVisible(false), 220)
+      return () => clearTimeout(timeout)
     }
-    prevOpen.current = open;
-  }, [open, visible]);
+    prevOpen.current = open
+  }, [open, visible])
 
-  if (!visible) return null;
+  const items = useMemo(() => [...queue].reverse(), [queue])
 
-  const latest = [...queue].reverse();
+  if (!visible) return null
 
   return (
-    /* Backdrop */
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center font-mono"
-      style={{
-        background: 'rgba(6,0,15,0.82)',
-        animation: exiting ? 'alert-exit 0.25s ease-in both' : 'backdrop-in 0.3s ease-out both',
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(8,2,10,0.78)] p-3"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose()
       }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      {/* Main card */}
-      <div
-        className={`relative flex flex-col ${exiting ? 'alert-exit' : 'alert-entrance alert-glow'}`}
-        style={{
-          width: 'min(520px, 92vw)',
-          maxHeight: 'min(640px, 88vh)',
-          background: 'linear-gradient(160deg, #100010 0%, #0a000f 60%, #14000a 100%)',
-          border: '1px solid rgba(239,68,68,0.45)',
-          borderRadius: 12,
-        }}
+      <section
+        className={`relative flex w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-red-500/50 bg-[linear-gradient(165deg,#11040d_0%,#06080f_100%)] shadow-[0_30px_80px_rgba(0,0,0,0.65),0_0_0_1px_rgba(239,68,68,0.25)] transition-all duration-200 ${exiting ? 'scale-[0.98] opacity-0' : 'scale-100 opacity-100'}`}
       >
-        {/* Corner decorations */}
-        <CornerDeco pos="tl" />
-        <CornerDeco pos="tr" />
-        <CornerDeco pos="bl" />
-        <CornerDeco pos="br" />
-
-        {/* Scan line sweep */}
-        <ScanLine />
-
-        {/* ── Header ── */}
-        <div
-          className="relative flex items-center justify-between px-5 py-3.5 shrink-0"
-          style={{ borderBottom: '1px solid rgba(239,68,68,0.2)' }}
-        >
-          {/* Left: icon + title */}
+        <header className="flex items-center justify-between border-b border-red-500/25 px-4 py-3">
           <div className="flex items-center gap-3">
-            {/* Pulsing alert icon */}
-            <div className="relative flex items-center justify-center w-8 h-8">
-              <div
-                className="absolute w-8 h-8 rounded-full animate-ping"
-                style={{ background: 'rgba(239,68,68,0.25)' }}
-              />
-              <div
-                className="relative w-6 h-6 rounded-full flex items-center justify-center"
-                style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.5)' }}
-              >
-                <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
-              </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-red-500/50 bg-red-500/15">
+              <AlertTriangle className="h-4 w-4 text-red-300" />
             </div>
-
-            <div className="flex flex-col">
-              <span
-                className="text-red-400 font-black tracking-[0.2em] text-xs uppercase critical-flicker"
-              >
-                ⚠ KRİTİK GÜVENLİK UYARISI
-              </span>
-              <span className="text-[9px] text-red-600 tracking-widest uppercase mt-0.5">
-                P1 · Otomatik Algılama · Öncelikli Müdahale Gerekli
-              </span>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-red-300">Critical Security Incident</p>
+              <p className="text-[10px] uppercase tracking-[0.14em] text-red-200/60">
+                deterministic response queue
+              </p>
             </div>
           </div>
-
-          {/* Right: count badge + close */}
           <div className="flex items-center gap-2">
             {queue.length > 0 && (
-              <span
-                className="alert-badge-pop bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full"
-                style={{ boxShadow: '0 0 8px rgba(239,68,68,0.6)' }}
-              >
+              <span className="rounded-full border border-red-400/40 bg-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-100">
                 {queue.length}
               </span>
             )}
             <button
+              type="button"
+              className="rounded border border-red-500/35 p-1 text-red-200/70 hover:bg-red-500/10 hover:text-red-100"
               onClick={onClose}
-              className="text-slate-600 hover:text-red-400 transition-colors p-1"
             >
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" />
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* ── Alert list ── */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
-          {latest.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 gap-4">
-              <div className="relative">
-                <Shield className="w-12 h-12 text-slate-700" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-slate-500 text-xs tracking-widest uppercase">Sistem Güvende</div>
-                <div className="text-slate-700 text-[10px] mt-1">Kritik saldırı sinyali bekleniyor...</div>
-              </div>
+        <div className="max-h-[70vh] space-y-3 overflow-y-auto p-4">
+          {items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-500/5 p-8">
+              <Shield className="h-10 w-10 text-emerald-300/60" />
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-200/75">Queue clear</p>
+              <p className="text-[11px] text-emerald-100/45">No active critical incident.</p>
             </div>
+          ) : (
+            items.map((attack) => {
+              const sev = SEVERITY_STYLE[attack.severity]
+              const description = TYPE_DESCRIPTION[attack.type] ?? 'Incident requires analyst validation and report generation.'
+
+              return (
+                <article key={attack.id} className="rounded-lg border border-red-400/25 bg-black/25 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-red-100">{attack.type}</p>
+                      <p className="mt-1 text-[11px] text-slate-300/70">{description}</p>
+                    </div>
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${sev.badge}`}>
+                      {sev.label}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+                    <div className="rounded border border-slate-700/60 bg-black/35 px-2 py-1.5">
+                      <p className="text-[9px] uppercase tracking-[0.16em] text-slate-400">Source IP</p>
+                      <p className="mt-0.5 text-[11px] font-semibold text-slate-200">{attack.sourceIP}</p>
+                    </div>
+                    <div className="rounded border border-slate-700/60 bg-black/35 px-2 py-1.5">
+                      <p className="text-[9px] uppercase tracking-[0.16em] text-slate-400">Country</p>
+                      <p className={`mt-0.5 text-[11px] font-semibold ${sev.tone}`}>{attack.sourceCountry}</p>
+                    </div>
+                    <div className="rounded border border-slate-700/60 bg-black/35 px-2 py-1.5">
+                      <p className="text-[9px] uppercase tracking-[0.16em] text-slate-400">Target Port</p>
+                      <p className="mt-0.5 text-[11px] font-semibold text-amber-200">{attack.targetPort}</p>
+                    </div>
+                    <div className="rounded border border-slate-700/60 bg-black/35 px-2 py-1.5">
+                      <p className="text-[9px] uppercase tracking-[0.16em] text-slate-400">Detected</p>
+                      <p className="mt-0.5 text-[11px] font-semibold text-slate-200">{formatTime(attack.createdAt)}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded border border-emerald-400/45 bg-emerald-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-200 hover:bg-emerald-500/20"
+                      onClick={() => onReport(attack)}
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      Create report
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded border border-red-400/45 bg-red-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-red-200 hover:bg-red-500/20"
+                      onClick={() => onDismiss(attack.id)}
+                    >
+                      Dismiss incident
+                    </button>
+                  </div>
+                </article>
+              )
+            })
           )}
-
-          {latest.map((a, idx) => {
-            const col = SEV_COLOR[a.severity] ?? '#ef4444';
-            const icon = TYPE_ICON[a.type] ?? '⚠';
-            const desc = TYPE_DESC[a.type] ?? 'Bilinmeyen tehdit vektörü';
-            const sevLabel = SEV_LABEL[a.severity] ?? a.severity.toUpperCase();
-
-            return (
-              <div
-                key={a.id}
-                className="relative rounded-lg overflow-hidden"
-                style={{
-                  border: `1px solid ${col}30`,
-                  background: `linear-gradient(135deg, ${col}06 0%, transparent 60%)`,
-                  animationDelay: `${idx * 0.08}s`,
-                }}
-              >
-                {/* Left severity bar */}
-                <div
-                  className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg"
-                  style={{ background: `linear-gradient(180deg, ${col}, ${col}55)`, boxShadow: `0 0 8px ${col}` }}
-                />
-
-                <div className="pl-4 pr-3 py-3 space-y-2.5">
-                  {/* Row 1: type + time + severity badge */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg leading-none">{icon}</span>
-                      <span
-                        className="font-black text-xs tracking-wider"
-                        style={{ color: col }}
-                      >
-                        {a.type.toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="text-[9px] font-black px-2 py-0.5 rounded-full tracking-wider"
-                        style={{
-                          color: col,
-                          background: `${col}18`,
-                          border: `1px solid ${col}40`,
-                          boxShadow: `0 0 6px ${col}30`,
-                        }}
-                      >
-                        {sevLabel}
-                      </span>
-                      <span className="text-[9px] text-slate-600 tabular-nums">{timeStr(a.createdAt)}</span>
-                    </div>
-                  </div>
-
-                  {/* Row 2: description */}
-                  <div className="text-[10px] text-slate-400 leading-relaxed">{desc}</div>
-
-                  {/* Row 3: IP / country / port grid */}
-                  <div className="grid grid-cols-3 gap-2">
-                    {([
-                      ['KAYNAK IP',   a.sourceIP,      '#94a3b8'],
-                      ['ÜLKE',        a.sourceCountry, col      ],
-                      ['HEDEF PORT',  String(a.targetPort), '#f59e0b'],
-                    ] as [string, string, string][]).map(([label, value, valCol]) => (
-                      <div
-                        key={label}
-                        className="rounded px-2 py-1.5"
-                        style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.04)' }}
-                      >
-                        <div className="text-[8px] text-slate-600 tracking-widest uppercase mb-0.5">{label}</div>
-                        <div
-                          className="text-[10px] font-bold tabular-nums truncate"
-                          style={{ color: valCol }}
-                        >
-                          {value}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Row 4: action buttons */}
-                  <div className="flex gap-2 pt-0.5">
-                    <button
-                      onClick={() => onReport(a)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-bold transition-all duration-200 hover:brightness-125 active:scale-95"
-                      style={{
-                        background: `${col}15`,
-                        border: `1px solid ${col}45`,
-                        color: col,
-                        boxShadow: `0 0 12px ${col}20`,
-                      }}
-                    >
-                      <FileText className="w-3 h-3" />
-                      Rapor Oluştur
-                    </button>
-                    <button
-                      onClick={() => onDismiss(a.id)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] text-slate-500 hover:text-slate-300 border border-slate-800 transition-colors"
-                    >
-                      <Zap className="w-3 h-3" />
-                      Kapat
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
         </div>
-
-        {/* ── Footer ── */}
-        <div
-          className="shrink-0 flex items-center justify-between px-5 py-2.5"
-          style={{ borderTop: '1px solid rgba(239,68,68,0.12)' }}
-        >
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-[9px] text-slate-600 tracking-widest uppercase">
-              Kritik saldırılar otomatik algılanır
-            </span>
-          </div>
-          <span className="text-[9px] text-red-900 font-bold tracking-widest">P1 ÖNCELİKLİ</span>
-        </div>
-      </div>
+      </section>
     </div>
-  );
+  )
 }
