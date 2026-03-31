@@ -97,6 +97,13 @@ export async function POST(request: NextRequest) {
     return response
   } catch (error) {
     console.error('[auth/login] Failed to create session:', error)
-    return NextResponse.json({ error: 'Kimlik dogrulama servisi su anda kullanilamiyor.' }, { status: 503 })
+    const debugHint =
+      process.env.NODE_ENV === 'production'
+        ? ''
+        : ' Gelistirme icin SOC_STORAGE=memory kullanip sunucuyu yeniden baslatin.'
+    return NextResponse.json(
+      { error: `Kimlik dogrulama servisi su anda kullanilamiyor.${debugHint}` },
+      { status: 503 },
+    )
   }
 }

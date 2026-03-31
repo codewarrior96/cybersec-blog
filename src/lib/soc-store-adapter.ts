@@ -2,92 +2,99 @@ import * as memoryStore from '@/lib/soc-store-memory'
 import { getSupabaseAttackMetrics, isSupabaseAttackStoreEnabled, recordAttackEventToSupabase } from '@/lib/supabase-attack-metrics'
 import type { AttackEventInput, LiveMetrics } from '@/lib/soc-store-memory'
 
-const STORAGE_MODE = (process.env.SOC_STORAGE ?? 'sqlite').toLowerCase()
-const USE_MEMORY_STORE = STORAGE_MODE === 'memory'
 type StoreModule = typeof import('@/lib/soc-store-memory')
+type StorageMode = 'memory' | 'sqlite'
+
+const requestedStorageMode = (process.env.SOC_STORAGE ?? 'memory').toLowerCase()
+let activeStorageMode: StorageMode = requestedStorageMode === 'sqlite' ? 'sqlite' : 'memory'
 
 let sqliteStorePromise: Promise<StoreModule> | null = null
 
-if (STORAGE_MODE !== 'memory' && STORAGE_MODE !== 'sqlite') {
-  console.warn(`[soc-store-adapter] Unsupported SOC_STORAGE="${STORAGE_MODE}". Falling back to sqlite.`)
+if (requestedStorageMode !== 'memory' && requestedStorageMode !== 'sqlite') {
+  console.warn(`[soc-store-adapter] Unsupported SOC_STORAGE="${requestedStorageMode}". Falling back to memory.`)
 }
 
-async function getActiveStore(): Promise<StoreModule> {
-  if (USE_MEMORY_STORE) return memoryStore
+async function getSqliteStore(): Promise<StoreModule> {
   if (!sqliteStorePromise) {
     sqliteStorePromise = import('@/lib/soc-store').then((mod) => mod as unknown as StoreModule)
   }
   return sqliteStorePromise
 }
 
+async function withStore<T>(operation: string, runner: (store: StoreModule) => Promise<T>): Promise<T> {
+  if (activeStorageMode === 'memory') {
+    return runner(memoryStore)
+  }
+
+  try {
+    const sqliteStore = await getSqliteStore()
+    return await runner(sqliteStore)
+  } catch (error) {
+    console.error(
+      `[soc-store-adapter] ${operation} failed on sqlite store. Falling back to memory store.`,
+      error,
+    )
+    activeStorageMode = 'memory'
+    return runner(memoryStore)
+  }
+}
+
 export async function writeAuditLog(...args: Parameters<StoreModule['writeAuditLog']>) {
-  const store = await getActiveStore()
-  return store.writeAuditLog(...args)
+  return withStore('writeAuditLog', (store) => store.writeAuditLog(...args))
 }
 
 export async function cleanupExpiredSessions(
   ...args: Parameters<StoreModule['cleanupExpiredSessions']>
 ) {
-  const store = await getActiveStore()
-  return store.cleanupExpiredSessions(...args)
+  return withStore('cleanupExpiredSessions', (store) => store.cleanupExpiredSessions(...args))
 }
 
 export async function authenticateUser(
   ...args: Parameters<StoreModule['authenticateUser']>
 ) {
-  const store = await getActiveStore()
-  return store.authenticateUser(...args)
+  return withStore('authenticateUser', (store) => store.authenticateUser(...args))
 }
 
 export async function createSession(...args: Parameters<StoreModule['createSession']>) {
-  const store = await getActiveStore()
-  return store.createSession(...args)
+  return withStore('createSession', (store) => store.createSession(...args))
 }
 
 export async function deleteSession(...args: Parameters<StoreModule['deleteSession']>) {
-  const store = await getActiveStore()
-  return store.deleteSession(...args)
+  return withStore('deleteSession', (store) => store.deleteSession(...args))
 }
 
 export async function getSessionByToken(
   ...args: Parameters<StoreModule['getSessionByToken']>
 ) {
-  const store = await getActiveStore()
-  return store.getSessionByToken(...args)
+  return withStore('getSessionByToken', (store) => store.getSessionByToken(...args))
 }
 
 export async function listAssignableUsers(
   ...args: Parameters<StoreModule['listAssignableUsers']>
 ) {
-  const store = await getActiveStore()
-  return store.listAssignableUsers(...args)
+  return withStore('listAssignableUsers', (store) => store.listAssignableUsers(...args))
 }
 
 export async function listAlerts(...args: Parameters<StoreModule['listAlerts']>) {
-  const store = await getActiveStore()
-  return store.listAlerts(...args)
+  return withStore('listAlerts', (store) => store.listAlerts(...args))
 }
 
 export async function createAlert(...args: Parameters<StoreModule['createAlert']>) {
-  const store = await getActiveStore()
-  return store.createAlert(...args)
+  return withStore('createAlert', (store) => store.createAlert(...args))
 }
 
 export async function patchAlert(...args: Parameters<StoreModule['patchAlert']>) {
-  const store = await getActiveStore()
-  return store.patchAlert(...args)
+  return withStore('patchAlert', (store) => store.patchAlert(...args))
 }
 
 export async function purgeOldAttackEvents(
   ...args: Parameters<StoreModule['purgeOldAttackEvents']>
 ) {
-  const store = await getActiveStore()
-  return store.purgeOldAttackEvents(...args)
+  return withStore('purgeOldAttackEvents', (store) => store.purgeOldAttackEvents(...args))
 }
 
 export async function recordAttackEvent(input: AttackEventInput): Promise<void> {
-  const store = await getActiveStore()
-  await store.recordAttackEvent(input)
+  await withStore('recordAttackEvent', (store) => store.recordAttackEvent(input))
 
   if (!isSupabaseAttackStoreEnabled()) {
     return
@@ -101,8 +108,7 @@ export async function recordAttackEvent(input: AttackEventInput): Promise<void> 
 }
 
 export async function getLiveMetrics(): Promise<LiveMetrics> {
-  const store = await getActiveStore()
-  const baseMetrics = await store.getLiveMetrics()
+  const baseMetrics = await withStore('getLiveMetrics', (store) => store.getLiveMetrics())
 
   if (!isSupabaseAttackStoreEnabled()) {
     return baseMetrics
@@ -124,23 +130,19 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
 }
 
 export async function listReports(...args: Parameters<StoreModule['listReports']>) {
-  const store = await getActiveStore()
-  return store.listReports(...args)
+  return withStore('listReports', (store) => store.listReports(...args))
 }
 
 export async function createReport(...args: Parameters<StoreModule['createReport']>) {
-  const store = await getActiveStore()
-  return store.createReport(...args)
+  return withStore('createReport', (store) => store.createReport(...args))
 }
 
 export async function deleteReport(...args: Parameters<StoreModule['deleteReport']>) {
-  const store = await getActiveStore()
-  return store.deleteReport(...args)
+  return withStore('deleteReport', (store) => store.deleteReport(...args))
 }
 
 export async function createUser(...args: Parameters<StoreModule['createUser']>) {
-  const store = await getActiveStore()
-  return store.createUser(...args)
+  return withStore('createUser', (store) => store.createUser(...args))
 }
 
 export type {
