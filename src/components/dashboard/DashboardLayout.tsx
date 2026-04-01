@@ -1,587 +1,414 @@
 'use client'
 
-import { useMemo, useState, useEffect, useCallback } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
-import type { AttackEvent } from '@/lib/dashboard-types'
-import AttackReportModal from '@/components/dashboard/AttackReportModal'
-import CriticalAlertPanel from '@/components/dashboard/CriticalAlertPanel'
-import CriticalOverlayFx from '@/components/dashboard/CriticalOverlayFx'
-import { useSocRuntime } from '@/lib/soc-runtime/use-soc-runtime'
-import { CRITICAL_EFFECT_TOKENS } from '@/lib/soc-runtime/critical-effects'
-import CountUp from '@/components/CountUp'
-import MatrixRain from '@/components/MatrixRain'
+import React, { ReactNode, useEffect, useState } from 'react'
 
-// ─── Coğrafi koordinatlar (% bazlı, SVG harita üstü) ─────────────────────────
+// ============================================================================
+// SYSTEM & THEME CONSTANTS 
+// ============================================================================
+type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+type AlertStatus = 'UNASSIGNED' | 'INVESTIGATING' | 'MITIGATED'
+type Protocol = 'TCP' | 'UDP' | 'ICMP' | 'HTTP' | 'DNS'
 
-const COUNTRY_COORDS: Record<string, { x: number; y: number }> = {
-  'united states': { x: 21, y: 36 },
-  usa: { x: 21, y: 36 },
-  canada: { x: 18, y: 24 },
-  mexico: { x: 18, y: 46 },
-  brazil: { x: 32, y: 69 },
-  argentina: { x: 30, y: 82 },
-  uk: { x: 45, y: 28 },
-  'united kingdom': { x: 45, y: 28 },
-  france: { x: 47, y: 33 },
-  germany: { x: 49, y: 31 },
-  italy: { x: 50, y: 38 },
-  spain: { x: 45, y: 38 },
-  turkey: { x: 55, y: 37 },
-  russia: { x: 63, y: 22 },
-  ukraine: { x: 54, y: 30 },
-  india: { x: 67, y: 45 },
-  china: { x: 72, y: 39 },
-  japan: { x: 82, y: 36 },
-  'south korea': { x: 79, y: 36 },
-  singapore: { x: 72, y: 58 },
-  indonesia: { x: 74, y: 62 },
-  australia: { x: 82, y: 76 },
-  'south africa': { x: 53, y: 74 },
-  egypt: { x: 53, y: 44 },
-  nigeria: { x: 49, y: 56 },
-  netherlands: { x: 48, y: 29 },
-  poland: { x: 51, y: 29 },
-  sweden: { x: 50, y: 22 },
-  israel: { x: 55, y: 41 },
-  'saudi arabia': { x: 58, y: 45 },
-  iran: { x: 60, y: 40 },
+interface Alert {
+  id: string
+  sev: Severity
+  time: string
+  label: string
+  source: string
+  node: string
+  sla: number // represented in seconds for live countdown
 }
 
-const TARGET_HUB = { x: 55, y: 46 }
-
-// ─── Yardımcı işlevler ────────────────────────────────────────────────────────
-
-function formatClock(iso: string) {
-  return new Date(iso).toLocaleTimeString('tr-TR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
+interface ThreatEvent {
+  id: string
+  timestamp: string
+  sev: Severity
+  type: string
+  src: string
+  dst: string
+  region: string
+  status: AlertStatus
+  protocol: Protocol
+  port: number
 }
 
-function severityGlow(severity: AttackEvent['severity']): string {
-  if (severity === 'critical') return '#fb7185'
-  if (severity === 'high') return '#f59e0b'
-  return '#22d3ee'
-}
-
-function hexToRgba(hex: string, alpha: number): string {
-  const clean = hex.replace('#', '')
-  const bigint = parseInt(clean, 16)
-  const r = (bigint >> 16) & 255
-  const g = (bigint >> 8) & 255
-  const b = bigint & 255
-  return `rgba(${r},${g},${b},${alpha})`
-}
-
-function buildTrajectoryStyle(
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-  severity: AttackEvent['severity'],
-  index: number,
-): CSSProperties {
-  const dx = to.x - from.x
-  const dy = to.y - from.y
-  const length = Math.sqrt(dx * dx + dy * dy)
-  const angle = (Math.atan2(dy, dx) * 180) / Math.PI
-  const color = severityGlow(severity)
-  return {
-    left: `${from.x}%`,
-    top: `${from.y}%`,
-    width: `${Math.max(4, length)}%`,
-    transform: `translateY(-50%) rotate(${angle}deg)`,
-    transformOrigin: '0 50%',
-    background: `linear-gradient(90deg,${hexToRgba(color, 0.15)} 0%,${hexToRgba(color, 0.9)} 40%,transparent 100%)`,
-    boxShadow: `0 0 8px ${hexToRgba(color, 0.55)}`,
-    animation: `soc-trajectory 3s ease-in-out ${index * 0.15}s infinite`,
+const THEME = {
+  fgMuted: 'text-slate-500',
+  fgBase: 'text-slate-300',
+  fgHigh: 'text-slate-100',
+  border: 'border-[#0a121a]',
+  borderLight: 'border-[#121f2b]',
+  panelBg: 'bg-[#020509]/80',
+  panelDim: 'bg-[#010204]/90',
+  severity: {
+    CRITICAL: { hex: '#f43f5e', text: 'text-rose-400', bg: 'bg-rose-500', doc: 'bg-rose-950/30' },
+    HIGH: { hex: '#f59e0b', text: 'text-amber-400', bg: 'bg-amber-500', doc: 'bg-amber-950/30' },
+    MEDIUM: { hex: '#eab308', text: 'text-yellow-400', bg: 'bg-yellow-500', doc: 'bg-yellow-950/20' },
+    LOW: { hex: '#3b82f6', text: 'text-blue-500', bg: 'bg-blue-600', doc: 'bg-blue-950/10' },
   }
 }
 
-function resolveCountryCoords(country: string): { x: number; y: number } | null {
-  const key = country.toLowerCase().trim()
-  if (COUNTRY_COORDS[key]) return COUNTRY_COORDS[key]
-  const found = Object.entries(COUNTRY_COORDS).find(
-    ([name]) => key.includes(name) || name.includes(key),
-  )
-  return found ? found[1] : null
+// ============================================================================
+// DETERMINISTIC MOCK DATA
+// ============================================================================
+const INITIAL_ALERTS: Alert[] = [
+  { id: 'ALT-9921', sev: 'CRITICAL', time: '14:22:01', label: 'Ransomware Payload Detonated', source: '10.0.4.15', node: 'FIN-DB-01', sla: 862 },
+  { id: 'ALT-9920', sev: 'CRITICAL', time: '14:21:55', label: 'Unauthorized Domain Admin Access', source: '198.51.100.4', node: 'DC-02', sla: 2700 },
+  { id: 'ALT-9919', sev: 'HIGH', time: '14:19:12', label: 'Egress Traffic Spike > 5GB', source: '10.0.8.22', node: 'DMZ-WEB', sla: 6495 },
+  { id: 'ALT-9918', sev: 'MEDIUM', time: '14:15:00', label: 'Suspicious Powershell Exec', source: 'LCL-HOST', node: 'WKST-492', sla: 11400 },
+]
+
+const MOCK_EVENTS: ThreatEvent[] = Array.from({ length: 60 }).map((_, i) => ({
+  id: `EVT-${10000 + i}`,
+  timestamp: new Date(Date.now() - i * 15000).toISOString(),
+  sev: i % 17 === 0 ? 'CRITICAL' : i % 7 === 0 ? 'HIGH' : i % 4 === 0 ? 'MEDIUM' : 'LOW',
+  type: ['SYN Flood', 'SQL Injection Payload', 'C2 Beaconing', 'Auth Bypass', 'Large Data Exfil'][i % 5],
+  src: `192.168.${i % 255}.${(i * 3) % 255}`,
+  dst: `10.0.${(i * 7) % 255}.${(i * 2) % 255}`,
+  region: ['US-EAST', 'EU-WEST', 'APAC', 'LATAM'][i % 4],
+  status: i === 0 ? 'INVESTIGATING' : 'MITIGATED',
+  protocol: ['TCP', 'UDP', 'HTTP', 'DNS'][i % 4] as Protocol,
+  port: [443, 53, 80, 22, 3389][i % 5],
+}))
+
+const MOCK_MAP_POINTS = [
+  { lat: 40.71, lng: -74.00, sev: 'CRITICAL', label: 'US-EAST' },
+  { lat: 51.50, lng: -0.12, sev: 'HIGH', label: 'UK-LON' },
+  { lat: 35.68, lng: 139.69, sev: 'MEDIUM', label: 'JP-TYO' },
+  { lat: 1.35, lng: 103.81, sev: 'LOW', label: 'SG-SIN' },
+  { lat: -23.55, lng: -46.63, sev: 'HIGH', label: 'BR-SAO' },
+  { lat: 55.75, lng: 37.61, sev: 'CRITICAL', label: 'RU-MOW' },
+  { lat: 39.90, lng: 116.40, sev: 'HIGH', label: 'CN-PEK' },
+]
+
+const HUB_COORD = { lat: 38.89, lng: -77.03 } // Target Hub (Washington DC)
+
+// ============================================================================
+// UTILS & FORMATTERS
+// ============================================================================
+const formatTime = (date: Date) => date.toISOString().split('T')[1].substring(0, 11)
+const formatSLA = (seconds: number) => {
+  const h = Math.floor(seconds / 3600).toString().padStart(2, '0')
+  const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0')
+  const s = (seconds % 60).toString().padStart(2, '0')
+  return `${h}:${m}:${s}`
 }
 
-function normalizeIncidentType(rawType: string): string {
-  const t = rawType.toLowerCase()
-  if (t.includes('ddos') || t.includes('dos') || t.includes('flood')) return 'DDoS'
-  if (t.includes('phishing') || t.includes('spear')) return 'Phishing'
-  if (t.includes('ransom')) return 'Ransomware'
-  if (t.includes('breach') || t.includes('leak') || t.includes('exfil')) return 'Data Breach'
-  if (t.includes('scan') || t.includes('recon') || t.includes('port')) return 'Recon'
-  if (t.includes('sql') || t.includes('rce') || t.includes('xss')) return 'Exploit'
-  return 'Other'
-}
+// ============================================================================
+// UI COMPONENTS
+// ============================================================================
 
-// ─── Alert öncelik renkleri ───────────────────────────────────────────────────
+const Frame = ({ title, children, rightAction, dim = false, className = '', headerClass = '' }: { title: string, children: ReactNode, rightAction?: ReactNode, dim?: boolean, className?: string, headerClass?: string }) => (
+  <section className={`flex flex-col border ${THEME.border} ${dim ? THEME.panelDim : THEME.panelBg} overflow-hidden ${className}`}>
+    <header className={`flex items-center justify-between border-b ${THEME.border} px-3 py-1.5 ${dim ? 'bg-[#010203]' : 'bg-[#020509]'} ${headerClass}`}>
+      <h2 className={`font-bold uppercase tracking-[0.2em] text-[9px] ${dim ? 'text-slate-600' : 'text-cyan-700/80'}`}>{title}</h2>
+      {rightAction && <div className="flex items-center gap-2">{rightAction}</div>}
+    </header>
+    <div className="flex-1 overflow-hidden p-3 flex flex-col relative">
+      {children}
+    </div>
+  </section>
+)
 
-const PRIORITY_STYLE: Record<string, { border: string; bg: string; badge: string; text: string }> = {
-  P1: {
-    border: 'border-rose-500/50',
-    bg: 'bg-rose-950/40',
-    badge: 'border-rose-500/70 text-rose-300 bg-rose-950/60',
-    text: 'text-rose-200',
-  },
-  P2: {
-    border: 'border-amber-500/40',
-    bg: 'bg-amber-950/30',
-    badge: 'border-amber-500/60 text-amber-300 bg-amber-950/60',
-    text: 'text-amber-100',
-  },
-  P3: {
-    border: 'border-yellow-500/30',
-    bg: 'bg-yellow-950/20',
-    badge: 'border-yellow-500/50 text-yellow-300 bg-yellow-950/40',
-    text: 'text-yellow-100',
-  },
-  P4: {
-    border: 'border-slate-700/40',
-    bg: 'bg-slate-900/30',
-    badge: 'border-slate-600/50 text-slate-400 bg-slate-800/50',
-    text: 'text-slate-300',
-  },
-}
-
-// ─── GlassCard ────────────────────────────────────────────────────────────────
-
-function GlassCard({
-  title,
-  right,
-  children,
-  className = '',
-}: {
-  title: string
-  right?: ReactNode
-  children: ReactNode
-  className?: string
-}) {
+const SevTag = ({ sev, solid = false }: { sev: Severity, solid?: boolean }) => {
+  const s = THEME.severity[sev]
   return (
-    <section
-      className={`relative rounded-none border-[1.5px] border-cyan-500/25 bg-[#030a11]/85 backdrop-blur-md shadow-[inset_0_0_20px_rgba(34,211,238,0.04),0_0_20px_rgba(0,0,0,0.5)] ${className}`}
-    >
-      {/* Sci-fi köşe braketleri */}
-      <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-cyan-400/80 -translate-x-px -translate-y-px" />
-      <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-cyan-400/80 translate-x-px -translate-y-px" />
-      <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-cyan-400/80 -translate-x-px translate-y-px" />
-      <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-cyan-400/80 translate-x-px translate-y-px" />
-
-      {/* Scanline */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.03] bg-[linear-gradient(transparent_50%,rgba(0,0,0,1)_50%)] bg-[length:100%_4px]" />
-
-      <header className="relative flex items-center justify-between border-b border-cyan-500/15 bg-gradient-to-r from-cyan-950/40 to-transparent px-4 py-2.5">
-        <h2 className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-100 flex items-center gap-2">
-          <span className="flex h-2 w-2 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-60" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500" />
-          </span>
-          {title}
-        </h2>
-        {right}
-      </header>
-
-      <div className="relative p-4 z-10">{children}</div>
-    </section>
+    <span className={`inline-flex items-center justify-center px-1.5 py-[2px] text-[8px] font-bold tracking-widest uppercase ${solid ? s.bg + ' text-black' : s.doc + ' ' + s.text + ' border border-transparent'}`}>
+      {sev}
+    </span>
   )
 }
 
-// ─── MetricTile ───────────────────────────────────────────────────────────────
+// ============================================================================
+// MODULES
+// ============================================================================
 
-function MetricTile({
-  label,
-  value,
-  tone,
-  suffix = '',
-}: {
-  label: string
-  value: number
-  tone: string
-  suffix?: string
-}) {
-  return (
-    <article className="rounded border border-cyan-500/15 bg-[#06101a]/70 px-3 py-3 hover:border-cyan-400/30 hover:bg-cyan-950/30 transition-colors">
-      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className={`mt-1.5 text-2xl font-bold tabular-nums tracking-wide drop-shadow-[0_0_6px_currentColor] ${tone}`}>
-        <CountUp to={value} suffix={suffix} />
-      </p>
-    </article>
-  )
-}
-
-// ─── Alert tipi ───────────────────────────────────────────────────────────────
-
-interface AlertItem {
-  id: number
-  title: string
-  priority: string
-  status: string
-  createdAt: string
-  sourceIp: string | null
-}
-
-// ─── Ana bileşen ──────────────────────────────────────────────────────────────
-
-export default function DashboardLayout() {
-  const { mounted, snapshot, actions } = useSocRuntime({
-    overlayDurationMs: CRITICAL_EFFECT_TOKENS.overlayDurationMs,
-  })
-
-  // Alert Management state
-  const [alerts, setAlerts] = useState<AlertItem[]>([])
-  const [alertsLoading, setAlertsLoading] = useState(true)
-
-  // Stabil attacks dizisi — yalnızca snapshot.attacks değişince yeni referans
-  const attacks = useMemo(
-    () => [...snapshot.attacks].reverse(),
-    [snapshot.attacks],
-  )
-
-  // Harita noktaları
-  const geoPoints = useMemo(() => {
-    return attacks
-      .slice(0, 30)
-      .map((attack) => {
-        const point = resolveCountryCoords(attack.sourceCountry)
-        if (!point) return null
-        return { attack, point }
-      })
-      .filter(
-        (v): v is { attack: AttackEvent; point: { x: number; y: number } } => v !== null,
-      )
-  }, [attacks])
-
-  const trajectoryPoints = useMemo(() => geoPoints.slice(0, 18), [geoPoints])
-
-  // KPI metrikleri
-  const criticalCount = useMemo(
-    () => attacks.filter((a) => a.severity === 'critical').length,
-    [attacks],
-  )
-
-  const resolvedCount = snapshot.metrics?.triageBoard.resolved ?? 0
-  const ongoingCount = snapshot.metrics?.triageBoard.inProgress ?? snapshot.alertCount
-  const attacksPerMin = snapshot.metrics?.attack.attacksPerMinute ?? 0
-
-  const healthScore = useMemo(
-    () =>
-      Math.max(
-        12,
-        Math.min(
-          99,
-          Math.round(
-            96 -
-              criticalCount * 3.6 -
-              (snapshot.metrics?.attack.liveDensity ?? 0) * 4.1 -
-              ongoingCount * 0.4,
-          ),
-        ),
-      ),
-    [criticalCount, snapshot.metrics?.attack.liveDensity, ongoingCount],
-  )
-
-  // Alert fetch — yalnızca alertCount değişince
-  const fetchAlerts = useCallback(async () => {
-    try {
-      setAlertsLoading(true)
-      const res = await fetch('/api/alerts?limit=10')
-      if (!res.ok) return
-      const data: { alerts?: AlertItem[] } = await res.json()
-      if (Array.isArray(data.alerts)) setAlerts(data.alerts)
-    } catch {
-      // sessizce geç
-    } finally {
-      setAlertsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void fetchAlerts()
-  }, [fetchAlerts, snapshot.alertCount])
-
-  if (!mounted) return null
-
-  return (
-    <div className="relative min-h-[calc(100vh-64px)] overflow-hidden bg-[#02060c] text-slate-100 font-mono">
-
-      {/* ── Arka plan katmanları ──────────────────────────────────────────── */}
-      <div className="absolute inset-0 z-0 opacity-10 mix-blend-screen pointer-events-none">
-        <MatrixRain />
-      </div>
-      <div className="pointer-events-none absolute inset-0 z-0 [background:radial-gradient(circle_at_15%_20%,rgba(14,165,233,0.12),transparent_40%),radial-gradient(circle_at_82%_28%,rgba(0,255,136,0.07),transparent_35%),linear-gradient(180deg,transparent_0%,rgba(2,6,12,0.7)_80%,#02060c_100%)]" />
-      <div className="pointer-events-none absolute inset-0 z-0 opacity-[0.18] [background:linear-gradient(to_right,rgba(56,189,248,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(56,189,248,0.05)_1px,transparent_1px)] [background-size:48px_48px]" />
-
-      {/* ── Kritik overlay ────────────────────────────────────────────────── */}
-      {snapshot.overlayActive ? <CriticalOverlayFx cycle={snapshot.overlayCycle} /> : null}
-
-      {/* ── Ana içerik ───────────────────────────────────────────────────── */}
-      <div className="relative z-10 mx-auto max-w-[1800px] flex flex-col gap-4 p-3 md:p-5">
-
-        {/* ── ROW 1: KPI Şeridi ─────────────────────────────────────────── */}
-        <GlassCard
-          title="Sentinel Prime SOC Matrix"
-          right={
-            <div className="flex items-center gap-3 text-[10px] font-mono">
-              <button
-                type="button"
-                onClick={() => void actions.refreshMetrics()}
-                className="rounded border border-cyan-500/25 bg-cyan-950/20 px-3 py-1 text-cyan-300 hover:border-cyan-400/60 hover:bg-cyan-400/15 transition-colors"
-              >
-                SYNC
-              </button>
-              <span className="flex items-center gap-1.5 text-emerald-400 tracking-widest">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                </span>
-                LIVE
-              </span>
+const TacticalAlerts = ({ alerts }: { alerts: Alert[] }) => (
+   <div className="flex flex-col gap-1.5 overflow-auto custom-scrollbar -m-3 p-3">
+      {alerts.map((a) => (
+        <div key={a.id} className={`group flex flex-col bg-[#020509] border-[0.5px] border-[#0a121a] hover:bg-[#04080e] transition-colors cursor-crosshair ${a.sev === 'CRITICAL' ? 'border-l-2 border-l-rose-500' : 'border-l-2 border-l-transparent'}`}>
+          <div className="p-2.5">
+            <div className="flex justify-between items-start mb-1.5">
+               <SevTag sev={a.sev} solid={a.sev === 'CRITICAL'} />
+               <span className={`text-[9px] font-mono font-bold ${a.sla < 900 ? 'text-rose-500 animate-[pulse_2s_ease-in-out_infinite]' : 'text-slate-500'}`}>T-{formatSLA(a.sla)}</span>
             </div>
-          }
-        >
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <MetricTile label="Health Score" value={healthScore} suffix="/100" tone="text-cyan-300" />
-            <MetricTile label="Total Incidents" value={attacks.length} tone="text-slate-100" />
-            <MetricTile label="Resolved" value={resolvedCount} tone="text-emerald-300" />
-            <MetricTile label="Ongoing" value={ongoingCount} tone="text-amber-300" />
-            <MetricTile label="Critical" value={criticalCount} tone="text-rose-400" />
-            <MetricTile label="Threats / Min" value={attacksPerMin} tone="text-sky-300" />
-          </div>
-        </GlassCard>
-
-        {/* ── ROW 2: Harita (sol) + Sidebar (sağ) ──────────────────────── */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-4">
-
-          {/* ── DÜNYA HARİTASI ──────────────────────────────────────────── */}
-          <GlassCard title="Global Severity Heatmap">
-            <div className="relative h-[360px] md:h-[460px] xl:h-[520px] w-full overflow-hidden rounded border border-cyan-600/20 bg-[#010811] shadow-[inset_0_0_40px_rgba(0,0,0,0.8)]">
-
-              {/* Arka plan glow */}
-              <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_35%_45%,rgba(14,165,233,0.14),transparent_52%),radial-gradient(circle_at_72%_58%,rgba(245,158,11,0.10),transparent_40%)]" />
-              {/* Grid çizgileri */}
-              <div className="absolute inset-0 z-0 bg-[linear-gradient(rgba(56,189,248,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(56,189,248,0.07)_1px,transparent_1px)] bg-[size:50px_50px]" />
-
-              {/* SVG Dünya haritası */}
-              <img
-                src="/world-lite.svg"
-                alt="Global threat map"
-                className="relative z-10 h-full w-full object-cover opacity-55 [filter:contrast(1.25)_brightness(0.88)_saturate(1.15)_drop-shadow(0_0_8px_rgba(56,189,248,0.25))]"
-                draggable={false}
-              />
-
-              {/* Radar + saldırı katmanı */}
-              <div className="absolute inset-0 z-20 overflow-hidden">
-
-                {/* Dönen radar süpürgesi */}
-                <div
-                  className="absolute left-1/2 top-1/2 aspect-square w-[145%] -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none mix-blend-screen animate-[spin_8s_linear_infinite]"
-                  style={{
-                    background:
-                      'conic-gradient(from 0deg, transparent 72%, rgba(34,211,238,0.10) 96%, rgba(255,255,255,0.30) 100%)',
-                  }}
-                />
-
-                {/* Artı çizgileri */}
-                <div className="absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 bg-cyan-500/10 pointer-events-none" />
-                <div className="absolute top-1/2 left-0 right-0 h-px -translate-y-1/2 bg-cyan-500/10 pointer-events-none" />
-
-                {/* Trajectory çizgileri (CSS animasyonu) */}
-                {trajectoryPoints.map(({ attack, point }, i) => (
-                  <span
-                    key={`traj-${attack.id}`}
-                    className="absolute block h-[2px] rounded-full"
-                    style={buildTrajectoryStyle(point, TARGET_HUB, attack.severity, i)}
-                  />
-                ))}
-
-                {/* Saldırı noktaları */}
-                {geoPoints.map(({ attack, point }, i) => {
-                  const glow = severityGlow(attack.severity)
-                  return (
-                    <button
-                      key={`dot-${attack.id}`}
-                      type="button"
-                      className="group absolute z-30 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/40"
-                      style={{
-                        left: `${point.x}%`,
-                        top: `${point.y}%`,
-                        backgroundColor: glow,
-                        boxShadow: `0 0 14px ${glow}`,
-                        animationDelay: `${(i % 10) * 0.12}s`,
-                      }}
-                      onClick={() => actions.openReport(attack.id)}
-                      title={`${attack.sourceCountry} — ${attack.type}`}
-                    >
-                      <span
-                        className="absolute inset-0 rounded-full"
-                        style={{
-                          backgroundColor: glow,
-                          animation: 'soc-map-ping 2.2s cubic-bezier(0,0,0.2,1) infinite',
-                        }}
-                      />
-                      {/* Tooltip */}
-                      <span className="pointer-events-none absolute left-1/2 bottom-full mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded border border-cyan-500/40 bg-[#04111f]/95 px-2 py-1 text-[10px] text-cyan-100 backdrop-blur-sm group-hover:block">
-                        <span className="text-slate-400">LOC:</span>{' '}
-                        {attack.sourceCountry.toUpperCase()}
-                        <br />
-                        <span className="text-slate-400">VEC:</span>{' '}
-                        {normalizeIncidentType(attack.type).toUpperCase()}
-                      </span>
-                    </button>
-                  )
-                })}
-
-                {/* Hedef merkez noktası */}
-                <div
-                  className="absolute z-30 -translate-x-1/2 -translate-y-1/2"
-                  style={{ left: `${TARGET_HUB.x}%`, top: `${TARGET_HUB.y}%` }}
-                >
-                  <div className="relative flex h-5 w-5 items-center justify-center">
-                    <span className="absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-25 animate-ping" />
-                    <div className="h-2.5 w-2.5 rounded-full border border-cyan-100 bg-cyan-400 shadow-[0_0_18px_rgba(34,211,238,1)]" />
-                  </div>
-                </div>
-
-              </div>
+            <span className={`font-bold text-[11px] uppercase tracking-wide truncate mb-1 block ${a.sev === 'CRITICAL' ? 'text-rose-100' : 'text-slate-300'}`}>{a.label}</span>
+            <div className="flex justify-between text-[9px] font-mono mt-2 opacity-80">
+              <span className="text-slate-500">SRC: <span className={a.sev==='CRITICAL'?'text-rose-400':'text-cyan-600'}>{a.source}</span></span>
+              <span className="text-slate-500">TGT: <span className="text-slate-400">{a.node}</span></span>
             </div>
-          </GlassCard>
-
-          {/* ── SAĞ SİDEBAR ──────────────────────────────────────────────── */}
-          <div className="flex flex-col gap-4">
-
-            {/* Alert Yönetimi */}
-            <GlassCard
-              title="Alert Yönetimi"
-              right={
-                <span className="text-[10px] font-mono text-cyan-500/50 tabular-nums">
-                  {alerts.length} KAYIT
-                </span>
-              }
-            >
-              <div className="space-y-2 max-h-[260px] overflow-y-auto custom-scrollbar pr-1">
-                {alertsLoading ? (
-                  <div className="flex h-20 items-center justify-center">
-                    <span className="text-xs font-mono text-cyan-600 animate-pulse">
-                      YÜKLENIYOR...
-                    </span>
-                  </div>
-                ) : alerts.length === 0 ? (
-                  <div className="flex h-20 items-center justify-center">
-                    <span className="text-xs font-mono text-slate-600">
-                      ALERT BULUNAMADI
-                    </span>
-                  </div>
-                ) : (
-                  alerts.map((alert) => {
-                    const p = (alert.priority ?? 'P4') as keyof typeof PRIORITY_STYLE
-                    const style = PRIORITY_STYLE[p] ?? PRIORITY_STYLE.P4
-                    return (
-                      <div
-                        key={alert.id}
-                        className={`flex items-start gap-2.5 rounded border ${style.border} ${style.bg} px-3 py-2`}
-                      >
-                        <span
-                          className={`shrink-0 mt-0.5 text-[9px] font-bold rounded px-1.5 py-0.5 border ${style.badge}`}
-                        >
-                          {p}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className={`truncate text-[11px] font-bold ${style.text}`}>
-                            {alert.title}
-                          </p>
-                          <p className="text-[9px] font-mono text-slate-600 mt-0.5">
-                            {new Date(alert.createdAt).toLocaleTimeString('tr-TR')}
-                            {alert.sourceIp ? ` · ${alert.sourceIp}` : ''}
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-            </GlassCard>
-
-            {/* Canlı Olay Feed'i */}
-            <GlassCard
-              title="Canlı Olay Feed'i"
-              right={
-                <span className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400 tracking-widest">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                  </span>
-                  CANLI
-                </span>
-              }
-            >
-              <div className="space-y-1 max-h-[340px] overflow-y-auto custom-scrollbar pr-1">
-                {attacks.length === 0 ? (
-                  <div className="flex h-28 flex-col items-center justify-center rounded border border-dashed border-cyan-800/40 bg-cyan-950/10">
-                    <span className="w-4 h-4 rounded-full border-2 border-cyan-500/20 border-t-cyan-400 animate-spin mb-2.5" />
-                    <span className="text-xs font-mono text-cyan-600 animate-pulse">
-                      ANOMALİ TARAMASI...
-                    </span>
-                  </div>
-                ) : (
-                  attacks.slice(0, 30).map((attack) => (
-                    <button
-                      key={attack.id}
-                      type="button"
-                      onClick={() => actions.openReport(attack.id)}
-                      className={`group w-full grid grid-cols-[58px_1fr_auto] items-center gap-2 rounded border px-3 py-2 text-left hover:bg-cyan-900/20 transition-colors ${
-                        attack.severity === 'critical'
-                          ? 'border-rose-500/40 bg-rose-950/10'
-                          : 'border-cyan-900/25 bg-[#06101c]/40'
-                      }`}
-                    >
-                      {/* Sol dikey çizgi */}
-                      <span
-                        className={`absolute left-0 top-0 hidden group-hover:block h-full w-0.5 ${
-                          attack.severity === 'critical'
-                            ? 'bg-rose-500/70'
-                            : 'bg-cyan-500/50'
-                        }`}
-                      />
-
-                      <span className="text-[10px] font-mono tabular-nums text-cyan-600/80">
-                        {formatClock(attack.createdAt)}
-                      </span>
-
-                      <span className="truncate text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
-                        {attack.severity === 'critical' && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
-                        )}
-                        {normalizeIncidentType(attack.type)}
-                      </span>
-
-                      <span className="text-[10px] font-mono text-slate-500 truncate">
-                        {attack.sourceCountry.toUpperCase()}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </GlassCard>
-
           </div>
         </div>
-      </div>
+      ))}
+   </div>
+)
 
-      {/* ── Modaller ─────────────────────────────────────────────────────── */}
-      <CriticalAlertPanel
-        queue={snapshot.criticalQueue}
-        open={snapshot.panelOpen}
-        onReport={(attack) => actions.openReport(attack.id)}
-        onDismiss={actions.dismissIncident}
-        onClose={actions.closePanel}
-      />
-      <AttackReportModal
-        attack={snapshot.reportTarget}
-        open={snapshot.reportModalOpen}
-        onClose={actions.closeReport}
-      />
+const ThreatMap = ({ tick }: { tick: number }) => (
+  <div className="relative w-full h-full bg-[#000204] overflow-hidden flex items-center justify-center p-4">
+    {/* Abstract Data Graticules */}
+    <div className="absolute inset-0 pointer-events-none z-0 opacity-10">
+       {Array.from({ length: 9 }).map((_, i) => (
+         <div key={`h-${i}`} className="absolute w-full h-[1px] border-b border-solid border-cyan-900/30" style={{ top: `${(i+1)*10}%` }}></div>
+       ))}
+       {Array.from({ length: 19 }).map((_, i) => (
+         <div key={`v-${i}`} className="absolute h-full w-[1px] border-r border-solid border-cyan-900/30" style={{ left: `${(i+1)*5}%` }}></div>
+       ))}
+    </div>
+    
+    {/* Hub Marker */}
+    <div className="absolute z-10 w-2 h-2 bg-emerald-500 shadow-[0_0_15px_#10b981]" style={{ left: `${(HUB_COORD.lng + 180)*(100/360)}%`, top: `${(90 - HUB_COORD.lat)*(100/180)}%`, transform: 'translate(-50%, -50%)' }}></div>
+    
+    {/* Explicit Trajectories (SVG) */}
+    <svg className="absolute inset-0 w-full h-full pointer-events-none z-20 overflow-visible">
+       {MOCK_MAP_POINTS.map((pt, i) => {
+          if (pt.sev !== 'CRITICAL' && pt.sev !== 'HIGH') return null; // Authority: only critical flows get trajectories
+          const hubX = (HUB_COORD.lng + 180) * (100 / 360)
+          const hubY = (90 - HUB_COORD.lat) * (100 / 180)
+          const x = (pt.lng + 180) * (100 / 360)
+          const y = (90 - pt.lat) * (100 / 180)
+          const color = THEME.severity[pt.sev].hex
+          const isCritical = pt.sev === 'CRITICAL'
+          const dashOffset = (tick * (isCritical ? 2 : 1)) % 100 // Smooth JS-driven dash animation to avoid CSS reflow intensity
+          
+          return (
+             <g key={`traj-${i}`}>
+               <path 
+                 d={`M ${x} ${y} Q 50 ${Math.min(y, hubY)-20} ${hubX} ${hubY}`} 
+                 fill="none" 
+                 stroke={color} 
+                 strokeWidth={isCritical ? "1.5" : "0.5"} 
+                 opacity={isCritical ? "0.8" : "0.3"} 
+                 strokeDasharray={isCritical ? "4 6" : "2 8"}
+                 strokeDashoffset={-dashOffset}
+                 vectorEffect="non-scaling-stroke"
+               />
+             </g>
+          )
+       })}
+    </svg>
+
+    {/* Map Data Nodes */}
+    {MOCK_MAP_POINTS.map((pt, i) => {
+      const x = (pt.lng + 180) * (100 / 360)
+      const y = (90 - pt.lat) * (100 / 180)
+      const color = THEME.severity[pt.sev as keyof typeof THEME.severity].hex
+      const isCrit = pt.sev === 'CRITICAL'
+      
+      return (
+        <div key={i} className="absolute z-30 flex flex-col items-center justify-center transform -translate-x-1/2 -translate-y-1/2 cursor-crosshair group" style={{ left: `${x}%`, top: `${y}%`}}>
+          <div className="relative flex items-center justify-center">
+            <div className={`w-[3px] h-[3px] z-10 ${isCrit?'shadow-[0_0_12px_#f43f5e]':''}`} style={{ backgroundColor: color }}></div>
+            {isCrit && (
+               <div className="absolute w-8 h-8 border border-rose-500/40 rounded-full animate-[ping_3s_ease-out_infinite] z-0 pointer-events-none"></div>
+            )}
+          </div>
+          {/* Minimalist overlay on hover */}
+          <div className="absolute top-3 flex-col items-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-40">
+            <div className="flex flex-col bg-[#010204]/95 px-1.5 py-1 border border-[#1a2c3f] shadow-xl">
+              <span className="text-[8px] font-mono font-bold tracking-widest uppercase whitespace-nowrap" style={{ color }}>{pt.label}</span>
+            </div>
+          </div>
+        </div>
+      )
+    })}
+
+    {/* Slow deliberate scanline */}
+    <div className="absolute inset-x-0 h-1 bg-gradient-to-b from-transparent via-cyan-900/20 to-transparent opacity-30 z-10 pointer-events-none" style={{ top: `${(tick*2)%100}%` }}></div>
+  </div>
+)
+
+const LiveTelemetryStream = () => (
+  <div className="flex-1 overflow-auto custom-scrollbar -m-3 mt-0">
+    <table className="w-full text-left border-collapse whitespace-nowrap table-fixed">
+      <thead className="sticky top-0 bg-[#010203] border-b border-[#0a121a] z-10">
+        <tr>
+          <th className="py-2 px-3 text-[8px] w-20 uppercase tracking-widest text-slate-600 font-normal border-r border-[#0a121a]">TIME</th>
+          <th className="py-2 px-3 text-[8px] w-12 uppercase tracking-widest text-slate-600 font-normal border-r border-[#0a121a]">SEV</th>
+          <th className="py-2 px-3 text-[8px] w-48 uppercase tracking-widest text-slate-600 font-normal border-r border-[#0a121a]">SIGNATURE</th>
+          <th className="py-2 px-3 text-[8px] w-32 uppercase tracking-widest text-slate-600 font-normal border-r border-[#0a121a]">ORIGIN</th>
+          <th className="py-2 px-3 text-[8px] w-32 uppercase tracking-widest text-slate-600 font-normal border-r border-[#0a121a]">DEST</th>
+          <th className="py-2 px-3 text-[8px] uppercase tracking-widest text-slate-600 font-normal">PAYLOAD TRACE</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-[#05080c] font-mono">
+        {MOCK_EVENTS.map((evt, idx) => (
+          <tr key={evt.id} className="hover:bg-[#03070b] transition-colors group cursor-crosshair">
+            <td className="py-1 px-3 text-[9px] text-slate-600 tabular-nums border-r border-[#05080c] group-hover:text-cyan-800">{evt.timestamp.split('T')[1].substring(0,8)}</td>
+            <td className="py-1 px-3 border-r border-[#05080c]">
+              <span className={`w-1 h-1 inline-block rounded-none ${THEME.severity[evt.sev].bg}`}></span>
+            </td>
+            <td className={`py-1 px-3 text-[9px] truncate border-r border-[#05080c] ${evt.sev === 'CRITICAL' ? 'text-rose-200' : 'text-slate-400'}`}>{evt.type}</td>
+            <td className="py-1 px-3 text-[9px] text-cyan-800 tabular-nums border-r border-[#05080c] group-hover:text-cyan-600">{evt.src}</td>
+            <td className="py-1 px-3 text-[9px] text-slate-500 tabular-nums border-r border-[#05080c]"><span className="text-slate-700 mr-1">[{evt.protocol}]</span>{evt.dst}</td>
+            <td className="py-1 px-3 text-[8px] text-slate-700 truncate group-hover:text-slate-500">
+               {Array.from({ length: 4 }).map((_, i) => Math.floor([123,456,789,321][i%4] * (idx+1)).toString(16).padStart(4, '0')).join(' ')}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+)
+
+// ============================================================================
+// MAIN LAYOUT COMPONENT
+// ============================================================================
+
+export default function DashboardLayout() {
+  const [mounted, setMounted] = useState(false)
+  const [time, setTime] = useState<Date | null>(null)
+  const [tick, setTick] = useState(0)
+  const [alerts, setAlerts] = useState<Alert[]>(INITIAL_ALERTS)
+
+  useEffect(() => {
+    setMounted(true)
+    setTime(new Date())
+    
+    // Controlled deterministic live updates (1s tick)
+    const interval = setInterval(() => {
+      setTime(new Date())
+      setTick(prev => prev + 1)
+      // Decrement SLA timers slightly for realism without chaos
+      setAlerts(prev => prev.map(a => ({ ...a, sla: Math.max(0, a.sla - 1) })))
+    }, 1000)
+    
+    return () => clearInterval(interval)
+  }, [])
+
+  if (!mounted) return null // Prevent hydration mismatch on initial render
+
+  return (
+    <div className="relative min-h-[calc(100vh-64px)] bg-[#010101] text-slate-300 font-sans selection:bg-cyan-900 selection:text-cyan-50 flex flex-col">
+      
+      {/* 3-COLUMN ARCHITECTURE */}
+      <div className="mx-auto flex w-full max-w-[2400px] flex-1 gap-2 p-2 overflow-hidden items-stretch">
+        
+        {/* ========================================================= */}
+        {/* LEFT COLUMN: DIMMED POSTURE (Asymmetrical hierarchy)     */}
+        {/* ========================================================= */}
+        <aside className="w-[300px] flex-shrink-0 flex flex-col gap-2 overflow-y-auto custom-scrollbar pr-1 hidden lg:flex">
+          
+          <Frame title="System Posture" dim={true} rightAction={<span className="text-[8px] text-slate-600 font-mono">SYS_OK</span>}>
+             <div className="flex flex-col gap-3">
+               <div className="flex justify-between items-end border-b border-[#0a121a] pb-1">
+                 <span className="text-[9px] text-slate-600 font-mono uppercase tracking-widest">Dwell Time</span>
+                 <span className="text-sm text-cyan-800 font-mono tabular-nums">1.4h</span>
+               </div>
+               <div className="flex justify-between items-end border-b border-[#0a121a] pb-1">
+                 <span className="text-[9px] text-slate-600 font-mono uppercase tracking-widest">0-Day Sigs</span>
+                 <span className="text-sm text-rose-800 font-mono tabular-nums">4</span>
+               </div>
+               <div className="flex justify-between items-end border-b border-[#0a121a] pb-1">
+                 <span className="text-[9px] text-slate-600 font-mono uppercase tracking-widest">Ingest Vol</span>
+                 <span className="text-sm text-slate-500 font-mono tabular-nums">{12.4 + (tick%5)*0.1} TB</span>
+               </div>
+             </div>
+          </Frame>
+
+          <Frame title="Detection Funnel" dim={true}>
+            <div className="flex flex-col gap-2.5 mt-1">
+              {[
+                { label: 'RAW INGESTION', val: '42.8M', pct: 100, c: 'bg-slate-800' },
+                { label: 'FILTERED', val: '4.2M', pct: 40, c: 'bg-cyan-900/50' },
+                { label: 'ANOMALIES', val: '14,242', pct: 15, c: 'bg-amber-900/50' },
+                { label: 'CRITICAL', val: '142', pct: 5, c: 'bg-rose-900/50' }
+              ].map((node, i) => (
+                <div key={i} className="flex flex-col">
+                  <div className="flex justify-between text-[8px] font-mono tabular-nums">
+                    <span className="text-slate-600">{node.label}</span>
+                    <span className="text-slate-500">{node.val}</span>
+                  </div>
+                  <div className="h-[1px] w-full bg-[#05080c] mt-1">
+                    <div className={`h-full ${node.c}`} style={{ width: `${node.pct}%` }}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Frame>
+          
+          <div className="flex-1 min-h-[100px] border border-[#0a121a] bg-[#010203] flex items-center justify-center">
+             <span className="text-[8px] text-slate-800 font-mono rotate-[-90deg] tracking-[0.3em]">SENSOR_GRID_IDLE</span>
+          </div>
+
+        </aside>
+
+        {/* ========================================================= */}
+        {/* CENTER COLUMN: DOMINANT MAP & TELEMETRY STREAM            */}
+        {/* ========================================================= */}
+        <main className="flex-1 flex flex-col gap-2 min-w-0 h-full">
+
+          {/* Deep Command Map Overlay */}
+          <section className="flex-none h-[50%] lg:h-[65%] border border-[#1a1c23] bg-[#000102] flex flex-col relative overflow-hidden shadow-2xl">
+             <div className="absolute top-0 left-0 bg-[#000102]/90 border-b border-r border-[#0a121a] px-3 py-1.5 z-30 flex items-center gap-2">
+               <span className="w-1.5 h-1.5 bg-rose-600"></span>
+               <span className="font-bold uppercase tracking-[0.3em] text-[8px] text-slate-300">Global Threat Vector Map</span>
+             </div>
+             
+             {/* Map Component */}
+             <div className="flex-1 relative border-b border-[#0a121a]"><ThreatMap tick={tick} /></div>
+
+             {/* Secondary Intelligence Layer (Subtle Timeline) */}
+             <div className="h-[60px] bg-[#010204] z-30 px-3 py-1 flex justify-between items-end border-t border-[#0a121a]/50">
+               <div className="flex flex-col mb-1 max-w-[150px]">
+                  <span className="text-[8px] text-slate-600 uppercase tracking-widest font-mono mb-1">Time Trace</span>
+                  <span className="text-[10px] text-cyan-800 font-mono">{time ? formatTime(time) : '00:00:00'} UTC</span>
+               </div>
+               
+               <div className="flex items-end gap-[1px] h-8 flex-1 ml-8 overflow-hidden pointer-events-none opacity-60">
+                 {Array.from({ length: 80 }).map((_, i) => {
+                    const noise = Math.sin(i * 0.5 + tick * 0.1) * 20 + 30
+                    const isSpike = i === 65 || i === 42
+                    const val = isSpike ? 90 + (tick%5) : noise
+                    return (
+                      <div key={i} className={`flex-1 ${isSpike ? 'bg-rose-900/80' : 'bg-[#0a1622]'}`} style={{ height: `${Math.max(2, val)}%` }}></div>
+                    )
+                 })}
+               </div>
+             </div>
+          </section>
+
+          {/* Raw Operational Table */}
+          <Frame title="Telemetry Stream" className="flex-1 min-h-0" headerClass="bg-[#010101]" rightAction={<span className="text-[8px] font-mono text-cyan-900 border border-cyan-900/30 px-1 py-0.5">TAIL</span>}>
+             <LiveTelemetryStream />
+          </Frame>
+
+        </main>
+
+        {/* ========================================================= */}
+        {/* RIGHT COLUMN: TRIAGE & HIGH-INTENSITY ALERTS              */}
+        {/* ========================================================= */}
+        <aside className="w-[360px] flex-shrink-0 flex flex-col gap-2 overflow-hidden pr-1 hidden xl:flex pb-6">
+          
+          <Frame title="Active Triage Queue" className="flex-1 min-h-0 border-[#1a1c23]" headerClass="bg-[#020305]">
+             <TacticalAlerts alerts={alerts} />
+          </Frame>
+
+          <Frame title="Correlation Intel" className="flex-none bg-[#020202] border-[#1a1c23]" headerClass="bg-[#050102] border-[#2a0810] text-rose-500/80">
+             <div className="flex flex-col pt-1">
+                <span className="text-[9px] font-mono text-rose-200 bg-rose-950/40 px-1.5 py-0.5 uppercase tracking-widest inline-flex w-fit mb-2">APT-29 Match</span>
+                <p className="text-[10px] text-slate-500 leading-relaxed font-mono">
+                  Novel payload matching MITRE T1059.001 executing on boundary nodes. Lateral movement probabilty 92%.
+                </p>
+                <div className="grid grid-cols-2 gap-[1px] mt-3 tracking-widest">
+                   <div className="bg-[#05080c] p-1.5 flex flex-col">
+                      <span className="text-[7px] text-slate-600 uppercase">Target</span>
+                      <span className="text-[9px] text-cyan-600 font-mono">DMZ-WEB</span>
+                   </div>
+                   <div className="bg-[#05080c] p-1.5 flex flex-col">
+                      <span className="text-[7px] text-slate-600 uppercase">Confidence</span>
+                      <span className="text-[9px] text-rose-600 font-mono">98.4%</span>
+                   </div>
+                </div>
+                <div className="flex gap-1 mt-3">
+                  <button className="flex-1 text-[9px] font-mono text-black bg-rose-600/90 py-1.5 hover:bg-rose-500 transition-colors uppercase tracking-widest">Isolate</button>
+                  <button className="flex-1 text-[9px] font-mono text-slate-500 border border-[#0a121a] py-1.5 hover:bg-[#05080c] hover:text-slate-300 transition-colors uppercase tracking-widest">Dismiss</button>
+                </div>
+             </div>
+          </Frame>
+
+        </aside>
+
+      </div>
     </div>
   )
 }

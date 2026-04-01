@@ -1,9 +1,8 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import EmbeddedLogin from '@/components/EmbeddedLogin'
 import DashboardLayout from '@/components/dashboard/DashboardLayout'
-import type { PostMeta } from '@/lib/dashboard-types'
 import { useAuthStatus } from '@/lib/auth-client'
 
 interface EBProps {
@@ -41,25 +40,6 @@ interface HomePageClientProps {
 
 export default function HomePageClient({ initialAuth }: HomePageClientProps) {
   const authStatus = useAuthStatus(initialAuth)
-  const [posts, setPosts] = useState<PostMeta[]>([])
-
-  useEffect(() => {
-    if (authStatus !== true) {
-      setPosts([])
-      return
-    }
-
-    fetch('/api/posts')
-      .then((response) => response.json())
-      .then((payload: unknown) => {
-        if (Array.isArray(payload)) {
-          setPosts(payload as PostMeta[])
-        } else if (payload && typeof payload === 'object' && 'posts' in payload) {
-          setPosts((payload as { posts: PostMeta[] }).posts ?? [])
-        }
-      })
-      .catch(() => {})
-  }, [authStatus])
 
   if (authStatus === null) {
     return null
