@@ -1,6 +1,8 @@
 'use client'
 
 import React, { ReactNode, useEffect, useState, useMemo, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { dispatchReportsUpdatedEvent } from '@/lib/reports-events'
 
 // ============================================================================
 // TYPES & CONSTANTS
@@ -104,6 +106,208 @@ const generateEvent = (containedNodes: string[], forceMalicious?: boolean, fixed
     protocol: fixedValues?.protocol || ['TCP', 'UDP', 'HTTP', 'DNS'][Math.floor(Math.random()*4)] as Protocol,
     port: fixedValues?.port || [443, 53, 80, 22, 3389][Math.floor(Math.random()*5)],
   }
+}
+
+// ============================================================================
+// INCIDENT RESPONSE GUIDANCE
+// ============================================================================
+
+interface AttackGuidance {
+  immediate: string[]
+  analysis: string
+  defense: string[]
+  postIncident: string[]
+}
+
+const ACTION_GUIDANCE: Record<string, AttackGuidance> = {
+  'Ransomware Payload Detonated': {
+    immediate: [
+      'Immediately isolate the affected system — disconnect LAN cable and disable Wi-Fi',
+      'Do NOT power off the machine — preserve volatile forensic evidence in RAM',
+      'Notify incident response team and security leadership immediately',
+      'Identify and document all potentially encrypted or modified file paths',
+      'Check for lateral movement to adjacent systems on the same subnet',
+    ],
+    analysis: 'Ransomware execution has been confirmed. The payload has detonated on the target node. This indicates successful initial compromise, privilege escalation, and payload delivery. The source IP must be traced to identify the full attack chain and determine if other nodes are at risk.',
+    defense: [
+      'Enforce application whitelisting to block unauthorized executable launch',
+      'Implement immutable backup policies with air-gapped or offline copies',
+      'Deploy endpoint detection and response (EDR) on all critical nodes',
+      'Disable PowerShell and macros for standard users; audit privileged execution',
+    ],
+    postIncident: [
+      'Acquire a full forensic disk image before any system restoration',
+      'Trace the initial access vector — phishing, RDP brute force, or exploit',
+      'Audit all privileged account activity in the 48 hours before detonation',
+      'Notify regulatory bodies and legal if personal or sensitive data was exposed',
+    ],
+  },
+  'C2 Beaconing': {
+    immediate: [
+      'Block the source IP at the firewall and DNS layer immediately',
+      'Isolate the beaconing host from the network segment',
+      'Capture a live memory dump from the compromised node before isolation',
+      'Identify all processes making outbound connections on the affected host',
+    ],
+    analysis: 'An active command-and-control beacon has been detected. The endpoint is compromised and in two-way communication with an external threat actor. The attacker may already have persistent access and is likely in a reconnaissance or staging phase.',
+    defense: [
+      'Deploy DNS filtering and threat intelligence feeds to block C2 domains',
+      'Implement strict egress filtering — only allow approved outbound ports',
+      'Use network behavioral analysis (NBA) to detect periodic beaconing patterns',
+      'Enable process-level network monitoring via EDR on all endpoints',
+    ],
+    postIncident: [
+      'Perform full malware analysis on the identified C2 implant sample',
+      'Audit all lateral movement paths from the compromised host',
+      'Review DNS query logs for Domain Generation Algorithm (DGA) patterns',
+      'Reset all credentials that were accessible from the compromised system',
+    ],
+  },
+  'SQL Injection Payload': {
+    immediate: [
+      'Block the source IP at the WAF/firewall immediately',
+      'Identify which database tables or records were accessed or modified',
+      'Pull database audit logs for the last 24 hours from that source IP',
+      'Check for unauthorized admin account creation or data exfiltration',
+    ],
+    analysis: 'An SQL injection payload has been detected targeting a database endpoint. The attacker is likely attempting to extract sensitive records, bypass authentication, execute OS commands, or establish a persistent database backdoor via a web shell or stored procedure.',
+    defense: [
+      'Enforce parameterized queries and prepared statements in all application code',
+      'Deploy a WAF with SQL injection rulesets and enable blocking mode',
+      'Apply principle of least privilege to all database user accounts',
+      'Enable database activity monitoring (DAM) with anomaly alerting',
+    ],
+    postIncident: [
+      'Audit all recently accessed or modified database records',
+      'Check for unauthorized database user creation or privilege grants',
+      'Rotate all database credentials and application secrets',
+      'Run a full vulnerability scan on the application and database layer',
+    ],
+  },
+  'Auth Bypass': {
+    immediate: [
+      'Revoke and reset the target account credentials immediately',
+      'Enable MFA on all privileged accounts if not already enforced',
+      'Review authentication logs for the last 72 hours for unauthorized sessions',
+      'Check for new account creation or privilege escalation post-bypass',
+    ],
+    analysis: 'An authentication bypass has been detected. The attacker has likely gained unauthorized access to a privileged account or administrative interface. If successful, this can lead to lateral movement, data access, or persistence mechanisms being installed.',
+    defense: [
+      'Enforce multi-factor authentication (MFA) on all accounts, especially admin',
+      'Implement Zero Trust Network Access (ZTNA) — never trust, always verify',
+      'Enable continuous authentication and short session timeouts on sensitive systems',
+      'Deploy Privileged Access Management (PAM) for all administrative accounts',
+    ],
+    postIncident: [
+      'Audit all actions taken during the unauthorized session',
+      'Review and tighten authentication policies across all exposed systems',
+      'Notify affected users of potential account compromise',
+      'Conduct a full Identity and Access Management (IAM) review',
+    ],
+  },
+  'Large Data Exfil': {
+    immediate: [
+      'Block the destination IP/domain at the firewall immediately',
+      'Terminate the active connection and preserve full packet capture logs',
+      'Identify the data category and volume being transferred',
+      'Isolate the source host — this is likely the final stage of an intrusion',
+    ],
+    analysis: 'A large-scale data exfiltration event is in progress. Significant volumes of data are being transferred to an external destination. This typically indicates the final stage of a multi-phase intrusion — the attacker has already achieved access and is extracting the objective.',
+    defense: [
+      'Deploy Data Loss Prevention (DLP) with content inspection on all egress points',
+      'Implement strict egress filtering and bandwidth anomaly detection',
+      'Classify and encrypt sensitive data at rest and in transit',
+      'Enable UEBA (User and Entity Behavior Analytics) for data access anomalies',
+    ],
+    postIncident: [
+      'Determine the exact dataset that was exfiltrated — records, classification',
+      'Assess regulatory breach notification obligations (GDPR, KVKK, HIPAA)',
+      'Trace the full attack timeline back to the initial breach point',
+      'Engage legal and compliance teams for notification requirements',
+    ],
+  },
+  'SYN Flood': {
+    immediate: [
+      'Enable SYN cookies on all affected network interfaces immediately',
+      'Contact your ISP to request upstream traffic filtering and scrubbing',
+      'Activate your DDoS mitigation appliance or cloud-based scrubbing service',
+      'Implement source-IP rate limiting rules at the edge firewall',
+    ],
+    analysis: 'A SYN flood DDoS attack is targeting your infrastructure. The attacker is sending high volumes of TCP SYN packets to exhaust connection state tables and render services unreachable. This may be a cover for another ongoing intrusion activity.',
+    defense: [
+      'Deploy a purpose-built DDoS mitigation appliance or cloud scrubbing service',
+      'Implement anycast routing to distribute and absorb attack traffic geographically',
+      'Configure SYN cookies and TCP backlog queue tuning at the OS level',
+      'Establish a BGP blackholing agreement with your ISP for emergency activation',
+    ],
+    postIncident: [
+      'File a formal abuse report with the source IP network owners (WHOIS/ARIN)',
+      'Review firewall and IPS rules — refine rate limiting thresholds',
+      'Document peak traffic rates, affected services, and total downtime window',
+      'Test DDoS mitigation runbooks and team response times in a tabletop exercise',
+    ],
+  },
+  'default': {
+    immediate: [
+      'Isolate the affected system and preserve forensic evidence',
+      'Block the source IP at the network perimeter firewall',
+      'Notify the security operations team and escalate to incident response',
+      'Document all observed indicators of compromise (IOCs)',
+    ],
+    analysis: 'A high-severity security event has been detected. The full scope requires immediate investigation. The source IP and target node should be correlated against recent telemetry to determine the attack vector and potential blast radius.',
+    defense: [
+      'Review and update firewall and IDS/IPS rules based on observed IOCs',
+      'Ensure endpoint protection is fully deployed and signatures are current',
+      'Conduct threat hunting across similar nodes in the affected region',
+      'Implement additional logging and monitoring for similar attack patterns',
+    ],
+    postIncident: [
+      'Complete a full post-incident review (PIR) within 24 hours',
+      'Update threat intelligence feeds with new IOCs from this incident',
+      'Patch any vulnerabilities that were exploited in this incident',
+      'Brief stakeholders and update the incident response playbook',
+    ],
+  },
+}
+
+function generateReportContent(incident: Incident): string {
+  const guidance = ACTION_GUIDANCE[incident.label] ?? ACTION_GUIDANCE['default']
+  return `## Olay Özeti
+**Olay ID:** ${incident.id}
+**Saldırı Tipi:** ${incident.label}
+**Şiddet:** ${incident.sev}
+**Kaynak IP:** ${incident.source}
+**Hedef Düğüm:** ${incident.node}
+**Bölge:** ${incident.region}
+**Tespit Zamanı:** ${incident.time}
+**Rapor Oluşturma:** ${new Date().toISOString()}
+
+## Anlık Eylem Planı
+${guidance.immediate.map((a, i) => `${i + 1}. ${a}`).join('\n')}
+
+## Saldırı Analizi
+${guidance.analysis}
+
+## Savunma Önerileri
+${guidance.defense.map((d, i) => `${i + 1}. ${d}`).join('\n')}
+
+## Olay Sonrası Adımlar
+${guidance.postIncident.map((p, i) => `${i + 1}. ${p}`).join('\n')}
+
+## Olay Zaman Çizelgesi
+${incident.timeline.map(t => `- ${t.time.split('T')[1].substring(0, 8)} [${t.type}] ${t.desc}`).join('\n')}`
+}
+
+function getIncidentTags(incident: Incident): string[] {
+  const tagMap: Record<string, string[]> = {
+    'Ransomware Payload Detonated': ['ransomware', 'malware', 'critical'],
+    'C2 Beaconing': ['c2', 'malware', 'persistence'],
+    'SQL Injection Payload': ['sqli', 'injection', 'database'],
+    'Auth Bypass': ['auth-bypass', 'credential', 'privilege-escalation'],
+    'Large Data Exfil': ['exfiltration', 'data-loss', 'dlp'],
+    'SYN Flood': ['ddos', 'dos', 'network'],
+  }
+  return tagMap[incident.label] ?? ['incident', incident.sev.toLowerCase()]
 }
 
 // ============================================================================
@@ -657,6 +861,162 @@ const InvestigationConsolePanel = React.memo(({
 InvestigationConsolePanel.displayName = 'InvestigationConsolePanel'
 
 // ============================================================================
+// CRITICAL ALERT PANEL — full-screen overlay for CRITICAL incidents
+// ============================================================================
+
+const CriticalAlertPanel = React.memo(({
+  incident,
+  onDismiss,
+  onInvestigate,
+  onCreateReport,
+  submitting,
+}: {
+  incident: Incident
+  onDismiss: (id: string) => void
+  onInvestigate: (id: string) => void
+  onCreateReport: (incident: Incident) => void
+  submitting: boolean
+}) => {
+  const guidance = ACTION_GUIDANCE[incident.label] ?? ACTION_GUIDANCE['default']
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center"
+      style={{ background: 'rgba(15,0,5,0.88)', backdropFilter: 'blur(6px)' }}
+    >
+      {/* Red vignette pulse */}
+      <div
+        className="absolute inset-0 pointer-events-none animate-[pulse_2s_ease-in-out_infinite]"
+        style={{ background: 'radial-gradient(ellipse at center, transparent 35%, rgba(244,63,94,0.12) 100%)' }}
+      />
+
+      <div
+        className="relative w-full max-w-2xl flex flex-col font-mono mx-4"
+        style={{
+          background: '#050002',
+          border: '1px solid rgba(244,63,94,0.65)',
+          boxShadow: '0 0 70px rgba(244,63,94,0.22), 0 0 140px rgba(244,63,94,0.08)',
+          maxHeight: '92vh',
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center gap-3 px-4 py-3 border-b flex-none"
+          style={{ borderColor: 'rgba(244,63,94,0.35)', background: 'rgba(244,63,94,0.07)' }}
+        >
+          <span className="w-2 h-2 bg-rose-500 animate-ping flex-none" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-rose-300">
+            Critical Incident Detected
+          </span>
+          <span className="ml-auto text-[9px] font-mono text-rose-800">{incident.id}</span>
+          <button
+            onClick={() => onDismiss(incident.id)}
+            className="text-slate-600 hover:text-slate-300 transition-colors ml-3 text-[12px]"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Incident summary */}
+        <div className="px-4 py-3 border-b flex-none" style={{ borderColor: 'rgba(244,63,94,0.2)' }}>
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <h2 className="text-[14px] font-bold text-rose-100 uppercase tracking-wide leading-tight">
+              {incident.label}
+            </h2>
+            <span className="text-[9px] font-bold px-2 py-0.5 bg-rose-500 text-black whitespace-nowrap flex-none">
+              CRITICAL
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-[9px]">
+            {[
+              { label: 'Source IP', value: incident.source, color: '#f87171' },
+              { label: 'Target Node', value: incident.node, color: '#fbbf24' },
+              { label: 'Region', value: incident.region, color: '#94a3b8' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="flex flex-col border border-[#1a0008] bg-[#080004] p-1.5">
+                <span className="text-slate-600 uppercase mb-0.5">{label}</span>
+                <span className="font-bold" style={{ color }}>{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Scrollable guidance */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-3 space-y-4 min-h-0">
+          {/* Immediate actions */}
+          <div>
+            <div className="text-[9px] text-rose-700 font-bold uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+              <span className="w-1 h-3 bg-rose-500 inline-block flex-none" />
+              Immediate Actions Required
+            </div>
+            <ol className="space-y-1.5">
+              {guidance.immediate.map((action, i) => (
+                <li key={i} className="flex gap-2 text-[10px]">
+                  <span className="text-rose-600 font-bold flex-none tabular-nums">{i + 1}.</span>
+                  <span className="text-slate-300 leading-relaxed">{action}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          {/* Analysis */}
+          <div>
+            <div className="text-[9px] text-amber-700 font-bold uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+              <span className="w-1 h-3 bg-amber-500 inline-block flex-none" />
+              Threat Analysis
+            </div>
+            <p className="text-[10px] text-slate-400 leading-relaxed">{guidance.analysis}</p>
+          </div>
+
+          {/* Defense */}
+          <div>
+            <div className="text-[9px] text-cyan-700 font-bold uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+              <span className="w-1 h-3 bg-cyan-600 inline-block flex-none" />
+              Defense Recommendations
+            </div>
+            <ol className="space-y-1.5">
+              {guidance.defense.map((d, i) => (
+                <li key={i} className="flex gap-2 text-[10px]">
+                  <span className="text-cyan-800 font-bold flex-none tabular-nums">{i + 1}.</span>
+                  <span className="text-slate-400 leading-relaxed">{d}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div
+          className="flex gap-2 p-4 border-t flex-none"
+          style={{ borderColor: 'rgba(244,63,94,0.2)', background: '#050002' }}
+        >
+          <button
+            onClick={() => onInvestigate(incident.id)}
+            className="flex-1 bg-amber-900/50 hover:bg-amber-700 border border-amber-500/50 text-amber-100 text-[10px] font-bold uppercase tracking-widest py-2.5 transition-colors"
+          >
+            Investigate Now
+          </button>
+          <button
+            onClick={() => onCreateReport(incident)}
+            disabled={submitting}
+            className="flex-1 bg-rose-900/50 hover:bg-rose-700 border border-rose-500/60 text-rose-100 text-[10px] font-bold uppercase tracking-widest py-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? 'Creating…' : 'Create Sentinel Report →'}
+          </button>
+          <button
+            onClick={() => onDismiss(incident.id)}
+            className="px-4 bg-[#08000c] hover:bg-[#120010] border border-[#1a0020] text-slate-500 hover:text-slate-300 text-[10px] font-bold uppercase tracking-widest py-2.5 transition-colors"
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+})
+CriticalAlertPanel.displayName = 'CriticalAlertPanel'
+
+// ============================================================================
 // MAIN LAYOUT COMPONENT
 // ============================================================================
 
@@ -672,6 +1032,12 @@ export default function DashboardLayout() {
   const [activeIncidentId, setActiveIncidentId] = useState<string | null>(null)
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [mapFilter, setMapFilter] = useState<string | null>(null)
+
+  // Critical alert panel state
+  const [acknowledgedCriticalIds, setAcknowledgedCriticalIds] = useState<Set<string>>(new Set())
+  const [reportSubmitting, setReportSubmitting] = useState(false)
+
+  const router = useRouter()
 
   // Simulation Tick
   useEffect(() => {
@@ -778,6 +1144,44 @@ export default function DashboardLayout() {
   const handleMapClick = useCallback((region: string): void => {
     setMapFilter(prev => prev === region ? null : region)
   }, [])
+
+  // Critical alert panel handlers
+  const handleDismissCriticalAlert = useCallback((id: string): void => {
+    setAcknowledgedCriticalIds(prev => { const s = new Set(prev); s.add(id); return s })
+  }, [])
+
+  const handleInvestigateCriticalAlert = useCallback((id: string): void => {
+    setAcknowledgedCriticalIds(prev => { const s = new Set(prev); s.add(id); return s })
+    setActiveIncidentId(id)
+    setSelectedEventId(null)
+  }, [])
+
+  const handleCreateSentinelReport = useCallback(async (incident: Incident): Promise<void> => {
+    setReportSubmitting(true)
+    try {
+      const content = generateReportContent(incident)
+      const tags = getIncidentTags(incident)
+      const res = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `[${incident.sev}] ${incident.label} — ${incident.region}`,
+          content,
+          severity: incident.sev,
+          tags,
+        }),
+      })
+      if (res.ok) {
+        dispatchReportsUpdatedEvent()
+      }
+    } catch {
+      // navigate regardless
+    } finally {
+      setReportSubmitting(false)
+      setAcknowledgedCriticalIds(prev => { const s = new Set(prev); s.add(incident.id); return s })
+      router.push('/zafiyet-taramasi')
+    }
+  }, [router])
 
   // ==========================================================================
   // ACTION HANDLERS (MUTATIONS)
@@ -890,6 +1294,17 @@ export default function DashboardLayout() {
     [visibleIncidents]
   )
 
+  // The first unacknowledged CRITICAL incident — drives the alert overlay
+  const criticalAlertTarget = useMemo(
+    () => incidents.find(
+      i => i.sev === 'CRITICAL' &&
+           i.status !== 'FALSE_POSITIVE' &&
+           i.status !== 'RESOLVED' &&
+           !acknowledgedCriticalIds.has(i.id)
+    ) ?? null,
+    [incidents, acknowledgedCriticalIds]
+  )
+
   const eventRate = useMemo(() => {
     const cutoff = Date.now() - 60000
     return events.filter(e => new Date(e.timestamp).getTime() > cutoff).length
@@ -921,6 +1336,16 @@ export default function DashboardLayout() {
 
   return (
     <div className="relative h-[calc(100vh-64px)] bg-[#000102] text-slate-300 font-sans selection:bg-cyan-900 selection:text-cyan-50 flex flex-col overflow-hidden">
+      {/* Critical incident overlay — blocks interaction until acknowledged */}
+      {criticalAlertTarget && (
+        <CriticalAlertPanel
+          incident={criticalAlertTarget}
+          onDismiss={handleDismissCriticalAlert}
+          onInvestigate={handleInvestigateCriticalAlert}
+          onCreateReport={handleCreateSentinelReport}
+          submitting={reportSubmitting}
+        />
+      )}
       {criticalCount > 0 && <CriticalBanner criticalCount={criticalCount} />}
       <div className="mx-auto flex w-full max-w-[2400px] flex-1 gap-2 p-2 overflow-hidden items-stretch">
 
