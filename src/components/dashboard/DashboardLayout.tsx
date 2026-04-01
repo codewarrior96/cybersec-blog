@@ -920,7 +920,7 @@ export default function DashboardLayout() {
   if (!mounted) return null
 
   return (
-    <div className="relative min-h-[calc(100vh-64px)] bg-[#000102] text-slate-300 font-sans selection:bg-cyan-900 selection:text-cyan-50 flex flex-col">
+    <div className="relative h-[calc(100vh-64px)] bg-[#000102] text-slate-300 font-sans selection:bg-cyan-900 selection:text-cyan-50 flex flex-col overflow-hidden">
       {criticalCount > 0 && <CriticalBanner criticalCount={criticalCount} />}
       <div className="mx-auto flex w-full max-w-[2400px] flex-1 gap-2 p-2 overflow-hidden items-stretch">
 
