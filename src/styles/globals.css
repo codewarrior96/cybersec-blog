@@ -1598,6 +1598,11 @@
   }
 }
 
+@keyframes arcTravel {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -1; }
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
