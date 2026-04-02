@@ -249,14 +249,22 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
         }))
       });
 
-      viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#02040a');
+      // ── Globe visual quality ───────────────────────────────────────────────
+      viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0b1f33');
       viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#00020a');
       viewer.scene.highDynamicRange = false;
       viewer.scene.globe.showWaterEffect = false;
       viewer.scene.moon.show = false;
       viewer.scene.sun.show = false;
       viewer.scene.skyBox.show = false;
-      
+
+      // Cinematic depth: lighting + atmosphere + fog
+      viewer.scene.globe.enableLighting = true;
+      viewer.scene.skyAtmosphere.show = true;
+      viewer.scene.skyAtmosphere.atmosphereLightIntensity = 10.0;
+      viewer.scene.fog.enabled = true;
+      viewer.scene.fog.density = 0.0012;
+
       // Hide bottom credits for cyber dashboard look
       const copyEl = viewer.cesiumWidget.creditContainer;
       if (copyEl) (copyEl as HTMLElement).style.display = 'none';
@@ -264,31 +272,36 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
       // Restrict camera for pure UI presentation mode
       viewer.scene.screenSpaceCameraController.enableTilt = false;
       viewer.scene.screenSpaceCameraController.enableCollisionDetection = false;
-      viewer.scene.screenSpaceCameraController.maximumZoomDistance = 35000000;
+      viewer.scene.screenSpaceCameraController.maximumZoomDistance = 30000000;
       viewer.scene.screenSpaceCameraController.minimumZoomDistance = 8000000;
-      
+
+      // ── Base nodes data source ────────────────────────────────────────────
       const baseDataSource = new Cesium.CustomDataSource('baseNodes');
       viewer.dataSources.add(baseDataSource);
-      
-      // Draw primary infrastructure regions mapped straight to the globe
+
+      // Draw primary infrastructure regions mapped to the globe
       MOCK_MAP_POINTS.forEach(pt => {
          baseDataSource.entities.add({
             id: `node-${pt.region}`,
-            position: Cesium.Cartesian3.fromDegrees(pt.lng, pt.lat, 0),
+            position: Cesium.Cartesian3.fromDegrees(pt.lng, pt.lat, 8000),
             point: {
-               pixelSize: 6,
-               color: Cesium.Color.fromCssColorString('#0ea5e9').withAlpha(0.6),
-               outlineColor: Cesium.Color.fromCssColorString('#38bdf8'),
-               outlineWidth: 1.5,
+               pixelSize: 9,
+               color: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.85),
+               outlineColor: Cesium.Color.fromCssColorString('#7dd3fc'),
+               outlineWidth: 2,
+               scaleByDistance: new Cesium.NearFarScalar(1.5e6, 1.8, 3.0e7, 0.6),
                disableDepthTestDistance: Number.POSITIVE_INFINITY
             },
             label: {
                text: pt.region,
-               font: '700 11px sans-serif',
-               fillColor: Cesium.Color.fromCssColorString('#94a3b8'),
-               pixelOffset: new Cesium.Cartesian2(12, -12),
-               showBackground: true,
-               backgroundColor: Cesium.Color.fromCssColorString('#000408').withAlpha(0.7),
+               font: '600 11px "ui-sans-serif", sans-serif',
+               fillColor: Cesium.Color.fromCssColorString('#7dd3fc'),
+               outlineColor: Cesium.Color.BLACK,
+               outlineWidth: 2,
+               style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+               pixelOffset: new Cesium.Cartesian2(14, -14),
+               showBackground: false,
+               scaleByDistance: new Cesium.NearFarScalar(1.5e6, 1.2, 3.0e7, 0.5),
                disableDepthTestDistance: Number.POSITIVE_INFINITY
             }
          });
@@ -297,8 +310,9 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
       arcsSourceRef.current = new Cesium.CustomDataSource('arcs');
       viewer.dataSources.add(arcsSourceRef.current);
 
+      // ── Stable camera position ─────────────────────────────────────────────
       viewer.camera.setView({
-        destination: Cesium.Cartesian3.fromDegrees(20, 25, 23000000)
+        destination: Cesium.Cartesian3.fromDegrees(10, 20, 18000000)
       });
 
       // Pass clicks up to the same React dashboard state
@@ -372,26 +386,38 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
       const isCrit = inc.sev === 'CRITICAL';
       const color = isCrit ? Cesium.Color.fromCssColorString('#f43f5e') : Cesium.Color.fromCssColorString('#f59e0b');
 
+      // Critical target impact ring
       if (isCrit) {
          arcsSource.entities.add({
              position: Cesium.Cartesian3.fromDegrees(target.lng, target.lat, 0),
              ellipse: {
-                 semiMinorAxis: 450000.0,
-                 semiMajorAxis: 450000.0,
-                 material: new Cesium.ColorMaterialProperty(color.withAlpha(0.15)),
+                 semiMinorAxis: 380000.0,
+                 semiMajorAxis: 380000.0,
+                 material: new Cesium.ColorMaterialProperty(color.withAlpha(0.12)),
                  outline: true,
-                 outlineColor: color.withAlpha(0.6),
-                 outlineWidth: 2
+                 outlineColor: color.withAlpha(0.75),
+                 outlineWidth: 2.5
              }
+         });
+         // Elevated target node for crit
+         arcsSource.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(target.lng, target.lat, 5000),
+            point: {
+               pixelSize: 12,
+               color: color.withAlpha(0.95),
+               outlineColor: Cesium.Color.WHITE.withAlpha(0.5),
+               outlineWidth: 1.5,
+               disableDepthTestDistance: Number.POSITIVE_INFINITY
+            }
          });
       }
 
-      // Generate accurate 3D orbital parabolic path
+      // Generate accurate geodesic parabolic arc
       const startCart = Cesium.Cartographic.fromDegrees(src.lng, src.lat);
       const endCart = Cesium.Cartographic.fromDegrees(target.lng, target.lat);
       const geodesic = new Cesium.EllipsoidGeodesic(startCart, endCart);
-      const fraction = 32;
-      const arcHeight = geodesic.surfaceDistance / 3.5;
+      const fraction = 48;
+      const arcHeight = geodesic.surfaceDistance / 2.8;
 
       const curvePoints = [];
       for (let j = 0; j <= fraction; j++) {
@@ -400,15 +426,31 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
          curvePoints.push(Cesium.Cartographic.toCartesian(ptCart));
       }
 
+      // Glow trail layer (wider, dimmer)
       arcsSource.entities.add({
          polyline: {
             positions: curvePoints,
-            width: isCrit ? 2.5 : 1.5,
+            width: isCrit ? 5.0 : 3.0,
             material: new Cesium.PolylineGlowMaterialProperty({
-                glowPower: 0.25,
-                taperPower: 1,
-                color: color
-            })
+                glowPower: 0.4,
+                taperPower: 0.8,
+                color: color.withAlpha(0.35)
+            }),
+            clampToGround: false
+         }
+      });
+
+      // Core arc line (sharp and bright)
+      arcsSource.entities.add({
+         polyline: {
+            positions: curvePoints,
+            width: isCrit ? 2.5 : 1.8,
+            material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.15,
+                taperPower: 1.0,
+                color: color.withAlpha(0.95)
+            }),
+            clampToGround: false
          }
       });
     });
