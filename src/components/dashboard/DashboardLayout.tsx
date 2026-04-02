@@ -247,6 +247,10 @@ function getGraticulePath(isLat: boolean, val: number, isFront: boolean) {
 const LAT_LINES = [-60, -30, 0, 30, 60];
 const LNG_LINES = [-180, -150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150];
 
+// Pre-calculate static globe structures for extreme performance
+const PROJECTED_INFRA_FRONT = INFRA_GEO.map(pt => projectNode(pt[0], pt[1])).filter(p => p.z >= 0);
+const PROJECTED_INFRA_BACK = INFRA_GEO.map(pt => projectNode(pt[0], pt[1])).filter(p => p.z < 0);
+
 const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selectedEventRegion, mapFilter, onMapClick }: { visibleIncidents: Incident[], activeIncidentId: string | null, selectedEventRegion: string | null, mapFilter: string | null, onMapClick: (r: string) => void }) => {
   const { arcs, nodes } = useMemo(() => {
     const projectedNodes = MOCK_MAP_POINTS.map(pt => ({
@@ -258,7 +262,7 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
     const seen = new Set<string>()
     const calculatedArcs: Array<{ id: string; sx: number; sy: number; tx: number; ty: number; sev: Severity; sFront: boolean; tFront: boolean }> = []
     
-    visibleIncidents.slice(0, 15).forEach(inc => {
+    visibleIncidents.slice(0, 6).forEach(inc => {
       const target = projectedNodes.find(p => p.region === inc.region)
       if (!target) return
       
@@ -278,7 +282,7 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
       })
     })
 
-    return { arcs: calculatedArcs.slice(0, 8), nodes: projectedNodes }
+    return { arcs: calculatedArcs.slice(0, 4), nodes: projectedNodes }
   }, [visibleIncidents])
 
   const critCount = visibleIncidents.filter(i => i.sev === 'CRITICAL').length
@@ -339,12 +343,9 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
             <polyline points={getGraticulePath(true, 0, false)} fill="none" stroke="#0ea5e9" opacity="0.08" strokeWidth="0.2" />
             <polyline points={getGraticulePath(false, 0, false)} fill="none" stroke="#0ea5e9" opacity="0.08" strokeWidth="0.2" />
             
-            {/* Back Landmass (Blurred footprint) */}
-            <g filter="url(#glow-soft)" opacity="0.3">
-              {INFRA_GEO.map((pt, i) => {
-                const p = projectNode(pt[0], pt[1]);
-                return p.z < 0 ? <circle key={`bl${i}`} cx={p.x} cy={p.y} r="1.5" fill="#02283e" /> : null;
-              })}
+            {/* Back Landmass (Optimized static paths) */}
+            <g opacity="0.4">
+              {PROJECTED_INFRA_BACK.map((p, i) => <circle key={`bl${i}`} cx={p.x} cy={p.y} r="1.2" fill="#02283e" />)}
             </g>
             
             {/* Back Arcs */}
@@ -371,19 +372,13 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
             <polyline points={getGraticulePath(true, 0, true)} fill="none" stroke="#38bdf8" opacity="0.08" strokeWidth="0.2" />
             <polyline points={getGraticulePath(false, 0, true)} fill="none" stroke="#38bdf8" opacity="0.08" strokeWidth="0.2" />
 
-            {/* Front Landmass Base Glow */}
-            <g filter="url(#glow-soft)" opacity="0.3">
-              {INFRA_GEO.map((pt, i) => {
-                const p = projectNode(pt[0], pt[1]);
-                return p.z >= 0 ? <circle key={`flBase${i}`} cx={p.x} cy={p.y} r="2.0" fill="#024068" /> : null;
-              })}
-            </g>
-            
-            {/* Front Landmass Solid Dots */}
-            {INFRA_GEO.map((pt, i) => {
-              const p = projectNode(pt[0], pt[1]);
-              return p.z >= 0 ? <circle key={`fl${i}`} cx={p.x} cy={p.y} r="0.6" fill="#0ea5e9" opacity="0.4" /> : null;
-            })}
+            {/* Front Landmass Solid Dots (Optimized static mapping) */}
+            {PROJECTED_INFRA_FRONT.map((p, i) => (
+              <g key={`flF${i}`} opacity="0.8">
+                <circle cx={p.x} cy={p.y} r="2.0" fill="#024068" opacity="0.4" />
+                <circle cx={p.x} cy={p.y} r="0.6" fill="#0ea5e9" opacity="0.6" />
+              </g>
+            ))}
 
             {/* Attack Arcs */}
             {arcs.map((arc, i) => {
@@ -408,15 +403,14 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
                   <path d={`M${arc.sx} ${arc.sy} Q${cpx} ${cpy} ${arc.tx} ${arc.ty}`}
                     fill="none" stroke={color} strokeWidth={arc.sev === 'CRITICAL' ? '0.4' : '0.2'} opacity="0.15" />
                   
-                  {/* Active 3D Projectile */}
+                  {/* Active 3D Projectile (Hardware optimized, no heavy filters) */}
                   <path d={`M${arc.sx} ${arc.sy} Q${cpx} ${cpy} ${arc.tx} ${arc.ty}`}
                     fill="none" stroke={color}
-                    strokeWidth={arc.sev === 'CRITICAL' ? '1.5' : '1.0'}
+                    strokeWidth={arc.sev === 'CRITICAL' ? '1.6' : '1.2'}
                     strokeDasharray={`${arc.sev === 'CRITICAL' ? 15 : 10} 250`} strokeLinecap="round"
                     style={{
                       animation: `arcFlow ${dur}s cubic-bezier(0.3, 0.1, 0.7, 1) ${(i*0.35).toFixed(2)}s infinite`
                     }}
-                    filter="url(#glow-intense)"
                   />
                 </g>
               )
@@ -437,17 +431,18 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
 
               return (
                 <g key={pt.region} onClick={() => onMapClick(pt.region)} style={{ cursor: 'crosshair' }} className="transition-all duration-300">
-                  {/* Intense Critical Glow & Slow Orbital Ping */}
+                  {/* Optimized Critical Target Pulses */}
                   {hasCrit && (
                     <>
-                      <circle cx={x} cy={y} r="12" fill="#f43f5e" opacity="0.15" filter="url(#glow-intense)" />
-                      <circle cx={x} cy={y} r="8" fill="none" stroke="#f43f5e" strokeWidth="0.3" opacity="0.6" style={{ animation: 'nodeRingPulse 2.5s ease-out infinite' }} />
+                      <circle cx={x} cy={y} r="10" fill="#f43f5e" opacity="0.2" />
+                      <circle cx={x} cy={y} r="16" fill="#f43f5e" opacity="0.08" />
+                      <circle cx={x} cy={y} r="8" fill="none" stroke="#f43f5e" strokeWidth="0.4" opacity="0.8" style={{ animation: 'nodeRingPulse 2.5s ease-out infinite' }} />
                     </>
                   )}
                   
-                  {/* Holographic Base Footprint */}
-                  <circle cx={x} cy={y} r={3} fill={color} opacity={0.15} filter="url(#glow-intense)" />
-                  <circle cx={x} cy={y} r={isTarget || isActive || isFiltered ? 1.5 : 0.8} fill={color} opacity={isTarget || isActive || isFiltered ? 1.0 : 0.4} />
+                  {/* Clean Holographic Base */}
+                  <circle cx={x} cy={y} r={4} fill={color} opacity={0.2} />
+                  <circle cx={x} cy={y} r={isTarget || isActive || isFiltered ? 1.5 : 0.8} fill={color} opacity={isTarget || isActive || isFiltered ? 1.0 : 0.6} />
                   
                   {/* Edge Highlighting */}
                   {(isTarget || isActive) && <rect x={x-0.5} y={y-0.5} width="1" height="1" fill="#ffffff" opacity="0.9" />}
@@ -475,7 +470,8 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
           <circle cx="0" cy="0" r={GLOBE_R} fill="url(#sphere-atmosphere)" style={{ pointerEvents: 'none' }} />
           
           {/* Subtle Outer Boundary Ring */}
-          <circle cx="0" cy="0" r={GLOBE_R+1} fill="none" stroke="#0ea5e9" strokeWidth="0.3" opacity="0.2" filter="url(#glow-intense)" style={{ pointerEvents: 'none' }} />
+          <circle cx="0" cy="0" r={GLOBE_R+1} fill="none" stroke="#0ea5e9" strokeWidth="0.4" opacity="0.3" style={{ pointerEvents: 'none' }} />
+          <circle cx="0" cy="0" r={GLOBE_R+2} fill="none" stroke="#0ea5e9" strokeWidth="1.5" opacity="0.05" style={{ pointerEvents: 'none' }} />
 
         </svg>
       </div>
