@@ -211,240 +211,130 @@ const ADVERSARY_MATRIX: Record<string, string[]> = {
   'CN-PEK':  ['US-EAST', 'JP-TYO', 'SG-SIN'],
 }
 
-// ─── 3D CESIUM GLOBE IMPLEMENTATION ───────────────────────────────────────────
+// Flat Threat Map Renderer
+const MAP_VIEWBOX_WIDTH = 1000
+const MAP_VIEWBOX_HEIGHT = 500
+const MAX_ACTIVE_ARCS = 6
+
+const toMapPoint = (lat: number, lng: number) => ({
+  x: ((lng + 180) / 360) * MAP_VIEWBOX_WIDTH,
+  y: ((90 - lat) / 180) * MAP_VIEWBOX_HEIGHT,
+})
+
+const buildArcPath = (sx: number, sy: number, tx: number, ty: number) => {
+  const mx = (sx + tx) / 2
+  const my = (sy + ty) / 2
+  const distance = Math.hypot(tx - sx, ty - sy)
+  const lift = Math.min(170, Math.max(48, distance * 0.28))
+  return `M ${sx.toFixed(2)} ${sy.toFixed(2)} Q ${mx.toFixed(2)} ${(my - lift).toFixed(2)} ${tx.toFixed(2)} ${ty.toFixed(2)}`
+}
+
 const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selectedEventRegion, mapFilter, onMapClick }: { visibleIncidents: Incident[], activeIncidentId: string | null, selectedEventRegion: string | null, mapFilter: string | null, onMapClick: (r: string) => void }) => {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const viewerRef = useRef<any>(null)
-  const arcsSourceRef = useRef<any>(null)
+  type ArcIncident = { id: string; region: string; sev: Severity; source: string }
 
-  useEffect(() => {
-    if (viewerRef.current) return;
-    
-    let isMounted = true;
+  const critCount = visibleIncidents.filter(i => i.sev === 'CRITICAL').length
+  const activeIncidentRegion = useMemo(
+    () => (activeIncidentId ? visibleIncidents.find(i => i.id === activeIncidentId)?.region ?? null : null),
+    [activeIncidentId, visibleIncidents]
+  )
 
-    const initViewer = () => {
-      const Cesium = (window as any).Cesium;
-      if (!Cesium || !containerRef.current || !isMounted) return;
-      
-      Cesium.Ion.defaultAccessToken = ""; // Prevent default Ion imagery error/watermark
+  const fallbackIncidents: ArcIncident[] = useMemo(() => ([
+    { id: 'demo-1', sev: 'CRITICAL', region: 'US-EAST', source: 'RU-MOW' },
+    { id: 'demo-2', sev: 'HIGH', region: 'UK-LON', source: 'CN-PEK' },
+    { id: 'demo-3', sev: 'HIGH', region: 'JP-TYO', source: 'US-EAST' },
+  ]), [])
 
-      const viewer = new Cesium.Viewer(containerRef.current, {
-        animation: false,
-        baseLayerPicker: false,
-        fullscreenButton: false,
-        vrButton: false,
-        geocoder: false,
-        homeButton: false,
-        infoBox: false,
-        sceneModePicker: false,
-        selectionIndicator: false,
-        timeline: false,
-        navigationHelpButton: false,
-        navigationInstructionsInitiallyVisible: false,
-        skyAtmosphere: false,
-        shouldAnimate: true, // Needed for glows/materials
-        baseLayer: new Cesium.ImageryLayer(new Cesium.UrlTemplateImageryProvider({
-            url: 'https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png',
-            credit: ''
-        }))
-      });
+  const incidentsForRender = useMemo(() => {
+    const incidents: ArcIncident[] = visibleIncidents.map(inc => ({
+      id: inc.id,
+      region: inc.region,
+      sev: inc.sev,
+      source: inc.source,
+    }))
 
-      // ── Globe visual quality ───────────────────────────────────────────────
-      viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0b1f33');
-      viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#00020a');
-      viewer.scene.highDynamicRange = false;
-      viewer.scene.globe.showWaterEffect = false;
-      viewer.scene.moon.show = false;
-      viewer.scene.sun.show = false;
-      viewer.scene.skyBox.show = false;
-
-      // Cinematic depth: dynamic camera lighting + atmosphere
-      viewer.scene.globe.enableLighting = true;
-      viewer.scene.light = new Cesium.DirectionalLight({
-         direction: new Cesium.Cartesian3(0, 0, -1) // Temporary, will be overriden in preRender
-      });
-      viewer.scene.preRender.addEventListener(function() {
-         viewer.scene.light.direction = Cesium.Cartesian3.clone(viewer.scene.camera.directionWC, viewer.scene.light.direction);
-      });
-      viewer.scene.skyAtmosphere.show = true;
-      viewer.scene.skyAtmosphere.atmosphereLightIntensity = 8.0;
-
-      // Hide bottom credits for cyber dashboard look
-      const copyEl = viewer.cesiumWidget.creditContainer;
-      if (copyEl) (copyEl as HTMLElement).style.display = 'none';
-
-      // Restrict camera for pure UI presentation mode
-      viewer.scene.screenSpaceCameraController.enableTilt = false;
-      viewer.scene.screenSpaceCameraController.enableCollisionDetection = false;
-      viewer.scene.screenSpaceCameraController.maximumZoomDistance = 30000000;
-      viewer.scene.screenSpaceCameraController.minimumZoomDistance = 8000000;
-
-      // (Node layers have been moved to dynamic arcsSource to be restyled on incident state changes)
-      arcsSourceRef.current = new Cesium.CustomDataSource('arcs');
-      viewer.dataSources.add(arcsSourceRef.current);
-
-      // ── Stable camera position ─────────────────────────────────────────────
-      viewer.camera.setView({
-        destination: Cesium.Cartesian3.fromDegrees(10, 20, 18000000)
-      });
-
-      // Pass clicks up to the same React dashboard state
-      const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
-      handler.setInputAction(function (click: any) {
-         const pickedObject = viewer.scene.pick(click.position);
-         if (Cesium.defined(pickedObject) && pickedObject.id && pickedObject.id.id) {
-            const id = pickedObject.id.id;
-            if (id.startsWith('node-')) {
-               onMapClick(id.replace('node-', ''));
-            }
-         }
-      }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
-      viewerRef.current = viewer;
-    };
-
-    // Dynamically inject the engine without polluting Webpack / Next config
-    if (!(window as any).Cesium) {
-       const link = document.createElement('link');
-       link.rel = 'stylesheet';
-       link.href = 'https://cesium.com/downloads/cesiumjs/releases/1.120/Build/Cesium/Widgets/widgets.css';
-       document.head.appendChild(link);
-
-       const script = document.createElement('script');
-       script.src = 'https://cesium.com/downloads/cesiumjs/releases/1.120/Build/Cesium/Cesium.js';
-       script.onload = initViewer;
-       document.head.appendChild(script);
-    } else {
-       initViewer();
+    if (incidents.length === 0) {
+      return fallbackIncidents
     }
 
-    return () => {
-       isMounted = false;
-       if (viewerRef.current && !viewerRef.current.isDestroyed()) {
-          viewerRef.current.destroy();
-          viewerRef.current = null;
-       }
-    };
-  }, [onMapClick]);
+    if (incidents.length < 3) {
+      const needed = 3 - incidents.length
+      incidents.push(...fallbackIncidents.slice(0, needed))
+    }
 
-  // Stable Threat Data Renderer Hook - Isolated absolutely from globe engine resets
-  useEffect(() => {
-    if (!viewerRef.current || !arcsSourceRef.current) return;
-    const Cesium = (window as any).Cesium;
-    const arcsSource = arcsSourceRef.current;
-    
-    const collection = arcsSource.entities;
-    collection.suspendEvents();
-    collection.removeAll();
-    type ArcIncident = { id: string; region: string; sev: Severity; source: string };
+    return incidents.slice(0, MAX_ACTIVE_ARCS)
+  }, [fallbackIncidents, visibleIncidents])
 
-    const fallbackIncidents: ArcIncident[] = [
-       { id: 'demo-1', sev: 'CRITICAL', region: 'US-EAST', source: 'RU-MOW' },
-       { id: 'demo-2', sev: 'HIGH', region: 'UK-LON', source: 'CN-PEK' },
-       { id: 'demo-3', sev: 'HIGH', region: 'JP-TYO', source: 'US-EAST' }
-    ];
+  const arcRoutes = useMemo(() => {
+    const routes: Array<{
+      id: string
+      targetRegion: string
+      isCritical: boolean
+      path: string
+      color: string
+    }> = []
+    const seen = new Set<string>()
+    const candidates = [...incidentsForRender, ...fallbackIncidents]
 
-    const incidentsForRender: ArcIncident[] = (() => {
-       const base = (visibleIncidents.length > 0 ? [...visibleIncidents] : [...fallbackIncidents]) as ArcIncident[];
-       if (base.length >= 3) return base;
-       for (const fb of fallbackIncidents) {
-         if (base.length >= 3) break;
-         base.push(fb);
-       }
-       return base;
-    })();
+    for (const inc of candidates) {
+      if (routes.length >= MAX_ACTIVE_ARCS) break
+      const target = MOCK_MAP_POINTS.find(p => p.region === inc.region)
+      if (!target) continue
 
-    const targetRegions = new Set<string>();
+      const srcCandidates = ADVERSARY_MATRIX[inc.region] || REGIONS.filter(r => r !== inc.region)
+      const hash = inc.source.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+      const sourceRegion = srcCandidates[hash % srcCandidates.length]
+      const source = MOCK_MAP_POINTS.find(p => p.region === sourceRegion) || MOCK_MAP_POINTS[0]
+      if (!source || source.region === target.region) continue
 
-    incidentsForRender.forEach(inc => {
-      const target = MOCK_MAP_POINTS.find(p => p.region === inc.region);
-      if (!target) return;
-      targetRegions.add(target.region);
+      const routeKey = `${source.region}->${target.region}`
+      if (seen.has(routeKey)) continue
+      seen.add(routeKey)
 
-      const candidates = ADVERSARY_MATRIX[inc.region] || REGIONS.filter(r => r !== inc.region);
-      const hash = inc.source.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
-      const srcRegion = candidates[hash % candidates.length];
-      const src = MOCK_MAP_POINTS.find(p => p.region === srcRegion) || MOCK_MAP_POINTS[0];
+      const from = toMapPoint(source.lat, source.lng)
+      const to = toMapPoint(target.lat, target.lng)
+      const isCritical = inc.sev === 'CRITICAL'
 
-      const startCart = Cesium.Cartographic.fromDegrees(src.lng, src.lat);
-      const endCart = Cesium.Cartographic.fromDegrees(target.lng, target.lat);
-      const geodesic = new Cesium.EllipsoidGeodesic(startCart, endCart);
-      const steps = 64;
-      const arcHeight = Math.max(geodesic.surfaceDistance * 0.18, 1200000);
-      const curvePoints: any[] = [];
+      routes.push({
+        id: `${inc.id}-${routeKey}`,
+        targetRegion: target.region,
+        isCritical,
+        path: buildArcPath(from.x, from.y, to.x, to.y),
+        color: isCritical ? '#f43f5e' : '#f59e0b',
+      })
+    }
 
-      for (let j = 0; j <= steps; j++) {
-         const frac = j / steps;
-         const ptCart = geodesic.interpolateUsingFraction(frac);
-         ptCart.height = Math.sin(Math.PI * frac) * arcHeight;
-         curvePoints.push(Cesium.Cartographic.toCartesian(ptCart));
+    return routes.slice(0, MAX_ACTIVE_ARCS)
+  }, [fallbackIncidents, incidentsForRender])
+
+  const targetState = useMemo(() => {
+    const map = new Map<string, 'base' | 'active' | 'critical'>()
+    arcRoutes.forEach(route => {
+      const current = map.get(route.targetRegion)
+      if (route.isCritical || current === 'critical') {
+        map.set(route.targetRegion, 'critical')
+      } else {
+        map.set(route.targetRegion, 'active')
       }
+    })
+    return map
+  }, [arcRoutes])
 
-      const isCrit = inc.sev === 'CRITICAL';
-      const arcColor = isCrit ? Cesium.Color.fromCssColorString('#f43f5e') : Cesium.Color.fromCssColorString('#f59e0b');
-
-      collection.add({
-         polyline: {
-            positions: curvePoints,
-            width: isCrit ? 4.5 : 3.5,
-            material: new Cesium.PolylineGlowMaterialProperty({
-               glowPower: 0.35,
-               taperPower: 0.8,
-               color: arcColor.withAlpha(0.9)
-            })
-         }
-      });
-    });
-
-    targetRegions.forEach(region => {
-       const target = MOCK_MAP_POINTS.find(p => p.region === region);
-       if (!target) return;
-       const isCrit = incidentsForRender.some(inc => inc.region === region && inc.sev === 'CRITICAL');
-       const ringColor = isCrit ? Cesium.Color.fromCssColorString('#f43f5e') : Cesium.Color.fromCssColorString('#f59e0b');
-
-       collection.add({
-          position: Cesium.Cartesian3.fromDegrees(target.lng, target.lat),
-          ellipse: {
-             semiMajorAxis: 160000.0,
-             semiMinorAxis: 160000.0,
-             material: ringColor.withAlpha(0.18),
-             outline: true,
-             outlineColor: ringColor.withAlpha(0.75),
-             outlineWidth: isCrit ? 3.0 : 2.0
-          }
-       });
-    });
-
-    MOCK_MAP_POINTS.forEach(pt => {
-       const isCrit = incidentsForRender.some(inc => inc.region === pt.region && inc.sev === 'CRITICAL');
-       const isActive = incidentsForRender.some(inc => inc.region === pt.region);
-       const pointColor = isCrit ? Cesium.Color.fromCssColorString('#f43f5e') : isActive ? Cesium.Color.CYAN : Cesium.Color.CYAN.withAlpha(0.8);
-       const pixelSize = isCrit ? 13 : isActive ? 10 : 8;
-
-       collection.add({
-          id: 'node-' + pt.region,
-          position: Cesium.Cartesian3.fromDegrees(pt.lng, pt.lat),
-          point: {
-             pixelSize,
-             color: pointColor
-          },
-          label: (isActive || isCrit) ? {
-             text: pt.region,
-             font: '600 12px "Helvetica Neue", Arial, sans-serif',
-             fillColor: Cesium.Color.CYAN,
-             outlineColor: Cesium.Color.BLACK,
-             outlineWidth: 2,
-             style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-             showBackground: false,
-             pixelOffset: new Cesium.Cartesian2(10, -14)
-          } : undefined
-       });
-    });
-
-    if (typeof collection.resumeEvents == "function") collection.resumeEvents();
-
-  }, [visibleIncidents, selectedEventRegion, mapFilter, activeIncidentId]);
-  const critCount = visibleIncidents.filter(i => i.sev === 'CRITICAL').length;
+  const nodeData = useMemo(() => {
+    return MOCK_MAP_POINTS.map(point => {
+      const xy = toMapPoint(point.lat, point.lng)
+      const state = targetState.get(point.region) || 'base'
+      const focused = point.region === mapFilter || point.region === selectedEventRegion || point.region === activeIncidentRegion
+      const showLabel = state !== 'base' || focused
+      return {
+        ...point,
+        x: xy.x,
+        y: xy.y,
+        state,
+        focused,
+        showLabel,
+      }
+    })
+  }, [activeIncidentRegion, mapFilter, selectedEventRegion, targetState])
 
   return (
     <section className="flex-none h-[45vh] border border-[#1a1c23] bg-[#00020a] flex flex-col relative overflow-hidden shadow-2xl">
@@ -453,15 +343,145 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
         <span className="font-bold uppercase tracking-[0.3em] text-[8px] text-slate-300">Global Threat Vector Map</span>
         <div className="ml-auto flex gap-4 text-[8px] font-mono">
           {critCount > 0 && <span className="text-rose-500">{critCount} CRITICAL</span>}
-          <span className="text-cyan-600">LIVE CESIUM 3D</span>
-          <span className="text-slate-600">GLOBE MONITORING ACTIVE</span>
+          <span className="text-cyan-600">LIVE FLAT MAP</span>
+          <span className="text-slate-600">2D THREAT OVERLAY ACTIVE</span>
         </div>
       </div>
-      <div ref={containerRef} className="flex-1 w-full h-full relative" />
-      {/* Fallback Vignette for UI Depth Integration */}
+
+      <div className="flex-1 w-full h-full relative">
+        <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${MAP_VIEWBOX_WIDTH} ${MAP_VIEWBOX_HEIGHT}`} preserveAspectRatio="xMidYMid meet" aria-label="Flat world threat map">
+          <defs>
+            <linearGradient id="mapSurface" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#041427" />
+              <stop offset="58%" stopColor="#02101f" />
+              <stop offset="100%" stopColor="#010812" />
+            </linearGradient>
+            <radialGradient id="mapCenterGlow" cx="50%" cy="49%" r="48%">
+              <stop offset="0%" stopColor="#2aa7e8" stopOpacity="0.18" />
+              <stop offset="55%" stopColor="#1f86ba" stopOpacity="0.05" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+            </radialGradient>
+            <pattern id="minorGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#0a2034" strokeWidth="0.6" />
+            </pattern>
+            <pattern id="majorGrid" width="100" height="100" patternUnits="userSpaceOnUse">
+              <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#0f2f4b" strokeWidth="1" />
+            </pattern>
+          </defs>
+
+          <rect x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill="url(#mapSurface)" />
+          <rect x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill="url(#mapCenterGlow)" opacity="0.62" />
+          <rect x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill="url(#minorGrid)" opacity="0.32" />
+          <rect x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill="url(#majorGrid)" opacity="0.22" />
+          <image href="/world-lite.svg" x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} preserveAspectRatio="none" opacity="0.37" />
+
+          <g opacity="0.35">
+            {INFRA_GEO.map(([lng, lat], idx) => {
+              const pt = toMapPoint(lat, lng)
+              return <circle key={`infra-${idx}`} cx={pt.x} cy={pt.y} r="0.9" fill="#0ea5e9" />
+            })}
+          </g>
+
+          <g fill="none" strokeLinecap="round">
+            {arcRoutes.map((route, idx) => (
+              <g key={route.id}>
+                <path d={route.path} stroke={route.color} strokeWidth={route.isCritical ? 4.3 : 3.5} opacity={0.16} />
+                <path d={route.path} stroke={route.color} strokeWidth={route.isCritical ? 2.9 : 2.3} opacity={0.14} />
+                <path
+                  d={route.path}
+                  stroke={route.color}
+                  strokeWidth={route.isCritical ? 2.05 : 1.7}
+                  strokeDasharray="12 10"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="threat-arc"
+                  style={{
+                    opacity: 0.98,
+                    animationDuration: route.isCritical ? '5.6s' : '7.2s',
+                    animationDelay: `${idx * 0.4}s`,
+                  }}
+                />
+              </g>
+            ))}
+          </g>
+
+          <g>
+            {nodeData
+              .filter(node => node.state !== 'base')
+              .map((node, idx) => (
+                <circle
+                  key={`impact-${node.region}`}
+                  cx={node.x}
+                  cy={node.y}
+                  r="10"
+                  fill="none"
+                  stroke={node.state === 'critical' ? '#f43f5e' : '#f59e0b'}
+                  strokeWidth={node.state === 'critical' ? 1.6 : 1.25}
+                  strokeOpacity={node.state === 'critical' ? 0.7 : 0.58}
+                  strokeLinecap="round"
+                  className="impact-ring"
+                  style={{ animationDelay: `${idx * 0.35}s` }}
+                />
+              ))}
+          </g>
+
+          <g>
+            {nodeData.map(node => {
+              const nodeColor = node.state === 'critical' ? '#f43f5e' : node.state === 'active' ? '#52f5ff' : '#26b4cc'
+              const radius = node.state === 'critical' ? 5.8 : node.state === 'active' ? 4.9 : 3.9
+              return (
+                <g key={node.region} onClick={() => onMapClick(node.region)} className="map-node cursor-crosshair">
+                  {node.state !== 'base' && (
+                    <circle cx={node.x} cy={node.y} r={radius + 3.8} fill="none" stroke={node.state === 'critical' ? '#f43f5e7a' : '#67f0ff66'} strokeWidth="1.25" />
+                  )}
+                  {node.state === 'critical' && (
+                    <circle cx={node.x} cy={node.y} r={radius + 6.1} fill="none" stroke="#f43f5e3d" strokeWidth="1.05" />
+                  )}
+                  <circle cx={node.x} cy={node.y} r={radius} fill={nodeColor} stroke={node.focused ? '#e2f8ff' : '#02131f'} strokeWidth={node.focused ? 1.5 : 1.1} />
+                  {node.showLabel && (
+                    <text x={node.x + 8} y={node.y - 8} fill="#b7f1ff" stroke="#010a12" strokeWidth="2.25" paintOrder="stroke" fontSize="10.8" fontWeight="650" letterSpacing="0.55" fontFamily={'"JetBrains Mono", "SFMono-Regular", Consolas, monospace'}>
+                      {node.region}
+                    </text>
+                  )}
+                </g>
+              )
+            })}
+          </g>
+        </svg>
+      </div>
+
       <div className="absolute inset-0 pointer-events-none z-10" style={{
-         background: 'radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(0,2,10,0.8) 100%)'
+        background: 'radial-gradient(ellipse at 50% 52%, rgba(11,43,68,0.14) 0%, rgba(2,13,23,0.05) 42%, rgba(0,2,10,0.72) 100%)'
       }} />
+
+      <style jsx>{`
+        .threat-arc {
+          animation-name: arc-flow;
+          animation-timing-function: cubic-bezier(0.3, 0, 0.7, 1);
+          animation-iteration-count: infinite;
+        }
+
+        .impact-ring {
+          transform-origin: center;
+          transform-box: fill-box;
+          animation: impact-pulse 3s cubic-bezier(0.18, 0.88, 0.3, 1) infinite;
+        }
+
+        .map-node {
+          transition: opacity 140ms ease;
+        }
+
+        @keyframes arc-flow {
+          from { stroke-dashoffset: 180; }
+          to { stroke-dashoffset: 0; }
+        }
+
+        @keyframes impact-pulse {
+          0% { opacity: 0.45; transform: scale(0.7); }
+          72% { opacity: 0.04; transform: scale(1.62); }
+          100% { opacity: 0; transform: scale(1.72); }
+        }
+      `}</style>
     </section>
   )
 })
@@ -1027,3 +1047,5 @@ export default function DashboardLayout() {
     </div>
   )
 }
+
+
