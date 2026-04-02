@@ -258,12 +258,16 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
       viewer.scene.sun.show = false;
       viewer.scene.skyBox.show = false;
 
-      // Cinematic depth: lighting + atmosphere + fog
+      // Cinematic depth: dynamic camera lighting + atmosphere
       viewer.scene.globe.enableLighting = true;
+      viewer.scene.light = new Cesium.DirectionalLight({
+         direction: new Cesium.Cartesian3(0, 0, -1) // Temporary, will be overriden in preRender
+      });
+      viewer.scene.preRender.addEventListener(function() {
+         viewer.scene.light.direction = Cesium.Cartesian3.clone(viewer.scene.camera.directionWC, viewer.scene.light.direction);
+      });
       viewer.scene.skyAtmosphere.show = true;
-      viewer.scene.skyAtmosphere.atmosphereLightIntensity = 10.0;
-      viewer.scene.fog.enabled = true;
-      viewer.scene.fog.density = 0.0012;
+      viewer.scene.skyAtmosphere.atmosphereLightIntensity = 8.0;
 
       // Hide bottom credits for cyber dashboard look
       const copyEl = viewer.cesiumWidget.creditContainer;
@@ -285,24 +289,20 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
             id: `node-${pt.region}`,
             position: Cesium.Cartesian3.fromDegrees(pt.lng, pt.lat, 8000),
             point: {
-               pixelSize: 9,
-               color: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.85),
+               pixelSize: 8,
+               color: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.9),
                outlineColor: Cesium.Color.fromCssColorString('#7dd3fc'),
-               outlineWidth: 2,
-               scaleByDistance: new Cesium.NearFarScalar(1.5e6, 1.8, 3.0e7, 0.6),
-               disableDepthTestDistance: Number.POSITIVE_INFINITY
+               outlineWidth: 1.5
             },
             label: {
                text: pt.region,
-               font: '600 11px "ui-sans-serif", sans-serif',
+               font: '600 11px sans-serif',
                fillColor: Cesium.Color.fromCssColorString('#7dd3fc'),
                outlineColor: Cesium.Color.BLACK,
                outlineWidth: 2,
                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-               pixelOffset: new Cesium.Cartesian2(14, -14),
-               showBackground: false,
-               scaleByDistance: new Cesium.NearFarScalar(1.5e6, 1.2, 3.0e7, 0.5),
-               disableDepthTestDistance: Number.POSITIVE_INFINITY
+               pixelOffset: new Cesium.Cartesian2(12, -12),
+               showBackground: false
             }
          });
       });
@@ -406,8 +406,7 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
                pixelSize: 12,
                color: color.withAlpha(0.95),
                outlineColor: Cesium.Color.WHITE.withAlpha(0.5),
-               outlineWidth: 1.5,
-               disableDepthTestDistance: Number.POSITIVE_INFINITY
+               outlineWidth: 1.5
             }
          });
       }
