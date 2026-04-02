@@ -215,6 +215,14 @@ const ADVERSARY_MATRIX: Record<string, string[]> = {
 const MAP_VIEWBOX_WIDTH = 1000
 const MAP_VIEWBOX_HEIGHT = 500
 const MAX_ACTIVE_ARCS = 6
+const LIVE_SEED_ROUTES: Array<{ source: string; target: string; critical?: boolean }> = [
+  { source: 'RU-MOW', target: 'US-EAST', critical: true },
+  { source: 'CN-PEK', target: 'UK-LON' },
+  { source: 'US-EAST', target: 'JP-TYO' },
+  { source: 'JP-TYO', target: 'SG-SIN' },
+  { source: 'UK-LON', target: 'BR-SAO' },
+  { source: 'CN-PEK', target: 'US-EAST' },
+]
 
 const toMapPoint = (lat: number, lng: number) => ({
   x: ((lng + 180) / 360) * MAP_VIEWBOX_WIDTH,
@@ -267,6 +275,8 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
   const arcRoutes = useMemo(() => {
     const routes: Array<{
       id: string
+      pathId: string
+      sourceRegion: string
       targetRegion: string
       isCritical: boolean
       path: string
@@ -293,13 +303,42 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
       const from = toMapPoint(source.lat, source.lng)
       const to = toMapPoint(target.lat, target.lng)
       const isCritical = inc.sev === 'CRITICAL'
+      const routeIndex = routes.length
 
       routes.push({
-        id: `${inc.id}-${routeKey}`,
+        id: `${inc.id}-${routeKey}-${routeIndex}`,
+        pathId: `route-path-${source.region}-${target.region}-${routeIndex}`.toLowerCase(),
+        sourceRegion: source.region,
         targetRegion: target.region,
         isCritical,
         path: buildArcPath(from.x, from.y, to.x, to.y),
         color: isCritical ? '#f43f5e' : '#f59e0b',
+      })
+    }
+
+    // Keep the map alive even with sparse/duplicated incident routes.
+    for (const seed of LIVE_SEED_ROUTES) {
+      if (routes.length >= MAX_ACTIVE_ARCS) break
+      const routeKey = `${seed.source}->${seed.target}`
+      if (seen.has(routeKey)) continue
+
+      const source = MOCK_MAP_POINTS.find(p => p.region === seed.source)
+      const target = MOCK_MAP_POINTS.find(p => p.region === seed.target)
+      if (!source || !target || source.region === target.region) continue
+
+      seen.add(routeKey)
+      const from = toMapPoint(source.lat, source.lng)
+      const to = toMapPoint(target.lat, target.lng)
+      const routeIndex = routes.length
+
+      routes.push({
+        id: `seed-${routeKey}-${routeIndex}`,
+        pathId: `route-path-seed-${source.region}-${target.region}-${routeIndex}`.toLowerCase(),
+        sourceRegion: source.region,
+        targetRegion: target.region,
+        isCritical: !!seed.critical,
+        path: buildArcPath(from.x, from.y, to.x, to.y),
+        color: seed.critical ? '#f43f5e' : '#f59e0b',
       })
     }
 
@@ -378,13 +417,24 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
           <g opacity="0.35">
             {INFRA_GEO.map(([lng, lat], idx) => {
               const pt = toMapPoint(lat, lng)
-              return <circle key={`infra-${idx}`} cx={pt.x} cy={pt.y} r="0.9" fill="#0ea5e9" />
+              return (
+                <circle
+                  key={`infra-${idx}`}
+                  cx={pt.x}
+                  cy={pt.y}
+                  r="0.9"
+                  fill="#0ea5e9"
+                  className="infra-dot"
+                  style={{ animationDelay: `${(idx % 17) * 0.2}s` }}
+                />
+              )
             })}
           </g>
 
           <g fill="none" strokeLinecap="round">
             {arcRoutes.map((route, idx) => (
               <g key={route.id}>
+                <path id={route.pathId} d={route.path} fill="none" stroke="transparent" />
                 <path d={route.path} stroke={route.color} strokeWidth={route.isCritical ? 4.3 : 3.5} opacity={0.16} />
                 <path d={route.path} stroke={route.color} strokeWidth={route.isCritical ? 2.9 : 2.3} opacity={0.14} />
                 <path
@@ -401,6 +451,18 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
                     animationDelay: `${idx * 0.4}s`,
                   }}
                 />
+                <circle r={route.isCritical ? 2.7 : 2.2} fill={route.isCritical ? '#ff6a86' : '#67f3ff'} opacity="0.9" className="packet-dot">
+                  <animateMotion dur={route.isCritical ? '2.7s' : '3.5s'} begin={`${idx * 0.26}s`} repeatCount="indefinite" rotate="auto">
+                    <mpath href={`#${route.pathId}`} />
+                  </animateMotion>
+                </circle>
+                {route.isCritical && (
+                  <circle r="1.8" fill="#ffd9e2" opacity="0.75" className="packet-dot packet-dot-crit">
+                    <animateMotion dur="2.05s" begin={`${0.8 + idx * 0.22}s`} repeatCount="indefinite" rotate="auto">
+                      <mpath href={`#${route.pathId}`} />
+                    </animateMotion>
+                  </circle>
+                )}
               </g>
             ))}
           </g>
@@ -409,19 +471,29 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
             {nodeData
               .filter(node => node.state !== 'base')
               .map((node, idx) => (
-                <circle
-                  key={`impact-${node.region}`}
-                  cx={node.x}
-                  cy={node.y}
-                  r="10"
-                  fill="none"
-                  stroke={node.state === 'critical' ? '#f43f5e' : '#f59e0b'}
-                  strokeWidth={node.state === 'critical' ? 1.6 : 1.25}
-                  strokeOpacity={node.state === 'critical' ? 0.7 : 0.58}
-                  strokeLinecap="round"
-                  className="impact-ring"
-                  style={{ animationDelay: `${idx * 0.35}s` }}
-                />
+                <g key={`impact-${node.region}`}>
+                  <circle
+                    cx={node.x}
+                    cy={node.y}
+                    r="10"
+                    fill="none"
+                    stroke={node.state === 'critical' ? '#f43f5e' : '#f59e0b'}
+                    strokeWidth={node.state === 'critical' ? 1.6 : 1.25}
+                    strokeOpacity={node.state === 'critical' ? 0.7 : 0.58}
+                    strokeLinecap="round"
+                    className="impact-ring"
+                    style={{ animationDelay: `${idx * 0.35}s` }}
+                  />
+                  <circle
+                    cx={node.x}
+                    cy={node.y}
+                    r={node.state === 'critical' ? 2.5 : 2.1}
+                    fill={node.state === 'critical' ? '#ffd6df' : '#fff2cf'}
+                    opacity={0.85}
+                    className="impact-core"
+                    style={{ animationDelay: `${idx * 0.35}s` }}
+                  />
+                </g>
               ))}
           </g>
 
@@ -455,10 +527,22 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
       }} />
 
       <style jsx>{`
+        .infra-dot {
+          animation: infra-twinkle 4.6s ease-in-out infinite;
+        }
+
         .threat-arc {
           animation-name: arc-flow;
           animation-timing-function: cubic-bezier(0.3, 0, 0.7, 1);
           animation-iteration-count: infinite;
+        }
+
+        .packet-dot {
+          filter: drop-shadow(0 0 2px rgba(107, 243, 255, 0.55));
+        }
+
+        .packet-dot-crit {
+          filter: drop-shadow(0 0 3px rgba(255, 106, 134, 0.62));
         }
 
         .impact-ring {
@@ -467,8 +551,17 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
           animation: impact-pulse 3s cubic-bezier(0.18, 0.88, 0.3, 1) infinite;
         }
 
+        .impact-core {
+          animation: impact-core 1.85s ease-in-out infinite;
+        }
+
         .map-node {
           transition: opacity 140ms ease;
+        }
+
+        @keyframes infra-twinkle {
+          0%, 100% { opacity: 0.26; }
+          50% { opacity: 0.7; }
         }
 
         @keyframes arc-flow {
@@ -480,6 +573,11 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
           0% { opacity: 0.45; transform: scale(0.7); }
           72% { opacity: 0.04; transform: scale(1.62); }
           100% { opacity: 0; transform: scale(1.72); }
+        }
+
+        @keyframes impact-core {
+          0%, 100% { opacity: 0.78; transform: scale(0.95); }
+          50% { opacity: 0.36; transform: scale(1.18); }
         }
       `}</style>
     </section>
