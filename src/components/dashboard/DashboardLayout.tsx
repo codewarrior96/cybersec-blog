@@ -333,153 +333,113 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
     const Cesium = (window as any).Cesium;
     const arcsSource = arcsSourceRef.current;
     
-    // Minimal atomic clear instead of full unmount
     arcsSource.entities.removeAll();
+    type ArcIncident = { id: string; region: string; sev: Severity; source: string };
 
-    const seen = new Set<string>();
-    let count = 0;
+    const fallbackIncidents: ArcIncident[] = [
+       { id: 'demo-1', sev: 'CRITICAL', region: 'US-EAST', source: 'RU-MOW' },
+       { id: 'demo-2', sev: 'HIGH', region: 'UK-LON', source: 'CN-PEK' },
+       { id: 'demo-3', sev: 'HIGH', region: 'JP-TYO', source: 'US-EAST' }
+    ];
 
-    // Force map to look alive: if empty, generate continuous mock global traffic
-    const activeThreats = visibleIncidents.length > 0 ? visibleIncidents : [
-       { id: 'mock1', sev: 'CRITICAL', region: 'US-EAST', source: 'RU-MOW' },
-       { id: 'mock2', sev: 'HIGH', region: 'UK-LON', source: 'CN-PEK' },
-       { id: 'mock3', sev: 'MEDIUM', region: 'SG-SIN', source: 'JP-TYO' },
-       { id: 'mock4', sev: 'HIGH', region: 'BR-SAO', source: 'US-EAST' }
-    ] as any[];
+    const incidentsForRender: ArcIncident[] = (() => {
+       const base = (visibleIncidents.length > 0 ? [...visibleIncidents] : [...fallbackIncidents]) as ArcIncident[];
+       if (base.length >= 3) return base;
+       for (const fb of fallbackIncidents) {
+         if (base.length >= 3) break;
+         base.push(fb);
+       }
+       return base;
+    })();
 
-    // 1. Draw Arcs and Impact Points
-    activeThreats.forEach(inc => {
-      // Throttle concurrent active arcs for performance (safe maximum 6)
-      if (count >= 6) return;
+    const targetRegions = new Set<string>();
 
+    incidentsForRender.forEach(inc => {
       const target = MOCK_MAP_POINTS.find(p => p.region === inc.region);
       if (!target) return;
+      targetRegions.add(target.region);
 
-      const hash = inc.source.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
       const candidates = ADVERSARY_MATRIX[inc.region] || REGIONS.filter(r => r !== inc.region);
+      const hash = inc.source.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
       const srcRegion = candidates[hash % candidates.length];
       const src = MOCK_MAP_POINTS.find(p => p.region === srcRegion) || MOCK_MAP_POINTS[0];
 
-      const key = `${src.region}→${inc.region}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      count++;
-
-      const isCrit = inc.sev === 'CRITICAL';
-      const color = isCrit ? Cesium.Color.fromCssColorString('#f43f5e') : Cesium.Color.fromCssColorString('#f59e0b');
-
-      // Animated slow pulse impact ring
-      arcsSource.entities.add({
-         position: Cesium.Cartesian3.fromDegrees(target.lng, target.lat, 0),
-         ellipse: {
-             semiMinorAxis: new Cesium.CallbackProperty(() => {
-                 const t = (Date.now() % 2500) / 2500;
-                 return 150000.0 + (t * 220000.0);
-             }, false),
-             semiMajorAxis: new Cesium.CallbackProperty(() => {
-                 const t = (Date.now() % 2500) / 2500;
-                 return 150000.0 + (t * 220000.0);
-             }, false),
-             material: new Cesium.ColorMaterialProperty(new Cesium.CallbackProperty(() => {
-                 const t = (Date.now() % 2500) / 2500;
-                 return color.withAlpha((1.0 - t) * (isCrit ? 0.4 : 0.25));
-             }, false)),
-             outline: true,
-             outlineColor: new Cesium.CallbackProperty(() => {
-                 const t = (Date.now() % 2500) / 2500;
-                 return color.withAlpha((1.0 - t) * 0.85);
-             }, false),
-             outlineWidth: isCrit ? 2.5 : 1.5
-         }
-      });
-
-      // Generate accurate geodesic parabolic arc
       const startCart = Cesium.Cartographic.fromDegrees(src.lng, src.lat);
       const endCart = Cesium.Cartographic.fromDegrees(target.lng, target.lat);
       const geodesic = new Cesium.EllipsoidGeodesic(startCart, endCart);
-      const fraction = 48;
-      const arcHeight = geodesic.surfaceDistance / 2.8;
+      const steps = 64;
+      const arcHeight = Math.max(geodesic.surfaceDistance * 0.18, 1200000);
+      const curvePoints: any[] = [];
 
-      const curvePoints = [];
-      for (let j = 0; j <= fraction; j++) {
-         const ptCart = geodesic.interpolateUsingFraction(j / fraction);
-         ptCart.height = Math.sin((j / fraction) * Math.PI) * arcHeight;
+      for (let j = 0; j <= steps; j++) {
+         const frac = j / steps;
+         const ptCart = geodesic.interpolateUsingFraction(frac);
+         ptCart.height = Math.sin(Math.PI * frac) * arcHeight;
          curvePoints.push(Cesium.Cartographic.toCartesian(ptCart));
       }
 
-      // Glow trail layer (wider, dimmer)
-      arcsSource.entities.add({
-         polyline: {
-            positions: curvePoints,
-            width: isCrit ? 5.0 : 3.0,
-            material: new Cesium.PolylineGlowMaterialProperty({
-                glowPower: 0.4,
-                taperPower: 0.8,
-                color: color.withAlpha(0.35)
-            })
-         }
-      });
+      const isCrit = inc.sev === 'CRITICAL';
+      const arcColor = isCrit ? Cesium.Color.fromCssColorString('#f43f5e') : Cesium.Color.fromCssColorString('#f59e0b');
 
-      // Core arc line (sharp and bright)
       arcsSource.entities.add({
          polyline: {
             positions: curvePoints,
-            width: isCrit ? 3.5 : 2.0,
+            width: isCrit ? 4.5 : 3.5,
             material: new Cesium.PolylineGlowMaterialProperty({
-                glowPower: 0.15,
-                taperPower: 1.0,
-                color: color.withAlpha(0.95)
+               glowPower: 0.35,
+               taperPower: 0.8,
+               color: arcColor.withAlpha(0.9)
             })
          }
       });
     });
 
-    // 2. Draw Infrastructure Hub Nodes
-    MOCK_MAP_POINTS.forEach(pt => {
-       const isTarget = activeThreats.some(inc => inc.region === pt.region);
-       const isCritTarget = activeThreats.some(inc => inc.region === pt.region && inc.sev === 'CRITICAL');
-       const isSelected = activeIncidentId && activeThreats.some(i => i.id === activeIncidentId && i.region === pt.region);
-       
-       let pSize = 8;
-       let pColor = Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.8);
-       let outlineC = Cesium.Color.fromCssColorString('#7dd3fc');
-       
-       if (isCritTarget) {
-          pSize = 13;
-          pColor = Cesium.Color.fromCssColorString('#f43f5e').withAlpha(0.95);
-          outlineC = Cesium.Color.WHITE.withAlpha(0.6);
-       } else if (isTarget) {
-          pSize = 10;
-          pColor = Cesium.Color.fromCssColorString('#f59e0b').withAlpha(0.9);
-          outlineC = Cesium.Color.fromCssColorString('#fcd34d');
-       }
-
-       const showLabel = isTarget || pt.region === selectedEventRegion || pt.region === mapFilter || isSelected;
+    targetRegions.forEach(region => {
+       const target = MOCK_MAP_POINTS.find(p => p.region === region);
+       if (!target) return;
+       const isCrit = incidentsForRender.some(inc => inc.region === region && inc.sev === 'CRITICAL');
+       const ringColor = isCrit ? Cesium.Color.fromCssColorString('#f43f5e') : Cesium.Color.fromCssColorString('#f59e0b');
 
        arcsSource.entities.add({
-          id: `node-${pt.region}`,
-          position: Cesium.Cartesian3.fromDegrees(pt.lng, pt.lat, isTarget ? 3500 : 8000),
+          position: Cesium.Cartesian3.fromDegrees(target.lng, target.lat),
+          ellipse: {
+             semiMajorAxis: 160000.0,
+             semiMinorAxis: 160000.0,
+             material: ringColor.withAlpha(0.18),
+             outline: true,
+             outlineColor: ringColor.withAlpha(0.75),
+             outlineWidth: isCrit ? 3.0 : 2.0
+          }
+       });
+    });
+
+    MOCK_MAP_POINTS.forEach(pt => {
+       const isCrit = incidentsForRender.some(inc => inc.region === pt.region && inc.sev === 'CRITICAL');
+       const isActive = incidentsForRender.some(inc => inc.region === pt.region);
+       const pointColor = isCrit ? Cesium.Color.fromCssColorString('#f43f5e') : isActive ? Cesium.Color.CYAN : Cesium.Color.CYAN.withAlpha(0.8);
+       const pixelSize = isCrit ? 13 : isActive ? 10 : 8;
+
+       arcsSource.entities.add({
+          id: 'node-' + pt.region,
+          position: Cesium.Cartesian3.fromDegrees(pt.lng, pt.lat),
           point: {
-             pixelSize: pSize,
-             color: pColor,
-             outlineColor: outlineC,
-             outlineWidth: 1.5
+             pixelSize,
+             color: pointColor
           },
-          label: showLabel ? {
+          label: (isActive || isCrit) ? {
              text: pt.region,
-             font: '600 11px sans-serif',
-             fillColor: Cesium.Color.fromCssColorString('#7dd3fc'),
+             font: '600 12px "Helvetica Neue", Arial, sans-serif',
+             fillColor: Cesium.Color.CYAN,
              outlineColor: Cesium.Color.BLACK,
              outlineWidth: 2,
              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-             pixelOffset: new Cesium.Cartesian2(12, -12),
-             showBackground: false
+             showBackground: false,
+             pixelOffset: new Cesium.Cartesian2(10, -14)
           } : undefined
        });
     });
 
   }, [visibleIncidents, selectedEventRegion, mapFilter, activeIncidentId]);
-
   const critCount = visibleIncidents.filter(i => i.sev === 'CRITICAL').length;
 
   return (
