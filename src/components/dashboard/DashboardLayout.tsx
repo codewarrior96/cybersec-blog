@@ -333,7 +333,9 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
     const Cesium = (window as any).Cesium;
     const arcsSource = arcsSourceRef.current;
     
-    arcsSource.entities.removeAll();
+    const collection = arcsSource.entities;
+    collection.suspendEvents();
+    collection.removeAll();
     type ArcIncident = { id: string; region: string; sev: Severity; source: string };
 
     const fallbackIncidents: ArcIncident[] = [
@@ -381,7 +383,7 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
       const isCrit = inc.sev === 'CRITICAL';
       const arcColor = isCrit ? Cesium.Color.fromCssColorString('#f43f5e') : Cesium.Color.fromCssColorString('#f59e0b');
 
-      arcsSource.entities.add({
+      collection.add({
          polyline: {
             positions: curvePoints,
             width: isCrit ? 4.5 : 3.5,
@@ -400,7 +402,7 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
        const isCrit = incidentsForRender.some(inc => inc.region === region && inc.sev === 'CRITICAL');
        const ringColor = isCrit ? Cesium.Color.fromCssColorString('#f43f5e') : Cesium.Color.fromCssColorString('#f59e0b');
 
-       arcsSource.entities.add({
+       collection.add({
           position: Cesium.Cartesian3.fromDegrees(target.lng, target.lat),
           ellipse: {
              semiMajorAxis: 160000.0,
@@ -419,7 +421,7 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
        const pointColor = isCrit ? Cesium.Color.fromCssColorString('#f43f5e') : isActive ? Cesium.Color.CYAN : Cesium.Color.CYAN.withAlpha(0.8);
        const pixelSize = isCrit ? 13 : isActive ? 10 : 8;
 
-       arcsSource.entities.add({
+       collection.add({
           id: 'node-' + pt.region,
           position: Cesium.Cartesian3.fromDegrees(pt.lng, pt.lat),
           point: {
@@ -438,6 +440,9 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
           } : undefined
        });
     });
+
+    collection.resumeEvents();
+    arcsSource.show = true;
 
   }, [visibleIncidents, selectedEventRegion, mapFilter, activeIncidentId]);
   const critCount = visibleIncidents.filter(i => i.sev === 'CRITICAL').length;
