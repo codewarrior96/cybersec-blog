@@ -1624,3 +1624,15 @@
   0%, 100% { opacity: 0.12; }
   50%       { opacity: 0.48; }
 }
+
+@keyframes bgTrafficFlow {
+  0%   { stroke-dashoffset: 300; opacity: 0; }
+  5%   { opacity: 0.4; }
+  95%  { opacity: 0.4; }
+  100% { stroke-dashoffset: -300; opacity: 0; }
+}
+
+@keyframes infraPulse {
+  0%, 100% { opacity: 0.18; }
+  50%       { opacity: 0.55; }
+}
