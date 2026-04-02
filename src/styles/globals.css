@@ -1612,3 +1612,15 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(34, 211, 238, 0.6);
 }
+
+@keyframes arcFlow {
+  0%   { stroke-dashoffset: 220; opacity: 0; }
+  6%   { opacity: 1; }
+  94%  { opacity: 1; }
+  100% { stroke-dashoffset: -220; opacity: 0; }
+}
+
+@keyframes nodeRingPulse {
+  0%, 100% { opacity: 0.12; }
+  50%       { opacity: 0.48; }
+}

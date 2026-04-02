@@ -175,64 +175,185 @@ const GlobalMapFilters = React.memo(({ mapFilter, onMapClick }: { mapFilter: str
 GlobalMapFilters.displayName = 'GlobalMapFilters'
 
 const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selectedEventRegion, mapFilter, onMapClick }: { visibleIncidents: Incident[], activeIncidentId: string | null, selectedEventRegion: string | null, mapFilter: string | null, onMapClick: (r: string) => void }) => {
+  // Derive attack arcs from active incidents (source → target region pairs)
+  const arcs = useMemo(() => {
+    const seen = new Set<string>()
+    const result: Array<{ id: string; sx: number; sy: number; tx: number; ty: number; sev: Severity }> = []
+    visibleIncidents.slice(0, 12).forEach(inc => {
+      const target = MOCK_MAP_POINTS.find(p => p.region === inc.region)
+      if (!target) return
+      const hash = inc.source.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+      const others = MOCK_MAP_POINTS.filter(p => p.region !== inc.region)
+      const src = others[hash % others.length]
+      const key = `${src.region}→${inc.region}`
+      if (seen.has(key)) return
+      seen.add(key)
+      result.push({
+        id: key,
+        sx: (src.lng + 180) * (100 / 360),
+        sy: (90 - src.lat) * (100 / 180),
+        tx: (target.lng + 180) * (100 / 360),
+        ty: (90 - target.lat) * (100 / 180),
+        sev: inc.sev,
+      })
+    })
+    return result.slice(0, 8)
+  }, [visibleIncidents])
+
   return (
-    <section className="flex-none h-[50%] border border-[#1a1c23] bg-[#000102] flex flex-col relative overflow-hidden shadow-2xl">
-      <div className="absolute top-0 left-0 bg-[#000102]/90 border-b border-r border-[#0a121a] px-3 py-1.5 z-30 flex items-center gap-2">
-        <span className="w-1.5 h-1.5 bg-rose-600"></span>
+    <section className="flex-none h-[45vh] border border-[#1a1c23] bg-[#00020a] flex flex-col relative overflow-hidden shadow-2xl">
+      {/* Header bar */}
+      <div className="absolute top-0 left-0 right-0 z-30 flex items-center gap-2 px-3 py-1.5 bg-gradient-to-b from-[#00020a]/95 to-transparent pointer-events-none">
+        <span className="w-1.5 h-1.5 bg-rose-600 animate-pulse flex-none" />
         <span className="font-bold uppercase tracking-[0.3em] text-[8px] text-slate-300">Global Threat Vector Map</span>
+        <div className="ml-auto flex gap-4 text-[8px] font-mono">
+          {visibleIncidents.filter(i => i.sev === 'CRITICAL').length > 0 && (
+            <span className="text-rose-700 pointer-events-auto">{visibleIncidents.filter(i => i.sev === 'CRITICAL').length} CRITICAL</span>
+          )}
+          <span className="text-slate-700">{arcs.length} VECTORS</span>
+        </div>
       </div>
-      
-      <div className="flex-1 relative border-b border-[#0a121a] flex items-center justify-center bg-[#010306]">
-          <div className="absolute inset-0 pointer-events-none z-0 opacity-10">
-            {Array.from({ length: 9 }).map((_, i) => <div key={`h-${i}`} className="absolute w-full h-[1px] border-b border-solid border-cyan-900/30" style={{ top: `${(i+1)*10}%` }}></div>)}
-            {Array.from({ length: 19 }).map((_, i) => <div key={`v-${i}`} className="absolute h-full w-[1px] border-r border-solid border-cyan-900/30" style={{ left: `${(i+1)*5}%` }}></div>)}
-          </div>
-          
-          <img 
-            src="/world-lite.svg" 
-            alt="" 
-            className="absolute w-[95%] opacity-[0.15] sepia-[.5] hue-rotate-[190deg] saturate-200 pointer-events-none object-contain z-10" 
-            onError={(e) => e.currentTarget.style.display = 'none'}
-          />
 
-          {MOCK_MAP_POINTS.map((pt, i) => {
-            const x = (pt.lng + 180) * (100 / 360)
-            const y = (90 - pt.lat) * (100 / 180)
-            
-            const regionIncidents = visibleIncidents.filter(inc => inc.region === pt.region)
-            const hasCrit = regionIncidents.some(inc => inc.sev === 'CRITICAL')
-            const color = hasCrit ? THEME.severity.CRITICAL.hex : (regionIncidents.length > 0 ? THEME.severity.HIGH.hex : THEME.severity.LOW.hex)
-            const isFiltered = mapFilter === pt.region
-            
-            const isActiveIncidentRegion = activeIncidentId ? regionIncidents.some(inc => inc.id === activeIncidentId) : false
-            const isActiveEventRegion = selectedEventRegion === pt.region
-            const isHighlighted = isActiveIncidentRegion || isActiveEventRegion
+      {/* Map canvas */}
+      <div className="flex-1 relative">
+        {/* Depth gradient — simulates center-lit command scene */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'radial-gradient(ellipse 75% 65% at 50% 52%, rgba(0,28,48,0.85) 0%, rgba(0,6,16,0.92) 55%, #00020a 100%)'
+        }} />
 
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="xMidYMid meet"
+          className="absolute inset-0 w-full h-full"
+        >
+          <defs>
+            <filter id="soc-glow-lo" x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur stdDeviation="1.0" result="b" />
+              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+            <filter id="soc-glow-hi" x="-120%" y="-120%" width="340%" height="340%">
+              <feGaussianBlur stdDeviation="2.2" result="b" />
+              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+
+          {/* Background grid */}
+          <g stroke="#0d2d42" strokeWidth="0.12" opacity="0.55">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <line key={`h${i}`} x1="0" y1={(i + 1) * 10} x2="100" y2={(i + 1) * 10} />
+            ))}
+            {Array.from({ length: 9 }).map((_, i) => (
+              <line key={`v${i}`} x1={(i + 1) * 10} y1="0" x2={(i + 1) * 10} y2="100" />
+            ))}
+          </g>
+
+          {/* Holographic depth ellipses — oblique projection rings */}
+          <ellipse cx="50" cy="50" rx="42" ry="23" fill="none" stroke="#00aacc" strokeWidth="0.1" opacity="0.10" />
+          <ellipse cx="50" cy="50" rx="28" ry="15" fill="none" stroke="#00aacc" strokeWidth="0.09" opacity="0.07" />
+          <ellipse cx="50" cy="50" rx="14" ry="7.5" fill="none" stroke="#00aacc" strokeWidth="0.07" opacity="0.05" />
+
+          {/* Static arc trails */}
+          {arcs.map(arc => {
+            const mx = (arc.sx + arc.tx) / 2
+            const dist = Math.hypot(arc.tx - arc.sx, arc.ty - arc.sy)
+            const cy = (arc.sy + arc.ty) / 2 - dist * 0.38
+            const color = arc.sev === 'CRITICAL' ? '#f43f5e' : '#f59e0b'
             return (
-              <button 
-                key={i} 
-                onClick={() => onMapClick(pt.region)}
-                className={`absolute z-30 flex flex-col items-center justify-center transform -translate-x-1/2 -translate-y-1/2 group cursor-crosshair transition-transform ${isFiltered || isHighlighted ? 'scale-150 z-40' : 'hover:scale-125'}`} 
-                style={{ left: `${x}%`, top: `${y}%`}}
-              >
-                <div className="relative flex items-center justify-center">
-                  <div className={`w-[4px] h-[4px] z-10 ${hasCrit?'shadow-[0_0_12px_#f43f5e]':''}`} style={{ backgroundColor: color }}></div>
-                  {(hasCrit || isHighlighted) && (
-                      <div className="absolute w-12 h-12 border border-rose-500/40 rounded-full animate-ping z-0 pointer-events-none"></div>
-                  )}
-                  {isFiltered && (
-                      <div className="absolute w-6 h-6 border border-cyan-500/80 rounded-full animate-pulse z-0 pointer-events-none"></div>
-                  )}
-                </div>
-                <div className="absolute top-4 flex-col items-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-40">
-                  <div className={`flex flex-col bg-[#010204]/95 px-2 py-1 border ${hasCrit ? 'border-rose-500' : 'border-[#1a2c3f]'}`}>
-                    <span className="text-[9px] font-mono font-bold tracking-widest uppercase whitespace-nowrap" style={{ color }}>{pt.region}</span>
-                    <span className="text-[8px] font-mono text-slate-500">{regionIncidents.length} INCIDENTS</span>
-                  </div>
-                </div>
-              </button>
+              <path key={`trail-${arc.id}`}
+                d={`M ${arc.sx} ${arc.sy} Q ${mx} ${cy} ${arc.tx} ${arc.ty}`}
+                fill="none" stroke={color} strokeWidth="0.12" opacity="0.09"
+              />
             )
           })}
+
+          {/* Animated attack packets */}
+          {arcs.map((arc, i) => {
+            const mx = (arc.sx + arc.tx) / 2
+            const dist = Math.hypot(arc.tx - arc.sx, arc.ty - arc.sy)
+            const cy = (arc.sy + arc.ty) / 2 - dist * 0.38
+            const color = arc.sev === 'CRITICAL' ? '#f43f5e' : '#f59e0b'
+            const dur = arc.sev === 'CRITICAL' ? '1.9s' : '2.8s'
+            const delay = `${(i * 0.58).toFixed(2)}s`
+            return (
+              <path key={`arc-${arc.id}`}
+                d={`M ${arc.sx} ${arc.sy} Q ${mx} ${cy} ${arc.tx} ${arc.ty}`}
+                fill="none"
+                stroke={color}
+                strokeWidth={arc.sev === 'CRITICAL' ? '0.55' : '0.35'}
+                strokeDasharray="5 220"
+                strokeLinecap="round"
+                style={{
+                  animation: `arcFlow ${dur} ease-in-out ${delay} infinite`,
+                  filter: `drop-shadow(0 0 1.2px ${color})`
+                }}
+              />
+            )
+          })}
+
+          {/* Nodes */}
+          {MOCK_MAP_POINTS.map(pt => {
+            const x = (pt.lng + 180) * (100 / 360)
+            const y = (90 - pt.lat) * (100 / 180)
+            const regionInc = visibleIncidents.filter(i => i.region === pt.region)
+            const hasCrit  = regionInc.some(i => i.sev === 'CRITICAL')
+            const hasHigh  = regionInc.some(i => i.sev === 'HIGH')
+            const isActive = (activeIncidentId != null && regionInc.some(i => i.id === activeIncidentId)) || selectedEventRegion === pt.region
+            const isFiltered = mapFilter === pt.region
+            const color = hasCrit ? '#f43f5e' : hasHigh ? '#f59e0b' : regionInc.length > 0 ? '#eab308' : '#1e3d5c'
+            const coreSize = isFiltered || isActive ? 1.3 : 0.75
+
+            return (
+              <g key={pt.region} onClick={() => onMapClick(pt.region)} style={{ cursor: 'crosshair' }}>
+                {/* Pulsing ring for critical */}
+                {hasCrit && (
+                  <circle cx={x} cy={y} r="4" fill="none" stroke="#f43f5e" strokeWidth="0.22"
+                    style={{ animation: 'nodeRingPulse 2.2s ease-in-out infinite' }}
+                  />
+                )}
+                {/* Outer ring */}
+                {(regionInc.length > 0 || isFiltered) && (
+                  <circle cx={x} cy={y} r={isFiltered || isActive ? 2.4 : 1.5}
+                    fill="none"
+                    stroke={isFiltered ? '#22d3ee' : color}
+                    strokeWidth="0.18" opacity="0.4"
+                  />
+                )}
+                {/* Soft halo */}
+                {regionInc.length > 0 && (
+                  <circle cx={x} cy={y} r={hasCrit ? 2.8 : 1.6}
+                    fill={color} opacity="0.07"
+                    filter={hasCrit ? 'url(#soc-glow-hi)' : 'url(#soc-glow-lo)'}
+                  />
+                )}
+                {/* Node core — square pixel aesthetic */}
+                <rect
+                  x={x - coreSize / 2} y={y - coreSize / 2}
+                  width={coreSize} height={coreSize}
+                  fill={color}
+                  opacity={regionInc.length === 0 ? 0.22 : 1}
+                  filter={regionInc.length > 0 ? (hasCrit ? 'url(#soc-glow-hi)' : 'url(#soc-glow-lo)') : undefined}
+                />
+                {/* Region label */}
+                <text x={x} y={y + 3.8} textAnchor="middle"
+                  fontSize="2.3" fontFamily="monospace" letterSpacing="0.25"
+                  fill={isFiltered ? '#22d3ee' : isActive ? color : '#2d4a62'}
+                  style={{ userSelect: 'none', pointerEvents: 'none' }}
+                >
+                  {pt.region}
+                </text>
+                {regionInc.length > 0 && (
+                  <text x={x} y={y + 6.0} textAnchor="middle"
+                    fontSize="1.9" fontFamily="monospace"
+                    fill={hasCrit ? '#f43f5e88' : '#f59e0b66'}
+                    style={{ userSelect: 'none', pointerEvents: 'none' }}
+                  >
+                    {regionInc.length}
+                  </text>
+                )}
+              </g>
+            )
+          })}
+        </svg>
       </div>
     </section>
   )
