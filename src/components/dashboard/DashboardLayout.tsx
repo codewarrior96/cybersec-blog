@@ -279,34 +279,7 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
       viewer.scene.screenSpaceCameraController.maximumZoomDistance = 30000000;
       viewer.scene.screenSpaceCameraController.minimumZoomDistance = 8000000;
 
-      // ── Base nodes data source ────────────────────────────────────────────
-      const baseDataSource = new Cesium.CustomDataSource('baseNodes');
-      viewer.dataSources.add(baseDataSource);
-
-      // Draw primary infrastructure regions mapped to the globe
-      MOCK_MAP_POINTS.forEach(pt => {
-         baseDataSource.entities.add({
-            id: `node-${pt.region}`,
-            position: Cesium.Cartesian3.fromDegrees(pt.lng, pt.lat, 8000),
-            point: {
-               pixelSize: 8,
-               color: Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.9),
-               outlineColor: Cesium.Color.fromCssColorString('#7dd3fc'),
-               outlineWidth: 1.5
-            },
-            label: {
-               text: pt.region,
-               font: '600 11px sans-serif',
-               fillColor: Cesium.Color.fromCssColorString('#7dd3fc'),
-               outlineColor: Cesium.Color.BLACK,
-               outlineWidth: 2,
-               style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-               pixelOffset: new Cesium.Cartesian2(12, -12),
-               showBackground: false
-            }
-         });
-      });
-
+      // (Node layers have been moved to dynamic arcsSource to be restyled on incident state changes)
       arcsSourceRef.current = new Cesium.CustomDataSource('arcs');
       viewer.dataSources.add(arcsSourceRef.current);
 
@@ -366,14 +339,23 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
     const seen = new Set<string>();
     let count = 0;
 
-    visibleIncidents.forEach(inc => {
-      // Throttle concurrent active arcs for performance
+    // Force map to look alive: if empty, generate continuous mock global traffic
+    const activeThreats = visibleIncidents.length > 0 ? visibleIncidents : [
+       { id: 'mock1', sev: 'CRITICAL', region: 'US-EAST', source: 'RU-MOW' },
+       { id: 'mock2', sev: 'HIGH', region: 'UK-LON', source: 'CN-PEK' },
+       { id: 'mock3', sev: 'MEDIUM', region: 'SG-SIN', source: 'JP-TYO' },
+       { id: 'mock4', sev: 'HIGH', region: 'BR-SAO', source: 'US-EAST' }
+    ] as any[];
+
+    // 1. Draw Arcs and Impact Points
+    activeThreats.forEach(inc => {
+      // Throttle concurrent active arcs for performance (safe maximum 6)
       if (count >= 6) return;
 
       const target = MOCK_MAP_POINTS.find(p => p.region === inc.region);
       if (!target) return;
 
-      const hash = inc.source.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+      const hash = inc.source.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0);
       const candidates = ADVERSARY_MATRIX[inc.region] || REGIONS.filter(r => r !== inc.region);
       const srcRegion = candidates[hash % candidates.length];
       const src = MOCK_MAP_POINTS.find(p => p.region === srcRegion) || MOCK_MAP_POINTS[0];
@@ -386,30 +368,30 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
       const isCrit = inc.sev === 'CRITICAL';
       const color = isCrit ? Cesium.Color.fromCssColorString('#f43f5e') : Cesium.Color.fromCssColorString('#f59e0b');
 
-      // Critical target impact ring
-      if (isCrit) {
-         arcsSource.entities.add({
-             position: Cesium.Cartesian3.fromDegrees(target.lng, target.lat, 0),
-             ellipse: {
-                 semiMinorAxis: 380000.0,
-                 semiMajorAxis: 380000.0,
-                 material: new Cesium.ColorMaterialProperty(color.withAlpha(0.12)),
-                 outline: true,
-                 outlineColor: color.withAlpha(0.75),
-                 outlineWidth: 2.5
-             }
-         });
-         // Elevated target node for crit
-         arcsSource.entities.add({
-            position: Cesium.Cartesian3.fromDegrees(target.lng, target.lat, 5000),
-            point: {
-               pixelSize: 12,
-               color: color.withAlpha(0.95),
-               outlineColor: Cesium.Color.WHITE.withAlpha(0.5),
-               outlineWidth: 1.5
-            }
-         });
-      }
+      // Animated slow pulse impact ring
+      arcsSource.entities.add({
+         position: Cesium.Cartesian3.fromDegrees(target.lng, target.lat, 0),
+         ellipse: {
+             semiMinorAxis: new Cesium.CallbackProperty(() => {
+                 const t = (Date.now() % 2500) / 2500;
+                 return 150000.0 + (t * 220000.0);
+             }, false),
+             semiMajorAxis: new Cesium.CallbackProperty(() => {
+                 const t = (Date.now() % 2500) / 2500;
+                 return 150000.0 + (t * 220000.0);
+             }, false),
+             material: new Cesium.ColorMaterialProperty(new Cesium.CallbackProperty(() => {
+                 const t = (Date.now() % 2500) / 2500;
+                 return color.withAlpha((1.0 - t) * (isCrit ? 0.4 : 0.25));
+             }, false)),
+             outline: true,
+             outlineColor: new Cesium.CallbackProperty(() => {
+                 const t = (Date.now() % 2500) / 2500;
+                 return color.withAlpha((1.0 - t) * 0.85);
+             }, false),
+             outlineWidth: isCrit ? 2.5 : 1.5
+         }
+      });
 
       // Generate accurate geodesic parabolic arc
       const startCart = Cesium.Cartographic.fromDegrees(src.lng, src.lat);
@@ -434,8 +416,7 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
                 glowPower: 0.4,
                 taperPower: 0.8,
                 color: color.withAlpha(0.35)
-            }),
-            clampToGround: false
+            })
          }
       });
 
@@ -443,18 +424,61 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
       arcsSource.entities.add({
          polyline: {
             positions: curvePoints,
-            width: isCrit ? 2.5 : 1.8,
+            width: isCrit ? 3.5 : 2.0,
             material: new Cesium.PolylineGlowMaterialProperty({
                 glowPower: 0.15,
                 taperPower: 1.0,
                 color: color.withAlpha(0.95)
-            }),
-            clampToGround: false
+            })
          }
       });
     });
 
-  }, [visibleIncidents]);
+    // 2. Draw Infrastructure Hub Nodes
+    MOCK_MAP_POINTS.forEach(pt => {
+       const isTarget = activeThreats.some(inc => inc.region === pt.region);
+       const isCritTarget = activeThreats.some(inc => inc.region === pt.region && inc.sev === 'CRITICAL');
+       const isSelected = activeIncidentId && activeThreats.some(i => i.id === activeIncidentId && i.region === pt.region);
+       
+       let pSize = 8;
+       let pColor = Cesium.Color.fromCssColorString('#38bdf8').withAlpha(0.8);
+       let outlineC = Cesium.Color.fromCssColorString('#7dd3fc');
+       
+       if (isCritTarget) {
+          pSize = 13;
+          pColor = Cesium.Color.fromCssColorString('#f43f5e').withAlpha(0.95);
+          outlineC = Cesium.Color.WHITE.withAlpha(0.6);
+       } else if (isTarget) {
+          pSize = 10;
+          pColor = Cesium.Color.fromCssColorString('#f59e0b').withAlpha(0.9);
+          outlineC = Cesium.Color.fromCssColorString('#fcd34d');
+       }
+
+       const showLabel = isTarget || pt.region === selectedEventRegion || pt.region === mapFilter || isSelected;
+
+       arcsSource.entities.add({
+          id: `node-${pt.region}`,
+          position: Cesium.Cartesian3.fromDegrees(pt.lng, pt.lat, isTarget ? 3500 : 8000),
+          point: {
+             pixelSize: pSize,
+             color: pColor,
+             outlineColor: outlineC,
+             outlineWidth: 1.5
+          },
+          label: showLabel ? {
+             text: pt.region,
+             font: '600 11px sans-serif',
+             fillColor: Cesium.Color.fromCssColorString('#7dd3fc'),
+             outlineColor: Cesium.Color.BLACK,
+             outlineWidth: 2,
+             style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+             pixelOffset: new Cesium.Cartesian2(12, -12),
+             showBackground: false
+          } : undefined
+       });
+    });
+
+  }, [visibleIncidents, selectedEventRegion, mapFilter, activeIncidentId]);
 
   const critCount = visibleIncidents.filter(i => i.sev === 'CRITICAL').length;
 
