@@ -237,13 +237,15 @@ const buildArcPath = (sx: number, sy: number, tx: number, ty: number) => {
   return `M ${sx.toFixed(2)} ${sy.toFixed(2)} Q ${mx.toFixed(2)} ${(my - lift).toFixed(2)} ${tx.toFixed(2)} ${ty.toFixed(2)}`
 }
 
-const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selectedEventRegion, mapFilter, onMapClick }: { visibleIncidents: Incident[], activeIncidentId: string | null, selectedEventRegion: string | null, mapFilter: string | null, onMapClick: (r: string) => void }) => {
-  type ArcIncident = { id: string; region: string; sev: Severity; source: string }
+type MapIncident = { id: string; region: string; sev: Severity; source: string }
 
-  const critCount = visibleIncidents.filter(i => i.sev === 'CRITICAL').length
+const GlobalMapPanel = React.memo(({ mapIncidents, activeIncidentId, selectedEventRegion, mapFilter, onMapClick }: { mapIncidents: MapIncident[], activeIncidentId: string | null, selectedEventRegion: string | null, mapFilter: string | null, onMapClick: (r: string) => void }) => {
+  type ArcIncident = MapIncident
+
+  const critCount = mapIncidents.filter(i => i.sev === 'CRITICAL').length
   const activeIncidentRegion = useMemo(
-    () => (activeIncidentId ? visibleIncidents.find(i => i.id === activeIncidentId)?.region ?? null : null),
-    [activeIncidentId, visibleIncidents]
+    () => (activeIncidentId ? mapIncidents.find(i => i.id === activeIncidentId)?.region ?? null : null),
+    [activeIncidentId, mapIncidents]
   )
 
   const fallbackIncidents: ArcIncident[] = useMemo(() => ([
@@ -253,7 +255,7 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
   ]), [])
 
   const incidentsForRender = useMemo(() => {
-    const incidents: ArcIncident[] = visibleIncidents.map(inc => ({
+    const incidents: ArcIncident[] = mapIncidents.map(inc => ({
       id: inc.id,
       region: inc.region,
       sev: inc.sev,
@@ -270,7 +272,7 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
     }
 
     return incidents.slice(0, MAX_ACTIVE_ARCS)
-  }, [fallbackIncidents, visibleIncidents])
+  }, [fallbackIncidents, mapIncidents])
 
   const arcRoutes = useMemo(() => {
     const routes: Array<{
@@ -306,8 +308,8 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
       const routeIndex = routes.length
 
       routes.push({
-        id: `${inc.id}-${routeKey}-${routeIndex}`,
-        pathId: `route-path-${source.region}-${target.region}-${routeIndex}`.toLowerCase(),
+        id: `${inc.id}-${routeKey}`,
+        pathId: `route-path-${source.region}-${target.region}`.toLowerCase(),
         sourceRegion: source.region,
         targetRegion: target.region,
         isCritical,
@@ -332,8 +334,8 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
       const routeIndex = routes.length
 
       routes.push({
-        id: `seed-${routeKey}-${routeIndex}`,
-        pathId: `route-path-seed-${source.region}-${target.region}-${routeIndex}`.toLowerCase(),
+        id: `seed-${routeKey}`,
+        pathId: `route-path-seed-${source.region}-${target.region}`.toLowerCase(),
         sourceRegion: source.region,
         targetRegion: target.region,
         isCritical: !!seed.critical,
@@ -358,12 +360,19 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
     return map
   }, [arcRoutes])
 
+  const sourceState = useMemo(() => {
+    const map = new Map<string, true>()
+    arcRoutes.forEach(r => map.set(r.sourceRegion, true))
+    return map
+  }, [arcRoutes])
+
   const nodeData = useMemo(() => {
     return MOCK_MAP_POINTS.map(point => {
       const xy = toMapPoint(point.lat, point.lng)
       const state = targetState.get(point.region) || 'base'
       const focused = point.region === mapFilter || point.region === selectedEventRegion || point.region === activeIncidentRegion
-      const showLabel = state !== 'base' || focused
+      const isSource = sourceState.has(point.region)
+      const showLabel = state !== 'base' || focused || isSource
       return {
         ...point,
         x: xy.x,
@@ -371,9 +380,10 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
         state,
         focused,
         showLabel,
+        isSource,
       }
     })
-  }, [activeIncidentRegion, mapFilter, selectedEventRegion, targetState])
+  }, [activeIncidentRegion, mapFilter, selectedEventRegion, targetState, sourceState])
 
   return (
     <section className="flex-none h-[45vh] border border-[#1a1c23] bg-[#00020a] flex flex-col relative overflow-hidden shadow-2xl">
@@ -849,6 +859,67 @@ const InvestigationConsolePanel = React.memo(({
 InvestigationConsolePanel.displayName = 'InvestigationConsolePanel'
 
 // ============================================================================
+// SKELETON SCREEN (shown before client-side mount to prevent blank flash)
+// ============================================================================
+
+function SkeletonBox({ className = '' }: { className?: string }) {
+  return <div className={`animate-pulse bg-[#040d18]/80 border border-[#0a1929] ${className}`} />
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="relative min-h-[calc(100vh-64px)] bg-[#000102] flex flex-col">
+      <div className="mx-auto flex w-full max-w-[2400px] flex-1 gap-2 p-2 items-stretch">
+        {/* Left sidebar */}
+        <aside className="w-[280px] flex-shrink-0 hidden lg:flex flex-col gap-2">
+          <SkeletonBox className="h-[110px]" />
+          <SkeletonBox className="h-[160px]" />
+        </aside>
+
+        {/* Center */}
+        <main className="flex-1 flex flex-col gap-2 min-w-0">
+          {/* Map placeholder */}
+          <div className="h-[45vh] border border-[#1a1c23] bg-[#00020a] flex flex-col relative overflow-hidden animate-pulse">
+            <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3 py-1.5 border-b border-[#0f1b2b]/30">
+              <div className="w-1.5 h-1.5 bg-[#1a3a4a] flex-none" />
+              <div className="h-2 w-40 bg-[#071420] rounded-sm" />
+              <div className="ml-auto h-2 w-24 bg-[#071420] rounded-sm" />
+            </div>
+            <div className="flex-1 flex items-center justify-center">
+              <div className="w-[85%] h-[75%] bg-[#020d1a]/60 border border-[#0d2035]/40" />
+            </div>
+          </div>
+
+          {/* Telemetry table placeholder */}
+          <div className="flex-1 border border-[#0a121a] bg-[#020509]/80 flex flex-col min-h-0">
+            <div className="flex items-center px-3 py-1.5 border-b border-[#0a121a] bg-[#010101]">
+              <div className="h-2 w-36 bg-[#071420] rounded-sm animate-pulse" />
+            </div>
+            <div className="flex-1 p-3 flex flex-col gap-2">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex gap-3 animate-pulse" style={{ opacity: 1 - i * 0.09 }}>
+                  <div className="h-2 w-14 bg-[#071420] rounded-sm" />
+                  <div className="h-2 w-3 bg-[#0a1929] rounded-sm" />
+                  <div className="h-2 w-28 bg-[#071420] rounded-sm" />
+                  <div className="h-2 w-24 bg-[#050e18] rounded-sm" />
+                  <div className="h-2 w-20 bg-[#050e18] rounded-sm" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </main>
+
+        {/* Right sidebar */}
+        <aside className="w-[360px] flex-shrink-0 hidden xl:flex flex-col gap-2">
+          <SkeletonBox className="flex-1" />
+          <SkeletonBox className="flex-[1.5]" />
+        </aside>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
 // MAIN LAYOUT COMPONENT
 // ============================================================================
 
@@ -1056,6 +1127,21 @@ export default function DashboardLayout() {
     return filtered
   }, [incidents, mapFilter])
 
+  // Stable map-only incidents: strip SLA so the map doesn't re-render every 1.5s tick
+  const mapIncidentsRef = useRef<MapIncident[]>([])
+  const mapIncidents = useMemo(() => {
+    const next = visibleIncidents.map(({ id, sev, region, source }) => ({ id, sev, region, source }))
+    const prev = mapIncidentsRef.current
+    if (
+      prev.length === next.length &&
+      next.every((n, i) => n.id === prev[i]?.id && n.sev === prev[i]?.sev && n.region === prev[i]?.region)
+    ) {
+      return prev
+    }
+    mapIncidentsRef.current = next
+    return next
+  }, [visibleIncidents])
+
   const visibleEvents = useMemo(() => {
     let filtered = events
     if (mapFilter) filtered = filtered.filter(e => e.region === mapFilter)
@@ -1084,7 +1170,7 @@ export default function DashboardLayout() {
       .slice(0, 30) // give enough room for history
   }, [activeIncident, events])
 
-  if (!mounted) return null
+  if (!mounted) return <DashboardSkeleton />
 
   return (
     <div className="relative min-h-[calc(100vh-64px)] bg-[#000102] text-slate-300 font-sans selection:bg-cyan-900 selection:text-cyan-50 flex flex-col">
@@ -1102,8 +1188,8 @@ export default function DashboardLayout() {
         {/* CENTER COLUMN: HIGH-FREQUENCY DOMAINS                     */}
         {/* ========================================================= */}
         <main className="flex-1 flex flex-col gap-2 min-w-0 h-full">
-          <GlobalMapPanel 
-             visibleIncidents={visibleIncidents}
+          <GlobalMapPanel
+             mapIncidents={mapIncidents}
              activeIncidentId={activeIncidentId}
              selectedEventRegion={selectedEventInfo?.region || null}
              mapFilter={mapFilter}
