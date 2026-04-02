@@ -1,6 +1,6 @@
 'use client'
 
-import React, { ReactNode, useEffect, useState, useMemo, useCallback } from 'react'
+import React, { ReactNode, useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { dispatchReportsUpdatedEvent } from '@/lib/reports-events'
 
@@ -421,194 +421,139 @@ const GlobalMapFilters = React.memo(({ mapFilter, onMapClick }: { mapFilter: str
 ))
 GlobalMapFilters.displayName = 'GlobalMapFilters'
 
-// Global map — upgraded with SVG attack arcs, larger nodes, radar sweep
-const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selectedEventRegion, mapFilter, onMapClick, activeArcs }: {
+// Cobe globe — rotating 3D globe with live threat markers
+const CyberGlobePanel = React.memo(({ visibleIncidents, mapFilter, onMapClick, activeArcs }: {
   visibleIncidents: Incident[]
-  activeIncidentId: string | null
-  selectedEventRegion: string | null
   mapFilter: string | null
   onMapClick: (r: string) => void
   activeArcs: ArcData[]
 }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const phiRef = useRef(0.6)
+  const markersRef = useRef<{ location: [number, number]; size: number }[]>([])
+
+  // Update marker sizes whenever incidents change (no globe recreation needed)
+  useEffect(() => {
+    markersRef.current = MOCK_MAP_POINTS.map(pt => {
+      const regionInc = visibleIncidents.filter(i => i.region === pt.region)
+      const hasCrit = regionInc.some(i => i.sev === 'CRITICAL')
+      const hasHigh = regionInc.some(i => i.sev === 'HIGH')
+      return {
+        location: [pt.lat, pt.lng] as [number, number],
+        size: hasCrit ? 0.1 : hasHigh ? 0.065 : regionInc.length > 0 ? 0.045 : 0.02,
+      }
+    })
+  }, [visibleIncidents])
+
+  // Initialize globe once on mount
+  useEffect(() => {
+    if (!canvasRef.current) return
+    let globeInstance: { destroy: () => void } | null = null
+
+    // Initial markers
+    markersRef.current = MOCK_MAP_POINTS.map(pt => ({ location: [pt.lat, pt.lng] as [number, number], size: 0.02 }))
+
+    import('cobe').then(mod => {
+      const createGlobe = (mod as unknown as { default: (el: HTMLCanvasElement, opts: Record<string, unknown>) => { destroy: () => void } }).default
+      const el = canvasRef.current
+      if (!el) return
+      const dim = Math.max(el.offsetWidth, el.offsetHeight, 300)
+      const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 2)
+
+      globeInstance = createGlobe(el, {
+        devicePixelRatio: dpr,
+        width: dim * dpr,
+        height: dim * dpr,
+        phi: phiRef.current,
+        theta: 0.22,
+        dark: 1,
+        diffuse: 1.5,
+        mapSamples: 20000,
+        mapBrightness: 9,
+        baseColor: [0.03, 0.08, 0.2],
+        markerColor: [0.0, 0.88, 1.0],
+        glowColor: [0.0, 0.18, 0.48],
+        markers: markersRef.current,
+        onRender(state: Record<string, unknown>) {
+          phiRef.current += 0.0025
+          state.phi = phiRef.current
+          state.markers = markersRef.current
+          state.width = dim * dpr
+          state.height = dim * dpr
+        },
+      })
+    }).catch(() => { /* silently ignore if cobe unavailable */ })
+
+    return () => { globeInstance?.destroy() }
+  }, [])
+
   const critVectors = activeArcs.filter(a => a.sev === 'CRITICAL').length
   const highVectors = activeArcs.filter(a => a.sev === 'HIGH').length
+  const activeRegions = useMemo(
+    () => visibleIncidents.reduce((s, i) => { s.add(i.region); return s }, new Set<string>()).size,
+    [visibleIncidents]
+  )
 
   return (
-    <section className="flex-none h-[50%] border border-[#1a1c23] bg-[#000204] flex flex-col relative overflow-hidden">
+    <section className="flex-none h-[52%] border border-[#1a1c23] bg-[#000102] flex flex-col relative overflow-hidden">
       {/* Header */}
-      <div className="flex-none flex items-center gap-3 px-3 py-1.5 bg-[#000204]/95 border-b border-[#0a121a] z-30">
-        <span className="w-1.5 h-1.5 bg-rose-500 animate-ping flex-none"></span>
-        <span className="font-bold uppercase tracking-[0.3em] text-[8px] text-slate-300">Global Threat Vector Map</span>
+      <div className="flex-none flex items-center gap-3 px-3 py-1.5 bg-[#000102]/95 border-b border-[#0a121a] z-30">
+        <span className="w-1.5 h-1.5 bg-rose-500 animate-ping flex-none" />
+        <span className="font-bold uppercase tracking-[0.3em] text-[8px] text-slate-300">Cyber Command Globe</span>
         <div className="ml-auto flex items-center gap-4 text-[8px] font-mono">
           {critVectors > 0 && <span className="text-rose-600">{critVectors} CRITICAL</span>}
           {highVectors > 0 && <span className="text-amber-800">{highVectors} HIGH</span>}
           <span className="text-slate-700">{activeArcs.length} VECTORS</span>
-          <span className="text-slate-700">{MOCK_MAP_POINTS.length} NODES</span>
+          <span className="text-slate-700">{activeRegions} ACTIVE REGIONS</span>
         </div>
       </div>
 
-      {/* Map canvas */}
-      <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-[#000204]">
-
-        {/* Ambient radial glow */}
-        <div
-          className="absolute inset-0 pointer-events-none z-0"
-          style={{ background: 'radial-gradient(ellipse 65% 55% at 50% 55%, rgba(0,180,255,0.04) 0%, transparent 70%)' }}
-        />
-
-        {/* Horizontal scanlines */}
+      {/* Globe area */}
+      <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-[#000102]">
+        {/* Scanlines */}
         <div
           className="absolute inset-0 pointer-events-none z-20"
-          style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,10,20,0.22) 3px, rgba(0,10,20,0.22) 4px)' }}
+          style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,8,18,0.18) 3px, rgba(0,8,18,0.18) 4px)' }}
         />
 
-        {/* Coordinate grid */}
-        <div className="absolute inset-0 pointer-events-none z-1">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={`h-${i}`} className="absolute w-full h-[1px]" style={{ top: `${(i+1)*11}%`, background: 'rgba(0,212,255,0.05)' }} />
-          ))}
-          {Array.from({ length: 17 }).map((_, i) => (
-            <div key={`v-${i}`} className="absolute h-full w-[1px]" style={{ left: `${(i+1)*5.5}%`, background: 'rgba(0,212,255,0.04)' }} />
-          ))}
-        </div>
-
-        {/* World SVG map image */}
-        <img
-          src="/world-lite.svg"
-          alt=""
-          className="absolute pointer-events-none object-contain z-5"
-          style={{
-            width: '93%',
-            opacity: 0.42,
-            filter: 'sepia(0.15) hue-rotate(188deg) saturate(280%) brightness(0.65)',
-          }}
-          onError={(e) => e.currentTarget.style.display = 'none'}
+        {/* Globe canvas — square, centered */}
+        <canvas
+          ref={canvasRef}
+          className="relative z-10"
+          style={{ width: '100%', height: '100%', aspectRatio: '1/1', maxWidth: '100%', maxHeight: '100%' }}
         />
 
-        {/* SVG arc overlay — coordinate space matches node % positions */}
-        <svg
-          className="absolute inset-0 pointer-events-none z-15"
-          style={{ width: '100%', height: '100%' }}
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-        >
-          {activeArcs.map((arc) => {
-            const x1 = (arc.src.lng + 180) * (100 / 360)
-            const y1 = (90 - arc.src.lat) * (100 / 180)
-            const x2 = (arc.tgt.lng + 180) * (100 / 360)
-            const y2 = (90 - arc.tgt.lat) * (100 / 180)
-            const dist = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-            const cx = (x1 + x2) / 2
-            const cy = (y1 + y2) / 2 - dist * 0.28
-            const d = `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`
-            const isCrit = arc.sev === 'CRITICAL'
-            const color = isCrit ? '#f43f5e' : '#f59e0b'
-            const speed = isCrit ? '1.8s' : '2.8s'
-
+        {/* Active incident region badges — bottom-left overlay */}
+        <div className="absolute bottom-2 left-2 z-30 flex flex-col gap-1">
+          {MOCK_MAP_POINTS.map(pt => {
+            const regionInc = visibleIncidents.filter(i => i.region === pt.region)
+            const hasCrit = regionInc.some(i => i.sev === 'CRITICAL')
+            const isFiltered = mapFilter === pt.region
+            if (regionInc.length === 0 && !isFiltered) return null
             return (
-              <g key={arc.id}>
-                {/* Static glow trail */}
-                <path d={d} fill="none" stroke={color} strokeWidth="0.5" strokeOpacity="0.1" pathLength="1" />
-                {/* Traveling comet — animates via arcTravel keyframe in globals.css */}
-                <path
-                  d={d}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth="0.35"
-                  strokeOpacity="0.9"
-                  strokeLinecap="round"
-                  pathLength="1"
-                  strokeDasharray="0.18 0.82"
-                  style={{ animation: `arcTravel ${speed} linear infinite` }}
-                />
-              </g>
+              <button
+                key={pt.region}
+                onClick={() => onMapClick(pt.region)}
+                className={`flex items-center gap-1.5 text-[8px] font-mono px-1.5 py-0.5 border transition-colors ${
+                  isFiltered
+                    ? 'border-cyan-500/60 bg-cyan-900/20 text-cyan-400'
+                    : hasCrit
+                    ? 'border-rose-500/40 bg-rose-950/20 text-rose-400'
+                    : 'border-[#1a2c3f] bg-[#010204]/80 text-slate-400'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 flex-none ${hasCrit ? 'bg-rose-500 animate-ping' : 'bg-amber-500'}`} />
+                {pt.region}
+                <span className="text-slate-600">{regionInc.length}</span>
+              </button>
             )
           })}
-        </svg>
-
-        {/* Radar sweep — CSS-only conic gradient spin */}
-        <div
-          className="absolute pointer-events-none z-10"
-          style={{
-            width: '130px', height: '130px',
-            top: '40%', left: '46%',
-            transform: 'translate(-50%, -50%)',
-            borderRadius: '50%',
-            background: 'conic-gradient(from 0deg, transparent 305deg, rgba(0,212,255,0.13) 345deg, rgba(0,212,255,0.04) 360deg)',
-            animation: 'spin 12s linear infinite',
-          }}
-        />
-
-        {/* Region nodes */}
-        {MOCK_MAP_POINTS.map((pt, i) => {
-          const x = (pt.lng + 180) * (100 / 360)
-          const y = (90 - pt.lat) * (100 / 180)
-          const regionIncidents = visibleIncidents.filter(inc => inc.region === pt.region)
-          const hasCrit = regionIncidents.some(inc => inc.sev === 'CRITICAL')
-          const hasHigh = regionIncidents.some(inc => inc.sev === 'HIGH')
-          const nodeColor = hasCrit
-            ? THEME.severity.CRITICAL.hex
-            : hasHigh
-            ? THEME.severity.HIGH.hex
-            : regionIncidents.length > 0
-            ? THEME.severity.MEDIUM.hex
-            : '#0e3a5c'
-          const isFiltered = mapFilter === pt.region
-          const isHighlighted =
-            (activeIncidentId ? regionIncidents.some(inc => inc.id === activeIncidentId) : false) ||
-            selectedEventRegion === pt.region
-          const nodeSize = hasCrit ? 10 : regionIncidents.length > 0 ? 8 : 5
-
-          return (
-            <button
-              key={i}
-              onClick={() => onMapClick(pt.region)}
-              className="absolute z-30 flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2 group cursor-crosshair"
-              style={{ left: `${x}%`, top: `${y}%` }}
-            >
-              {/* Outer slow pulse for critical */}
-              {hasCrit && (
-                <span
-                  className="absolute rounded-full border border-rose-500/20 animate-ping pointer-events-none"
-                  style={{ width: '40px', height: '40px' }}
-                />
-              )}
-              {/* Highlight ring for selected/filtered */}
-              {(isHighlighted || isFiltered) && (
-                <span
-                  className="absolute rounded-full border border-cyan-400/50 animate-pulse pointer-events-none"
-                  style={{ width: '22px', height: '22px' }}
-                />
-              )}
-              {/* Node square */}
-              <div
-                className={`relative z-10 transition-all duration-100 ${isFiltered || isHighlighted ? 'scale-150' : 'group-hover:scale-125'}`}
-                style={{
-                  width: `${nodeSize}px`,
-                  height: `${nodeSize}px`,
-                  backgroundColor: nodeColor,
-                  boxShadow: `0 0 ${hasCrit ? 18 : 8}px ${nodeColor}${hasCrit ? 'cc' : '88'}`,
-                }}
-              />
-              {/* Tooltip */}
-              <div className="absolute bottom-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-nowrap">
-                <div
-                  className={`bg-[#010204]/98 px-2 py-1.5 border flex flex-col gap-0.5 ${hasCrit ? 'border-rose-500/70' : 'border-[#1a2c3f]'}`}
-                  style={{ boxShadow: hasCrit ? '0 0 10px rgba(244,63,94,0.2)' : 'none' }}
-                >
-                  <span className="text-[9px] font-mono font-bold tracking-widest uppercase" style={{ color: nodeColor }}>{pt.region}</span>
-                  <span className="text-[8px] font-mono text-slate-500">{regionIncidents.length} INCIDENT{regionIncidents.length !== 1 ? 'S' : ''}</span>
-                  {hasCrit && <span className="text-[8px] font-mono text-rose-500">⚠ CRITICAL ACTIVE</span>}
-                </div>
-              </div>
-            </button>
-          )
-        })}
+        </div>
       </div>
     </section>
   )
 })
-GlobalMapPanel.displayName = 'GlobalMapPanel'
+CyberGlobePanel.displayName = 'CyberGlobePanel'
 
 const LiveTelemetryStream = React.memo(({ visibleEvents, selectedEventId, mapFilter, onEventSelect }: { visibleEvents: ThreatEvent[], selectedEventId: string | null, mapFilter: string | null, onEventSelect: (id: string) => void }) => (
   <Frame title={`Live Telemetry Stream ${mapFilter ? `[FILTER: ${mapFilter}]` : ''}`} className="flex-1 min-h-0" headerClass="bg-[#010101]">
@@ -861,6 +806,78 @@ const InvestigationConsolePanel = React.memo(({
 InvestigationConsolePanel.displayName = 'InvestigationConsolePanel'
 
 // ============================================================================
+// BOOT OVERLAY — staged "coming online" entry experience
+// ============================================================================
+
+const BOOT_LINES = [
+  'INITIALIZING SOC COMMAND CENTER...',
+  'LOADING THREAT INTELLIGENCE FEEDS...',
+  'ESTABLISHING SECURE CHANNELS...',
+  'SYNCING GLOBAL SENSOR NETWORK...',
+  'MOUNTING INCIDENT QUEUE...',
+  'ACTIVATING LIVE TELEMETRY...',
+  'ALL SYSTEMS NOMINAL — BRINGING ONLINE',
+]
+
+const BootOverlay = React.memo(({ phase }: { phase: 0 | 1 | 2 }) => (
+  <div
+    className="fixed inset-0 z-[300] flex flex-col items-center justify-center bg-[#000000] select-none pointer-events-none"
+    style={{
+      transition: 'opacity 0.6s ease-out',
+      opacity: phase === 1 ? 0 : 1,
+    }}
+  >
+    {/* Scanlines */}
+    <div
+      className="absolute inset-0"
+      style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,20,10,0.12) 3px, rgba(0,20,10,0.12) 4px)', pointerEvents: 'none' }}
+    />
+
+    {/* Title */}
+    <div
+      className="mb-8 text-center"
+      style={{ animation: 'bootFadeIn 0.5s ease-out both' }}
+    >
+      <div className="text-[10px] font-mono tracking-[0.6em] text-cyan-700 uppercase mb-2">CLASSIFIED — AUTHORIZED ACCESS ONLY</div>
+      <div className="text-3xl font-bold tracking-[0.25em] uppercase font-mono" style={{ color: '#00d4ff', textShadow: '0 0 30px rgba(0,212,255,0.5)' }}>
+        SOC COMMAND CENTER
+      </div>
+      <div className="text-[9px] font-mono tracking-[0.5em] text-slate-600 mt-2 uppercase">Global Threat Operations — Live</div>
+    </div>
+
+    {/* Status lines */}
+    <div className="flex flex-col gap-1.5 w-[360px]">
+      {BOOT_LINES.map((line, i) => (
+        <div
+          key={line}
+          className="flex items-center gap-2 text-[9px] font-mono"
+          style={{ animation: `bootFadeIn 0.35s ease-out ${i * 0.18}s both` }}
+        >
+          <span className="text-cyan-600">{'>'}</span>
+          <span className="text-slate-500">{line}</span>
+          <span className="ml-auto text-emerald-600 tracking-widest">OK</span>
+        </div>
+      ))}
+    </div>
+
+    {/* Progress bar */}
+    <div className="mt-8 w-[360px]">
+      <div className="h-px bg-[#0a1a1a] w-full relative overflow-hidden">
+        <div
+          className="absolute top-0 left-0 h-full bg-cyan-500"
+          style={{ animation: 'bootProgress 1.6s ease-out both', boxShadow: '0 0 8px rgba(0,212,255,0.8)' }}
+        />
+      </div>
+      <div className="flex justify-between mt-1 text-[7px] font-mono text-slate-700">
+        <span>LOADING</span>
+        <span>100%</span>
+      </div>
+    </div>
+  </div>
+))
+BootOverlay.displayName = 'BootOverlay'
+
+// ============================================================================
 // CRITICAL ALERT PANEL — full-screen overlay for CRITICAL incidents
 // ============================================================================
 
@@ -1033,11 +1050,21 @@ export default function DashboardLayout() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [mapFilter, setMapFilter] = useState<string | null>(null)
 
+  // Boot sequence state: 0 = booting, 1 = fading out, 2 = live
+  const [bootPhase, setBootPhase] = useState<0 | 1 | 2>(0)
+
   // Critical alert panel state
   const [acknowledgedCriticalIds, setAcknowledgedCriticalIds] = useState<Set<string>>(new Set())
   const [reportSubmitting, setReportSubmitting] = useState(false)
 
   const router = useRouter()
+
+  // Boot sequence timing
+  useEffect(() => {
+    const t1 = setTimeout(() => setBootPhase(1), 1800)
+    const t2 = setTimeout(() => setBootPhase(2), 2400)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [])
 
   // Simulation Tick
   useEffect(() => {
@@ -1336,8 +1363,11 @@ export default function DashboardLayout() {
 
   return (
     <div className="relative h-[calc(100vh-64px)] bg-[#000102] text-slate-300 font-sans selection:bg-cyan-900 selection:text-cyan-50 flex flex-col overflow-hidden">
-      {/* Critical incident overlay — blocks interaction until acknowledged */}
-      {criticalAlertTarget && (
+      {/* Boot overlay — phases out after ~2.4s */}
+      {bootPhase < 2 && <BootOverlay phase={bootPhase} />}
+
+      {/* Critical incident overlay — only fires after boot completes */}
+      {bootPhase === 2 && criticalAlertTarget && (
         <CriticalAlertPanel
           incident={criticalAlertTarget}
           onDismiss={handleDismissCriticalAlert}
@@ -1360,12 +1390,10 @@ export default function DashboardLayout() {
           <GlobalMapFilters mapFilter={mapFilter} onMapClick={handleMapClick} />
         </aside>
 
-        {/* CENTER COLUMN: MAP + TELEMETRY */}
+        {/* CENTER COLUMN: GLOBE + TELEMETRY */}
         <main className="flex-1 flex flex-col gap-2 min-w-0 h-full">
-          <GlobalMapPanel
+          <CyberGlobePanel
             visibleIncidents={visibleIncidents}
-            activeIncidentId={activeIncidentId}
-            selectedEventRegion={selectedEventInfo?.region || null}
             mapFilter={mapFilter}
             onMapClick={handleMapClick}
             activeArcs={activeArcs}
