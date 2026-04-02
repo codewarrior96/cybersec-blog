@@ -441,8 +441,7 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
        });
     });
 
-    collection.resumeEvents();
-    arcsSource.show = true;
+    if (typeof collection.resumeEvents == "function") collection.resumeEvents();
 
   }, [visibleIncidents, selectedEventRegion, mapFilter, activeIncidentId]);
   const critCount = visibleIncidents.filter(i => i.sev === 'CRITICAL').length;
