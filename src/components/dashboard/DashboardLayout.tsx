@@ -318,20 +318,20 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
               <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
             
-            <radialGradient id="sphere-core" cx="40%" cy="30%" r="70%">
-              <stop offset="0%" stopColor="#0a1d30" stopOpacity="0.9" />
-              <stop offset="60%" stopColor="#020914" stopOpacity="0.98" />
-              <stop offset="100%" stopColor="#000000" stopOpacity="1.0" />
+            <radialGradient id="sphere-core" cx="35%" cy="30%" r="65%">
+              <stop offset="0%" stopColor="#0f4577" stopOpacity="0.85" />
+              <stop offset="50%" stopColor="#051c33" stopOpacity="0.95" />
+              <stop offset="100%" stopColor="#01060d" stopOpacity="1.0" />
             </radialGradient>
             
             <radialGradient id="sphere-atmosphere" cx="50%" cy="50%" r="50%">
-              <stop offset="88%" stopColor="#0ea5e9" stopOpacity="0" />
-              <stop offset="96%" stopColor="#0c4a6e" stopOpacity="0.2" />
-              <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.4" />
+              <stop offset="84%" stopColor="#0ea5e9" stopOpacity="0" />
+              <stop offset="95%" stopColor="#0369a1" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.65" />
             </radialGradient>
 
             <radialGradient id="sphere-highlight" cx="30%" cy="25%" r="50%">
-              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.25" />
+              <stop offset="0%" stopColor="#7dd3fc" stopOpacity="0.45" />
               <stop offset="40%" stopColor="#0ea5e9" stopOpacity="0.05" />
               <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
             </radialGradient>
@@ -344,8 +344,8 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
             <polyline points={getGraticulePath(false, 0, false)} fill="none" stroke="#0ea5e9" opacity="0.08" strokeWidth="0.2" />
             
             {/* Back Landmass (Optimized static paths) */}
-            <g opacity="0.4">
-              {PROJECTED_INFRA_BACK.map((p, i) => <circle key={`bl${i}`} cx={p.x} cy={p.y} r="1.2" fill="#02283e" />)}
+            <g opacity="0.6">
+              {PROJECTED_INFRA_BACK.map((p, i) => <circle key={`bl${i}`} cx={p.x} cy={p.y} r="1.2" fill="#0c4a6e" />)}
             </g>
             
             {/* Back Arcs */}
@@ -374,9 +374,9 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
 
             {/* Front Landmass Solid Dots (Optimized static mapping) */}
             {PROJECTED_INFRA_FRONT.map((p, i) => (
-              <g key={`flF${i}`} opacity="0.8">
-                <circle cx={p.x} cy={p.y} r="2.0" fill="#024068" opacity="0.4" />
-                <circle cx={p.x} cy={p.y} r="0.6" fill="#0ea5e9" opacity="0.6" />
+              <g key={`flF${i}`} opacity="0.95">
+                <circle cx={p.x} cy={p.y} r="2.2" fill="#004e8a" opacity="0.35" />
+                <circle cx={p.x} cy={p.y} r="0.8" fill="#38bdf8" opacity="0.85" />
               </g>
             ))}
 
@@ -399,15 +399,16 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
 
               return (
                 <g key={`Farc${arc.id}`}>
-                  {/* Arc Orbit Shadow Loop */}
+                  {/* Arc Orbit Baseline (Clearer track) */}
                   <path d={`M${arc.sx} ${arc.sy} Q${cpx} ${cpy} ${arc.tx} ${arc.ty}`}
-                    fill="none" stroke={color} strokeWidth={arc.sev === 'CRITICAL' ? '0.4' : '0.2'} opacity="0.15" />
+                    fill="none" stroke={color} strokeWidth={arc.sev === 'CRITICAL' ? '0.8' : '0.4'} opacity="0.25" />
                   
-                  {/* Active 3D Projectile (Hardware optimized, no heavy filters) */}
+                  {/* Active 3D Projectile (Hardware optimized, high visibility) */}
                   <path d={`M${arc.sx} ${arc.sy} Q${cpx} ${cpy} ${arc.tx} ${arc.ty}`}
                     fill="none" stroke={color}
-                    strokeWidth={arc.sev === 'CRITICAL' ? '1.6' : '1.2'}
+                    strokeWidth={arc.sev === 'CRITICAL' ? '2.5' : '1.8'}
                     strokeDasharray={`${arc.sev === 'CRITICAL' ? 15 : 10} 250`} strokeLinecap="round"
+                    opacity="0.95"
                     style={{
                       animation: `arcFlow ${dur}s cubic-bezier(0.3, 0.1, 0.7, 1) ${(i*0.35).toFixed(2)}s infinite`
                     }}
@@ -441,23 +442,23 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
                   )}
                   
                   {/* Clean Holographic Base */}
-                  <circle cx={x} cy={y} r={4} fill={color} opacity={0.2} />
-                  <circle cx={x} cy={y} r={isTarget || isActive || isFiltered ? 1.5 : 0.8} fill={color} opacity={isTarget || isActive || isFiltered ? 1.0 : 0.6} />
+                  <circle cx={x} cy={y} r={5} fill={color} opacity={0.35} />
+                  <circle cx={x} cy={y} r={isTarget || isActive || isFiltered ? 2.2 : 1.2} fill={color} opacity={1.0} />
                   
                   {/* Edge Highlighting */}
-                  {(isTarget || isActive) && <rect x={x-0.5} y={y-0.5} width="1" height="1" fill="#ffffff" opacity="0.9" />}
+                  {(isTarget || isActive) && <rect x={x-0.8} y={y-0.8} width="1.6" height="1.6" fill="#ffffff" opacity="0.9" />}
 
                   {/* Premium Elegant Labeling */}
                   <g style={{ pointerEvents: 'none' }}>
                      {(isTarget || isActive || isFiltered) && (
-                      <path d={`M${x+1.5} ${y-1.5} L${x+4} ${y-4} L${x+10} ${y-4}`} fill="none" stroke={color} strokeWidth="0.25" opacity="0.6" />
+                      <path d={`M${x+2} ${y-2} L${x+5} ${y-5} L${x+12} ${y-5}`} fill="none" stroke={color} strokeWidth="0.4" opacity="0.8" />
                      )}
-                     <text x={(isTarget || isActive || isFiltered) ? x+10.5 : x} y={(isTarget || isActive || isFiltered) ? y-3.5 : y-3} textAnchor={(isTarget || isActive || isFiltered) ? "start" : "middle"}
-                      fontSize={(isTarget || isActive || isFiltered) ? "2.6" : "2.0"} fontFamily="sans-serif" 
-                      fontWeight={(isTarget || isActive || isFiltered) ? "600" : "400"}
+                     <text x={(isTarget || isActive || isFiltered) ? x+12.5 : x} y={(isTarget || isActive || isFiltered) ? y-4.5 : y-4} textAnchor={(isTarget || isActive || isFiltered) ? "start" : "middle"}
+                      fontSize={(isTarget || isActive || isFiltered) ? "3.2" : "2.5"} fontFamily="sans-serif" 
+                      fontWeight={(isTarget || isActive || isFiltered) ? "600" : "500"}
                       letterSpacing="0.2"
-                      fill={hasCrit ? '#fca5a5' : isTarget ? '#fef08a' : isFiltered ? '#7dd3fc' : '#64748b'}
-                      style={{ textShadow: (isTarget || hasCrit) ? '0 1px 2px rgba(0,0,0,0.8)' : 'none' }}>
+                      fill={hasCrit ? '#ffb3c1' : isTarget ? '#fde68a' : isFiltered ? '#7dd3fc' : '#cbd5e1'}
+                      style={{ textShadow: (isTarget || hasCrit) ? '0 1px 3px rgba(0,0,0,0.9)' : '0 1px 2px rgba(0,0,0,0.8)' }}>
                       {pt.region}
                     </text>
                   </g>
