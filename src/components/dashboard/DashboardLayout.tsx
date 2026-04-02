@@ -185,20 +185,21 @@ GlobalMapFilters.displayName = 'GlobalMapFilters'
 
 
 
-const INFRA_NODES: Array<[number, number]> = [
+
+const INFRA_GEO: Array<[number, number]> = [
   // NA
-  [45,20], [55,18], [65,15], [75,18], [85,20], [40,28], [50,25], [60,28], [70,24], [80,27], [35,35], [45,32], [55,34], [65,36], [75,32], [42,42], [52,40], [62,44], [48,50], [58,48],
+  [-118,54],[-104,58],[-90,63],[-76,58],[-62,54],[-125,40],[-111,45],[-97,40],[-83,46],[-69,41],[-132,27],[-118,32],[-104,29],[-90,25],[-76,32],[-122,14],[-108,18],[-94,11],[-114,0],[-100,4],
   // SA
-  [75,55], [85,52], [95,54], [72,62], [82,60], [92,63], [75,70], [85,68], [95,72], [80,80], [90,78], [85,88],
+  [-76,-9],[-62,-3],[-48,-7],[-79,-22],[-65,-18],[-51,-23],[-76,-36],[-62,-32],[-48,-40],[-69,-54],[-55,-50],[-62,-68],
   // EU
-  [110,15], [120,12], [130,15], [140,18], [115,22], [125,20], [135,24], [145,22], [120,28], [130,26], [140,30], [150,28],
+  [-28,63],[-14,68],[0,63],[14,58],[-21,50],[-7,54],[7,47],[21,50],[-14,40],[0,43],[14,36],[28,40],
   // AF
-  [115,35], [125,32], [135,36], [145,34], [110,45], [120,42], [130,46], [140,44], [115,55], [125,52], [135,56], [145,54], [120,65], [130,62], [140,66], [125,75], [135,72], [130,82],
+  [-21,27],[-7,32],[7,25],[21,29],[-28,9],[-14,14],[0,7],[14,11],[-21,-9],[-7,-3],[7,-11],[21,-7],[-14,-27],[0,-22],[14,-29],[-7,-45],[7,-40],[0,-58],
   // AS
-  [155,15], [165,12], [175,15], [185,13], [195,16], [205,14], [215,18], [225,15], [150,25], [160,22], [170,26], [180,24], [190,28], [200,25], [210,30], [220,28], [230,32], [240,29], [155,35], [165,32], [175,36], [185,34], [195,38], [205,35], [215,40], [225,38], [235,42], [150,45], [160,42], [170,46], [180,44], [190,48], [200,45], [210,50], [220,48],
+  [35,63],[48,68],[62,63],[76,67],[90,61],[104,65],[118,58],[132,63],[28,45],[42,50],[55,43],[69,47],[83,40],[97,45],[111,36],[125,40],[138,32],[152,38],[35,27],[48,32],[62,25],[76,29],[90,22],[104,27],[118,18],[132,22],[145,14],[28,9],[42,14],[55,7],[69,11],[83,4],[97,9],[111,0],[125,4],
   // OC
-  [215,60], [225,58], [235,62], [210,68], [220,66], [230,70], [215,76], [225,74]
-]
+  [118,-18],[132,-14],[145,-22],[111,-32],[125,-29],[138,-36],[118,-47],[132,-43]
+];
 
 const ADVERSARY_MATRIX: Record<string, string[]> = {
   'US-EAST': ['RU-MOW', 'CN-PEK', 'BR-SAO'],
@@ -210,61 +211,74 @@ const ADVERSARY_MATRIX: Record<string, string[]> = {
   'CN-PEK':  ['US-EAST', 'JP-TYO', 'SG-SIN'],
 }
 
-const BACKBONE_LINKS: Array<[number, number, number, number]> = [
-  // Trans-Atlantic
-  [76,27, 130,21], [76,27, 118,23], [97,63, 114,40], [97,63, 130,48],
-  // Americas
-  [76,27, 60,28], [76,27, 97,63], [60,28, 97,63], [76,27, 45,32], [97,63, 85,88],
-  // Europe - Asia
-  [130,21, 157,19], [157,19, 214,28], [157,19, 172,36], [130,21, 172,36], [130,21, 110,45],
-  // Asia - Pacific
-  [214,28, 231,30], [214,28, 205,49], [231,30, 205,49], [205,49, 234,56], [231,30, 234,56],
-  // Trans-Pacific
-  [60,28, 231,30], // NA to JP
-  [97,63, 234,56], // SA to Oceania
-]
+// ─── 3D ORTHOGRAPHIC PROJECTION ─────────────────────────────────────────────
+const GLOBE_R = 90;
+const CENTER_LNG = 10;
+const CENTER_LAT = 20;
 
-const BG_TRAFFIC: Array<{ sx:number; sy:number; tx:number; ty:number; dur:number; delay:number }> = [
-  { sx:76,  sy:27, tx:130, ty:21, dur:5.5, delay:0.0 },
-  { sx:157, sy:19, tx:214, ty:28, dur:4.8, delay:0.9 },
-  { sx:214, sy:28, tx:231, ty:30, dur:3.6, delay:0.4 },
-  { sx:130, sy:21, tx:157, ty:19, dur:5.2, delay:2.1 },
-  { sx:205, sy:49, tx:214, ty:28, dur:4.2, delay:0.7 },
-  { sx:76,  sy:27, tx:97,  ty:63, dur:6.5, delay:1.6 },
-  { sx:231, sy:30, tx:205, ty:49, dur:4.4, delay:3.1 },
-  { sx:130, sy:21, tx:97,  ty:63, dur:6.0, delay:0.3 },
-  { sx:157, sy:19, tx:130, ty:21, dur:5.8, delay:2.7 },
-  { sx:214, sy:28, tx:205, ty:49, dur:4.0, delay:1.4 },
-  { sx:76,  sy:27, tx:214, ty:28, dur:7.5, delay:0.6 },
-  { sx:130, sy:21, tx:146, ty:36, dur:5.0, delay:3.5 },
-]
+function projectNode(lng: number, lat: number) {
+  const lambda = (lng - CENTER_LNG) * (Math.PI / 180);
+  const phi = lat * (Math.PI / 180);
+  const phi0 = CENTER_LAT * (Math.PI / 180);
+
+  const x = Math.cos(phi) * Math.sin(lambda);
+  const y = Math.cos(phi0) * Math.sin(phi) - Math.sin(phi0) * Math.cos(phi) * Math.cos(lambda);
+  const z = Math.sin(phi0) * Math.sin(phi) + Math.cos(phi0) * Math.cos(phi) * Math.cos(lambda);
+
+  return { x: x * GLOBE_R, y: -y * GLOBE_R, z }; // z < 0 is back hemisphere
+}
+
+function getGraticulePath(isLat: boolean, val: number, isFront: boolean) {
+  const pts = [];
+  if (isLat) {
+    for (let lng = -180; lng <= 180; lng += 4) {
+      const p = projectNode(lng, val);
+      if ((isFront && p.z >= 0) || (!isFront && p.z < 0)) pts.push(`${p.x},${p.y}`);
+    }
+  } else {
+    for (let lat = -90; lat <= 90; lat += 4) {
+      const p = projectNode(val, lat);
+      if ((isFront && p.z >= 0) || (!isFront && p.z < 0)) pts.push(`${p.x},${p.y}`);
+    }
+  }
+  return pts.join(' ');
+}
+
+const LAT_LINES = [-60, -30, 0, 30, 60];
+const LNG_LINES = [-180, -150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150];
 
 const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selectedEventRegion, mapFilter, onMapClick }: { visibleIncidents: Incident[], activeIncidentId: string | null, selectedEventRegion: string | null, mapFilter: string | null, onMapClick: (r: string) => void }) => {
-  const incidentArcs = useMemo(() => {
+  const { arcs, nodes } = useMemo(() => {
+    const projectedNodes = MOCK_MAP_POINTS.map(pt => ({
+      ...pt,
+      proj: projectNode(pt.lng, pt.lat),
+      isFront: projectNode(pt.lng, pt.lat).z >= -0.05
+    }))
+
     const seen = new Set<string>()
-    const result: Array<{ id: string; sx: number; sy: number; tx: number; ty: number; sev: Severity }> = []
+    const calculatedArcs: Array<{ id: string; sx: number; sy: number; tx: number; ty: number; sev: Severity; sFront: boolean; tFront: boolean }> = []
+    
     visibleIncidents.slice(0, 15).forEach(inc => {
-      const target = MOCK_MAP_POINTS.find(p => p.region === inc.region)
+      const target = projectedNodes.find(p => p.region === inc.region)
       if (!target) return
       
       const hash = inc.source.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
       const candidates = ADVERSARY_MATRIX[inc.region] || REGIONS.filter(r => r !== inc.region)
       const srcRegion = candidates[hash % candidates.length]
-      const src = MOCK_MAP_POINTS.find(p => p.region === srcRegion) || MOCK_MAP_POINTS[0]
+      const src = projectedNodes.find(p => p.region === srcRegion) || projectedNodes[0]
       
       const key = `${src.region}→${inc.region}`
       if (seen.has(key)) return
       seen.add(key)
-      result.push({
+      calculatedArcs.push({
         id: key,
-        sx: (src.lng + 180) * (260 / 360),
-        sy: (90 - src.lat) * (100 / 180),
-        tx: (target.lng + 180) * (260 / 360),
-        ty: (90 - target.lat) * (100 / 180),
+        sx: src.proj.x, sy: src.proj.y, sFront: src.isFront,
+        tx: target.proj.x, ty: target.proj.y, tFront: target.isFront,
         sev: inc.sev
       })
     })
-    return result.slice(0, 10)
+
+    return { arcs: calculatedArcs.slice(0, 8), nodes: projectedNodes }
   }, [visibleIncidents])
 
   const critCount = visibleIncidents.filter(i => i.sev === 'CRITICAL').length
@@ -277,213 +291,199 @@ const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selecte
         <span className="font-bold uppercase tracking-[0.3em] text-[8px] text-slate-300">Global Threat Vector Map</span>
         <div className="ml-auto flex gap-4 text-[8px] font-mono">
           {critCount > 0 && <span className="text-rose-500">{critCount} CRITICAL</span>}
-          <span className="text-cyan-600">{incidentArcs.length} ACTIVE VECTORS</span>
-          <span className="text-slate-600">GLOBAL MONITORING ACTIVE</span>
+          <span className="text-cyan-600">{arcs.length} ACTIVE VECTORS</span>
+          <span className="text-slate-600">GLOBE MONITORING ACTIVE</span>
         </div>
       </div>
 
-      <div className="flex-1 relative">
-        {/* Core Depth Gradients */}
+      <div className="flex-1 relative flex items-center justify-center">
+        {/* Deep Space Background */}
         <div className="absolute inset-0 pointer-events-none" style={{
-          background: 'radial-gradient(ellipse 90% 75% at 50% 42%, rgba(0,22,42,0.96) 0%, rgba(0,6,16,0.97) 65%, #00020a 100%)'
-        }} />
-        {/* Vignette edges */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          background: 'linear-gradient(to right, #00020a 0%, transparent 12%, transparent 88%, #00020a 100%)'
+          background: 'radial-gradient(ellipse 90% 75% at 50% 50%, rgba(0,18,36,0.92) 0%, rgba(0,4,10,0.98) 55%, #00020a 100%)'
         }} />
         
-        <svg viewBox="0 0 260 100" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 w-full h-full">
+        <svg viewBox="-140 -90 280 180" className="w-full h-full max-h-full">
           <defs>
+            <filter id="glow-intense" x="-100%" y="-100%" width="300%" height="300%">
+              <feGaussianBlur stdDeviation="3.0" result="b1" />
+              <feGaussianBlur stdDeviation="8.0" result="b2" />
+              <feMerge><feMergeNode in="b2" /><feMergeNode in="b1" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
             <filter id="glow-soft" x="-50%" y="-50%" width="200%" height="200%">
               <feGaussianBlur stdDeviation="1.5" result="b" />
               <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
-            <filter id="glow-intense" x="-100%" y="-100%" width="300%" height="300%">
-              <feGaussianBlur stdDeviation="2.5" result="b1" />
-              <feGaussianBlur stdDeviation="6.0" result="b2" />
-              <feMerge>
-                <feMergeNode in="b2" />
-                <feMergeNode in="b1" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-            <filter id="landmass-glow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="1.5" result="blur" />
-              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
+            
+            <radialGradient id="sphere-core" cx="40%" cy="30%" r="70%">
+              <stop offset="0%" stopColor="#0a1d30" stopOpacity="0.9" />
+              <stop offset="60%" stopColor="#020914" stopOpacity="0.98" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="1.0" />
+            </radialGradient>
+            
+            <radialGradient id="sphere-atmosphere" cx="50%" cy="50%" r="50%">
+              <stop offset="88%" stopColor="#0ea5e9" stopOpacity="0" />
+              <stop offset="96%" stopColor="#0c4a6e" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.4" />
+            </radialGradient>
+
+            <radialGradient id="sphere-highlight" cx="30%" cy="25%" r="50%">
+              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.25" />
+              <stop offset="40%" stopColor="#0ea5e9" stopOpacity="0.05" />
+              <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
+            </radialGradient>
           </defs>
 
-          {/* Subtle Global Map Base Form */}
-          <g filter="url(#landmass-glow)" fill="#021221" opacity="0.95">
-            {INFRA_NODES.map(([x, y], i) => (
-              <circle key={`land${i}`} cx={x} cy={y} r="3.0" />
-            ))}
+          {/* BACKGROUND LAYER (Back Hemisphere) */}
+          <g className="back-hemisphere">
+            {/* Subtle Horizon Graticules Only */}
+            <polyline points={getGraticulePath(true, 0, false)} fill="none" stroke="#0ea5e9" opacity="0.08" strokeWidth="0.2" />
+            <polyline points={getGraticulePath(false, 0, false)} fill="none" stroke="#0ea5e9" opacity="0.08" strokeWidth="0.2" />
+            
+            {/* Back Landmass (Blurred footprint) */}
+            <g filter="url(#glow-soft)" opacity="0.3">
+              {INFRA_GEO.map((pt, i) => {
+                const p = projectNode(pt[0], pt[1]);
+                return p.z < 0 ? <circle key={`bl${i}`} cx={p.x} cy={p.y} r="1.5" fill="#02283e" /> : null;
+              })}
+            </g>
+            
+            {/* Back Arcs */}
+            {arcs.map(arc => {
+              if (arc.sFront && arc.tFront) return null;
+              const mx = (arc.sx + arc.tx) / 2, my = (arc.sy + arc.ty) / 2;
+              const dist = Math.hypot(arc.tx - arc.sx, arc.ty - arc.sy);
+              const angle = Math.atan2(arc.ty - arc.sy, arc.tx - arc.sx) - Math.PI/2;
+              const offset = (arc.sx > arc.tx ? 1 : -1) * dist * 0.2;
+              return (
+                <path key={`bkar${arc.id}`} d={`M${arc.sx} ${arc.sy} Q${mx + Math.cos(angle)*offset} ${my + Math.sin(angle)*offset} ${arc.tx} ${arc.ty}`}
+                  fill="none" stroke={arc.sev === 'CRITICAL' ? '#be123c' : '#0369a1'} strokeWidth="0.4" opacity="0.15" strokeDasharray="1.5 3" />
+              );
+            })}
           </g>
 
-          {/* Deep Strategic Grid Lines mapped to lat/lng visually */}
-          <g stroke="#03111f" strokeWidth="0.25" opacity="0.5">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <line key={`gh${i}`} x1="0" y1={(i+1)*10} x2="260" y2={(i+1)*10} />
-            ))}
-            {[26,52,78,104,130,156,182,208,234].map((x, i) => (
-              <line key={`gv${i}`} x1={x} y1="0" x2={x} y2="100" />
-            ))}
-          </g>
+          {/* GLOBE SPHERE */}
+          <circle cx="0" cy="0" r={GLOBE_R} fill="url(#sphere-core)" />
+          <circle cx="0" cy="0" r={GLOBE_R} fill="url(#sphere-highlight)" style={{ pointerEvents: 'none' }} />
+          
+          {/* FRONT LAYER (Front Hemisphere) */}
+          <g className="front-hemisphere">
+            {/* Faint Center Graticules */}
+            <polyline points={getGraticulePath(true, 0, true)} fill="none" stroke="#38bdf8" opacity="0.08" strokeWidth="0.2" />
+            <polyline points={getGraticulePath(false, 0, true)} fill="none" stroke="#38bdf8" opacity="0.08" strokeWidth="0.2" />
 
-          {/* Reference lines — equator + prime meridian */}
-          <line x1="0" y1="50" x2="260" y2="50" stroke="#0077aa" strokeWidth="0.15" opacity="0.12" strokeDasharray="2 6" />
-          <line x1="130" y1="0" x2="130" y2="100" stroke="#0077aa" strokeWidth="0.15" opacity="0.10" strokeDasharray="2 6" />
-
-          {/* Infrastructure Nodes (Pristine Geodesic Dots) */}
-          <g opacity="0.65">
-            {INFRA_NODES.map(([x, y], i) => (
-              <circle key={`in${i}`} cx={x} cy={y} r="0.6" fill="#04324d" />
-            ))}
-          </g>
-
-          {/* Network topology mesh — structural backbone quietly beneath traffic */}
-          <g opacity="0.4">
-            {BACKBONE_LINKS.map(([x1, y1, x2, y2], i) => (
-              <line key={`bb${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#05273b" strokeWidth="0.25" strokeDasharray="1 3" />
-            ))}
-          </g>
-
-          {/* Background baseline traffic — always-on cyan flows on the global mesh */}
-          {BG_TRAFFIC.map((arc, i) => {
-            const mx = (arc.sx + arc.tx) / 2
-            const dist = Math.hypot(arc.tx - arc.sx, arc.ty - arc.sy)
-            const cpy = (arc.sy + arc.ty) / 2 - dist * 0.28
-            return (
-              <path key={`bt${i}`}
-                d={`M${arc.sx} ${arc.sy} Q${mx} ${cpy} ${arc.tx} ${arc.ty}`}
-                fill="none" stroke="#0ea5e9" strokeWidth="0.5"
-                strokeDasharray="6 320" strokeLinecap="round"
-                style={{
-                  animation: `bgTrafficFlow ${arc.dur}s linear ${arc.delay}s infinite`,
-                  filter: 'drop-shadow(0 0 1px rgba(14,165,233,0.5))'
-                }}
-              />
-            )
-          })}
-
-          {/* Active Incident Arcs (Threat Flow) */}
-          {incidentArcs.map((arc, i) => {
-            const mx = (arc.sx + arc.tx) / 2
-            const my = (arc.sy + arc.ty) / 2
-            const dist = Math.hypot(arc.tx - arc.sx, arc.ty - arc.sy)
+            {/* Front Landmass Base Glow */}
+            <g filter="url(#glow-soft)" opacity="0.3">
+              {INFRA_GEO.map((pt, i) => {
+                const p = projectNode(pt[0], pt[1]);
+                return p.z >= 0 ? <circle key={`flBase${i}`} cx={p.x} cy={p.y} r="2.0" fill="#024068" /> : null;
+              })}
+            </g>
             
-            // Geographic curved arcs (ballistic trajectories)
-            const offset = (arc.sx > arc.tx ? 1 : -1) * dist * 0.3
-            const cpx = mx - (arc.ty - arc.sy) * (offset / dist)
-            const cpy = my + (arc.tx - arc.sx) * (offset / dist)
-            
-            const color = arc.sev === 'CRITICAL' ? '#f43f5e' : '#f59e0b'
-            const dur = arc.sev === 'CRITICAL' ? 1.2 : 1.8
-            
-            return (
-              <g key={`arc${arc.id}`}>
-                {/* Elegant Arc Target Footprint */}
-                {arc.sev === 'CRITICAL' && (
-                  <circle cx={arc.tx} cy={arc.ty} r="22" fill="none" stroke={color} strokeWidth="0.25" opacity="0.15" 
-                    style={{ animation: `nodeRingPulse ${dur * 1.5}s ease-out infinite` }} />
-                )}
+            {/* Front Landmass Solid Dots */}
+            {INFRA_GEO.map((pt, i) => {
+              const p = projectNode(pt[0], pt[1]);
+              return p.z >= 0 ? <circle key={`fl${i}`} cx={p.x} cy={p.y} r="0.6" fill="#0ea5e9" opacity="0.4" /> : null;
+            })}
 
-                {/* Arc Shadow/Trail */}
-                <path d={`M${arc.sx} ${arc.sy} Q${cpx} ${cpy} ${arc.tx} ${arc.ty}`}
-                  fill="none" stroke={color} strokeWidth={arc.sev === 'CRITICAL' ? '0.6' : '0.3'} opacity="0.25"
-                  filter="url(#glow-soft)"
-                />
+            {/* Attack Arcs */}
+            {arcs.map((arc, i) => {
+              if (!arc.sFront && !arc.tFront) return null; // Entirely in back
+              
+              const mx = (arc.sx + arc.tx) / 2;
+              const my = (arc.sy + arc.ty) / 2;
+              const dist = Math.hypot(arc.tx - arc.sx, arc.ty - arc.sy);
+              
+              // 3D Orbital curve simulation
+              const angle = Math.atan2(arc.ty - arc.sy, arc.tx - arc.sx) - Math.PI/2;
+              const offset = (arc.sx > arc.tx ? 1 : -1) * dist * 0.35;
+              const cpx = mx + Math.cos(angle) * offset;
+              const cpy = my + Math.sin(angle) * offset;
+              
+              const color = arc.sev === 'CRITICAL' ? '#f43f5e' : '#f59e0b';
+              const dur = arc.sev === 'CRITICAL' ? 1.4 : 2.0;
 
-                {/* Intense Attack Projectile */}
-                <path d={`M${arc.sx} ${arc.sy} Q${cpx} ${cpy} ${arc.tx} ${arc.ty}`}
-                  fill="none" stroke={color}
-                  strokeWidth={arc.sev === 'CRITICAL' ? '1.8' : '1.0'}
-                  strokeDasharray={`${arc.sev === 'CRITICAL' ? 15 : 10} 400`} strokeLinecap="round"
-                  style={{
-                    animation: `arcFlow ${dur}s cubic-bezier(0.4, 0, 0.2, 1) ${(i*0.35).toFixed(2)}s infinite`,
-                    filter: arc.sev === 'CRITICAL' ? 'url(#glow-intense)' : 'url(#glow-soft)'
-                  }}
-                />
-              </g>
-            )
-          })}
-
-          {/* Primary Command Nodes (Geographically Placed) */}
-          {MOCK_MAP_POINTS.map(pt => {
-            const x = (pt.lng + 180) * (260 / 360)
-            const y = (90 - pt.lat) * (100 / 180)
-            const regionInc = visibleIncidents.filter(i => i.region === pt.region)
-            const hasCrit = regionInc.some(i => i.sev === 'CRITICAL')
-            const hasHigh = regionInc.some(i => i.sev === 'HIGH')
-            const isActive = (activeIncidentId != null && regionInc.some(i => i.id === activeIncidentId)) || selectedEventRegion === pt.region
-            const isFiltered = mapFilter === pt.region
-            
-            const color = hasCrit ? '#f43f5e' : hasHigh ? '#f59e0b' : regionInc.length > 0 ? '#eab308' : isFiltered ? '#22d3ee' : '#0ea5e9'
-            const isTarget = regionInc.length > 0
-            const glowFilter = hasCrit ? 'url(#glow-intense)' : isActive || isFiltered ? 'url(#glow-soft)' : undefined
-            
-            return (
-              <g key={pt.region} onClick={() => onMapClick(pt.region)} style={{ cursor: 'crosshair' }} className="transition-all duration-300">
-                
-                {/* Premium Critical Imprint (No game-like spinning) */}
-                {hasCrit && (
-                  <>
-                    <circle cx={x} cy={y} r="15" fill="#f43f5e" opacity="0.06" filter="url(#glow-intense)" />
-                    <circle cx={x} cy={y} r="12" fill="none" stroke="#f43f5e" strokeWidth="0.3" opacity="0.4" style={{ animation: 'nodeRingPulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite' }} />
-                  </>
-                )}
-                
-                {/* Wide soft glow area for Active / Impacted Nodes */}
-                {(hasCrit || isActive) && (
-                  <circle cx={x} cy={y} r={hasCrit ? 9 : 6} fill={color} opacity="0.15" filter="url(#glow-intense)" />
-                )}
-                
-                {/* Primary Outer Shell */}
-                <circle cx={x} cy={y} r={isTarget || isActive || isFiltered ? 5.5 : 4.0} fill="none" stroke={color} strokeWidth="0.6" opacity={isTarget ? 0.9 : 0.4} filter={glowFilter} />
-                
-                {/* Inner Core */}
-                <circle cx={x} cy={y} r={2.5} fill={color} opacity={isTarget || isActive ? 1 : 0.4} filter={glowFilter} />
-                
-                {/* Deep Core Center */}
-                <rect x={x-0.8} y={y-0.8} width="1.6" height="1.6" fill="#ffffff" opacity={isTarget ? 1 : 0.3} />
-                
-                {/* Crosshair accents */}
-                {(isTarget || isActive || isFiltered) && (
-                  <g stroke={color} strokeWidth="0.4" opacity="0.8">
-                    <line x1={x-7} y1={y} x2={x+7} y2={y} />
-                    <line x1={x} y1={y-7} x2={x} y2={y+7} />
-                  </g>
-                )}
-
-                {/* Tactical Label Group */}
-                <g style={{ pointerEvents: 'none' }}>
-                  {isFiltered && (
-                    <rect x={x - 14} y={y - 12} width="28" height="6" fill="#001829" stroke="#22d3ee" strokeWidth="0.2" opacity="0.9" rx="1" />
-                  )}
-                  <text x={x} y={y - 7} textAnchor="middle"
-                    fontSize="3.8" fontFamily="monospace" 
-                    fontWeight={isTarget || isActive || isFiltered ? "bold" : "normal"}
-                    letterSpacing="0.4"
-                    fill={isFiltered ? '#22d3ee' : hasCrit ? '#ffb3c1' : isTarget ? '#fde68a' : '#94a3b8'}
-                    style={{ textShadow: isTarget || hasCrit ? `0 0 3px ${color}` : '0 0 1px #000' }}>
-                    {pt.region}
-                  </text>
+              return (
+                <g key={`Farc${arc.id}`}>
+                  {/* Arc Orbit Shadow Loop */}
+                  <path d={`M${arc.sx} ${arc.sy} Q${cpx} ${cpy} ${arc.tx} ${arc.ty}`}
+                    fill="none" stroke={color} strokeWidth={arc.sev === 'CRITICAL' ? '0.4' : '0.2'} opacity="0.15" />
                   
-                  {regionInc.length > 0 && (
-                    <text x={x} y={y + 8.5} textAnchor="middle" fontSize="3.0" fontFamily="monospace" fontWeight="bold" fill={hasCrit ? '#f43f5e' : '#f59e0b'}>
-                      [{regionInc.length} IMPACT]
-                    </text>
-                  )}
+                  {/* Active 3D Projectile */}
+                  <path d={`M${arc.sx} ${arc.sy} Q${cpx} ${cpy} ${arc.tx} ${arc.ty}`}
+                    fill="none" stroke={color}
+                    strokeWidth={arc.sev === 'CRITICAL' ? '1.5' : '1.0'}
+                    strokeDasharray={`${arc.sev === 'CRITICAL' ? 15 : 10} 250`} strokeLinecap="round"
+                    style={{
+                      animation: `arcFlow ${dur}s cubic-bezier(0.3, 0.1, 0.7, 1) ${(i*0.35).toFixed(2)}s infinite`
+                    }}
+                    filter="url(#glow-intense)"
+                  />
                 </g>
-              </g>
-            )
-          })}
+              )
+            })}
+
+            {/* Hub Nodes (Projected to Front) */}
+            {nodes.filter(n => n.isFront).map(pt => {
+              const x = pt.proj.x;
+              const y = pt.proj.y;
+              const regionInc = visibleIncidents.filter(i => i.region === pt.region)
+              const hasCrit = regionInc.some(i => i.sev === 'CRITICAL')
+              const hasHigh = regionInc.some(i => i.sev === 'HIGH')
+              const isActive = (activeIncidentId != null && regionInc.some(i => i.id === activeIncidentId)) || selectedEventRegion === pt.region
+              const isTarget = regionInc.length > 0;
+              const isFiltered = mapFilter === pt.region;
+              
+              const color = hasCrit ? '#f43f5e' : hasHigh ? '#f59e0b' : regionInc.length > 0 ? '#eab308' : isFiltered ? '#22d3ee' : '#38bdf8';
+
+              return (
+                <g key={pt.region} onClick={() => onMapClick(pt.region)} style={{ cursor: 'crosshair' }} className="transition-all duration-300">
+                  {/* Intense Critical Glow & Slow Orbital Ping */}
+                  {hasCrit && (
+                    <>
+                      <circle cx={x} cy={y} r="12" fill="#f43f5e" opacity="0.15" filter="url(#glow-intense)" />
+                      <circle cx={x} cy={y} r="8" fill="none" stroke="#f43f5e" strokeWidth="0.3" opacity="0.6" style={{ animation: 'nodeRingPulse 2.5s ease-out infinite' }} />
+                    </>
+                  )}
+                  
+                  {/* Holographic Base Footprint */}
+                  <circle cx={x} cy={y} r={3} fill={color} opacity={0.15} filter="url(#glow-intense)" />
+                  <circle cx={x} cy={y} r={isTarget || isActive || isFiltered ? 1.5 : 0.8} fill={color} opacity={isTarget || isActive || isFiltered ? 1.0 : 0.4} />
+                  
+                  {/* Edge Highlighting */}
+                  {(isTarget || isActive) && <rect x={x-0.5} y={y-0.5} width="1" height="1" fill="#ffffff" opacity="0.9" />}
+
+                  {/* Premium Elegant Labeling */}
+                  <g style={{ pointerEvents: 'none' }}>
+                     {(isTarget || isActive || isFiltered) && (
+                      <path d={`M${x+1.5} ${y-1.5} L${x+4} ${y-4} L${x+10} ${y-4}`} fill="none" stroke={color} strokeWidth="0.25" opacity="0.6" />
+                     )}
+                     <text x={(isTarget || isActive || isFiltered) ? x+10.5 : x} y={(isTarget || isActive || isFiltered) ? y-3.5 : y-3} textAnchor={(isTarget || isActive || isFiltered) ? "start" : "middle"}
+                      fontSize={(isTarget || isActive || isFiltered) ? "2.6" : "2.0"} fontFamily="sans-serif" 
+                      fontWeight={(isTarget || isActive || isFiltered) ? "600" : "400"}
+                      letterSpacing="0.2"
+                      fill={hasCrit ? '#fca5a5' : isTarget ? '#fef08a' : isFiltered ? '#7dd3fc' : '#64748b'}
+                      style={{ textShadow: (isTarget || hasCrit) ? '0 1px 2px rgba(0,0,0,0.8)' : 'none' }}>
+                      {pt.region}
+                    </text>
+                  </g>
+                </g>
+              )
+            })}
+          </g>
+
+          {/* Globe Surface Outer Atmosphere & Shine */}
+          <circle cx="0" cy="0" r={GLOBE_R} fill="url(#sphere-atmosphere)" style={{ pointerEvents: 'none' }} />
+          
+          {/* Subtle Outer Boundary Ring */}
+          <circle cx="0" cy="0" r={GLOBE_R+1} fill="none" stroke="#0ea5e9" strokeWidth="0.3" opacity="0.2" filter="url(#glow-intense)" style={{ pointerEvents: 'none' }} />
+
         </svg>
       </div>
     </section>
   )
 })
 GlobalMapPanel.displayName = 'GlobalMapPanel'
+
 
 
 
