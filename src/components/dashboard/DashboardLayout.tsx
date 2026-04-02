@@ -1,6 +1,6 @@
 'use client'
 
-import React, { ReactNode, useEffect, useState, useMemo, useCallback } from 'react'
+import React, { ReactNode, useEffect, useState, useMemo, useCallback, useRef } from 'react'
 
 // ============================================================================
 // TYPES & CONSTANTS 
@@ -211,271 +211,228 @@ const ADVERSARY_MATRIX: Record<string, string[]> = {
   'CN-PEK':  ['US-EAST', 'JP-TYO', 'SG-SIN'],
 }
 
-// ─── 3D ORTHOGRAPHIC PROJECTION ─────────────────────────────────────────────
-const GLOBE_R = 90;
-const CENTER_LNG = 10;
-const CENTER_LAT = 20;
-
-function projectNode(lng: number, lat: number) {
-  const lambda = (lng - CENTER_LNG) * (Math.PI / 180);
-  const phi = lat * (Math.PI / 180);
-  const phi0 = CENTER_LAT * (Math.PI / 180);
-
-  const x = Math.cos(phi) * Math.sin(lambda);
-  const y = Math.cos(phi0) * Math.sin(phi) - Math.sin(phi0) * Math.cos(phi) * Math.cos(lambda);
-  const z = Math.sin(phi0) * Math.sin(phi) + Math.cos(phi0) * Math.cos(phi) * Math.cos(lambda);
-
-  return { x: x * GLOBE_R, y: -y * GLOBE_R, z }; // z < 0 is back hemisphere
-}
-
-function getGraticulePath(isLat: boolean, val: number, isFront: boolean) {
-  const pts = [];
-  if (isLat) {
-    for (let lng = -180; lng <= 180; lng += 4) {
-      const p = projectNode(lng, val);
-      if ((isFront && p.z >= 0) || (!isFront && p.z < 0)) pts.push(`${p.x},${p.y}`);
-    }
-  } else {
-    for (let lat = -90; lat <= 90; lat += 4) {
-      const p = projectNode(val, lat);
-      if ((isFront && p.z >= 0) || (!isFront && p.z < 0)) pts.push(`${p.x},${p.y}`);
-    }
-  }
-  return pts.join(' ');
-}
-
-const LAT_LINES = [-60, -30, 0, 30, 60];
-const LNG_LINES = [-180, -150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150];
-
-// Pre-calculate static globe structures for extreme performance
-const PROJECTED_INFRA_FRONT = INFRA_GEO.map(pt => projectNode(pt[0], pt[1])).filter(p => p.z >= 0);
-const PROJECTED_INFRA_BACK = INFRA_GEO.map(pt => projectNode(pt[0], pt[1])).filter(p => p.z < 0);
-
+// ─── 3D CESIUM GLOBE IMPLEMENTATION ───────────────────────────────────────────
 const GlobalMapPanel = React.memo(({ visibleIncidents, activeIncidentId, selectedEventRegion, mapFilter, onMapClick }: { visibleIncidents: Incident[], activeIncidentId: string | null, selectedEventRegion: string | null, mapFilter: string | null, onMapClick: (r: string) => void }) => {
-  const { arcs, nodes } = useMemo(() => {
-    const projectedNodes = MOCK_MAP_POINTS.map(pt => ({
-      ...pt,
-      proj: projectNode(pt.lng, pt.lat),
-      isFront: projectNode(pt.lng, pt.lat).z >= -0.05
-    }))
+  const containerRef = useRef<HTMLDivElement>(null)
+  const viewerRef = useRef<any>(null)
+  const arcsSourceRef = useRef<any>(null)
 
-    const seen = new Set<string>()
-    const calculatedArcs: Array<{ id: string; sx: number; sy: number; tx: number; ty: number; sev: Severity; sFront: boolean; tFront: boolean }> = []
+  useEffect(() => {
+    if (viewerRef.current) return;
     
-    visibleIncidents.slice(0, 6).forEach(inc => {
-      const target = projectedNodes.find(p => p.region === inc.region)
-      if (!target) return
-      
-      const hash = inc.source.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-      const candidates = ADVERSARY_MATRIX[inc.region] || REGIONS.filter(r => r !== inc.region)
-      const srcRegion = candidates[hash % candidates.length]
-      const src = projectedNodes.find(p => p.region === srcRegion) || projectedNodes[0]
-      
-      const key = `${src.region}→${inc.region}`
-      if (seen.has(key)) return
-      seen.add(key)
-      calculatedArcs.push({
-        id: key,
-        sx: src.proj.x, sy: src.proj.y, sFront: src.isFront,
-        tx: target.proj.x, ty: target.proj.y, tFront: target.isFront,
-        sev: inc.sev
-      })
-    })
+    let isMounted = true;
 
-    return { arcs: calculatedArcs.slice(0, 4), nodes: projectedNodes }
-  }, [visibleIncidents])
+    const initViewer = () => {
+      const Cesium = (window as any).Cesium;
+      if (!Cesium || !containerRef.current || !isMounted) return;
+      
+      Cesium.Ion.defaultAccessToken = ""; // Prevent default Ion imagery error/watermark
 
-  const critCount = visibleIncidents.filter(i => i.sev === 'CRITICAL').length
+      const viewer = new Cesium.Viewer(containerRef.current, {
+        animation: false,
+        baseLayerPicker: false,
+        fullscreenButton: false,
+        vrButton: false,
+        geocoder: false,
+        homeButton: false,
+        infoBox: false,
+        sceneModePicker: false,
+        selectionIndicator: false,
+        timeline: false,
+        navigationHelpButton: false,
+        navigationInstructionsInitiallyVisible: false,
+        skyAtmosphere: false,
+        shouldAnimate: true, // Needed for glows/materials
+        baseLayer: new Cesium.ImageryLayer(new Cesium.UrlTemplateImageryProvider({
+            url: 'https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png',
+            credit: ''
+        }))
+      });
+
+      viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#02040a');
+      viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#00020a');
+      viewer.scene.highDynamicRange = false;
+      viewer.scene.globe.showWaterEffect = false;
+      viewer.scene.moon.show = false;
+      viewer.scene.sun.show = false;
+      viewer.scene.skyBox.show = false;
+      
+      // Hide bottom credits for cyber dashboard look
+      const copyEl = viewer.cesiumWidget.creditContainer;
+      if (copyEl) (copyEl as HTMLElement).style.display = 'none';
+
+      // Restrict camera for pure UI presentation mode
+      viewer.scene.screenSpaceCameraController.enableTilt = false;
+      viewer.scene.screenSpaceCameraController.enableCollisionDetection = false;
+      viewer.scene.screenSpaceCameraController.maximumZoomDistance = 35000000;
+      viewer.scene.screenSpaceCameraController.minimumZoomDistance = 8000000;
+      
+      const baseDataSource = new Cesium.CustomDataSource('baseNodes');
+      viewer.dataSources.add(baseDataSource);
+      
+      // Draw primary infrastructure regions mapped straight to the globe
+      MOCK_MAP_POINTS.forEach(pt => {
+         baseDataSource.entities.add({
+            id: `node-${pt.region}`,
+            position: Cesium.Cartesian3.fromDegrees(pt.lng, pt.lat, 0),
+            point: {
+               pixelSize: 6,
+               color: Cesium.Color.fromCssColorString('#0ea5e9').withAlpha(0.6),
+               outlineColor: Cesium.Color.fromCssColorString('#38bdf8'),
+               outlineWidth: 1.5,
+               disableDepthTestDistance: Number.POSITIVE_INFINITY
+            },
+            label: {
+               text: pt.region,
+               font: '700 11px sans-serif',
+               fillColor: Cesium.Color.fromCssColorString('#94a3b8'),
+               pixelOffset: new Cesium.Cartesian2(12, -12),
+               showBackground: true,
+               backgroundColor: Cesium.Color.fromCssColorString('#000408').withAlpha(0.7),
+               disableDepthTestDistance: Number.POSITIVE_INFINITY
+            }
+         });
+      });
+
+      arcsSourceRef.current = new Cesium.CustomDataSource('arcs');
+      viewer.dataSources.add(arcsSourceRef.current);
+
+      viewer.camera.setView({
+        destination: Cesium.Cartesian3.fromDegrees(20, 25, 23000000)
+      });
+
+      // Pass clicks up to the same React dashboard state
+      const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+      handler.setInputAction(function (click: any) {
+         const pickedObject = viewer.scene.pick(click.position);
+         if (Cesium.defined(pickedObject) && pickedObject.id && pickedObject.id.id) {
+            const id = pickedObject.id.id;
+            if (id.startsWith('node-')) {
+               onMapClick(id.replace('node-', ''));
+            }
+         }
+      }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+      viewerRef.current = viewer;
+    };
+
+    // Dynamically inject the engine without polluting Webpack / Next config
+    if (!(window as any).Cesium) {
+       const link = document.createElement('link');
+       link.rel = 'stylesheet';
+       link.href = 'https://cesium.com/downloads/cesiumjs/releases/1.120/Build/Cesium/Widgets/widgets.css';
+       document.head.appendChild(link);
+
+       const script = document.createElement('script');
+       script.src = 'https://cesium.com/downloads/cesiumjs/releases/1.120/Build/Cesium/Cesium.js';
+       script.onload = initViewer;
+       document.head.appendChild(script);
+    } else {
+       initViewer();
+    }
+
+    return () => {
+       isMounted = false;
+       if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+          viewerRef.current.destroy();
+          viewerRef.current = null;
+       }
+    };
+  }, [onMapClick]);
+
+  // Stable Threat Data Renderer Hook - Isolated absolutely from globe engine resets
+  useEffect(() => {
+    if (!viewerRef.current || !arcsSourceRef.current) return;
+    const Cesium = (window as any).Cesium;
+    const arcsSource = arcsSourceRef.current;
+    
+    // Minimal atomic clear instead of full unmount
+    arcsSource.entities.removeAll();
+
+    const seen = new Set<string>();
+    let count = 0;
+
+    visibleIncidents.forEach(inc => {
+      // Throttle concurrent active arcs for performance
+      if (count >= 6) return;
+
+      const target = MOCK_MAP_POINTS.find(p => p.region === inc.region);
+      if (!target) return;
+
+      const hash = inc.source.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+      const candidates = ADVERSARY_MATRIX[inc.region] || REGIONS.filter(r => r !== inc.region);
+      const srcRegion = candidates[hash % candidates.length];
+      const src = MOCK_MAP_POINTS.find(p => p.region === srcRegion) || MOCK_MAP_POINTS[0];
+
+      const key = `${src.region}→${inc.region}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      count++;
+
+      const isCrit = inc.sev === 'CRITICAL';
+      const color = isCrit ? Cesium.Color.fromCssColorString('#f43f5e') : Cesium.Color.fromCssColorString('#f59e0b');
+
+      if (isCrit) {
+         arcsSource.entities.add({
+             position: Cesium.Cartesian3.fromDegrees(target.lng, target.lat, 0),
+             ellipse: {
+                 semiMinorAxis: 450000.0,
+                 semiMajorAxis: 450000.0,
+                 material: new Cesium.ColorMaterialProperty(color.withAlpha(0.15)),
+                 outline: true,
+                 outlineColor: color.withAlpha(0.6),
+                 outlineWidth: 2
+             }
+         });
+      }
+
+      // Generate accurate 3D orbital parabolic path
+      const startCart = Cesium.Cartographic.fromDegrees(src.lng, src.lat);
+      const endCart = Cesium.Cartographic.fromDegrees(target.lng, target.lat);
+      const geodesic = new Cesium.EllipsoidGeodesic(startCart, endCart);
+      const fraction = 32;
+      const arcHeight = geodesic.surfaceDistance / 3.5;
+
+      const curvePoints = [];
+      for (let j = 0; j <= fraction; j++) {
+         const ptCart = geodesic.interpolateUsingFraction(j / fraction);
+         ptCart.height = Math.sin((j / fraction) * Math.PI) * arcHeight;
+         curvePoints.push(Cesium.Cartographic.toCartesian(ptCart));
+      }
+
+      arcsSource.entities.add({
+         polyline: {
+            positions: curvePoints,
+            width: isCrit ? 2.5 : 1.5,
+            material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.25,
+                taperPower: 1,
+                color: color
+            })
+         }
+      });
+    });
+
+  }, [visibleIncidents]);
+
+  const critCount = visibleIncidents.filter(i => i.sev === 'CRITICAL').length;
 
   return (
     <section className="flex-none h-[45vh] border border-[#1a1c23] bg-[#00020a] flex flex-col relative overflow-hidden shadow-2xl">
-      {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-30 flex items-center gap-2 px-3 py-1.5 bg-gradient-to-b from-[#000408]/95 to-transparent pointer-events-none border-b border-[#0f1b2b]/30">
         <span className="w-1.5 h-1.5 bg-rose-600 animate-pulse flex-none shadow-[0_0_8px_theme(colors.rose.600)]" />
         <span className="font-bold uppercase tracking-[0.3em] text-[8px] text-slate-300">Global Threat Vector Map</span>
         <div className="ml-auto flex gap-4 text-[8px] font-mono">
           {critCount > 0 && <span className="text-rose-500">{critCount} CRITICAL</span>}
-          <span className="text-cyan-600">{arcs.length} ACTIVE VECTORS</span>
+          <span className="text-cyan-600">LIVE CESIUM 3D</span>
           <span className="text-slate-600">GLOBE MONITORING ACTIVE</span>
         </div>
       </div>
-
-      <div className="flex-1 relative flex items-center justify-center">
-        {/* Deep Space Background */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          background: 'radial-gradient(ellipse 90% 75% at 50% 50%, rgba(0,18,36,0.92) 0%, rgba(0,4,10,0.98) 55%, #00020a 100%)'
-        }} />
-        
-        <svg viewBox="-140 -90 280 180" className="w-full h-full max-h-full">
-          <defs>
-            <filter id="glow-intense" x="-100%" y="-100%" width="300%" height="300%">
-              <feGaussianBlur stdDeviation="3.0" result="b1" />
-              <feGaussianBlur stdDeviation="8.0" result="b2" />
-              <feMerge><feMergeNode in="b2" /><feMergeNode in="b1" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
-            <filter id="glow-soft" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="1.5" result="b" />
-              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
-            
-            <radialGradient id="sphere-core" cx="35%" cy="30%" r="65%">
-              <stop offset="0%" stopColor="#0f4577" stopOpacity="0.85" />
-              <stop offset="50%" stopColor="#051c33" stopOpacity="0.95" />
-              <stop offset="100%" stopColor="#01060d" stopOpacity="1.0" />
-            </radialGradient>
-            
-            <radialGradient id="sphere-atmosphere" cx="50%" cy="50%" r="50%">
-              <stop offset="84%" stopColor="#0ea5e9" stopOpacity="0" />
-              <stop offset="95%" stopColor="#0369a1" stopOpacity="0.35" />
-              <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.65" />
-            </radialGradient>
-
-            <radialGradient id="sphere-highlight" cx="30%" cy="25%" r="50%">
-              <stop offset="0%" stopColor="#7dd3fc" stopOpacity="0.45" />
-              <stop offset="40%" stopColor="#0ea5e9" stopOpacity="0.05" />
-              <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-
-          {/* BACKGROUND LAYER (Back Hemisphere) */}
-          <g className="back-hemisphere">
-            {/* Subtle Horizon Graticules Only */}
-            <polyline points={getGraticulePath(true, 0, false)} fill="none" stroke="#0ea5e9" opacity="0.08" strokeWidth="0.2" />
-            <polyline points={getGraticulePath(false, 0, false)} fill="none" stroke="#0ea5e9" opacity="0.08" strokeWidth="0.2" />
-            
-            {/* Back Landmass (Optimized static paths) */}
-            <g opacity="0.6">
-              {PROJECTED_INFRA_BACK.map((p, i) => <circle key={`bl${i}`} cx={p.x} cy={p.y} r="1.2" fill="#0c4a6e" />)}
-            </g>
-            
-            {/* Back Arcs */}
-            {arcs.map(arc => {
-              if (arc.sFront && arc.tFront) return null;
-              const mx = (arc.sx + arc.tx) / 2, my = (arc.sy + arc.ty) / 2;
-              const dist = Math.hypot(arc.tx - arc.sx, arc.ty - arc.sy);
-              const angle = Math.atan2(arc.ty - arc.sy, arc.tx - arc.sx) - Math.PI/2;
-              const offset = (arc.sx > arc.tx ? 1 : -1) * dist * 0.2;
-              return (
-                <path key={`bkar${arc.id}`} d={`M${arc.sx} ${arc.sy} Q${mx + Math.cos(angle)*offset} ${my + Math.sin(angle)*offset} ${arc.tx} ${arc.ty}`}
-                  fill="none" stroke={arc.sev === 'CRITICAL' ? '#be123c' : '#0369a1'} strokeWidth="0.4" opacity="0.15" strokeDasharray="1.5 3" />
-              );
-            })}
-          </g>
-
-          {/* GLOBE SPHERE */}
-          <circle cx="0" cy="0" r={GLOBE_R} fill="url(#sphere-core)" />
-          <circle cx="0" cy="0" r={GLOBE_R} fill="url(#sphere-highlight)" style={{ pointerEvents: 'none' }} />
-          
-          {/* FRONT LAYER (Front Hemisphere) */}
-          <g className="front-hemisphere">
-            {/* Faint Center Graticules */}
-            <polyline points={getGraticulePath(true, 0, true)} fill="none" stroke="#38bdf8" opacity="0.08" strokeWidth="0.2" />
-            <polyline points={getGraticulePath(false, 0, true)} fill="none" stroke="#38bdf8" opacity="0.08" strokeWidth="0.2" />
-
-            {/* Front Landmass Solid Dots (Optimized static mapping) */}
-            {PROJECTED_INFRA_FRONT.map((p, i) => (
-              <g key={`flF${i}`} opacity="0.95">
-                <circle cx={p.x} cy={p.y} r="2.2" fill="#004e8a" opacity="0.35" />
-                <circle cx={p.x} cy={p.y} r="0.8" fill="#38bdf8" opacity="0.85" />
-              </g>
-            ))}
-
-            {/* Attack Arcs */}
-            {arcs.map((arc, i) => {
-              if (!arc.sFront && !arc.tFront) return null; // Entirely in back
-              
-              const mx = (arc.sx + arc.tx) / 2;
-              const my = (arc.sy + arc.ty) / 2;
-              const dist = Math.hypot(arc.tx - arc.sx, arc.ty - arc.sy);
-              
-              // 3D Orbital curve simulation
-              const angle = Math.atan2(arc.ty - arc.sy, arc.tx - arc.sx) - Math.PI/2;
-              const offset = (arc.sx > arc.tx ? 1 : -1) * dist * 0.35;
-              const cpx = mx + Math.cos(angle) * offset;
-              const cpy = my + Math.sin(angle) * offset;
-              
-              const color = arc.sev === 'CRITICAL' ? '#f43f5e' : '#f59e0b';
-              const dur = arc.sev === 'CRITICAL' ? 1.4 : 2.0;
-
-              return (
-                <g key={`Farc${arc.id}`}>
-                  {/* Arc Orbit Baseline (Clearer track) */}
-                  <path d={`M${arc.sx} ${arc.sy} Q${cpx} ${cpy} ${arc.tx} ${arc.ty}`}
-                    fill="none" stroke={color} strokeWidth={arc.sev === 'CRITICAL' ? '0.8' : '0.4'} opacity="0.25" />
-                  
-                  {/* Active 3D Projectile (Hardware optimized, high visibility) */}
-                  <path d={`M${arc.sx} ${arc.sy} Q${cpx} ${cpy} ${arc.tx} ${arc.ty}`}
-                    fill="none" stroke={color}
-                    strokeWidth={arc.sev === 'CRITICAL' ? '2.5' : '1.8'}
-                    strokeDasharray={`${arc.sev === 'CRITICAL' ? 15 : 10} 250`} strokeLinecap="round"
-                    opacity="0.95"
-                    style={{
-                      animation: `arcFlow ${dur}s cubic-bezier(0.3, 0.1, 0.7, 1) ${(i*0.35).toFixed(2)}s infinite`
-                    }}
-                  />
-                </g>
-              )
-            })}
-
-            {/* Hub Nodes (Projected to Front) */}
-            {nodes.filter(n => n.isFront).map(pt => {
-              const x = pt.proj.x;
-              const y = pt.proj.y;
-              const regionInc = visibleIncidents.filter(i => i.region === pt.region)
-              const hasCrit = regionInc.some(i => i.sev === 'CRITICAL')
-              const hasHigh = regionInc.some(i => i.sev === 'HIGH')
-              const isActive = (activeIncidentId != null && regionInc.some(i => i.id === activeIncidentId)) || selectedEventRegion === pt.region
-              const isTarget = regionInc.length > 0;
-              const isFiltered = mapFilter === pt.region;
-              
-              const color = hasCrit ? '#f43f5e' : hasHigh ? '#f59e0b' : regionInc.length > 0 ? '#eab308' : isFiltered ? '#22d3ee' : '#38bdf8';
-
-              return (
-                <g key={pt.region} onClick={() => onMapClick(pt.region)} style={{ cursor: 'crosshair' }} className="transition-all duration-300">
-                  {/* Optimized Critical Target Pulses */}
-                  {hasCrit && (
-                    <>
-                      <circle cx={x} cy={y} r="10" fill="#f43f5e" opacity="0.2" />
-                      <circle cx={x} cy={y} r="16" fill="#f43f5e" opacity="0.08" />
-                      <circle cx={x} cy={y} r="8" fill="none" stroke="#f43f5e" strokeWidth="0.4" opacity="0.8" style={{ animation: 'nodeRingPulse 2.5s ease-out infinite' }} />
-                    </>
-                  )}
-                  
-                  {/* Clean Holographic Base */}
-                  <circle cx={x} cy={y} r={5} fill={color} opacity={0.35} />
-                  <circle cx={x} cy={y} r={isTarget || isActive || isFiltered ? 2.2 : 1.2} fill={color} opacity={1.0} />
-                  
-                  {/* Edge Highlighting */}
-                  {(isTarget || isActive) && <rect x={x-0.8} y={y-0.8} width="1.6" height="1.6" fill="#ffffff" opacity="0.9" />}
-
-                  {/* Premium Elegant Labeling */}
-                  <g style={{ pointerEvents: 'none' }}>
-                     {(isTarget || isActive || isFiltered) && (
-                      <path d={`M${x+2} ${y-2} L${x+5} ${y-5} L${x+12} ${y-5}`} fill="none" stroke={color} strokeWidth="0.4" opacity="0.8" />
-                     )}
-                     <text x={(isTarget || isActive || isFiltered) ? x+12.5 : x} y={(isTarget || isActive || isFiltered) ? y-4.5 : y-4} textAnchor={(isTarget || isActive || isFiltered) ? "start" : "middle"}
-                      fontSize={(isTarget || isActive || isFiltered) ? "3.2" : "2.5"} fontFamily="sans-serif" 
-                      fontWeight={(isTarget || isActive || isFiltered) ? "600" : "500"}
-                      letterSpacing="0.2"
-                      fill={hasCrit ? '#ffb3c1' : isTarget ? '#fde68a' : isFiltered ? '#7dd3fc' : '#cbd5e1'}
-                      style={{ textShadow: (isTarget || hasCrit) ? '0 1px 3px rgba(0,0,0,0.9)' : '0 1px 2px rgba(0,0,0,0.8)' }}>
-                      {pt.region}
-                    </text>
-                  </g>
-                </g>
-              )
-            })}
-          </g>
-
-          {/* Globe Surface Outer Atmosphere & Shine */}
-          <circle cx="0" cy="0" r={GLOBE_R} fill="url(#sphere-atmosphere)" style={{ pointerEvents: 'none' }} />
-          
-          {/* Subtle Outer Boundary Ring */}
-          <circle cx="0" cy="0" r={GLOBE_R+1} fill="none" stroke="#0ea5e9" strokeWidth="0.4" opacity="0.3" style={{ pointerEvents: 'none' }} />
-          <circle cx="0" cy="0" r={GLOBE_R+2} fill="none" stroke="#0ea5e9" strokeWidth="1.5" opacity="0.05" style={{ pointerEvents: 'none' }} />
-
-        </svg>
-      </div>
+      <div ref={containerRef} className="flex-1 w-full h-full relative" />
+      {/* Fallback Vignette for UI Depth Integration */}
+      <div className="absolute inset-0 pointer-events-none z-10" style={{
+         background: 'radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(0,2,10,0.8) 100%)'
+      }} />
     </section>
   )
 })
