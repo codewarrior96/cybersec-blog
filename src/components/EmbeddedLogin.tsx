@@ -83,8 +83,7 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
     const check = async () => {
       const session = await getAuthSession(false)
       if (alive && session.authenticated) {
-        router.refresh()
-        router.push(redirectTo)
+        window.location.href = redirectTo
       }
     }
     void check()
@@ -110,8 +109,7 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
         setError(result.error ?? 'ACCESS DENIED - INVALID CREDENTIALS')
         return
       }
-      router.refresh()
-      router.push(redirectTo)
+      window.location.href = redirectTo
     } finally {
       setLoading(false)
     }
