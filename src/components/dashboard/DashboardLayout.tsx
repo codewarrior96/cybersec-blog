@@ -1,6 +1,9 @@
 'use client'
 
 import React, { ReactNode, useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { geoCentroid, geoEquirectangular, geoPath, type GeoPermissibleObjects } from 'd3-geo'
+import type { Feature, FeatureCollection, Geometry } from 'geojson'
+import { feature as topoFeature, mesh as topoMesh } from 'topojson-client'
 
 // ============================================================================
 // TYPES & CONSTANTS 
@@ -43,19 +46,24 @@ export interface ThreatEvent {
   port: number
 }
 
+type TelemetryCaseFilter = 'ALL' | 'NO_CASE' | 'OPEN' | 'INVESTIGATING' | 'CONTAINED' | 'FALSE_POSITIVE'
+
 const THEME = {
-  border: 'border-[#0a121a]',
-  panelBg: 'bg-[#020509]/80',
-  panelDim: 'bg-[#010204]/90',
+  border: 'border-[#1a2e1a]',
+  panelBg: 'bg-[#07110a]/88',
+  panelDim: 'bg-[#050c07]/94',
+  panelHead: 'bg-[#08120b]',
+  panelHeadDim: 'bg-[#060c08]',
   severity: {
     CRITICAL: { hex: '#f43f5e', text: 'text-rose-400', bg: 'bg-rose-500', doc: 'bg-rose-950/30' },
     HIGH: { hex: '#f59e0b', text: 'text-amber-400', bg: 'bg-amber-500', doc: 'bg-amber-950/30' },
-    MEDIUM: { hex: '#eab308', text: 'text-yellow-400', bg: 'bg-yellow-500', doc: 'bg-yellow-950/20' },
-    LOW: { hex: '#3b82f6', text: 'text-blue-500', bg: 'bg-blue-600', doc: 'bg-blue-950/10' },
+    MEDIUM: { hex: '#22c55e', text: 'text-emerald-300', bg: 'bg-emerald-500', doc: 'bg-emerald-950/20' },
+    LOW: { hex: '#86efac', text: 'text-green-300', bg: 'bg-green-500', doc: 'bg-green-950/10' },
   }
 }
 
-const REGIONS = ['US-EAST', 'UK-LON', 'JP-TYO', 'SG-SIN', 'BR-SAO', 'RU-MOW', 'CN-PEK']
+const REGIONS = ['US-EAST', 'UK-LON', 'JP-TYO', 'SG-SIN', 'BR-SAO', 'RU-MOW', 'CN-PEK'] as const
+type RegionKey = (typeof REGIONS)[number]
 const MOCK_MAP_POINTS = [
   { lat: 40.71, lng: -74.00, region: 'US-EAST' },
   { lat: 51.50, lng: -0.12, region: 'UK-LON' },
@@ -70,6 +78,17 @@ const MOCK_MAP_POINTS = [
 // UTILS
 // ============================================================================
 const formatTime = (iso: string): string => iso.split('T')[1].substring(0, 8)
+const formatDateTime = (iso: string): string => {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return iso
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const min = String(date.getMinutes()).padStart(2, '0')
+  const ss = String(date.getSeconds()).padStart(2, '0')
+  return `${yyyy}/${mm}/${dd} ${hh}:${min}:${ss}`
+}
 const formatSLA = (seconds: number): string => {
   const sFloor = Math.max(0, Math.floor(seconds))
   const h = Math.floor(sFloor / 3600).toString().padStart(2, '0')
@@ -114,8 +133,8 @@ interface FrameProps {
 
 const Frame = ({ title, children, rightAction, dim = false, className = '', headerClass = '' }: FrameProps) => (
   <section className={`flex flex-col border ${THEME.border} ${dim ? THEME.panelDim : THEME.panelBg} overflow-hidden ${className}`}>
-    <header className={`flex items-center justify-between border-b ${THEME.border} px-3 py-1.5 ${dim ? 'bg-[#010203]' : 'bg-[#020509]'} ${headerClass}`}>
-      <h2 className={`font-bold uppercase tracking-[0.2em] text-[9px] ${dim ? 'text-slate-600' : 'text-cyan-700/80'}`}>{title}</h2>
+    <header className={`flex items-center justify-between border-b ${THEME.border} px-3 py-1.5 ${dim ? THEME.panelHeadDim : THEME.panelHead} ${headerClass}`}>
+      <h2 className={`font-bold uppercase tracking-[0.2em] text-[9px] ${dim ? 'text-[#5f7d68]' : 'text-[#66ff9f]/90'}`}>{title}</h2>
       {rightAction && <div className="flex items-center gap-2">{rightAction}</div>}
     </header>
     <div className="flex-1 overflow-hidden p-3 flex flex-col relative">
@@ -124,472 +143,938 @@ const Frame = ({ title, children, rightAction, dim = false, className = '', head
   </section>
 )
 
-const SevTag = React.memo(({ sev, solid = false }: { sev: Severity, solid?: boolean }) => {
-  const s = THEME.severity[sev]
-  return (
-    <span className={`inline-flex items-center justify-center px-1.5 py-[2px] text-[8px] font-bold tracking-widest uppercase ${solid ? s.bg + ' text-black' : s.doc + ' ' + s.text + ' border border-transparent'}`}>
-      {sev}
-    </span>
-  )
-})
-SevTag.displayName = 'SevTag'
-
 // ============================================================================
 // MEMOIZED SUB-COMPONENTS
 // ============================================================================
 
-const SystemPosturePanel = React.memo(({ visibleCount, containedCount }: { visibleCount: number, containedCount: number }) => (
-  <Frame title="System Posture" dim={true} rightAction={<span className="text-[8px] text-emerald-800 font-mono">SIM_ACTIVE</span>}>
-    <div className="flex flex-col gap-3">
-      <div className="flex justify-between items-end border-b border-[#0a121a] pb-1">
-        <span className="text-[9px] text-slate-600 font-mono uppercase tracking-widest">Active Incidents</span>
-        <span className="text-sm text-cyan-800 font-mono tabular-nums">{visibleCount}</span>
-      </div>
-      <div className="flex justify-between items-end border-b border-[#0a121a] pb-1">
-        <span className="text-[9px] text-slate-600 font-mono uppercase tracking-widest">Contained Nodes</span>
-        <span className="text-sm text-rose-800 font-mono tabular-nums">{containedCount}</span>
-      </div>
-    </div>
-  </Frame>
-))
-SystemPosturePanel.displayName = 'SystemPosturePanel'
+/** Demo: yeni telemetry olayı üretim aralığı (SLA sayacı da buna göre azalır) */
+const TELEMETRY_SIM_INTERVAL_MS = 4500
 
-const GlobalMapFilters = React.memo(({ mapFilter, onMapClick }: { mapFilter: string | null, onMapClick: (r: string) => void }) => (
-  <Frame title="Global Map Filters" dim={true}>
-    <div className="flex flex-wrap gap-1 mt-1">
-      {REGIONS.map(reg => (
-        <button 
-          key={reg} 
-          onClick={() => onMapClick(reg)}
-          className={`px-2 py-1 text-[8px] font-mono tracking-widest uppercase border ${mapFilter === reg ? 'bg-cyan-900/40 text-cyan-400 border-cyan-500/50' : 'bg-[#05080c] text-slate-500 border-[#1a2c3f]'}`}
-        >
-          {reg}
-        </button>
-      ))}
-      {mapFilter && (
-        <button onClick={() => onMapClick(mapFilter)} className="px-2 py-1 text-[8px] font-mono tracking-widest uppercase text-rose-400 mt-2 hover:underline">Clear Filter</button>
-      )}
-    </div>
-  </Frame>
-))
-GlobalMapFilters.displayName = 'GlobalMapFilters'
+/** Live Telemetry Stream: ekranın geri kalanını sınırsız doldurmasın; içeride kaydır */
+const TELEMETRY_PANEL_HEIGHT_CLASS = 'h-[min(420px,36vh)]'
 
-// ─── Map coordinate system: viewBox 0 0 260 100 ────────────────────────────
-// x = (lng + 180) * (260 / 360)   y = (90 - lat) * (100 / 180)
-// At typical dashboard width, x-scale ≈ y-scale → circles stay circular.
-
-// Primary node positions pre-computed (reused in constants below)
-// US-EAST(76,27) UK-LON(130,21) JP-TYO(231,30) SG-SIN(205,49)
-// BR-SAO(97,63)  RU-MOW(157,19) CN-PEK(214,28)
-
-
-
-
-
-const INFRA_GEO: Array<[number, number]> = [
-  // NA
-  [-118,54],[-104,58],[-90,63],[-76,58],[-62,54],[-125,40],[-111,45],[-97,40],[-83,46],[-69,41],[-132,27],[-118,32],[-104,29],[-90,25],[-76,32],[-122,14],[-108,18],[-94,11],[-114,0],[-100,4],
-  // SA
-  [-76,-9],[-62,-3],[-48,-7],[-79,-22],[-65,-18],[-51,-23],[-76,-36],[-62,-32],[-48,-40],[-69,-54],[-55,-50],[-62,-68],
-  // EU
-  [-28,63],[-14,68],[0,63],[14,58],[-21,50],[-7,54],[7,47],[21,50],[-14,40],[0,43],[14,36],[28,40],
-  // AF
-  [-21,27],[-7,32],[7,25],[21,29],[-28,9],[-14,14],[0,7],[14,11],[-21,-9],[-7,-3],[7,-11],[21,-7],[-14,-27],[0,-22],[14,-29],[-7,-45],[7,-40],[0,-58],
-  // AS
-  [35,63],[48,68],[62,63],[76,67],[90,61],[104,65],[118,58],[132,63],[28,45],[42,50],[55,43],[69,47],[83,40],[97,45],[111,36],[125,40],[138,32],[152,38],[35,27],[48,32],[62,25],[76,29],[90,22],[104,27],[118,18],[132,22],[145,14],[28,9],[42,14],[55,7],[69,11],[83,4],[97,9],[111,0],[125,4],
-  // OC
-  [118,-18],[132,-14],[145,-22],[111,-32],[125,-29],[138,-36],[118,-47],[132,-43]
-];
-
-const ADVERSARY_MATRIX: Record<string, string[]> = {
-  'US-EAST': ['RU-MOW', 'CN-PEK', 'BR-SAO'],
-  'UK-LON':  ['RU-MOW', 'CN-PEK', 'US-EAST'],
-  'JP-TYO':  ['CN-PEK', 'RU-MOW', 'US-EAST'],
-  'SG-SIN':  ['CN-PEK', 'US-EAST', 'JP-TYO'],
-  'BR-SAO':  ['US-EAST', 'UK-LON', 'RU-MOW'],
-  'RU-MOW':  ['US-EAST', 'UK-LON', 'JP-TYO'],
-  'CN-PEK':  ['US-EAST', 'JP-TYO', 'SG-SIN'],
-}
-
-// Flat Threat Map Renderer
 const MAP_VIEWBOX_WIDTH = 1000
 const MAP_VIEWBOX_HEIGHT = 500
-const MAX_ACTIVE_ARCS = 6
-const LIVE_SEED_ROUTES: Array<{ source: string; target: string; critical?: boolean }> = [
-  { source: 'RU-MOW', target: 'US-EAST', critical: true },
-  { source: 'CN-PEK', target: 'UK-LON' },
-  { source: 'US-EAST', target: 'JP-TYO' },
-  { source: 'JP-TYO', target: 'SG-SIN' },
-  { source: 'UK-LON', target: 'BR-SAO' },
-  { source: 'CN-PEK', target: 'US-EAST' },
-]
+const MAP_VIEWPORT_INSET = { top: 0, right: 0, bottom: 0, left: 0 }
+const MAP_CONTENT_Y_OFFSET = 0
+
+const REGION_LABELS: Record<string, string> = {
+  'US-EAST': 'United States',
+  'UK-LON': 'United Kingdom',
+  'JP-TYO': 'Japan',
+  'SG-SIN': 'Singapore',
+  'BR-SAO': 'Brazil',
+  'RU-MOW': 'Russia',
+  'CN-PEK': 'China',
+}
+
+const REGION_SEVERITY_RANK: Record<Severity, number> = {
+  LOW: 1,
+  MEDIUM: 2,
+  HIGH: 3,
+  CRITICAL: 4,
+}
+
+const REGION_HEAT_COLOR: Record<Severity, { glow: string; core: string }> = {
+  CRITICAL: { glow: '#ff6b8b', core: '#ffe2ea' },
+  HIGH: { glow: '#f6b73d', core: '#ffefcb' },
+  MEDIUM: { glow: '#5fd9ff', core: '#dbf7ff' },
+  LOW: { glow: '#3ba8ff', core: '#d8ecff' },
+}
+
+const ATTACK_COLOR_TONE: Record<Severity, { fill: string; stroke: string }> = {
+  CRITICAL: { fill: '#6d2338', stroke: '#ff6c92' },
+  HIGH: { fill: '#665026', stroke: '#ffd46b' },
+  MEDIUM: { fill: '#21586f', stroke: '#72e8ff' },
+  LOW: { fill: '#2a4869', stroke: '#89beff' },
+}
+
+const CONTEXT_CONTINENT_TONE = {
+  fill: '#173127',
+  stroke: '#4f9b76',
+  fillOpacity: 0.26,
+  strokeOpacity: 0.56,
+  strokeWidth: 0.64,
+}
+
+const REGION_CLICK_RADIUS: Record<RegionKey, number> = {
+  'US-EAST': 190,
+  'UK-LON': 135,
+  'JP-TYO': 170,
+  'SG-SIN': 120,
+  'BR-SAO': 190,
+  'RU-MOW': 360,
+  'CN-PEK': 230,
+}
 
 const toMapPoint = (lat: number, lng: number) => ({
   x: ((lng + 180) / 360) * MAP_VIEWBOX_WIDTH,
   y: ((90 - lat) / 180) * MAP_VIEWBOX_HEIGHT,
 })
 
-const buildArcPath = (sx: number, sy: number, tx: number, ty: number) => {
-  const mx = (sx + tx) / 2
-  const my = (sy + ty) / 2
-  const distance = Math.hypot(tx - sx, ty - sy)
-  const lift = Math.min(170, Math.max(48, distance * 0.28))
-  return `M ${sx.toFixed(2)} ${sy.toFixed(2)} Q ${mx.toFixed(2)} ${(my - lift).toFixed(2)} ${tx.toFixed(2)} ${ty.toFixed(2)}`
+type MapIncident = { id: string; region: RegionKey; sev: Severity; source: string }
+
+type WorldTopologyObject = {
+  type: string
+  geometries: unknown[]
 }
 
-type MapIncident = { id: string; region: string; sev: Severity; source: string }
+type WorldTopology = {
+  type: 'Topology'
+  objects: {
+    countries: WorldTopologyObject
+    land: WorldTopologyObject
+  }
+  arcs: unknown[]
+  bbox?: [number, number, number, number]
+}
 
-const GlobalMapPanel = React.memo(({ mapIncidents, activeIncidentId, selectedEventRegion, mapFilter, onMapClick }: { mapIncidents: MapIncident[], activeIncidentId: string | null, selectedEventRegion: string | null, mapFilter: string | null, onMapClick: (r: string) => void }) => {
-  type ArcIncident = MapIncident
+const FLOW_ROUTE_LIMIT = 6
+const ALWAYS_VISIBLE_LABEL_REGIONS: readonly RegionKey[] = REGIONS
+const LABEL_OFFSETS: Record<RegionKey, { dx: number; dy: number }> = {
+  'US-EAST': { dx: 0, dy: 0 },
+  'UK-LON': { dx: 0, dy: -4 },
+  'JP-TYO': { dx: -4, dy: 14 },
+  'SG-SIN': { dx: -2, dy: 20 },
+  'BR-SAO': { dx: 0, dy: -2 },
+  'RU-MOW': { dx: 0, dy: -10 },
+  'CN-PEK': { dx: -3, dy: -12 },
+}
+const AMBIENT_ROUTE_EDGES: Array<[RegionKey, RegionKey]> = [
+  ['US-EAST', 'UK-LON'],
+  ['US-EAST', 'BR-SAO'],
+  ['US-EAST', 'JP-TYO'],
+  ['US-EAST', 'SG-SIN'],
+  ['UK-LON', 'RU-MOW'],
+  ['UK-LON', 'CN-PEK'],
+  ['UK-LON', 'BR-SAO'],
+  ['JP-TYO', 'CN-PEK'],
+  ['JP-TYO', 'SG-SIN'],
+  ['SG-SIN', 'CN-PEK'],
+  ['RU-MOW', 'CN-PEK'],
+  ['BR-SAO', 'SG-SIN'],
+]
 
-  const critCount = mapIncidents.filter(i => i.sev === 'CRITICAL').length
-  const activeIncidentRegion = useMemo(
-    () => (activeIncidentId ? mapIncidents.find(i => i.id === activeIncidentId)?.region ?? null : null),
-    [activeIncidentId, mapIncidents]
+const COUNTRY_REGION_MAP: Partial<Record<string, RegionKey>> = {
+  '840': 'US-EAST', // United States of America
+  '124': 'US-EAST', // Canada
+  '484': 'US-EAST', // Mexico
+  '826': 'UK-LON',  // United Kingdom
+  '250': 'UK-LON',  // France
+  '276': 'UK-LON',  // Germany
+  '528': 'UK-LON',  // Netherlands
+  '392': 'JP-TYO',  // Japan
+  '410': 'JP-TYO',  // South Korea
+  '643': 'RU-MOW',  // Russia
+  '804': 'RU-MOW',  // Ukraine
+  '156': 'CN-PEK',  // China
+  '496': 'CN-PEK',  // Mongolia
+  '076': 'BR-SAO',  // Brazil
+  '032': 'BR-SAO',  // Argentina
+  '152': 'BR-SAO',  // Chile
+  '170': 'BR-SAO',  // Colombia
+  '604': 'BR-SAO',  // Peru
+  '360': 'SG-SIN',  // Indonesia
+  '458': 'SG-SIN',  // Malaysia proxy for Singapore at 110m resolution
+  '704': 'SG-SIN',  // Vietnam
+  '764': 'SG-SIN',  // Thailand
+  '702': 'SG-SIN',  // Singapore
+}
+
+const resolveCountryRegion = (countryId: string): RegionKey | null => {
+  const numeric = countryId.replace(/\D/g, '')
+  if (!numeric) return null
+  const normalized = numeric.padStart(3, '0')
+  return COUNTRY_REGION_MAP[normalized] ?? null
+}
+
+const trimUnitedStatesEdgeFragments = (featureItem: Feature<Geometry>, countryId: string): Feature<Geometry> => {
+  const normalizedCountryId = countryId.replace(/\D/g, '').padStart(3, '0')
+  if (normalizedCountryId !== '840') return featureItem
+  const geometry = featureItem.geometry
+  if (!geometry || geometry.type !== 'MultiPolygon') return featureItem
+
+  const polygons = geometry.coordinates as number[][][][]
+  const filteredPolygons = polygons.filter((polygon) => {
+    let minLon = Infinity
+    let maxLon = -Infinity
+    let minLat = Infinity
+    let maxLat = -Infinity
+
+    polygon.forEach((ring) => {
+      ring.forEach(([lon, lat]) => {
+        minLon = Math.min(minLon, lon)
+        maxLon = Math.max(maxLon, lon)
+        minLat = Math.min(minLat, lat)
+        maxLat = Math.max(maxLat, lat)
+      })
+    })
+
+    const centerLon = (minLon + maxLon) / 2
+    const centerLat = (minLat + maxLat) / 2
+    // Keep only contiguous US bounds; remove Alaska/Hawaii/outlying fragments.
+    const isContinentalUS = centerLon >= -130 && centerLon <= -65 && centerLat >= 22 && centerLat <= 52
+    return isContinentalUS
+  })
+
+  // Safety fallback: if filtering removed everything, keep original geometry.
+  if (filteredPolygons.length === 0) return featureItem
+  if (filteredPolygons.length === polygons.length) return featureItem
+  return {
+    ...featureItem,
+    geometry: {
+      ...geometry,
+      coordinates: filteredPolygons,
+    } as Geometry,
+  }
+}
+
+const deriveSourceRegion = (source: string, targetRegion: RegionKey): RegionKey => {
+  const candidates = REGIONS.filter((region) => region !== targetRegion)
+  const hash = source.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  return candidates[hash % candidates.length]
+}
+
+const buildArcPath = (sx: number, sy: number, tx: number, ty: number) => {
+  const midX = (sx + tx) / 2
+  const midY = (sy + ty) / 2
+  const distance = Math.hypot(tx - sx, ty - sy)
+  const lift = Math.min(120, Math.max(28, distance * 0.18))
+  return `M ${sx.toFixed(2)} ${sy.toFixed(2)} Q ${midX.toFixed(2)} ${(midY - lift).toFixed(2)} ${tx.toFixed(2)} ${ty.toFixed(2)}`
+}
+
+const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, onMapClick, onClearFocus }: {
+  mapIncidents: MapIncident[]
+  mapFilter: string | null
+  onMapClick: (r: string) => void
+  onClearFocus: () => void
+}) => {
+  const [worldTopology, setWorldTopology] = useState<WorldTopology | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    const loadWorldTopology = async () => {
+      try {
+        const response = await fetch('/world-110m.json')
+        if (!response.ok) return
+        const data = await response.json() as WorldTopology
+        if (!isMounted) return
+        if (data?.type !== 'Topology' || !data?.objects?.countries || !data?.objects?.land) return
+        setWorldTopology(data)
+      } catch {
+        // Keep map operational with incident overlays even if topology fetch fails.
+      }
+    }
+    void loadWorldTopology()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const mapProjection = useMemo(
+    () =>
+      geoEquirectangular()
+        .scale(MAP_VIEWBOX_WIDTH / (2 * Math.PI))
+        .translate([MAP_VIEWBOX_WIDTH / 2, MAP_VIEWBOX_HEIGHT / 2]),
+    [],
   )
+  const mapPathBuilder = useMemo(() => geoPath(mapProjection), [mapProjection])
 
-  const fallbackIncidents: ArcIncident[] = useMemo(() => ([
-    { id: 'demo-1', sev: 'CRITICAL', region: 'US-EAST', source: 'RU-MOW' },
-    { id: 'demo-2', sev: 'HIGH', region: 'UK-LON', source: 'CN-PEK' },
-    { id: 'demo-3', sev: 'HIGH', region: 'JP-TYO', source: 'US-EAST' },
+  const fallbackIncidents: MapIncident[] = useMemo(() => ([
+    { id: 'demo-1', sev: 'HIGH', region: 'US-EAST', source: 'RU-MOW' },
+    { id: 'demo-2', sev: 'CRITICAL', region: 'CN-PEK', source: 'US-EAST' },
+    { id: 'demo-3', sev: 'HIGH', region: 'RU-MOW', source: 'UK-LON' },
+    { id: 'demo-4', sev: 'MEDIUM', region: 'BR-SAO', source: 'US-EAST' },
   ]), [])
 
   const incidentsForRender = useMemo(() => {
-    const incidents: ArcIncident[] = mapIncidents.map(inc => ({
-      id: inc.id,
-      region: inc.region,
-      sev: inc.sev,
-      source: inc.source,
-    }))
+    if (mapIncidents.length > 0) return mapIncidents
+    // Do not inject demo/fallback incidents while a region filter is active.
+    // Otherwise clicking a region with no live incidents repaints unrelated countries.
+    if (mapFilter) return []
+    return fallbackIncidents
+  }, [fallbackIncidents, mapFilter, mapIncidents])
 
-    if (incidents.length === 0) {
-      return fallbackIncidents
-    }
-
-    if (incidents.length < 3) {
-      const needed = 3 - incidents.length
-      incidents.push(...fallbackIncidents.slice(0, needed))
-    }
-
-    return incidents.slice(0, MAX_ACTIVE_ARCS)
-  }, [fallbackIncidents, mapIncidents])
-
-  const arcRoutes = useMemo(() => {
-    const routes: Array<{
-      id: string
-      pathId: string
-      sourceRegion: string
-      targetRegion: string
-      isCritical: boolean
-      path: string
-      color: string
-    }> = []
-    const seen = new Set<string>()
-    const candidates = [...incidentsForRender, ...fallbackIncidents]
-
-    for (const inc of candidates) {
-      if (routes.length >= MAX_ACTIVE_ARCS) break
-      const target = MOCK_MAP_POINTS.find(p => p.region === inc.region)
-      if (!target) continue
-
-      const srcCandidates = ADVERSARY_MATRIX[inc.region] || REGIONS.filter(r => r !== inc.region)
-      const hash = inc.source.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-      const sourceRegion = srcCandidates[hash % srcCandidates.length]
-      const source = MOCK_MAP_POINTS.find(p => p.region === sourceRegion) || MOCK_MAP_POINTS[0]
-      if (!source || source.region === target.region) continue
-
-      const routeKey = `${source.region}->${target.region}`
-      if (seen.has(routeKey)) continue
-      seen.add(routeKey)
-
-      const from = toMapPoint(source.lat, source.lng)
-      const to = toMapPoint(target.lat, target.lng)
-      const isCritical = inc.sev === 'CRITICAL'
-      const routeIndex = routes.length
-
-      routes.push({
-        id: `${inc.id}-${routeKey}`,
-        pathId: `route-path-${source.region}-${target.region}`.toLowerCase(),
-        sourceRegion: source.region,
-        targetRegion: target.region,
-        isCritical,
-        path: buildArcPath(from.x, from.y, to.x, to.y),
-        color: isCritical ? '#f43f5e' : '#f59e0b',
-      })
-    }
-
-    // Keep the map alive even with sparse/duplicated incident routes.
-    for (const seed of LIVE_SEED_ROUTES) {
-      if (routes.length >= MAX_ACTIVE_ARCS) break
-      const routeKey = `${seed.source}->${seed.target}`
-      if (seen.has(routeKey)) continue
-
-      const source = MOCK_MAP_POINTS.find(p => p.region === seed.source)
-      const target = MOCK_MAP_POINTS.find(p => p.region === seed.target)
-      if (!source || !target || source.region === target.region) continue
-
-      seen.add(routeKey)
-      const from = toMapPoint(source.lat, source.lng)
-      const to = toMapPoint(target.lat, target.lng)
-      const routeIndex = routes.length
-
-      routes.push({
-        id: `seed-${routeKey}`,
-        pathId: `route-path-seed-${source.region}-${target.region}`.toLowerCase(),
-        sourceRegion: source.region,
-        targetRegion: target.region,
-        isCritical: !!seed.critical,
-        path: buildArcPath(from.x, from.y, to.x, to.y),
-        color: seed.critical ? '#f43f5e' : '#f59e0b',
-      })
-    }
-
-    return routes.slice(0, MAX_ACTIVE_ARCS)
-  }, [fallbackIncidents, incidentsForRender])
-
-  const targetState = useMemo(() => {
-    const map = new Map<string, 'base' | 'active' | 'critical'>()
-    arcRoutes.forEach(route => {
-      const current = map.get(route.targetRegion)
-      if (route.isCritical || current === 'critical') {
-        map.set(route.targetRegion, 'critical')
-      } else {
-        map.set(route.targetRegion, 'active')
+  const regionStats = useMemo(() => {
+    const next = new Map<RegionKey, { count: number; sev: Severity }>()
+    for (const incident of incidentsForRender) {
+      const existing = next.get(incident.region)
+      if (!existing) {
+        next.set(incident.region, { count: 1, sev: incident.sev })
+        continue
       }
-    })
-    return map
-  }, [arcRoutes])
+      next.set(incident.region, {
+        count: existing.count + 1,
+        sev: REGION_SEVERITY_RANK[incident.sev] > REGION_SEVERITY_RANK[existing.sev] ? incident.sev : existing.sev,
+      })
+    }
+    return next
+  }, [incidentsForRender])
 
-  const sourceState = useMemo(() => {
-    const map = new Map<string, true>()
-    arcRoutes.forEach(r => map.set(r.sourceRegion, true))
-    return map
-  }, [arcRoutes])
+  const severityMix = useMemo(() => {
+    const base: Record<Severity, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 }
+    incidentsForRender.forEach((incident) => {
+      base[incident.sev] += 1
+    })
+    return base
+  }, [incidentsForRender])
+
+  const totalIncidents = incidentsForRender.length
+
+  const focusRegion = useMemo<RegionKey | null>(() => {
+    if (mapFilter && (REGIONS as readonly string[]).includes(mapFilter)) return mapFilter as RegionKey
+    return null
+  }, [mapFilter])
+
+  const focusRegionStats = useMemo(() => {
+    if (!focusRegion) return null
+    return regionStats.get(focusRegion) ?? { count: 0, sev: 'LOW' as Severity }
+  }, [focusRegion, regionStats])
+
+  const focusIncidentSet = useMemo(() => {
+    if (!focusRegion) return incidentsForRender
+    return incidentsForRender.filter((incident) => incident.region === focusRegion)
+  }, [focusRegion, incidentsForRender])
+
+  const focusCriticalCount = useMemo(
+    () => focusIncidentSet.filter((incident) => incident.sev === 'CRITICAL').length,
+    [focusIncidentSet],
+  )
+
+  const focusSeverityMix = useMemo(() => {
+    const base: Record<Severity, number> = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 }
+    focusIncidentSet.forEach((incident) => {
+      base[incident.sev] += 1
+    })
+    return base
+  }, [focusIncidentSet])
+
+  const focusActivityRatio = useMemo(() => {
+    if (!focusRegion) return 100
+    if (focusIncidentSet.length === 0 || totalIncidents === 0) return 0
+    return Math.round((focusIncidentSet.length / totalIncidents) * 100)
+  }, [focusIncidentSet.length, focusRegion, totalIncidents])
+
+  const legendSeverityMix = useMemo(
+    () => (focusRegion ? focusSeverityMix : severityMix),
+    [focusRegion, focusSeverityMix, severityMix],
+  )
+
+  const landPath = useMemo(() => {
+    if (!worldTopology) return null
+    const topo = worldTopology as unknown as Parameters<typeof topoFeature>[0]
+    const landObject = worldTopology.objects.land as unknown as Parameters<typeof topoFeature>[1]
+    const landFeature = topoFeature(topo, landObject)
+    return mapPathBuilder(landFeature as GeoPermissibleObjects)
+  }, [mapPathBuilder, worldTopology])
+
+  const countryBoundaryPath = useMemo(() => {
+    if (!worldTopology) return null
+    const topo = worldTopology as unknown as Parameters<typeof topoMesh>[0]
+    const countriesObject = worldTopology.objects.countries as unknown as Parameters<typeof topoMesh>[1]
+    const borderMesh = topoMesh(topo, countriesObject)
+    return mapPathBuilder(borderMesh as GeoPermissibleObjects)
+  }, [mapPathBuilder, worldTopology])
+
+  const countryShapes = useMemo(() => {
+    if (!worldTopology) return [] as Array<{
+      id: string
+      d: string
+      region: RegionKey | null
+      sev: Severity
+      count: number
+      focused: boolean
+      interactive: boolean
+      isAmericas: boolean
+    }>
+    const topo = worldTopology as unknown as Parameters<typeof topoFeature>[0]
+    const countriesObject = worldTopology.objects.countries as unknown as Parameters<typeof topoFeature>[1]
+    const countries = topoFeature(topo, countriesObject) as FeatureCollection<Geometry>
+
+    return countries.features
+      .map((featureItem: Feature<Geometry>, index) => {
+        const countryId = String((featureItem as { id?: string | number }).id ?? '')
+        const normalizedFeature = trimUnitedStatesEdgeFragments(featureItem, countryId)
+        const d = mapPathBuilder(normalizedFeature as GeoPermissibleObjects)
+        if (!d) return null
+        const [centroidLon, centroidLat] = geoCentroid(normalizedFeature as GeoPermissibleObjects)
+        const isAmericas =
+          Number.isFinite(centroidLon) &&
+          Number.isFinite(centroidLat) &&
+          centroidLon >= -170 &&
+          centroidLon <= -30 &&
+          centroidLat >= -60 &&
+          centroidLat <= 85
+        const mappedRegion = resolveCountryRegion(countryId)
+        const stats = mappedRegion ? regionStats.get(mappedRegion) : undefined
+        const count = stats?.count ?? 0
+        const sev = stats?.sev ?? 'LOW'
+        const focused = Boolean(mappedRegion && focusRegion && mappedRegion === focusRegion)
+        return {
+          id: `country-${countryId || index}`,
+          d,
+          region: mappedRegion,
+          sev,
+          count,
+          focused,
+          interactive: Boolean(mappedRegion),
+          isAmericas,
+        }
+      })
+      .filter((shape): shape is {
+        id: string
+        d: string
+        region: RegionKey | null
+        sev: Severity
+        count: number
+        focused: boolean
+        interactive: boolean
+        isAmericas: boolean
+      } => Boolean(shape))
+  }, [focusRegion, mapPathBuilder, regionStats, worldTopology])
 
   const nodeData = useMemo(() => {
     return MOCK_MAP_POINTS.map(point => {
       const xy = toMapPoint(point.lat, point.lng)
-      const state = targetState.get(point.region) || 'base'
-      const focused = point.region === mapFilter || point.region === selectedEventRegion || point.region === activeIncidentRegion
-      const isSource = sourceState.has(point.region)
-      const showLabel = state !== 'base' || focused || isSource
+      const region = point.region as RegionKey
+      const stats = regionStats.get(region)
+      const count = stats?.count ?? 0
+      const sev = stats?.sev ?? 'LOW'
+      const focused = Boolean(focusRegion && region === focusRegion)
       return {
         ...point,
+        region,
         x: xy.x,
         y: xy.y,
-        state,
+        count,
+        sev,
         focused,
-        showLabel,
-        isSource,
       }
     })
-  }, [activeIncidentRegion, mapFilter, selectedEventRegion, targetState, sourceState])
+  }, [focusRegion, regionStats])
+
+  const visibleLabelRegions = useMemo(
+    () => new Set<RegionKey>(ALWAYS_VISIBLE_LABEL_REGIONS),
+    [],
+  )
+
+  const regionAnchorMap = useMemo(() => {
+    const anchorMap = new Map<RegionKey, { x: number; y: number }>()
+    nodeData.forEach((node) => {
+      anchorMap.set(node.region, { x: node.x, y: node.y + MAP_CONTENT_Y_OFFSET })
+    })
+    return anchorMap
+  }, [nodeData])
+
+  const isCountryClickAllowed = useCallback((region: RegionKey, event: React.MouseEvent<SVGPathElement>) => {
+    const svgElement = event.currentTarget.ownerSVGElement
+    if (!svgElement) return true
+
+    const rect = svgElement.getBoundingClientRect()
+    if (!rect.width || !rect.height) return true
+
+    const clickX = ((event.clientX - rect.left) / rect.width) * MAP_VIEWBOX_WIDTH
+    const clickY = ((event.clientY - rect.top) / rect.height) * MAP_VIEWBOX_HEIGHT - MAP_CONTENT_Y_OFFSET
+    const anchor = regionAnchorMap.get(region)
+    if (!anchor) return true
+
+    const allowedRadius = REGION_CLICK_RADIUS[region] ?? 180
+    const distance = Math.hypot(clickX - anchor.x, clickY - anchor.y)
+    return distance <= allowedRadius
+  }, [regionAnchorMap])
+
+  const flowRoutes = useMemo(() => {
+    return incidentsForRender
+      .slice(0, FLOW_ROUTE_LIMIT)
+      .map((incident, index) => {
+        const targetPoint = MOCK_MAP_POINTS.find((point) => point.region === incident.region)
+        if (!targetPoint) return null
+        const sourceRegion = deriveSourceRegion(incident.source, incident.region)
+        const sourcePoint = MOCK_MAP_POINTS.find((point) => point.region === sourceRegion)
+        if (!sourcePoint) return null
+        const sourceXY = toMapPoint(sourcePoint.lat, sourcePoint.lng)
+        const targetXY = toMapPoint(targetPoint.lat, targetPoint.lng)
+        return {
+          id: `flow-${incident.id}-${index}`,
+          pathId: `flow-path-${index}`,
+          d: buildArcPath(sourceXY.x, sourceXY.y, targetXY.x, targetXY.y),
+          critical: incident.sev === 'CRITICAL',
+          focused: Boolean(focusRegion && incident.region === focusRegion),
+          from: sourceRegion,
+          to: incident.region,
+        }
+      })
+      .filter((route): route is {
+        id: string
+        pathId: string
+        d: string
+        critical: boolean
+        focused: boolean
+        from: RegionKey
+        to: RegionKey
+      } => Boolean(route))
+  }, [focusRegion, incidentsForRender])
+
+  const ambientRoutes = useMemo(() => {
+    return AMBIENT_ROUTE_EDGES
+      .map(([from, to], index) => {
+        const sourcePoint = MOCK_MAP_POINTS.find((point) => point.region === from)
+        const targetPoint = MOCK_MAP_POINTS.find((point) => point.region === to)
+        if (!sourcePoint || !targetPoint) return null
+        const sourceXY = toMapPoint(sourcePoint.lat, sourcePoint.lng)
+        const targetXY = toMapPoint(targetPoint.lat, targetPoint.lng)
+        return {
+          id: `ambient-${from}-${to}-${index}`,
+          d: buildArcPath(sourceXY.x, sourceXY.y, targetXY.x, targetXY.y),
+        }
+      })
+      .filter((route): route is { id: string; d: string } => Boolean(route))
+  }, [])
+
+  const focusCardGeometry = useMemo(() => {
+    if (!focusRegion) return null
+    const anchor = nodeData.find((node) => node.region === focusRegion)
+    if (!anchor) return null
+
+    const cardWidth = 248
+    const cardHeight = 188
+    const gap = 12
+    const openRight = anchor.x < MAP_VIEWBOX_WIDTH * 0.68
+    const xRaw = openRight ? anchor.x + gap : anchor.x - cardWidth - gap
+    const x = Math.max(10, Math.min(MAP_VIEWBOX_WIDTH - cardWidth - 10, xRaw))
+    const y = Math.max(12, Math.min(MAP_VIEWBOX_HEIGHT - cardHeight - 12, anchor.y - cardHeight / 2))
+
+    return {
+      x,
+      y,
+      width: cardWidth,
+      height: cardHeight,
+      anchorX: anchor.x,
+      anchorY: anchor.y,
+      openRight,
+    }
+  }, [focusRegion, nodeData])
+
+  const focusOverlayGeometry = useMemo(() => {
+    if (!focusCardGeometry) return null
+    return {
+      ...focusCardGeometry,
+      y: focusCardGeometry.y + MAP_CONTENT_Y_OFFSET,
+      anchorY: focusCardGeometry.anchorY + MAP_CONTENT_Y_OFFSET,
+    }
+  }, [focusCardGeometry])
 
   return (
-    <section className="flex-none h-[45vh] border border-[#1a1c23] bg-[#00020a] flex flex-col relative overflow-hidden shadow-2xl">
-      <div className="absolute top-0 left-0 right-0 z-30 flex items-center gap-2 px-3 py-1.5 bg-gradient-to-b from-[#000408]/95 to-transparent pointer-events-none border-b border-[#0f1b2b]/30">
-        <span className="w-1.5 h-1.5 bg-rose-600 animate-pulse flex-none shadow-[0_0_8px_theme(colors.rose.600)]" />
-        <span className="font-bold uppercase tracking-[0.3em] text-[8px] text-slate-300">Global Threat Vector Map</span>
-        <div className="ml-auto flex gap-4 text-[8px] font-mono">
-          {critCount > 0 && <span className="text-rose-500">{critCount} CRITICAL</span>}
-          <span className="text-cyan-600">LIVE FLAT MAP</span>
-          <span className="text-slate-600">2D THREAT OVERLAY ACTIVE</span>
+    <section className="flex-none h-[52vh] border border-[#1a2e1a] bg-transparent overflow-hidden shadow-2xl">
+      <div className="relative h-full">
+        <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-2 px-3 py-2 bg-gradient-to-b from-[#091409]/96 to-transparent border-b border-[#1c3a22]/55 pointer-events-none">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#00e640] shadow-[0_0_7px_rgba(0,230,64,0.85)]" />
+          <span className="text-[9px] font-bold tracking-[0.22em] uppercase text-slate-200">Global Threat Map</span>
+          <span className="ml-auto text-[8px] font-mono text-[#7effb2]/85">TOTAL INCIDENTS {totalIncidents}</span>
         </div>
-      </div>
 
-      <div className="flex-1 w-full h-full relative">
-        <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 ${MAP_VIEWBOX_WIDTH} ${MAP_VIEWBOX_HEIGHT}`} preserveAspectRatio="xMidYMid meet" aria-label="Flat world threat map">
+        <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${MAP_VIEWBOX_WIDTH} ${MAP_VIEWBOX_HEIGHT}`} preserveAspectRatio="none" aria-label="Global threat heat map">
           <defs>
-            <linearGradient id="mapSurface" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#041427" />
-              <stop offset="58%" stopColor="#02101f" />
-              <stop offset="100%" stopColor="#010812" />
+            <pattern id="worldMatrixPattern" width="6" height="6" patternUnits="userSpaceOnUse">
+              <circle cx="1.1" cy="1.1" r="0.62" fill="#7df0c7" fillOpacity="0.56" />
+              <circle cx="4.6" cy="3.8" r="0.52" fill="#9afdd9" fillOpacity="0.26" />
+              <circle cx="3.1" cy="5.1" r="0.36" fill="#9afdd9" fillOpacity="0.18" />
+            </pattern>
+            <pattern id="worldOceanPattern" width="10" height="10" patternUnits="userSpaceOnUse">
+              <circle cx="1.5" cy="1.5" r="0.42" fill="#6fd7c4" fillOpacity="0.2" />
+              <circle cx="6.8" cy="5.4" r="0.36" fill="#6fd7c4" fillOpacity="0.12" />
+              <circle cx="4.1" cy="8.2" r="0.3" fill="#8bf1db" fillOpacity="0.1" />
+            </pattern>
+            <linearGradient id="worldScanGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#6bf8c0" stopOpacity="0" />
+              <stop offset="45%" stopColor="#8affd1" stopOpacity="0.28" />
+              <stop offset="55%" stopColor="#8affd1" stopOpacity="0.34" />
+              <stop offset="100%" stopColor="#6bf8c0" stopOpacity="0" />
             </linearGradient>
-            <radialGradient id="mapCenterGlow" cx="50%" cy="49%" r="48%">
-              <stop offset="0%" stopColor="#2aa7e8" stopOpacity="0.18" />
-              <stop offset="55%" stopColor="#1f86ba" stopOpacity="0.05" />
-              <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+            <radialGradient id="worldBaseGlow" cx="50%" cy="46%" r="70%">
+              <stop offset="0%" stopColor="#1f5f80" stopOpacity="0.52" />
+              <stop offset="60%" stopColor="#10324a" stopOpacity="0.34" />
+              <stop offset="100%" stopColor="#02060b" stopOpacity="0" />
             </radialGradient>
-            <pattern id="minorGrid" width="20" height="20" patternUnits="userSpaceOnUse">
-              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#0a2034" strokeWidth="0.6" />
-            </pattern>
-            <pattern id="majorGrid" width="100" height="100" patternUnits="userSpaceOnUse">
-              <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#0f2f4b" strokeWidth="1" />
-            </pattern>
+            <radialGradient id="worldVignette" cx="50%" cy="42%" r="72%">
+              <stop offset="65%" stopColor="#00000000" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="0.14" />
+            </radialGradient>
+            <clipPath id="mapViewportClip">
+              <rect
+                x={MAP_VIEWPORT_INSET.left}
+                y={MAP_VIEWPORT_INSET.top}
+                width={MAP_VIEWBOX_WIDTH - MAP_VIEWPORT_INSET.left - MAP_VIEWPORT_INSET.right}
+                height={MAP_VIEWBOX_HEIGHT - MAP_VIEWPORT_INSET.top - MAP_VIEWPORT_INSET.bottom}
+                rx="3"
+              />
+            </clipPath>
           </defs>
 
-          <rect x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill="url(#mapSurface)" />
-          <rect x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill="url(#mapCenterGlow)" opacity="0.62" />
-          <rect x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill="url(#minorGrid)" opacity="0.32" />
-          <rect x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill="url(#majorGrid)" opacity="0.22" />
-          <image href="/world-lite.svg" x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} preserveAspectRatio="none" opacity="0.37" />
+          <g clipPath="url(#mapViewportClip)" transform={`translate(0 ${MAP_CONTENT_Y_OFFSET})`}>
+            <rect x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill="#071a2a" />
+            <rect x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill="url(#worldBaseGlow)" />
+            <rect x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill="url(#worldOceanPattern)" opacity="0.24" />
 
-          <g opacity="0.35">
-            {INFRA_GEO.map(([lng, lat], idx) => {
-              const pt = toMapPoint(lat, lng)
-              return (
-                <circle
-                  key={`infra-${idx}`}
-                  cx={pt.x}
-                  cy={pt.y}
-                  r="0.9"
-                  fill="#0ea5e9"
-                  className="infra-dot"
-                  style={{ animationDelay: `${(idx % 17) * 0.2}s` }}
-                />
-              )
-            })}
+          {landPath && (
+            <>
+              <path d={landPath} fill="#0a1927" opacity="0.98" />
+            </>
+          )}
+
+          {countryShapes.map((country) => {
+            const americaContextZone = focusRegion === 'US-EAST' && country.isAmericas && !country.focused
+            const isFocusTarget = country.focused
+            const dimUnfocused = Boolean(focusRegion) && !isFocusTarget && !americaContextZone
+            const effectiveSeverity: Severity = country.focused ? (focusRegionStats?.sev ?? country.sev) : country.sev
+            const tone = ATTACK_COLOR_TONE[effectiveSeverity]
+            const hasActivity = country.count > 0 || country.focused
+            const idleFill = country.interactive || americaContextZone ? '#112a3a' : '#0d2231'
+            const fillColor = isFocusTarget
+              ? tone.fill
+              : americaContextZone
+                ? CONTEXT_CONTINENT_TONE.fill
+                : hasActivity
+                  ? tone.fill
+                  : idleFill
+            const strokeColor = isFocusTarget
+              ? tone.stroke
+              : americaContextZone
+                ? CONTEXT_CONTINENT_TONE.stroke
+              : hasActivity
+                ? tone.stroke
+                : (country.interactive ? '#4a92a8' : '#27485d')
+            return (
+              <path
+                key={country.id}
+                d={country.d}
+                fill={fillColor}
+                fillOpacity={
+                  isFocusTarget
+                    ? 0.84
+                    : americaContextZone
+                      ? CONTEXT_CONTINENT_TONE.fillOpacity
+                    : dimUnfocused
+                      ? 0.18
+                      : hasActivity
+                        ? 0.44
+                        : 0.32
+                }
+                stroke={dimUnfocused ? '#132839' : strokeColor}
+                strokeOpacity={isFocusTarget ? 0.98 : americaContextZone ? CONTEXT_CONTINENT_TONE.strokeOpacity : dimUnfocused ? 0.34 : hasActivity ? 0.76 : 0.58}
+                strokeWidth={isFocusTarget ? 1.18 : americaContextZone ? CONTEXT_CONTINENT_TONE.strokeWidth : dimUnfocused ? 0.42 : hasActivity ? 0.74 : 0.52}
+                className={`${country.interactive ? 'cursor-crosshair' : 'cursor-default'} transition-colors duration-200`}
+                onClick={(event) => {
+                  if (!country.region) return
+                  if (!isCountryClickAllowed(country.region, event)) return
+                  onMapClick(country.region)
+                }}
+              />
+            )
+          })}
+
+          {countryBoundaryPath && (
+            <path
+              d={countryBoundaryPath}
+              fill="none"
+              stroke="#5aa8be"
+              strokeWidth="0.68"
+              strokeOpacity="0.75"
+              pointerEvents="none"
+            />
+          )}
+
+          {landPath && (
+            <g pointerEvents="none">
+              <path d={landPath} fill="url(#worldMatrixPattern)" opacity={focusRegion ? 0.34 : 0.48} className="matrix-drift" />
+              <path d={landPath} fill="url(#worldScanGradient)" opacity={focusRegion ? 0.25 : 0.34} className="scan-sweep" />
+              <path d={landPath} fill="none" stroke="#9cfed8" strokeOpacity={focusRegion ? 0.32 : 0.4} strokeWidth="0.62" />
+            </g>
+          )}
+
+          <g fill="none" strokeLinecap="round" pointerEvents="none">
+            {ambientRoutes.map((route, index) => (
+              <path
+                key={route.id}
+                d={route.d}
+                stroke="#9cf87a"
+                strokeWidth="0.8"
+                strokeDasharray="3 12"
+                opacity={focusRegion ? 0.08 : 0.18}
+                className="ambient-flow"
+                style={{ animationDelay: `${index * 0.24}s` }}
+              />
+            ))}
           </g>
 
-          <g fill="none" strokeLinecap="round">
-            {arcRoutes.map((route, idx) => (
+          <g fill="none" strokeLinecap="round" pointerEvents="none">
+            {flowRoutes.map((route, index) => (
               <g key={route.id}>
-                <path id={route.pathId} d={route.path} fill="none" stroke="transparent" />
-                <path d={route.path} stroke={route.color} strokeWidth={route.isCritical ? 4.3 : 3.5} opacity={0.16} />
-                <path d={route.path} stroke={route.color} strokeWidth={route.isCritical ? 2.9 : 2.3} opacity={0.14} />
+                <path id={route.pathId} d={route.d} fill="none" stroke="transparent" />
                 <path
-                  d={route.path}
-                  stroke={route.color}
-                  strokeWidth={route.isCritical ? 2.05 : 1.7}
-                  strokeDasharray="12 10"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="threat-arc"
-                  style={{
-                    opacity: 0.98,
-                    animationDuration: route.isCritical ? '5.6s' : '7.2s',
-                    animationDelay: `${idx * 0.4}s`,
-                  }}
+                  d={route.d}
+                  stroke={route.critical ? '#ff6f90' : '#b9fb72'}
+                  strokeWidth={route.critical ? 1.85 : 1.35}
+                  strokeDasharray={route.critical ? '6 9' : '4 10'}
+                  opacity={focusRegion ? (route.focused ? 0.96 : 0.25) : (route.focused ? 0.9 : 0.58)}
+                  className="hybrid-flow"
+                  style={{ animationDuration: route.critical ? '8s' : '10s', animationDelay: `${index * 0.5}s` }}
                 />
-                <circle r={route.isCritical ? 2.7 : 2.2} fill={route.isCritical ? '#ff6a86' : '#67f3ff'} opacity="0.9" className="packet-dot">
-                  <animateMotion dur={route.isCritical ? '2.7s' : '3.5s'} begin={`${idx * 0.26}s`} repeatCount="indefinite" rotate="auto">
+                <circle r={route.critical ? 2.1 : 1.78} fill={route.critical ? '#ffd4df' : '#e9ffc6'} opacity={0.86}>
+                  <animateMotion dur={route.critical ? '4.1s' : '5.4s'} begin={`${index * 0.35}s`} repeatCount="indefinite" rotate="auto">
                     <mpath href={`#${route.pathId}`} />
                   </animateMotion>
                 </circle>
-                {route.isCritical && (
-                  <circle r="1.8" fill="#ffd9e2" opacity="0.75" className="packet-dot packet-dot-crit">
-                    <animateMotion dur="2.05s" begin={`${0.8 + idx * 0.22}s`} repeatCount="indefinite" rotate="auto">
-                      <mpath href={`#${route.pathId}`} />
-                    </animateMotion>
-                  </circle>
-                )}
               </g>
             ))}
           </g>
 
-          <g>
+          <g pointerEvents="none">
             {nodeData
-              .filter(node => node.state !== 'base')
-              .map((node, idx) => (
-                <g key={`impact-${node.region}`}>
-                  <circle
-                    cx={node.x}
-                    cy={node.y}
-                    r="10"
-                    fill="none"
-                    stroke={node.state === 'critical' ? '#f43f5e' : '#f59e0b'}
-                    strokeWidth={node.state === 'critical' ? 1.6 : 1.25}
-                    strokeOpacity={node.state === 'critical' ? 0.7 : 0.58}
-                    strokeLinecap="round"
-                    className="impact-ring"
-                    style={{ animationDelay: `${idx * 0.35}s` }}
-                  />
-                  <circle
-                    cx={node.x}
-                    cy={node.y}
-                    r={node.state === 'critical' ? 2.5 : 2.1}
-                    fill={node.state === 'critical' ? '#ffd6df' : '#fff2cf'}
-                    opacity={0.85}
-                    className="impact-core"
-                    style={{ animationDelay: `${idx * 0.35}s` }}
-                  />
-                </g>
-              ))}
+              .filter((node) => node.count > 0)
+              .map((node) => {
+                const color = REGION_HEAT_COLOR[node.sev]
+                const baseRadius = Math.min(42, 14 + node.count * 6)
+                return (
+                  <g key={`heat-${node.region}`}>
+                    <circle
+                      cx={node.x}
+                      cy={node.y}
+                      r={baseRadius}
+                      fill={color.glow}
+                      opacity={focusRegion ? (node.focused ? (node.sev === 'CRITICAL' ? 0.24 : 0.18) : 0.06) : (node.sev === 'CRITICAL' ? 0.28 : 0.18)}
+                      className="hybrid-pulse"
+                    />
+                    <circle cx={node.x} cy={node.y} r={Math.max(3.4, baseRadius * 0.32)} fill={color.glow} opacity={0.28} />
+                  </g>
+                )
+              })}
           </g>
 
           <g>
-            {nodeData.map(node => {
-              const nodeColor = node.state === 'critical' ? '#f43f5e' : node.state === 'active' ? '#52f5ff' : '#26b4cc'
-              const radius = node.state === 'critical' ? 5.8 : node.state === 'active' ? 4.9 : 3.9
+            {nodeData.map((node) => {
+              const color = REGION_HEAT_COLOR[node.sev]
+              const isHot = node.count > 0
+              const radius = isHot ? 4.3 : 2.5
+              const showLabel = visibleLabelRegions.has(node.region)
+              const labelOffset = LABEL_OFFSETS[node.region]
+              const alignLabelLeft = node.x + labelOffset.dx > MAP_VIEWBOX_WIDTH - 170
+              const labelX = (alignLabelLeft ? node.x - 9 : node.x + 9) + labelOffset.dx
+              const labelY = node.y - 9 + labelOffset.dy
+              const labelAnchor: 'start' | 'end' = alignLabelLeft ? 'end' : 'start'
+              const isFocusLabel = Boolean(focusRegion && node.region === focusRegion)
+              const isNonFocusLabel = Boolean(focusRegion && node.region !== focusRegion)
               return (
-                <g key={node.region} onClick={() => onMapClick(node.region)} className="map-node cursor-crosshair">
-                  {node.state !== 'base' && (
-                    <circle cx={node.x} cy={node.y} r={radius + 3.8} fill="none" stroke={node.state === 'critical' ? '#f43f5e7a' : '#67f0ff66'} strokeWidth="1.25" />
+                <g key={node.region} onClick={() => onMapClick(node.region)} className="cursor-crosshair">
+                  {node.focused && (
+                    <circle cx={node.x} cy={node.y} r={radius + 6} fill="none" stroke="#8be9ff88" strokeWidth="1.2" />
                   )}
-                  {node.state === 'critical' && (
-                    <circle cx={node.x} cy={node.y} r={radius + 6.1} fill="none" stroke="#f43f5e3d" strokeWidth="1.05" />
-                  )}
-                  <circle cx={node.x} cy={node.y} r={radius} fill={nodeColor} stroke={node.focused ? '#e2f8ff' : '#02131f'} strokeWidth={node.focused ? 1.5 : 1.1} />
-                  {node.showLabel && (
-                    <text x={node.x + 8} y={node.y - 8} fill="#b7f1ff" stroke="#010a12" strokeWidth="2.25" paintOrder="stroke" fontSize="10.8" fontWeight="650" letterSpacing="0.55" fontFamily={'"JetBrains Mono", "SFMono-Regular", Consolas, monospace'}>
-                      {node.region}
-                    </text>
+                  <circle cx={node.x} cy={node.y} r={radius} fill={isHot ? color.core : '#4f6678'} stroke="#06111b" strokeWidth="1.1" />
+                  {showLabel && (
+                    <>
+                      <text
+                        x={labelX}
+                        y={labelY}
+                        textAnchor={labelAnchor}
+                        fill={isFocusLabel ? '#f0fff8' : isNonFocusLabel ? '#b8ddc8' : '#d9f4ff'}
+                        stroke="#051019"
+                        strokeOpacity={isFocusLabel ? 0.96 : isNonFocusLabel ? 0.62 : 0.88}
+                        strokeWidth={isFocusLabel ? '2.3' : '2.1'}
+                        paintOrder="stroke"
+                        fontSize={isFocusLabel ? '10.3' : '9.7'}
+                        fontWeight={isFocusLabel ? '700' : '600'}
+                        opacity={focusRegion ? (isFocusLabel ? 1 : 0.54) : 0.98}
+                        letterSpacing="0.35"
+                        fontFamily={'"JetBrains Mono", "SFMono-Regular", Consolas, monospace'}
+                      >
+                        {REGION_LABELS[node.region] ?? node.region}
+                      </text>
+                    </>
                   )}
                 </g>
               )
             })}
           </g>
+          </g>
+
+          {focusRegion && focusOverlayGeometry && (
+            <g>
+              <line
+                x1={focusOverlayGeometry.anchorX}
+                y1={focusOverlayGeometry.anchorY}
+                x2={focusOverlayGeometry.openRight ? focusOverlayGeometry.x : focusOverlayGeometry.x + focusOverlayGeometry.width}
+                y2={focusOverlayGeometry.y + focusOverlayGeometry.height / 2}
+                stroke={focusRegionStats ? REGION_HEAT_COLOR[focusRegionStats.sev].glow : '#59f59a'}
+                strokeOpacity="0.62"
+                strokeWidth="1.1"
+                strokeDasharray="4 3"
+              />
+              <circle cx={focusOverlayGeometry.anchorX} cy={focusOverlayGeometry.anchorY} r="2.6" fill="#d4ffe6" />
+              <foreignObject x={focusOverlayGeometry.x} y={focusOverlayGeometry.y} width={focusOverlayGeometry.width} height={focusOverlayGeometry.height}>
+                <div className="h-full w-full rounded-md border border-[#2b4a30] bg-gradient-to-b from-[#0c1f10]/95 via-[#0a180e]/95 to-[#08130b]/95 p-2.5 shadow-[0_0_25px_rgba(0,230,64,0.18)] backdrop-blur-[1px]">
+                  <div className="mb-2 flex items-start justify-between border-b border-[#27422b] pb-1.5">
+                    <div className="min-w-0">
+                      <p className="text-[8px] font-bold uppercase tracking-[0.22em] text-[#9fffc4]/90">Country Intelligence</p>
+                      <p className="truncate pt-0.5 text-[11px] font-semibold text-slate-100">
+                        {REGION_LABELS[focusRegion] ?? focusRegion}
+                      </p>
+                    </div>
+                    <span
+                      className="ml-2 rounded border px-1.5 py-0.5 text-[8px] font-mono font-bold tracking-widest"
+                      style={{
+                        color: focusRegionStats ? REGION_HEAT_COLOR[focusRegionStats.sev].core : '#d7ffe8',
+                        borderColor: focusRegionStats ? `${REGION_HEAT_COLOR[focusRegionStats.sev].glow}88` : '#2c4f31',
+                        backgroundColor: focusRegionStats ? `${REGION_HEAT_COLOR[focusRegionStats.sev].glow}22` : '#0f1f12',
+                      }}
+                    >
+                      {focusRegionStats?.sev ?? 'LOW'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 text-[8px] font-mono">
+                    <div className="rounded border border-[#2a432c] bg-[#0a180e]/85 px-1.5 py-1">
+                      <p className="text-slate-400 uppercase">Incidents</p>
+                      <p className="pt-0.5 text-[10px] font-semibold text-emerald-200 tabular-nums">{focusIncidentSet.length}</p>
+                    </div>
+                    <div className="rounded border border-[#2a432c] bg-[#0a180e]/85 px-1.5 py-1">
+                      <p className="text-slate-400 uppercase">Critical</p>
+                      <p className="pt-0.5 text-[10px] font-semibold text-rose-300 tabular-nums">{focusCriticalCount}</p>
+                    </div>
+                    <div className="rounded border border-[#2a432c] bg-[#0a180e]/85 px-1.5 py-1">
+                      <p className="text-slate-400 uppercase">Mode</p>
+                      <p className="pt-0.5 text-[10px] font-semibold text-[#b2ffd0]">FOCUS</p>
+                    </div>
+                    <div className="rounded border border-[#2a432c] bg-[#0a180e]/85 px-1.5 py-1">
+                      <p className="text-slate-400 uppercase">Coverage</p>
+                      <p className="pt-0.5 text-[10px] font-semibold text-emerald-200 tabular-nums">{focusActivityRatio}%</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 space-y-1 text-[8px] font-mono">
+                    {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as Severity[]).map((sev) => {
+                      const count = focusSeverityMix[sev]
+                      const ratio = focusIncidentSet.length > 0 ? Math.round((count / focusIncidentSet.length) * 100) : 0
+                      const barColor = sev === 'CRITICAL'
+                        ? '#f43f5e'
+                        : sev === 'HIGH'
+                          ? '#f59e0b'
+                          : sev === 'MEDIUM'
+                            ? '#22c55e'
+                            : '#86efac'
+                      return (
+                        <div key={sev}>
+                          <div className="flex items-center justify-between text-slate-300">
+                            <span className="tracking-widest">{sev}</span>
+                            <span className="tabular-nums text-slate-400">{count}</span>
+                          </div>
+                          <div className="mt-0.5 h-[4px] overflow-hidden rounded border border-[#1f3524] bg-[#061008]">
+                            <div
+                              className="h-full"
+                              style={{
+                                width: `${count > 0 ? Math.max(6, ratio) : 0}%`,
+                                backgroundColor: barColor,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <button
+                      onClick={onClearFocus}
+                      className="flex-1 rounded border border-[#2f5b35] bg-[#0d2311] py-1 text-[8px] font-bold uppercase tracking-widest text-[#9bffc2] hover:bg-[#14361a]"
+                    >
+                      Clear Focus
+                    </button>
+                    <span className="rounded border border-[#24432a] bg-[#0a180e]/80 px-1.5 py-1 text-[8px] font-mono text-slate-300">
+                      focus slice
+                    </span>
+                  </div>
+                </div>
+              </foreignObject>
+            </g>
+          )}
+
+          <rect
+            x="0"
+            y="0"
+            width={MAP_VIEWBOX_WIDTH}
+            height={MAP_VIEWBOX_HEIGHT}
+            fill="url(#worldVignette)"
+            clipPath="url(#mapViewportClip)"
+            pointerEvents="none"
+          />
         </svg>
+
+        {!worldTopology && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+            <span className="rounded border border-[#24412a] bg-[#08130b]/90 px-3 py-1 text-[9px] font-mono tracking-widest uppercase text-[#9bc2a7]">
+              Loading Topology Layer
+            </span>
+          </div>
+        )}
+
+        <div className="absolute bottom-2 left-2 z-20 flex items-center gap-2 rounded border border-[#204028] bg-[#08130b]/92 px-2 py-1 text-[8px] font-mono">
+          <span className="rounded border border-[#2a4b31] bg-[#09190d] px-1.5 py-0.5 text-[#9dc5a9]">
+            {focusRegion ? 'FOCUS MIX' : 'GLOBAL MIX'}
+          </span>
+          <span className="text-rose-300">CRITICAL {legendSeverityMix.CRITICAL}</span>
+          <span className="text-amber-300">HIGH {legendSeverityMix.HIGH}</span>
+          <span className="text-emerald-300">MEDIUM {legendSeverityMix.MEDIUM}</span>
+          <span className="text-green-300">LOW {legendSeverityMix.LOW}</span>
+        </div>
+
+        <style jsx>{`
+          .matrix-drift {
+            animation: matrix-drift 16s linear infinite;
+          }
+
+          .scan-sweep {
+            animation: scan-sweep 11s ease-in-out infinite;
+          }
+
+          .ambient-flow {
+            animation: ambient-flow-dash 18s linear infinite;
+          }
+
+          .hybrid-flow {
+            animation-name: hybrid-flow-dash;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+          }
+
+          .hybrid-pulse {
+            transform-origin: center;
+            transform-box: fill-box;
+            animation: hybrid-pulse-wave 4.8s ease-in-out infinite;
+          }
+
+          @keyframes hybrid-flow-dash {
+            from { stroke-dashoffset: 0; }
+            to { stroke-dashoffset: -220; }
+          }
+
+          @keyframes hybrid-pulse-wave {
+            0%, 100% { opacity: 0.14; transform: scale(0.97); }
+            50% { opacity: 0.28; transform: scale(1.06); }
+          }
+
+          @keyframes ambient-flow-dash {
+            from { stroke-dashoffset: 0; }
+            to { stroke-dashoffset: -140; }
+          }
+
+          @keyframes scan-sweep {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 0.4; }
+          }
+
+          @keyframes matrix-drift {
+            0% { transform: translateX(0); opacity: 0.34; }
+            50% { transform: translateX(-5px); opacity: 0.48; }
+            100% { transform: translateX(0); opacity: 0.34; }
+          }
+        `}</style>
       </div>
-
-      <div className="absolute inset-0 pointer-events-none z-10" style={{
-        background: 'radial-gradient(ellipse at 50% 52%, rgba(11,43,68,0.14) 0%, rgba(2,13,23,0.05) 42%, rgba(0,2,10,0.72) 100%)'
-      }} />
-
-      <style jsx>{`
-        .infra-dot {
-          animation: infra-twinkle 4.6s ease-in-out infinite;
-        }
-
-        .threat-arc {
-          animation-name: arc-flow;
-          animation-timing-function: cubic-bezier(0.3, 0, 0.7, 1);
-          animation-iteration-count: infinite;
-        }
-
-        .packet-dot {
-          filter: drop-shadow(0 0 2px rgba(107, 243, 255, 0.55));
-        }
-
-        .packet-dot-crit {
-          filter: drop-shadow(0 0 3px rgba(255, 106, 134, 0.62));
-        }
-
-        .impact-ring {
-          transform-origin: center;
-          transform-box: fill-box;
-          animation: impact-pulse 3s cubic-bezier(0.18, 0.88, 0.3, 1) infinite;
-        }
-
-        .impact-core {
-          animation: impact-core 1.85s ease-in-out infinite;
-        }
-
-        .map-node {
-          transition: opacity 140ms ease;
-        }
-
-        @keyframes infra-twinkle {
-          0%, 100% { opacity: 0.26; }
-          50% { opacity: 0.7; }
-        }
-
-        @keyframes arc-flow {
-          from { stroke-dashoffset: 180; }
-          to { stroke-dashoffset: 0; }
-        }
-
-        @keyframes impact-pulse {
-          0% { opacity: 0.45; transform: scale(0.7); }
-          72% { opacity: 0.04; transform: scale(1.62); }
-          100% { opacity: 0; transform: scale(1.72); }
-        }
-
-        @keyframes impact-core {
-          0%, 100% { opacity: 0.78; transform: scale(0.95); }
-          50% { opacity: 0.36; transform: scale(1.18); }
-        }
-      `}</style>
     </section>
   )
 })
@@ -599,71 +1084,385 @@ GlobalMapPanel.displayName = 'GlobalMapPanel'
 
 
 
-const LiveTelemetryStream = React.memo(({ visibleEvents, selectedEventId, mapFilter, onEventSelect }: { visibleEvents: ThreatEvent[], selectedEventId: string | null, mapFilter: string | null, onEventSelect: (id: string) => void }) => (
-  <Frame title={`Live Telemetry Stream ${mapFilter ? `[FILTER: ${mapFilter}]` : ''}`} className="flex-1 min-h-0" headerClass="bg-[#010101]">
-    <div className="flex-1 overflow-auto custom-scrollbar -m-3 mt-0">
-      <table className="w-full text-left border-collapse whitespace-nowrap table-fixed">
-        <thead className="sticky top-0 bg-[#010203] border-b border-[#0a121a] z-10 shadow-sm">
-          <tr>
-            <th className="py-2 px-3 text-[8px] w-20 uppercase tracking-widest text-slate-600 font-normal border-r border-[#0a121a]">TIME</th>
-            <th className="py-2 px-3 text-[8px] w-12 uppercase tracking-widest text-slate-600 font-normal border-r border-[#0a121a]">SEV</th>
-            <th className="py-2 px-3 text-[8px] w-48 uppercase tracking-widest text-slate-600 font-normal border-r border-[#0a121a]">SIGNATURE</th>
-            <th className="py-2 px-3 text-[8px] w-32 uppercase tracking-widest text-slate-600 font-normal border-r border-[#0a121a]">ORIGIN</th>
-            <th className="py-2 px-3 text-[8px] w-32 uppercase tracking-widest text-slate-600 font-normal border-r border-[#0a121a]">DEST (NODE)</th>
-            <th className="py-2 px-3 text-[8px] uppercase tracking-widest text-slate-600 font-normal">REGION</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[#05080c] font-mono">
-          {visibleEvents.map((evt) => {
-            const isSelected = selectedEventId === evt.id
-            return (
-              <tr 
-                key={evt.id} 
-                onClick={() => onEventSelect(evt.id)}
-                className={`cursor-pointer transition-colors group border-l-[3px] ${isSelected ? 'bg-[#030912] border-cyan-500' : 'hover:bg-[#03070b] border-transparent'}`}
+const LiveTelemetryStream = React.memo(({
+  visibleEvents,
+  selectedEventId,
+  mapFilter,
+  incidentByEventId,
+  onEventSelect,
+  onPromote,
+  onInvestigate,
+  onContain,
+  onDismiss,
+}: {
+  visibleEvents: ThreatEvent[]
+  selectedEventId: string | null
+  mapFilter: string | null
+  incidentByEventId: Map<string, Incident>
+  onEventSelect: (id: string) => void
+  onPromote: (event: ThreatEvent) => void
+  onInvestigate: (event: ThreatEvent) => void
+  onContain: (event: ThreatEvent) => void
+  onDismiss: (event: ThreatEvent) => void
+}) => {
+  const [severityFilter, setSeverityFilter] = useState<'ALL' | Severity>('ALL')
+  const [caseFilter, setCaseFilter] = useState<TelemetryCaseFilter>('ALL')
+
+  const telemetryRows = useMemo(() => {
+    return visibleEvents.map((event) => {
+      const linkedIncident = incidentByEventId.get(event.id) ?? null
+      const caseStatus = (linkedIncident?.status ?? 'NO_CASE') as TelemetryCaseFilter | IncidentStatus
+      return { event, linkedIncident, caseStatus }
+    })
+  }, [incidentByEventId, visibleEvents])
+
+  const filteredRows = useMemo(() => {
+    return telemetryRows.filter((row) => {
+      if (severityFilter !== 'ALL' && row.event.sev !== severityFilter) return false
+      if (caseFilter === 'ALL') return true
+      if (caseFilter === 'NO_CASE') return row.caseStatus === 'NO_CASE'
+      return row.caseStatus === caseFilter
+    })
+  }, [caseFilter, severityFilter, telemetryRows])
+
+  const tableRows = filteredRows.slice(0, 120)
+  const criticalCount = filteredRows.filter((row) => row.event.sev === 'CRITICAL').length
+  const highCount = filteredRows.filter((row) => row.event.sev === 'HIGH').length
+  const investigatingCount = filteredRows.filter((row) => row.caseStatus === 'INVESTIGATING').length
+  const openCaseCount = filteredRows.filter((row) => row.caseStatus === 'OPEN').length
+  const containedCount = filteredRows.filter((row) => row.caseStatus === 'CONTAINED').length
+  const noCaseCount = filteredRows.filter((row) => row.caseStatus === 'NO_CASE').length
+
+  const selectedTelemetryRow = selectedEventId
+    ? telemetryRows.find((row) => row.event.id === selectedEventId) ?? null
+    : null
+  const selectedTelemetryEvent = selectedTelemetryRow?.event ?? null
+  const selectedTelemetryIncident = selectedTelemetryRow?.linkedIncident ?? null
+
+  return (
+    <Frame
+      title={`Live Telemetry Stream ${mapFilter ? `[FILTER: ${mapFilter}]` : ''}`}
+      className={`flex-none min-h-0 ${TELEMETRY_PANEL_HEIGHT_CLASS} border-[#1a2e1a]`}
+      headerClass="bg-[#08120b]"
+      rightAction={
+        <div className="flex items-center gap-2 text-[8px] font-mono tracking-wider">
+          <span className="text-rose-300">CRIT {criticalCount}</span>
+          <span className="text-amber-300">HIGH {highCount}</span>
+          <span className="text-[#7aa989]">ROWS {tableRows.length}/{filteredRows.length}</span>
+        </div>
+      }
+    >
+      <div className="flex-1 min-h-0 overflow-auto custom-scrollbar -m-3 mt-0">
+        <div className="sticky top-0 z-20 border-b border-[#1d3323] bg-[#0a180d]/95 backdrop-blur-sm">
+          <div className="flex items-center gap-2 px-2 py-1.5">
+            <span className="rounded border border-[#2b4e32] bg-[#0d2212] px-2 py-0.5 text-[8px] font-mono uppercase tracking-widest text-[#99c9a8]">
+              {selectedTelemetryEvent ? `Selected: ${formatTime(selectedTelemetryEvent.timestamp)}` : 'Selected: none'}
+            </span>
+            {selectedTelemetryIncident && (
+              <span className="rounded border border-[#2a4a31] bg-[#0e1e12] px-2 py-0.5 text-[8px] font-mono uppercase tracking-widest text-[#9fe3b3]">
+                Case {selectedTelemetryIncident.id}
+              </span>
+            )}
+            <span className="rounded border border-[#2a4a31] bg-[#0e1e12] px-2 py-0.5 text-[8px] font-mono uppercase tracking-widest text-[#9dc9a8]">
+              Open {openCaseCount}
+            </span>
+            <span className="rounded border border-[#265140] bg-[#0d2218] px-2 py-0.5 text-[8px] font-mono uppercase tracking-widest text-[#9cead0]">
+              Inv {investigatingCount}
+            </span>
+            <span className="rounded border border-[#2d5642] bg-[#11231a] px-2 py-0.5 text-[8px] font-mono uppercase tracking-widest text-[#89e0b5]">
+              Con {containedCount}
+            </span>
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                disabled={!selectedTelemetryEvent}
+                onClick={() => selectedTelemetryEvent && onPromote(selectedTelemetryEvent)}
+                className="rounded border border-[#2f5f3c] bg-[#122716] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-[#a9efbc] hover:bg-[#17311d] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <td className="py-1.5 px-3 text-[9px] text-slate-600 tabular-nums border-r border-[#05080c] group-hover:text-cyan-600">{formatTime(evt.timestamp)}</td>
-                <td className="py-1.5 px-3 border-r border-[#05080c]">
-                  <span className={`w-1.5 h-1.5 inline-block rounded-none ${THEME.severity[evt.sev].bg}`}></span>
+                Create/Open
+              </button>
+              <button
+                disabled={!selectedTelemetryEvent}
+                onClick={() => selectedTelemetryEvent && onInvestigate(selectedTelemetryEvent)}
+                className="rounded border border-cyan-500/45 bg-cyan-900/25 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-cyan-100 hover:bg-cyan-800/35 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Investigate
+              </button>
+              <button
+                disabled={!selectedTelemetryEvent}
+                onClick={() => selectedTelemetryEvent && onContain(selectedTelemetryEvent)}
+                className="rounded border border-rose-500/45 bg-rose-900/30 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-rose-100 hover:bg-rose-800/40 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Contain
+              </button>
+              <button
+                disabled={!selectedTelemetryEvent}
+                onClick={() => selectedTelemetryEvent && onDismiss(selectedTelemetryEvent)}
+                className="rounded border border-amber-500/45 bg-amber-900/25 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-amber-100 hover:bg-amber-800/35 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 overflow-x-auto border-t border-[#163122] px-2 py-1 whitespace-nowrap">
+            <span className="text-[7px] uppercase tracking-widest text-[#6f8f78]">Severity</span>
+            {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((sev) => (
+              <button
+                key={`sev-${sev}`}
+                onClick={() => setSeverityFilter(sev)}
+                className={`rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest ${
+                  severityFilter === sev
+                    ? 'border-[#3d7850] bg-[#17311f] text-[#bff7cf]'
+                    : 'border-[#2a4a31] bg-[#0f1f13] text-[#89aa94] hover:bg-[#162a1b]'
+                }`}
+              >
+                {sev}
+              </button>
+            ))}
+            <span className="ml-2 text-[7px] uppercase tracking-widest text-[#6f8f78]">Case</span>
+            {(['ALL', 'NO_CASE', 'OPEN', 'INVESTIGATING', 'CONTAINED', 'FALSE_POSITIVE'] as const).map((item) => (
+              <button
+                key={`case-${item}`}
+                onClick={() => setCaseFilter(item)}
+                className={`rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest ${
+                  caseFilter === item
+                    ? 'border-[#3d7850] bg-[#17311f] text-[#bff7cf]'
+                    : 'border-[#2a4a31] bg-[#0f1f13] text-[#89aa94] hover:bg-[#162a1b]'
+                }`}
+              >
+                {item === 'NO_CASE' ? 'NoCase' : item === 'FALSE_POSITIVE' ? 'Dismissed' : item}
+              </button>
+            ))}
+            <span className="ml-2 rounded border border-[#2a4a31] bg-[#0f1f13] px-1.5 py-0.5 text-[8px] font-mono uppercase tracking-widest text-[#8db09a]">
+              No Case {noCaseCount}
+            </span>
+          </div>
+        </div>
+        <table className="w-full border-collapse table-fixed text-left">
+          <thead className="sticky top-[54px] z-10 bg-[#0b170d] border-b border-[#1f3824]">
+            <tr>
+              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal w-[74px] border-r border-[#183020]">Time</th>
+              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal w-[86px] border-r border-[#183020]">Severity</th>
+              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal border-r border-[#183020]">Incident Type</th>
+              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal w-[130px] border-r border-[#183020]">Source IP</th>
+              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal w-[130px] border-r border-[#183020]">Node</th>
+              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal w-[142px] border-r border-[#183020]">Region</th>
+              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal w-[130px] border-r border-[#183020]">Case</th>
+              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal w-[200px]">Ops</th>
+            </tr>
+          </thead>
+          <tbody className="font-mono divide-y divide-[#15251a]">
+            {tableRows.map((row, index) => {
+              const evt = row.event
+              const isSelected = selectedEventId === evt.id
+              const linkedIncident = row.linkedIncident
+              const linkedStatus = linkedIncident?.status ?? null
+              const isContained = linkedStatus === 'CONTAINED'
+              const isDismissed = linkedStatus === 'FALSE_POSITIVE'
+              const primaryLabel = !linkedIncident ? 'Create' : linkedStatus === 'OPEN' ? 'Investigate' : 'Open'
+              const baseRow = index % 2 === 0 ? 'bg-[#08140b]' : 'bg-[#0b180f]'
+              const sevTone = evt.sev === 'CRITICAL'
+                ? 'text-rose-200'
+                : evt.sev === 'HIGH'
+                  ? 'text-amber-200'
+                  : evt.sev === 'MEDIUM'
+                    ? 'text-emerald-200'
+                    : 'text-green-200'
+              return (
+                <tr
+                  key={evt.id}
+                  onClick={() => onEventSelect(evt.id)}
+                  className={`cursor-pointer ${isSelected ? 'bg-[#123019]' : `${baseRow} hover:bg-[#11301a]`}`}
+                >
+                  <td className="px-3 py-2 text-[10px] text-slate-400 tabular-nums border-r border-[#183020]">{formatTime(evt.timestamp)}</td>
+                  <td className="px-3 py-2 border-r border-[#183020]">
+                    <span className={`inline-flex min-w-[64px] justify-center rounded-sm border border-[#24402b] px-1.5 py-[2px] text-[8px] font-bold tracking-widest ${sevTone}`}>
+                      {evt.sev}
+                    </span>
+                  </td>
+                  <td className={`px-3 py-2 text-[10px] truncate border-r border-[#183020] ${sevTone}`}>{evt.type}</td>
+                  <td className="px-3 py-2 text-[10px] text-[#a5ffc8]/80 tabular-nums border-r border-[#183020]">{evt.source}</td>
+                  <td className="px-3 py-2 text-[10px] text-slate-300 tabular-nums border-r border-[#183020]">
+                    <span className="text-slate-500 mr-1">[{evt.protocol}]</span>
+                    {evt.node}
+                  </td>
+                  <td className="px-3 py-2 text-[10px] text-slate-300 truncate border-r border-[#183020]">{REGION_LABELS[evt.region] ?? evt.region}</td>
+                  <td className="px-2 py-1.5 border-r border-[#183020]">
+                    {linkedIncident ? (
+                      <div className="flex flex-col items-start gap-0.5">
+                        <span className="text-[8px] font-semibold text-[#b6f3cb]">{linkedIncident.id}</span>
+                        <span
+                          className={`rounded border px-1 py-0.5 text-[7px] font-bold uppercase tracking-widest ${
+                            linkedStatus === 'CONTAINED'
+                              ? 'border-emerald-500/40 bg-emerald-900/25 text-emerald-200'
+                              : linkedStatus === 'FALSE_POSITIVE'
+                                ? 'border-amber-500/40 bg-amber-900/20 text-amber-200'
+                                : linkedStatus === 'INVESTIGATING'
+                                  ? 'border-cyan-500/40 bg-cyan-900/20 text-cyan-200'
+                                  : 'border-[#325338] bg-[#102214] text-[#9fd6ad]'
+                          }`}
+                        >
+                          {linkedStatus}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-[8px] uppercase tracking-widest text-[#6f8f78]">No Case</span>
+                    )}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          if (!linkedIncident) onPromote(evt)
+                          else if (linkedStatus === 'OPEN') onInvestigate(evt)
+                          else onPromote(evt)
+                        }}
+                        className={`rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest ${
+                          linkedIncident
+                            ? 'border-[#2f5f3c] bg-[#122716] text-[#a9efbc] hover:bg-[#17311d]'
+                            : 'border-[#2e4f33] bg-[#102014] text-[#96d9a7] hover:bg-[#17301c]'
+                        }`}
+                        title={linkedIncident ? `Case: ${linkedIncident.id}` : 'Promote telemetry to incident'}
+                      >
+                        {primaryLabel}
+                      </button>
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          onContain(evt)
+                        }}
+                        disabled={isContained || isDismissed}
+                        className="rounded border border-rose-500/45 bg-rose-900/35 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-rose-100 hover:bg-rose-800/45 disabled:cursor-not-allowed disabled:opacity-35"
+                        title={isContained ? 'Already contained' : isDismissed ? 'Dismissed case cannot be contained' : 'Contain from telemetry'}
+                      >
+                        Contain
+                      </button>
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          onDismiss(evt)
+                        }}
+                        disabled={isDismissed}
+                        className="rounded border border-amber-500/45 bg-amber-900/30 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-amber-100 hover:bg-amber-800/45 disabled:cursor-not-allowed disabled:opacity-35"
+                        title={isDismissed ? 'Already dismissed' : 'Mark as false positive from telemetry'}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+            {tableRows.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-3 py-8 text-center text-[10px] uppercase tracking-widest text-slate-500 font-mono">
+                  No telemetry events
                 </td>
-                <td className={`py-1.5 px-3 text-[9px] truncate border-r border-[#05080c] ${evt.sev === 'CRITICAL' ? 'text-rose-200 font-bold' : evt.sev === 'HIGH' ? 'text-amber-200' : 'text-slate-400'}`}>{evt.type}</td>
-                <td className="py-1.5 px-3 text-[9px] text-cyan-800 tabular-nums border-r border-[#05080c] group-hover:text-cyan-500">{evt.source}</td>
-                <td className="py-1.5 px-3 text-[9px] text-slate-500 tabular-nums border-r border-[#05080c]"><span className="text-slate-700 mr-1">[{evt.protocol}]</span>{evt.node}</td>
-                <td className="py-1.5 px-3 text-[8px] text-slate-700 truncate">{evt.region}</td>
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
-  </Frame>
-))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Frame>
+  )
+})
 LiveTelemetryStream.displayName = 'LiveTelemetryStream'
 
 const TriageQueuePanel = React.memo(({ visibleIncidents, activeIncidentId, mapFilter, onIncidentSelect }: { visibleIncidents: Incident[], activeIncidentId: string | null, mapFilter: string | null, onIncidentSelect: (id: string) => void }) => (
-  <Frame title={`Triage Queue ${mapFilter ? `[${mapFilter}]` : ''}`} className="flex-1 min-h-0 border-[#1a1c23]">
-    <div className="flex flex-col gap-1.5 overflow-auto custom-scrollbar -m-3 p-3">
+  <Frame title={`Triage Queue ${mapFilter ? `[${mapFilter}]` : ''}`} className="flex-1 min-h-0 border-[#1a2e1a]">
+    <div className="flex flex-col gap-2 overflow-auto custom-scrollbar -m-3 p-3">
       {visibleIncidents.map((inc) => {
         const isActive = activeIncidentId === inc.id
+        const destination = REGION_LABELS[inc.region] ?? inc.region
+        const threatTag = inc.sev === 'CRITICAL' ? 'Web Threat' : inc.sev === 'HIGH' ? 'Intrusion' : inc.sev === 'MEDIUM' ? 'Recon' : 'Signal'
+        const levelText = inc.sev === 'CRITICAL' || inc.sev === 'HIGH' ? 'High' : 'Low'
+        const tone = inc.sev === 'CRITICAL'
+          ? {
+              border: 'border-rose-500/60',
+              glow: 'shadow-[0_0_14px_rgba(244,63,94,0.16)]',
+              iconBg: 'bg-rose-500/15',
+              iconText: 'text-rose-300',
+              arrow: 'text-rose-300',
+              badgeBg: 'bg-rose-500',
+              badgeText: 'text-white',
+              title: 'text-rose-100',
+              source: 'text-rose-300',
+            }
+          : inc.sev === 'HIGH'
+            ? {
+                border: 'border-amber-500/55',
+                glow: 'shadow-[0_0_14px_rgba(245,158,11,0.14)]',
+                iconBg: 'bg-amber-500/16',
+                iconText: 'text-amber-200',
+                arrow: 'text-amber-300',
+                badgeBg: 'bg-amber-500',
+                badgeText: 'text-white',
+                title: 'text-slate-100',
+                source: 'text-amber-200',
+              }
+            : {
+                border: 'border-emerald-500/55',
+                glow: 'shadow-[0_0_14px_rgba(16,185,129,0.14)]',
+                iconBg: 'bg-emerald-500/16',
+                iconText: 'text-emerald-200',
+                arrow: 'text-emerald-300',
+                badgeBg: 'bg-emerald-500',
+                badgeText: 'text-[#041008]',
+                title: 'text-slate-100',
+                source: 'text-emerald-200',
+              }
+
         return (
-          <button 
-            key={inc.id} 
+          <button
+            key={inc.id}
             onClick={() => onIncidentSelect(inc.id)}
-            className={`group flex flex-col bg-[#020509] border text-left hover:bg-[#04080e] transition-colors cursor-crosshair ${isActive ? 'border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.1)]' : 'border-[#1a2c3f]'} border-l-4 ${inc.sev === 'CRITICAL' ? 'border-l-rose-500' : inc.sev === 'HIGH' ? 'border-l-amber-500' : 'border-l-yellow-500'}`}
+            className={`group relative overflow-hidden rounded border bg-[#08150c] text-left transition-colors cursor-crosshair hover:bg-[#0d2013] ${
+              isActive ? `${tone.border} ${tone.glow}` : 'border-[#214029]'
+            }`}
           >
-            <div className="p-2.5 w-full">
-              <div className="flex justify-between items-start mb-1.5">
-                  <SevTag sev={inc.sev} solid={inc.sev === 'CRITICAL'} />
-                  {inc.status === 'CONTAINED' ? (
-                    <span className="text-[9px] font-mono font-bold text-emerald-500">CONTAINED</span>
-                  ) : (
-                    <span className={`text-[9px] font-mono font-bold ${inc.sla < 900 ? 'text-rose-500 animate-[pulse_2s_ease-in-out_infinite]' : 'text-slate-500'}`}>T-{formatSLA(inc.sla)}</span>
-                  )}
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-white/0 via-white/[0.03] to-white/0" />
+            <div className="relative p-2.5">
+              <div className="mb-2 flex items-start justify-between">
+                <span className="text-[8px] font-mono tracking-wider text-[#8bad95]">{formatDateTime(inc.time)}</span>
+                <span
+                  className={`px-2 py-[2px] text-[8px] font-mono font-bold uppercase tracking-wide ${tone.badgeText} ${tone.badgeBg}`}
+                  style={{ clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0% 100%)' }}
+                >
+                  {threatTag}
+                </span>
               </div>
-              <span className={`font-bold text-[11px] uppercase tracking-wide truncate mb-1 block ${inc.sev === 'CRITICAL' ? 'text-rose-100' : 'text-slate-300'}`}>{inc.label}</span>
-              <div className="flex justify-between text-[9px] font-mono mt-2 opacity-80">
-                <span className="text-slate-500">SRC: <span className={inc.sev==='CRITICAL'?'text-rose-400':'text-cyan-600'}>{inc.source}</span></span>
-                <span className="text-slate-500">TGT: <span className="text-slate-400">{inc.node}</span></span>
+
+              <div className="flex gap-2.5">
+                <div className={`h-12 w-12 shrink-0 rounded border border-white/15 ${tone.iconBg} flex flex-col items-center justify-center`}>
+                  <span className={`text-[12px] leading-none ${tone.iconText}`}>!</span>
+                  <span className="mt-1 text-[8px] font-mono text-[#d7f5e3]">{levelText}</span>
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className={`truncate text-[13px] font-semibold leading-tight ${tone.title}`}>{inc.label}</p>
+                  <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-1 text-[8px] font-mono">
+                    <div className="min-w-0">
+                      <p className="uppercase tracking-widest text-slate-500">Source</p>
+                      <p className={`truncate mt-0.5 ${tone.source}`}>{inc.source}</p>
+                    </div>
+                    <span className={`px-1 text-[13px] ${tone.arrow}`}>→</span>
+                    <div className="min-w-0 text-right">
+                      <p className="uppercase tracking-widest text-slate-500">Destination</p>
+                      <p className="truncate mt-0.5 text-[#d7f5e3]">{destination}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-between text-[8px] font-mono">
+                    <span className="text-[#7e9f87]">{inc.id}</span>
+                    {inc.status === 'CONTAINED' ? (
+                      <span className="text-emerald-400">CONTAINED</span>
+                    ) : (
+                      <span className={inc.sla < 900 ? 'text-rose-400 animate-[pulse_2s_ease-in-out_infinite]' : 'text-slate-400'}>
+                        T-{formatSLA(inc.sla)}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </button>
@@ -677,187 +1476,6 @@ const TriageQueuePanel = React.memo(({ visibleIncidents, activeIncidentId, mapFi
 ))
 TriageQueuePanel.displayName = 'TriageQueuePanel'
 
-const InvestigationConsolePanel = React.memo(({ 
-  activeIncident, 
-  selectedEventInfo, 
-  correlatedEvents,
-  onInvestigate,
-  onIsolate,
-  onDismiss,
-  onPromote,
-  onClearSelection
-}: { 
-  activeIncident: Incident | undefined, 
-  selectedEventInfo: ThreatEvent | undefined, 
-  correlatedEvents: ThreatEvent[],
-  onInvestigate: (id: string) => void,
-  onIsolate: (id: string, node: string, source: string) => void,
-  onDismiss: (id: string) => void,
-  onPromote: (e: ThreatEvent) => void,
-  onClearSelection: () => void
-}) => {
-
-  if (!activeIncident && !selectedEventInfo) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-[10px] uppercase font-mono text-slate-600 tracking-widest p-8 text-center border-t border-[#121E2D]">
-        Select an incident from the triage queue or an event from telemetry stream to begin correlation workflows.
-      </div>
-    )
-  }
-
-  if (selectedEventInfo) {
-    return (
-      <div className="flex flex-col h-full overflow-hidden text-sm">
-        <div className="bg-[#05080c] p-3 border-b border-[#0a121a]">
-            <div className="flex justify-between items-start mb-2">
-              <SevTag sev={selectedEventInfo.sev} />
-              <span className="text-[9px] font-mono tracking-widest px-1.5 py-0.5 bg-slate-800 text-slate-400">TELEMETRY EVENT</span>
-            </div>
-            <h3 className="font-bold text-slate-100 text-[12px] uppercase tracking-wide leading-tight mb-3 text-cyan-200">{selectedEventInfo.type}</h3>
-            
-            <div className="grid grid-cols-2 gap-2 text-[9px] font-mono">
-              <div className="flex flex-col border border-[#1a2c3f] bg-[#010203] p-1.5">
-                  <span className="text-slate-600 uppercase mb-0.5">Source IP</span>
-                  <span className="text-cyan-500">{selectedEventInfo.source}</span>
-              </div>
-              <div className="flex flex-col border border-[#1a2c3f] bg-[#010203] p-1.5">
-                  <span className="text-slate-600 uppercase mb-0.5">Dest Node</span>
-                  <span className="text-rose-400">{selectedEventInfo.node}</span>
-              </div>
-              <div className="flex flex-col border border-[#1a2c3f] bg-[#010203] p-1.5">
-                  <span className="text-slate-600 uppercase mb-0.5">Region</span>
-                  <span className="text-slate-300">{selectedEventInfo.region}</span>
-              </div>
-              <div className="flex flex-col border border-[#1a2c3f] bg-[#010203] p-1.5">
-                  <span className="text-slate-600 uppercase mb-0.5">Protocol</span>
-                  <span className="text-amber-500">{selectedEventInfo.protocol} / {selectedEventInfo.port}</span>
-              </div>
-            </div>
-        </div>
-        
-        <div className="flex-1 overflow-auto custom-scrollbar p-3 flex flex-col gap-4">
-            <div>
-              <h4 className="text-[9px] text-slate-500 font-mono uppercase tracking-widest mb-2 border-b border-[#0a121a] pb-1">Event Centered Forensics</h4>
-              <p className="text-[10px] text-slate-400 font-mono leading-relaxed">
-                This isolated event was captured at {formatTime(selectedEventInfo.timestamp)}. It has not yet been correlated into a high-severity incident cluster. If activity persists or manual correlation is confirmed, promote this to a full tracking incident.
-              </p>
-            </div>
-            
-            <div className="mt-auto flex flex-col gap-2 pt-4">
-              <button 
-                onClick={() => onPromote(selectedEventInfo)}
-                className="w-full bg-cyan-900/60 hover:bg-cyan-700 border border-cyan-500/50 text-cyan-100 text-[10px] font-mono font-bold uppercase tracking-widest py-2.5 transition-colors shadow-[0_0_15px_rgba(6,182,212,0.15)]"
-              >
-                Promote to Incident
-              </button>
-              <button 
-                onClick={onClearSelection}
-                className="w-full bg-[#05080c] hover:bg-[#0a121a] border border-[#1a2c3f] text-slate-400 hover:text-slate-200 text-[10px] font-mono font-bold uppercase tracking-widest py-2 transition-colors"
-              >
-                Clear Selection
-              </button>
-            </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (activeIncident) {
-    const isActionable = activeIncident.status !== 'CONTAINED' && activeIncident.status !== 'FALSE_POSITIVE' && activeIncident.status !== 'RESOLVED'
-    
-    return (
-      <div className="flex flex-col h-full overflow-hidden text-sm">
-        <div className="bg-[#05080c] p-3 border-b border-[#0a121a] flex-none">
-            <div className="flex justify-between items-start mb-2">
-              <SevTag sev={activeIncident.sev} solid={true} />
-              <span className={`text-[9px] font-mono tracking-widest px-1.5 py-0.5 ${activeIncident.status === 'INVESTIGATING' ? 'bg-amber-900/40 text-amber-500 border border-amber-500/20' : activeIncident.status === 'CONTAINED' ? 'bg-emerald-900/40 text-emerald-500 border border-emerald-500/20' : 'bg-slate-800 text-slate-400'}`}>
-                STATE: {activeIncident.status}
-              </span>
-            </div>
-            <h3 className="font-bold text-slate-100 text-[12px] uppercase tracking-wide leading-tight mb-3 text-rose-100">{activeIncident.label}</h3>
-            
-            <div className="grid grid-cols-2 gap-2 text-[9px] font-mono">
-              <div className="flex flex-col border border-[#1a2c3f] bg-[#010203] p-1.5">
-                  <span className="text-slate-600 uppercase mb-0.5">Adversary</span>
-                  <span className="text-cyan-500">{activeIncident.source}</span>
-              </div>
-              <div className="flex flex-col border border-[#1a2c3f] bg-[#010203] p-1.5">
-                  <span className="text-slate-600 uppercase mb-0.5">Compromise</span>
-                  <span className="text-rose-400">{activeIncident.node}</span>
-              </div>
-            </div>
-        </div>
-
-        <div className="flex-1 overflow-auto custom-scrollbar p-3 flex flex-col gap-4">
-            {/* Action Bar (If Open) */}
-            {activeIncident.status === 'OPEN' && (
-              <button 
-                  onClick={() => onInvestigate(activeIncident.id)}
-                  className="w-full bg-amber-900/40 hover:bg-amber-600 border border-amber-500/50 text-amber-100 text-[10px] font-mono font-bold uppercase tracking-widest py-2 transition-colors"
-                >
-                  Start Investigation
-              </button>
-            )}
-
-            {/* Incident Timeline */}
-            <div>
-              <h4 className="text-[9px] text-slate-500 font-mono uppercase tracking-widest mb-2 border-b border-[#0a121a] pb-1">Operational Timeline</h4>
-              <div className="flex flex-col gap-2 relative border-l border-[#1a2c3f] ml-1.5 pl-3">
-                {activeIncident.timeline.map((entry, idx) => (
-                  <div key={entry.id} className="text-[9px] font-mono relative">
-                      <div className={`absolute -left-[14px] top-1.5 w-1.5 h-1.5 rounded-full ${entry.type === 'CONTAINED' ? 'bg-emerald-500' : entry.type === 'INVESTIGATING' ? 'bg-amber-500' : entry.type === 'DETECTED' || entry.type === 'ALERT_OPENED' ? 'bg-rose-500' : 'bg-cyan-500'}`}></div>
-                      <div className="text-slate-500 mb-0.5">{formatTime(entry.time)} <span className="text-slate-700">[{entry.type}]</span></div>
-                      <div className={entry.type === 'CONTAINED' ? 'text-emerald-400' : 'text-slate-300'}>{entry.desc}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          
-            {/* Incident Correlated Events */}
-            <div>
-              <h4 className="text-[9px] text-slate-500 font-mono uppercase tracking-widest mb-2 border-b border-[#0a121a] pb-1">Correlated Telemetry</h4>
-              <div className="flex flex-col gap-1 border border-[#0a121a] bg-[#010203]">
-                {correlatedEvents.length === 0 ? (
-                  <span className="text-[9px] font-mono text-slate-600 p-2 text-center uppercase tracking-widest">No telemetry recorded</span>
-                ) : (
-                  correlatedEvents.map(evt => (
-                    <div key={evt.id} className="flex flex-col p-1.5 text-[9px] font-mono border-l-2 border-[#1a2c3f] border-b border-[#0a121a] last:border-b-0 hover:bg-[#03060a]">
-                        <div className="flex justify-between text-slate-500 mb-0.5">
-                          <span>{formatTime(evt.timestamp)}</span>
-                          <span>{evt.protocol}:{evt.port}</span>
-                        </div>
-                        <span className="text-slate-300 truncate">{evt.type}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-        </div>
-
-        <div className="p-3 bg-[#010203] border-t border-[#0a121a] flex gap-2 flex-none">
-            <button 
-              onClick={() => onIsolate(activeIncident.id, activeIncident.node, activeIncident.source)}
-              disabled={!isActionable}
-              className="flex-1 bg-rose-900/60 hover:bg-rose-600 border border-rose-500/50 text-rose-100 text-[10px] font-mono font-bold uppercase tracking-widest py-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Isolate Grid
-            </button>
-            <button 
-              onClick={() => onDismiss(activeIncident.id)}
-              disabled={!isActionable}
-              className="flex-1 bg-[#05080c] hover:bg-[#0a121a] border border-[#1a2c3f] text-slate-300 text-[10px] font-mono font-bold uppercase tracking-widest py-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Dismiss
-            </button>
-        </div>
-      </div>
-    )
-  }
-
-  return null
-})
-InvestigationConsolePanel.displayName = 'InvestigationConsolePanel'
-
 // ============================================================================
 // SKELETON SCREEN (shown before client-side mount to prevent blank flash)
 // ============================================================================
@@ -870,39 +1488,33 @@ function DashboardSkeleton() {
   return (
     <div className="relative min-h-[calc(100vh-64px)] bg-[#000102] flex flex-col">
       <div className="mx-auto flex w-full max-w-[2400px] flex-1 gap-2 p-2 items-stretch">
-        {/* Left sidebar */}
-        <aside className="w-[280px] flex-shrink-0 hidden lg:flex flex-col gap-2">
-          <SkeletonBox className="h-[110px]" />
-          <SkeletonBox className="h-[160px]" />
-        </aside>
-
         {/* Center */}
         <main className="flex-1 flex flex-col gap-2 min-w-0">
           {/* Map placeholder */}
-          <div className="h-[45vh] border border-[#1a1c23] bg-[#00020a] flex flex-col relative overflow-hidden animate-pulse">
-            <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3 py-1.5 border-b border-[#0f1b2b]/30">
-              <div className="w-1.5 h-1.5 bg-[#1a3a4a] flex-none" />
-              <div className="h-2 w-40 bg-[#071420] rounded-sm" />
-              <div className="ml-auto h-2 w-24 bg-[#071420] rounded-sm" />
+          <div className="h-[45vh] border border-[#1a2e1a] bg-[#00020a] flex flex-col relative overflow-hidden animate-pulse">
+            <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3 py-1.5 border-b border-[#17331f]/40">
+              <div className="w-1.5 h-1.5 bg-[#2b5e37] flex-none" />
+              <div className="h-2 w-40 bg-[#0a180e] rounded-sm" />
+              <div className="ml-auto h-2 w-24 bg-[#0a180e] rounded-sm" />
             </div>
             <div className="flex-1 flex items-center justify-center">
-              <div className="w-[85%] h-[75%] bg-[#020d1a]/60 border border-[#0d2035]/40" />
+              <div className="w-[85%] h-[75%] bg-[#091309]/60 border border-[#17301b]/45" />
             </div>
           </div>
 
           {/* Telemetry table placeholder */}
-          <div className="flex-1 border border-[#0a121a] bg-[#020509]/80 flex flex-col min-h-0">
-            <div className="flex items-center px-3 py-1.5 border-b border-[#0a121a] bg-[#010101]">
-              <div className="h-2 w-36 bg-[#071420] rounded-sm animate-pulse" />
+          <div className={`flex-none ${TELEMETRY_PANEL_HEIGHT_CLASS} border border-[#1a2e1a] bg-[#07110a]/80 flex flex-col min-h-0 overflow-hidden`}>
+            <div className="flex items-center px-3 py-1.5 border-b border-[#1a2e1a] bg-[#050905]">
+              <div className="h-2 w-36 bg-[#0a180e] rounded-sm animate-pulse" />
             </div>
             <div className="flex-1 p-3 flex flex-col gap-2">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="flex gap-3 animate-pulse" style={{ opacity: 1 - i * 0.09 }}>
-                  <div className="h-2 w-14 bg-[#071420] rounded-sm" />
-                  <div className="h-2 w-3 bg-[#0a1929] rounded-sm" />
-                  <div className="h-2 w-28 bg-[#071420] rounded-sm" />
-                  <div className="h-2 w-24 bg-[#050e18] rounded-sm" />
-                  <div className="h-2 w-20 bg-[#050e18] rounded-sm" />
+                  <div className="h-2 w-14 bg-[#0a180e] rounded-sm" />
+                  <div className="h-2 w-3 bg-[#123020] rounded-sm" />
+                  <div className="h-2 w-28 bg-[#0a180e] rounded-sm" />
+                  <div className="h-2 w-24 bg-[#071009] rounded-sm" />
+                  <div className="h-2 w-20 bg-[#071009] rounded-sm" />
                 </div>
               ))}
             </div>
@@ -928,11 +1540,16 @@ export default function DashboardLayout() {
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [events, setEvents] = useState<ThreatEvent[]>([])
   const [containedNodes, setContainedNodes] = useState<string[]>([])
+  const incidentsRef = useRef<Incident[]>([])
 
   // View State
   const [activeIncidentId, setActiveIncidentId] = useState<string | null>(null)
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [mapFilter, setMapFilter] = useState<string | null>(null)
+
+  useEffect(() => {
+    incidentsRef.current = incidents
+  }, [incidents])
 
   // Simulation Tick
   useEffect(() => {
@@ -975,7 +1592,6 @@ export default function DashboardLayout() {
     setIncidents([initialIncident])
     
     // Core Simulator
-    const INTERVAL_MS = 1500
     const interval = setInterval(() => {
       setContainedNodes(currentContained => {
          const newEvent = generateEvent(currentContained)
@@ -1009,12 +1625,12 @@ export default function DashboardLayout() {
 
       setIncidents(prev => prev.map(inc => {
         if (inc.status === 'OPEN' || inc.status === 'INVESTIGATING') {
-          return { ...inc, sla: Math.max(0, inc.sla - (INTERVAL_MS / 1000)) }
+          return { ...inc, sla: Math.max(0, inc.sla - (TELEMETRY_SIM_INTERVAL_MS / 1000)) }
         }
         return inc
       }))
       
-    }, INTERVAL_MS)
+    }, TELEMETRY_SIM_INTERVAL_MS)
     
     return () => clearInterval(interval)
   }, [])
@@ -1033,14 +1649,55 @@ export default function DashboardLayout() {
     setActiveIncidentId(null)
   }, [])
 
-  const handleClearSelection = useCallback((): void => {
+  const handleMapClick = useCallback((region: string): void => {
+    setMapFilter(prev => prev === region ? null : region)
+  }, [])
+
+  const handleClearMapFocus = useCallback((): void => {
+    setMapFilter(null)
     setSelectedEventId(null)
     setActiveIncidentId(null)
   }, [])
 
-  const handleMapClick = useCallback((region: string): void => {
-    setMapFilter(prev => prev === region ? null : region)
+  const buildIncidentFromEvent = useCallback((event: ThreatEvent): Incident => ({
+    id: `INC-${Math.floor(Math.random() * 90000) + 10000}`,
+    sev: event.sev,
+    time: new Date().toISOString(),
+    label: `Promoted: ${event.type}`,
+    source: event.source,
+    node: event.node,
+    region: event.region,
+    status: 'INVESTIGATING',
+    sla: 3600,
+    events: [event.id],
+    timeline: [
+      { id: `tp-1-${Date.now()}`, time: event.timestamp, desc: 'Original threat telemetry observed', type: 'OBSERVED' },
+      { id: `tp-2-${Date.now()}`, time: new Date().toISOString(), desc: 'Analyst promoted telemetry to full incident', type: 'ALERT_OPENED' },
+      { id: `tp-3-${Date.now()}`, time: new Date().toISOString(), desc: 'Investigation started immediately', type: 'INVESTIGATING' },
+    ],
+  }), [])
+
+  const findIncidentForEvent = useCallback((event: ThreatEvent, pool: Incident[]): Incident | undefined => {
+    const linked = pool.find((incident) => incident.events.includes(event.id))
+    if (linked) return linked
+    return pool.find(
+      (incident) =>
+        incident.source === event.source &&
+        incident.node === event.node &&
+        incident.region === event.region &&
+        incident.status !== 'FALSE_POSITIVE' &&
+        incident.status !== 'RESOLVED',
+    )
   }, [])
+
+  const ensureIncidentForEvent = useCallback((event: ThreatEvent): Incident => {
+    const existing = findIncidentForEvent(event, incidentsRef.current)
+    if (existing) return existing
+    const created = buildIncidentFromEvent(event)
+    incidentsRef.current = [created, ...incidentsRef.current]
+    setIncidents((prev) => [created, ...prev])
+    return created
+  }, [buildIncidentFromEvent, findIncidentForEvent])
 
   // ==========================================================================
   // ACTION HANDLERS (MUTATIONS)
@@ -1091,43 +1748,58 @@ export default function DashboardLayout() {
     setActiveIncidentId(prev => prev === id ? null : prev)
   }, [])
 
-  const handlePromoteToIncident = useCallback((event: ThreatEvent): void => {
-    const newInc: Incident = {
-      id: `INC-${Math.floor(Math.random() * 90000) + 10000}`,
-      sev: event.sev,
-      time: new Date().toISOString(),
-      label: `Promoted: ${event.type}`,
-      source: event.source,
-      node: event.node,
-      region: event.region,
-      status: 'INVESTIGATING',
-      sla: 3600,
-      events: [event.id],
-      timeline: [
-         { id: `tp-1-${Date.now()}`, time: event.timestamp, desc: 'Original threat telemetry observed', type: 'OBSERVED' },
-         { id: `tp-2-${Date.now()}`, time: new Date().toISOString(), desc: 'Analyst promoted telemetry to full incident', type: 'ALERT_OPENED' },
-         { id: `tp-3-${Date.now()}`, time: new Date().toISOString(), desc: 'Investigation started immediately', type: 'INVESTIGATING' }
-      ]
-    }
-    setIncidents(prev => [newInc, ...prev])
+  const handleTelemetryPromote = useCallback((event: ThreatEvent): void => {
+    const incident = ensureIncidentForEvent(event)
     setSelectedEventId(null)
-    setActiveIncidentId(newInc.id)
-  }, [])
+    setActiveIncidentId(incident.id)
+  }, [ensureIncidentForEvent])
+
+  const handleTelemetryInvestigate = useCallback((event: ThreatEvent): void => {
+    const incident = ensureIncidentForEvent(event)
+    if (incident.status === 'OPEN') {
+      handleInvestigate(incident.id)
+    }
+    setSelectedEventId(null)
+    setActiveIncidentId(incident.id)
+  }, [ensureIncidentForEvent, handleInvestigate])
+
+  const handleTelemetryContain = useCallback((event: ThreatEvent): void => {
+    const incident = ensureIncidentForEvent(event)
+    if (incident.status !== 'CONTAINED' && incident.status !== 'FALSE_POSITIVE') {
+      handleIsolate(incident.id, incident.node, incident.source)
+    }
+    setSelectedEventId(null)
+    setActiveIncidentId(incident.id)
+  }, [ensureIncidentForEvent, handleIsolate])
+
+  const handleTelemetryDismiss = useCallback((event: ThreatEvent): void => {
+    const incident = ensureIncidentForEvent(event)
+    if (incident.status !== 'FALSE_POSITIVE') {
+      handleDismiss(incident.id)
+    }
+    setSelectedEventId(null)
+  }, [ensureIncidentForEvent, handleDismiss])
 
   // ==========================================================================
   // DERIVED STATE
   // ==========================================================================
   
+  const activeIncidents = useMemo(() => {
+    return incidents.filter(i => i.status !== 'FALSE_POSITIVE' && i.status !== 'RESOLVED')
+  }, [incidents])
+
   const visibleIncidents = useMemo(() => {
-    let filtered = incidents.filter(i => i.status !== 'FALSE_POSITIVE' && i.status !== 'RESOLVED')
+    let filtered = activeIncidents
     if (mapFilter) filtered = filtered.filter(i => i.region === mapFilter)
     return filtered
-  }, [incidents, mapFilter])
+  }, [activeIncidents, mapFilter])
 
   // Stable map-only incidents: strip SLA so the map doesn't re-render every 1.5s tick
   const mapIncidentsRef = useRef<MapIncident[]>([])
   const mapIncidents = useMemo(() => {
-    const next = visibleIncidents.map(({ id, sev, region, source }) => ({ id, sev, region, source }))
+    const next = activeIncidents
+      .filter((incident) => (REGIONS as readonly string[]).includes(incident.region))
+      .map(({ id, sev, region, source }) => ({ id, sev, region: region as RegionKey, source }))
     const prev = mapIncidentsRef.current
     if (
       prev.length === next.length &&
@@ -1137,7 +1809,7 @@ export default function DashboardLayout() {
     }
     mapIncidentsRef.current = next
     return next
-  }, [visibleIncidents])
+  }, [activeIncidents])
 
   const visibleEvents = useMemo(() => {
     let filtered = events
@@ -1145,39 +1817,19 @@ export default function DashboardLayout() {
     return filtered
   }, [events, mapFilter])
 
-  const activeIncident = useMemo(() => incidents.find(i => i.id === activeIncidentId), [incidents, activeIncidentId])
-  const selectedEventInfo = useMemo(() => events.find(e => e.id === selectedEventId), [events, selectedEventId])
-  
-  const correlatedEvents = useMemo(() => {
-    if (!activeIncident) return []
-    return events
-      .filter(e => e.source === activeIncident.source || e.node === activeIncident.node || e.region === activeIncident.region)
-      .map(e => {
-        let score = 0;
-        if (e.source === activeIncident.source && e.node === activeIncident.node) score = 3
-        else if (e.source === activeIncident.source || e.node === activeIncident.node) score = 2
-        else if (e.region === activeIncident.region) score = 1
-        return { event: e, score }
+  const incidentByEventId = useMemo(() => {
+    const linked = new Map<string, Incident>()
+    incidents.forEach((incident) => {
+      incident.events.forEach((eventId) => {
+        if (!linked.has(eventId)) linked.set(eventId, incident)
       })
-      .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score
-        return new Date(b.event.timestamp).getTime() - new Date(a.event.timestamp).getTime()
-      })
-      .map(item => item.event)
-      .slice(0, 30) // give enough room for history
-  }, [activeIncident, events])
+    })
+    return linked
+  }, [incidents])
 
   return (
-    <div className="relative min-h-[calc(100vh-64px)] bg-[#000102] text-slate-300 font-sans selection:bg-cyan-900 selection:text-cyan-50 flex flex-col">
+    <div className="relative min-h-[calc(100vh-64px)] bg-[#000102] text-slate-300 font-sans selection:bg-emerald-900/60 selection:text-emerald-50 flex flex-col">
       <div className="mx-auto flex w-full max-w-[2400px] flex-1 gap-2 p-2 overflow-hidden items-stretch">
-        
-        {/* ========================================================= */}
-        {/* LEFT COLUMN: STATIC POSTURE                              */}
-        {/* ========================================================= */}
-        <aside className="w-[280px] flex-shrink-0 flex flex-col gap-2 overflow-y-auto custom-scrollbar hidden lg:flex">
-          <SystemPosturePanel visibleCount={visibleIncidents.length} containedCount={containedNodes.length} />
-          <GlobalMapFilters mapFilter={mapFilter} onMapClick={handleMapClick} />
-        </aside>
 
         {/* ========================================================= */}
         {/* CENTER COLUMN: HIGH-FREQUENCY DOMAINS                     */}
@@ -1185,41 +1837,33 @@ export default function DashboardLayout() {
         <main className="flex-1 flex flex-col gap-2 min-w-0 h-full">
           <GlobalMapPanel
              mapIncidents={mapIncidents}
-             activeIncidentId={activeIncidentId}
-             selectedEventRegion={selectedEventInfo?.region || null}
              mapFilter={mapFilter}
              onMapClick={handleMapClick}
+             onClearFocus={handleClearMapFocus}
           />
           <LiveTelemetryStream 
              visibleEvents={visibleEvents}
              selectedEventId={selectedEventId}
              mapFilter={mapFilter}
+             incidentByEventId={incidentByEventId}
              onEventSelect={handleSelectEvent}
+             onPromote={handleTelemetryPromote}
+             onInvestigate={handleTelemetryInvestigate}
+             onContain={handleTelemetryContain}
+             onDismiss={handleTelemetryDismiss}
           />
         </main>
 
         {/* ========================================================= */}
         {/* RIGHT COLUMN: ACTION STATIONS                             */}
         {/* ========================================================= */}
-        <aside className="w-[360px] flex-shrink-0 flex flex-col gap-2 overflow-hidden hidden xl:flex">
+        <aside className="w-[360px] flex-shrink-0 flex flex-col min-h-0 overflow-hidden hidden xl:flex">
           <TriageQueuePanel 
              visibleIncidents={visibleIncidents}
              activeIncidentId={activeIncidentId}
              mapFilter={mapFilter}
              onIncidentSelect={handleSelectIncident}
           />
-          <Frame title="Investigation Console" className="flex-[1.5] bg-[#020202] border-[#1a1c23]" headerClass="bg-[#05080c] border-[#1a2c3f] text-cyan-600">
-             <InvestigationConsolePanel 
-                activeIncident={activeIncident}
-                selectedEventInfo={selectedEventInfo}
-                correlatedEvents={correlatedEvents}
-                onInvestigate={handleInvestigate}
-                onIsolate={handleIsolate}
-                onDismiss={handleDismiss}
-                onPromote={handlePromoteToIncident}
-                onClearSelection={handleClearSelection}
-             />
-          </Frame>
         </aside>
 
       </div>
