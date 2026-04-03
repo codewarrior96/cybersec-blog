@@ -924,13 +924,11 @@ function DashboardSkeleton() {
 // ============================================================================
 
 export default function DashboardLayout() {
-  const [mounted, setMounted] = useState<boolean>(false)
-  
   // Storage State
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [events, setEvents] = useState<ThreatEvent[]>([])
   const [containedNodes, setContainedNodes] = useState<string[]>([])
-  
+
   // View State
   const [activeIncidentId, setActiveIncidentId] = useState<string | null>(null)
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
@@ -938,7 +936,6 @@ export default function DashboardLayout() {
 
   // Simulation Tick
   useEffect(() => {
-    setMounted(true)
     
     // Seed payload
     const t0 = new Date(Date.now() - 300000).toISOString()
@@ -1169,8 +1166,6 @@ export default function DashboardLayout() {
       .map(item => item.event)
       .slice(0, 30) // give enough room for history
   }, [activeIncident, events])
-
-  if (!mounted) return <DashboardSkeleton />
 
   return (
     <div className="relative min-h-[calc(100vh-64px)] bg-[#000102] text-slate-300 font-sans selection:bg-cyan-900 selection:text-cyan-50 flex flex-col">

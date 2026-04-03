@@ -42,7 +42,14 @@ export default function HomePageClient({ initialAuth }: HomePageClientProps) {
   const authStatus = useAuthStatus(initialAuth)
 
   if (authStatus === null) {
-    return null
+    return (
+      <div className="min-h-[calc(100vh-64px)] bg-[#000102] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-6 h-6 border-2 border-cyan-700 border-t-transparent rounded-full animate-spin" />
+          <span className="text-[10px] font-mono text-cyan-900 uppercase tracking-widest">Authenticating</span>
+        </div>
+      </div>
+    )
   }
 
   if (authStatus) {
