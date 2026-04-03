@@ -34,7 +34,15 @@
       "Bash(/tmp/check_packages_correct.sh:*)",
       "Bash(bash /tmp/check_packages_correct.sh)",
       "Bash(/tmp/final_analysis.sh:*)",
-      "Bash(bash /tmp/final_analysis.sh)"
+      "Bash(bash /tmp/final_analysis.sh)",
+      "Bash(rm src/app/login/nav-preview/page.tsx)",
+      "Bash(rmdir src/app/login/nav-preview)",
+      "Bash(rm src/lib/soc-store-memory.test.ts)",
+      "Bash(rm src/app/api/greynoise/route.ts)",
+      "Bash(rmdir src/app/api/greynoise)",
+      "Bash(rm src/app/api/live-attacks/route.ts)",
+      "Bash(rmdir src/app/api/live-attacks)",
+      "Bash(rm src/app/api/community/route.ts)"
     ]
   }
 }
