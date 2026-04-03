@@ -87,7 +87,7 @@ const generateEvent = (containedNodes: string[], forceMalicious?: boolean, fixed
   if (containedNodes.includes(source) || containedNodes.includes(node)) return null;
 
   return {
-    id: `EVT-${Math.floor(Math.random() * 1000000)}`,
+    id: `EVT-${Date.now()}-${Math.floor(Math.random() * 99999)}`,
     timestamp: fixedValues?.timestamp || new Date().toISOString(),
     sev: fixedValues?.sev || (isMalicious ? (Math.random() > 0.9 ? 'CRITICAL' : 'HIGH') : (Math.random() > 0.5 ? 'MEDIUM' : 'LOW')),
     type: fixedValues?.type || ['SYN Flood', 'SQL Injection Payload', 'C2 Beaconing', 'Auth Bypass', 'Large Data Exfil'][Math.floor(Math.random()*5)],
