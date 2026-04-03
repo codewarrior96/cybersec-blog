@@ -34,6 +34,7 @@ export default function AppShellClient({
 
   const handleLogout = useCallback(async () => {
     await logoutAuth()
+    router.refresh()
     router.push('/')
   }, [router])
 
