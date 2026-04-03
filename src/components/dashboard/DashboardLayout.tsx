@@ -1530,6 +1530,7 @@ export default function DashboardLayout() {
   const [events, setEvents] = useState<ThreatEvent[]>([])
   const [containedNodes, setContainedNodes] = useState<string[]>([])
   const incidentsRef = useRef<Incident[]>([])
+  const containedNodesRef = useRef<string[]>([])
 
   // View State
   const [activeIncidentId, setActiveIncidentId] = useState<string | null>(null)
@@ -1539,6 +1540,10 @@ export default function DashboardLayout() {
   useEffect(() => {
     incidentsRef.current = incidents
   }, [incidents])
+
+  useEffect(() => {
+    containedNodesRef.current = containedNodes
+  }, [containedNodes])
 
   // Simulation Tick
   useEffect(() => {
@@ -1582,7 +1587,7 @@ export default function DashboardLayout() {
     
     // Core Simulator
     const interval = setInterval(() => {
-      setContainedNodes(currentContained => {
+      const currentContained = containedNodesRef.current
          const newEvent = generateEvent(currentContained)
          if (newEvent) {
            setEvents(prev => [newEvent, ...prev].slice(0, 150))
@@ -1609,8 +1614,7 @@ export default function DashboardLayout() {
               })
            }
          }
-         return currentContained
-      })
+         
 
       setIncidents(prev => prev.map(inc => {
         if (inc.status === 'OPEN' || inc.status === 'INVESTIGATING') {
