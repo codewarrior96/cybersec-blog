@@ -4,6 +4,7 @@ import React, { ReactNode, useEffect, useState, useMemo, useCallback, useRef } f
 import { geoCentroid, geoEquirectangular, geoPath, type GeoPermissibleObjects } from 'd3-geo'
 import type { Feature, FeatureCollection, Geometry } from 'geojson'
 import { feature as topoFeature, mesh as topoMesh } from 'topojson-client'
+import worldTopologySeed from '../../../public/world-110m.json'
 
 // ============================================================================
 // TYPES & CONSTANTS 
@@ -229,6 +230,14 @@ type WorldTopology = {
   bbox?: [number, number, number, number]
 }
 
+const STATIC_WORLD_TOPOLOGY: WorldTopology | null = (() => {
+  const data = worldTopologySeed as unknown as WorldTopology
+  if (data?.type !== 'Topology' || !data?.objects?.countries || !data?.objects?.land) {
+    return null
+  }
+  return data
+})()
+
 const FLOW_ROUTE_LIMIT = 6
 const ALWAYS_VISIBLE_LABEL_REGIONS: readonly RegionKey[] = REGIONS
 const LABEL_OFFSETS: Record<RegionKey, { dx: number; dy: number }> = {
@@ -349,27 +358,7 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, onMapClick, onClea
   onMapClick: (r: string) => void
   onClearFocus: () => void
 }) => {
-  const [worldTopology, setWorldTopology] = useState<WorldTopology | null>(null)
-
-  useEffect(() => {
-    let isMounted = true
-    const loadWorldTopology = async () => {
-      try {
-        const response = await fetch('/world-110m.json')
-        if (!response.ok) return
-        const data = await response.json() as WorldTopology
-        if (!isMounted) return
-        if (data?.type !== 'Topology' || !data?.objects?.countries || !data?.objects?.land) return
-        setWorldTopology(data)
-      } catch {
-        // Keep map operational with incident overlays even if topology fetch fails.
-      }
-    }
-    void loadWorldTopology()
-    return () => {
-      isMounted = false
-    }
-  }, [])
+  const worldTopology = STATIC_WORLD_TOPOLOGY
 
   const mapProjection = useMemo(
     () =>
@@ -1008,7 +997,7 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, onMapClick, onClea
         {!worldTopology && (
           <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
             <span className="rounded border border-[#24412a] bg-[#08130b]/90 px-3 py-1 text-[9px] font-mono tracking-widest uppercase text-[#9bc2a7]">
-              Loading Topology Layer
+              Topology Data Unavailable
             </span>
           </div>
         )}
