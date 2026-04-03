@@ -2,7 +2,7 @@
 
 import React, { useCallback } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { useAuthSession, logoutAuth } from '@/lib/auth-client'
+import { logoutAuth } from '@/lib/auth-client'
 import OperatorSidebar from '@/components/OperatorSidebar'
 import Footer from '@/components/Footer'
 import SearchModal from '@/components/SearchModal'
@@ -20,8 +20,10 @@ export default function AppShellClient({
 }) {
   const pathname = usePathname()
   const router = useRouter()
-  const session = useAuthSession(initialAuth)
-  const isAuthed = session?.authenticated ?? false
+  // Derive auth purely from the server-provided prop so layout never flickers
+  // between client events and navigation completing. NavBar only changes when
+  // the server re-renders with a new initialAuth value (i.e. after navigation).
+  const isAuthed = initialAuth
 
   const isLoginRoute = pathname === '/login' || pathname?.startsWith('/login/')
   const isRootRoute = pathname === '/' || pathname === '/home'
