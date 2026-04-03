@@ -11,7 +11,6 @@ interface EmbeddedLoginProps {
 
 export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) {
   const router = useRouter()
-  const [visible, setVisible] = useState(false)
   const [username, setUsername] = useState('ghost')
   const [password, setPassword] = useState('demo_pass')
   const [showPass, setShowPass] = useState(false)
@@ -92,11 +91,6 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
       alive = false
     }
   }, [redirectTo, router])
-
-  useEffect(() => {
-    const timer = setTimeout(() => setVisible(true), 120)
-    return () => clearTimeout(timer)
-  }, [])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -197,6 +191,10 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
           0%,100% { opacity: 0.15; box-shadow: 0 0 40px rgba(0,255,65,0.2); }
           50% { opacity: 0.4; box-shadow: 0 0 80px rgba(0,255,65,0.5); }
         }
+        @keyframes hackerImageEntrance {
+          from { transform: translateX(-50%) translateY(40%) scale(0.95); filter: brightness(0); }
+          to   { transform: translateX(-50%) translateY(0) scale(1.03); filter: contrast(1.15) brightness(0.8) drop-shadow(0 -10px 40px rgba(0,255,65,0.15)); }
+        }
         @media (max-width: 768px) {
           .mobile-container {
             position: absolute !important;
@@ -264,9 +262,7 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
           position: 'absolute',
           bottom: 0,
           left: '50%',
-          transform: visible ? 'translateX(-50%) translateY(0) scale(1.03)' : 'translateX(-50%) translateY(40%) scale(0.95)',
-          transition: 'transform 1.8s cubic-bezier(0.16, 1, 0.3, 1), filter 1.8s',
-          filter: visible ? 'contrast(1.15) brightness(0.8) drop-shadow(0 -10px 40px rgba(0,255,65,0.15))' : 'brightness(0)',
+          animation: 'hackerImageEntrance 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
           width: '100%',
           maxWidth: 950,
           height: '100vh',
