@@ -28,7 +28,13 @@
       "Bash(printf '\\\\n@keyframes arcFlow {\\\\n  0%%   { stroke-dashoffset: 220; opacity: 0; }\\\\n  6%%   { opacity: 1; }\\\\n  94%%  { opacity: 1; }\\\\n  100%% { stroke-dashoffset: -220; opacity: 0; }\\\\n}\\\\n\\\\n@keyframes nodeRingPulse {\\\\n  0%%, 100%% { opacity: 0.12; }\\\\n  50%%       { opacity: 0.48; }\\\\n}\\\\n')",
       "Bash(\"C:\\\\Users\\\\salim\\\\Desktop\\\\GİTHUB PROJE\\\\cybersec-blog\\\\src\\\\styles\\\\globals.css\")",
       "Bash(printf '\\\\n@keyframes bgTrafficFlow {\\\\n  0%%   { stroke-dashoffset: 300; opacity: 0; }\\\\n  5%%   { opacity: 0.4; }\\\\n  95%%  { opacity: 0.4; }\\\\n  100%% { stroke-dashoffset: -300; opacity: 0; }\\\\n}\\\\n\\\\n@keyframes infraPulse {\\\\n  0%%, 100%% { opacity: 0.18; }\\\\n  50%%       { opacity: 0.55; }\\\\n}\\\\n')",
-      "Bash(curl -L \"https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json\" -o \"public/world-110m.json\")"
+      "Bash(curl -L \"https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json\" -o \"public/world-110m.json\")",
+      "Bash(/tmp/check_packages.sh:*)",
+      "Bash(bash /tmp/check_packages.sh)",
+      "Bash(/tmp/check_packages_correct.sh:*)",
+      "Bash(bash /tmp/check_packages_correct.sh)",
+      "Bash(/tmp/final_analysis.sh:*)",
+      "Bash(bash /tmp/final_analysis.sh)"
     ]
   }
 }
