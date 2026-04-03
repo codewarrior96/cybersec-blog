@@ -7,5 +7,5 @@ export default async function LoginPage() {
   const cookieStore = cookies()
   const session = await getServerSessionFromCookies(cookieStore)
   if (session) redirect('/')
-  return <EmbeddedLogin redirectTo="/" />
+  return <EmbeddedLogin redirectTo="/home" />
 }
