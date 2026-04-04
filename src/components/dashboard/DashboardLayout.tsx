@@ -1607,6 +1607,14 @@ export default function DashboardLayout() {
     }
   }, [])
 
+  const stopCriticalOverlay = useCallback((): void => {
+    if (criticalOverlayTimeoutRef.current) {
+      clearTimeout(criticalOverlayTimeoutRef.current)
+      criticalOverlayTimeoutRef.current = null
+    }
+    setCriticalOverlayActive(false)
+  }, [])
+
   // Simulation Tick
   useEffect(() => {
     const simulationStartedAt = INITIAL_SIMULATION_BOOTSTRAP.startedAt
@@ -1851,17 +1859,19 @@ export default function DashboardLayout() {
   }, [criticalQueue])
 
   const handleDismissCriticalAlert = useCallback((id: string): void => {
+    stopCriticalOverlay()
     setAcknowledgedCriticalIds((prev) => {
       const next = new Set(prev)
       next.add(id)
       return next
     })
     setCriticalPanelOpen(criticalQueue.some((incident) => incident.id !== id))
-  }, [criticalQueue])
+  }, [criticalQueue, stopCriticalOverlay])
 
   const handleCloseCriticalPanel = useCallback((): void => {
+    stopCriticalOverlay()
     setCriticalPanelOpen(false)
-  }, [])
+  }, [stopCriticalOverlay])
 
   const handleOpenIncidentReport = useCallback((incident: Incident): void => {
     setSelectedEventId(null)
@@ -1874,6 +1884,7 @@ export default function DashboardLayout() {
     const incident = criticalQueue.find((item) => item.id === queueItem.id)
     if (!incident) return
 
+    stopCriticalOverlay()
     handleOpenIncidentReport(incident)
     setAcknowledgedCriticalIds((prev) => {
       const next = new Set(prev)
@@ -1881,7 +1892,7 @@ export default function DashboardLayout() {
       return next
     })
     setCriticalPanelOpen(criticalQueue.some((item) => item.id !== incident.id))
-  }, [criticalQueue, handleOpenIncidentReport])
+  }, [criticalQueue, handleOpenIncidentReport, stopCriticalOverlay])
 
   const handleCloseReportModal = useCallback((): void => {
     setReportModalOpen(false)
