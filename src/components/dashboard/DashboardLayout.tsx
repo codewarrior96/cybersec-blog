@@ -4,6 +4,7 @@ import React, { ReactNode, useEffect, useState, useMemo, useCallback, useRef } f
 import { geoCentroid, geoEquirectangular, geoPath, type GeoPermissibleObjects } from 'd3-geo'
 import type { Feature, FeatureCollection, Geometry } from 'geojson'
 import { feature as topoFeature, mesh as topoMesh } from 'topojson-client'
+import worldTopologyData from '../../../public/world-110m.json'
 import AttackReportModal from '@/components/dashboard/AttackReportModal'
 import CriticalAlertPanel from '@/components/dashboard/CriticalAlertPanel'
 import CriticalOverlayFx from '@/components/dashboard/CriticalOverlayFx'
@@ -152,7 +153,9 @@ const Frame = ({ title, children, rightAction, dim = false, className = '', head
 // ============================================================================
 
 /** Demo: yeni telemetry olayı üretim aralığı (SLA sayacı da buna göre azalır) */
-const TELEMETRY_SIM_INTERVAL_MS = 4500
+const TELEMETRY_SIM_INTERVAL_MS = 7000
+const CRITICAL_ALERT_GRACE_PERIOD_MS = 60000
+const INITIAL_BACKGROUND_EVENT_COUNT = 24
 
 /** Live Telemetry Stream: ekranın geri kalanını sınırsız doldurmasın; içeride kaydır */
 const TELEMETRY_PANEL_HEIGHT_CLASS = 'h-[min(420px,36vh)]'
@@ -230,8 +233,68 @@ type WorldTopology = {
     land: WorldTopologyObject
   }
   arcs: unknown[]
-  bbox?: [number, number, number, number]
+  bbox?: number[]
 }
+
+interface SimulationBootstrap {
+  startedAt: number
+  events: ThreatEvent[]
+  incidents: Incident[]
+}
+
+const STATIC_WORLD_TOPOLOGY = worldTopologyData as unknown as WorldTopology
+
+const cloneTimelineEntry = (entry: TimelineEntry): TimelineEntry => ({ ...entry })
+
+const cloneIncident = (incident: Incident): Incident => ({
+  ...incident,
+  events: [...incident.events],
+  timeline: incident.timeline.map(cloneTimelineEntry),
+})
+
+const createSimulationBootstrap = (): SimulationBootstrap => {
+  const startedAt = Date.now()
+  const t0 = new Date(startedAt - 18 * 60 * 1000).toISOString()
+  const t1 = new Date(startedAt - 12 * 60 * 1000).toISOString()
+  const t2 = new Date(startedAt - 6 * 60 * 1000).toISOString()
+
+  const seedEventsRaw = [
+    generateEvent([], true, { timestamp: t0, sev: 'HIGH', type: 'Auth Bypass Attempt', source: '10.0.4.15', node: 'FIN-DB-01', region: 'US-EAST' }),
+    generateEvent([], true, { timestamp: t1, sev: 'HIGH', type: 'SQL Injection Payload', source: '10.0.4.15', node: 'FIN-DB-01', region: 'US-EAST' }),
+    generateEvent([], true, { timestamp: t2, sev: 'HIGH', type: 'Large Data Exfil', source: '10.0.4.15', node: 'FIN-DB-01', region: 'US-EAST' }),
+  ]
+  const seedEvents = seedEventsRaw.filter((event): event is ThreatEvent => event !== null)
+
+  const backgroundEventsRaw = Array.from({ length: INITIAL_BACKGROUND_EVENT_COUNT }, () => generateEvent([]))
+  const backgroundEvents = backgroundEventsRaw.filter((event): event is ThreatEvent => event !== null)
+
+  const initialIncident: Incident = {
+    id: 'INC-9921',
+    sev: 'HIGH',
+    time: t2,
+    label: 'Large Data Exfil',
+    source: '10.0.4.15',
+    node: 'FIN-DB-01',
+    region: 'US-EAST',
+    status: 'OPEN',
+    sla: 862,
+    events: seedEvents.map((event) => event.id),
+    timeline: [
+      { id: 't-1', time: t0, desc: 'Initial authentication bypass attempt observed', type: 'OBSERVED' },
+      { id: 't-2', time: t1, desc: 'Correlated SQL injection activity detected', type: 'CORRELATED' },
+      { id: 't-3', time: t2, desc: 'Large outbound data movement confirmed', type: 'DETECTED' },
+      { id: 't-4', time: t2, desc: 'Automatic incident elevated', type: 'ALERT_OPENED' },
+    ],
+  }
+
+  return {
+    startedAt,
+    events: [...seedEvents, ...backgroundEvents].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
+    incidents: [initialIncident],
+  }
+}
+
+const INITIAL_SIMULATION_BOOTSTRAP = createSimulationBootstrap()
 
 const FLOW_ROUTE_LIMIT = 6
 const ALWAYS_VISIBLE_LABEL_REGIONS: readonly RegionKey[] = REGIONS
@@ -353,27 +416,7 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, onMapClick, onClea
   onMapClick: (r: string) => void
   onClearFocus: () => void
 }) => {
-  const [worldTopology, setWorldTopology] = useState<WorldTopology | null>(null)
-
-  useEffect(() => {
-    let isMounted = true
-    const loadWorldTopology = async () => {
-      try {
-        const response = await fetch('/world-110m.json')
-        if (!response.ok) return
-        const data = await response.json() as WorldTopology
-        if (!isMounted) return
-        if (data?.type !== 'Topology' || !data?.objects?.countries || !data?.objects?.land) return
-        setWorldTopology(data)
-      } catch {
-        // Keep map operational with incident overlays even if topology fetch fails.
-      }
-    }
-    void loadWorldTopology()
-    return () => {
-      isMounted = false
-    }
-  }, [])
+  const worldTopology = STATIC_WORLD_TOPOLOGY
 
   const mapProjection = useMemo(
     () =>
@@ -1008,15 +1051,6 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, onMapClick, onClea
             pointerEvents="none"
           />
         </svg>
-
-        {!worldTopology && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-            <span className="rounded border border-[#24412a] bg-[#08130b]/90 px-3 py-1 text-[9px] font-mono tracking-widest uppercase text-[#9bc2a7]">
-              Loading Topology Layer
-            </span>
-          </div>
-        )}
-
         <div className="absolute bottom-2 left-2 z-20 flex items-center gap-2 rounded border border-[#204028] bg-[#08130b]/92 px-2 py-1 text-[8px] font-mono">
           <span className="rounded border border-[#2a4b31] bg-[#09190d] px-1.5 py-0.5 text-[#9dc5a9]">
             {focusRegion ? 'FOCUS MIX' : 'GLOBAL MIX'}
@@ -1372,7 +1406,7 @@ const LiveTelemetryStream = React.memo(({
 })
 LiveTelemetryStream.displayName = 'LiveTelemetryStream'
 
-const TriageQueuePanel = React.memo(({ visibleIncidents, activeIncidentId, mapFilter, onIncidentSelect }: { visibleIncidents: Incident[], activeIncidentId: string | null, mapFilter: string | null, onIncidentSelect: (id: string) => void }) => (
+const TriageQueuePanel = React.memo(({ visibleIncidents, activeIncidentId, mapFilter, onIncidentSelect, onIncidentReportOpen }: { visibleIncidents: Incident[], activeIncidentId: string | null, mapFilter: string | null, onIncidentSelect: (id: string) => void, onIncidentReportOpen: (incident: Incident) => void }) => (
   <Frame title={`Triage Queue ${mapFilter ? `[${mapFilter}]` : ''}`} className="flex-1 min-h-0 border-[#1a2e1a]">
     <div className="flex flex-col gap-2 overflow-auto custom-scrollbar -m-3 p-3">
       {visibleIncidents.map((inc) => {
@@ -1419,7 +1453,10 @@ const TriageQueuePanel = React.memo(({ visibleIncidents, activeIncidentId, mapFi
         return (
           <button
             key={inc.id}
-            onClick={() => onIncidentSelect(inc.id)}
+            onClick={() => {
+              onIncidentSelect(inc.id)
+              onIncidentReportOpen(inc)
+            }}
             className={`group relative overflow-hidden rounded border bg-[#08150c] text-left transition-colors cursor-crosshair hover:bg-[#0d2013] ${
               isActive ? `${tone.border} ${tone.glow}` : 'border-[#214029]'
             }`}
@@ -1545,6 +1582,7 @@ export default function DashboardLayout() {
   const [events, setEvents] = useState<ThreatEvent[]>([])
   const [containedNodes, setContainedNodes] = useState<string[]>([])
   const incidentsRef = useRef<Incident[]>([])
+  const [isBootstrapped, setIsBootstrapped] = useState(false)
 
   // View State
   const [activeIncidentId, setActiveIncidentId] = useState<string | null>(null)
@@ -1571,43 +1609,11 @@ export default function DashboardLayout() {
 
   // Simulation Tick
   useEffect(() => {
-    
-    // Seed payload
-    const t0 = new Date(Date.now() - 300000).toISOString()
-    const t1 = new Date(Date.now() - 250000).toISOString()
-    const t2 = new Date(Date.now() - 120000).toISOString()
-    
-    const seedEventsRaw = [
-      generateEvent([], true, { timestamp: t0, sev: 'HIGH', type: 'Auth Bypass Attempt', source: '10.0.4.15', node: 'FIN-DB-01', region: 'US-EAST' }),
-      generateEvent([], true, { timestamp: t1, sev: 'HIGH', type: 'SQL Injection Payload', source: '10.0.4.15', node: 'FIN-DB-01', region: 'US-EAST' }),
-      generateEvent([], true, { timestamp: t2, sev: 'CRITICAL', type: 'Ransomware Payload Detonated', source: '10.0.4.15', node: 'FIN-DB-01', region: 'US-EAST' })
-    ]
-    const seedEvents = seedEventsRaw.filter((e): e is ThreatEvent => e !== null)
-    
-    const randomEventsRaw = Array.from({ length: 40 }).map(() => generateEvent([]))
-    const randomEvents = randomEventsRaw.filter((e): e is ThreatEvent => e !== null)
-    
-    setEvents([...seedEvents, ...randomEvents].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()))
-    
-    const initialIncident: Incident = {
-      id: 'INC-9921',
-      sev: 'CRITICAL',
-      time: t2,
-      label: 'Ransomware Payload Detonated',
-      source: '10.0.4.15',
-      node: 'FIN-DB-01',
-      region: 'US-EAST',
-      status: 'OPEN',
-      sla: 862,
-      events: seedEvents.map(e => e.id),
-      timeline: [
-        { id: 't-1', time: t0, desc: 'Initial authentication bypass attempt observed', type: 'OBSERVED' },
-        { id: 't-2', time: t1, desc: 'Correlated SQL injection activity detected', type: 'CORRELATED' },
-        { id: 't-3', time: t2, desc: 'Ransomware execution confirmed', type: 'DETECTED' },
-        { id: 't-4', time: t2, desc: 'Automatic incident elevated', type: 'ALERT_OPENED' }
-      ]
-    }
-    setIncidents([initialIncident])
+    const simulationStartedAt = INITIAL_SIMULATION_BOOTSTRAP.startedAt
+
+    setEvents([...INITIAL_SIMULATION_BOOTSTRAP.events])
+    setIncidents(INITIAL_SIMULATION_BOOTSTRAP.incidents.map(cloneIncident))
+    setIsBootstrapped(true)
     
     // Core Simulator
     const interval = setInterval(() => {
@@ -1616,7 +1622,8 @@ export default function DashboardLayout() {
          if (newEvent) {
            setEvents(prev => [newEvent, ...prev].slice(0, 150))
            
-           if (newEvent.sev === 'CRITICAL' && Math.random() > 0.9) {
+           const canEscalateToCriticalIncident = Date.now() - simulationStartedAt >= CRITICAL_ALERT_GRACE_PERIOD_MS
+           if (canEscalateToCriticalIncident && newEvent.sev === 'CRITICAL' && Math.random() > 0.94) {
               setIncidents(prev => {
                  if (prev.length > 20) return prev
                  return [{
@@ -1856,19 +1863,25 @@ export default function DashboardLayout() {
     setCriticalPanelOpen(false)
   }, [])
 
+  const handleOpenIncidentReport = useCallback((incident: Incident): void => {
+    setSelectedEventId(null)
+    setActiveIncidentId(incident.id)
+    setReportTarget(incident)
+    setReportModalOpen(true)
+  }, [])
+
   const handleOpenCriticalReport = useCallback((queueItem: CriticalAlertQueueItem): void => {
     const incident = criticalQueue.find((item) => item.id === queueItem.id)
     if (!incident) return
 
-    setReportTarget(incident)
-    setReportModalOpen(true)
+    handleOpenIncidentReport(incident)
     setAcknowledgedCriticalIds((prev) => {
       const next = new Set(prev)
       next.add(incident.id)
       return next
     })
     setCriticalPanelOpen(criticalQueue.some((item) => item.id !== incident.id))
-  }, [criticalQueue])
+  }, [criticalQueue, handleOpenIncidentReport])
 
   const handleCloseReportModal = useCallback((): void => {
     setReportModalOpen(false)
@@ -1907,6 +1920,10 @@ export default function DashboardLayout() {
     })
     return linked
   }, [incidents])
+
+  if (!isBootstrapped) {
+    return <DashboardSkeleton />
+  }
 
   return (
     <div className="relative min-h-[calc(100vh-64px)] bg-[#000102] text-slate-300 font-sans selection:bg-emerald-900/60 selection:text-emerald-50 flex flex-col">
@@ -1959,6 +1976,7 @@ export default function DashboardLayout() {
              activeIncidentId={activeIncidentId}
              mapFilter={mapFilter}
              onIncidentSelect={handleSelectIncident}
+             onIncidentReportOpen={handleOpenIncidentReport}
           />
         </aside>
 

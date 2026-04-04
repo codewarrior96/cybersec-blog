@@ -1,5 +1,1 @@
-import { redirect } from 'next/navigation'
-
-export default function RootRedirect() {
-  redirect('/home')
-}
+export { default } from './home/page'
