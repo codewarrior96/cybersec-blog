@@ -4,6 +4,10 @@ import React, { ReactNode, useEffect, useState, useMemo, useCallback, useRef } f
 import { geoCentroid, geoEquirectangular, geoPath, type GeoPermissibleObjects } from 'd3-geo'
 import type { Feature, FeatureCollection, Geometry } from 'geojson'
 import { feature as topoFeature, mesh as topoMesh } from 'topojson-client'
+import AttackReportModal from '@/components/dashboard/AttackReportModal'
+import CriticalAlertPanel from '@/components/dashboard/CriticalAlertPanel'
+import CriticalOverlayFx from '@/components/dashboard/CriticalOverlayFx'
+import type { CriticalAlertQueueItem } from '@/components/dashboard/CriticalAlertPanel'
 
 // ============================================================================
 // TYPES & CONSTANTS 
@@ -1546,10 +1550,24 @@ export default function DashboardLayout() {
   const [activeIncidentId, setActiveIncidentId] = useState<string | null>(null)
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [mapFilter, setMapFilter] = useState<string | null>(null)
+  const [criticalPanelOpen, setCriticalPanelOpen] = useState(false)
+  const [criticalOverlayActive, setCriticalOverlayActive] = useState(false)
+  const [criticalOverlayCycle, setCriticalOverlayCycle] = useState(0)
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [reportTarget, setReportTarget] = useState<Incident | null>(null)
+  const [acknowledgedCriticalIds, setAcknowledgedCriticalIds] = useState<Set<string>>(new Set())
+  const seenCriticalIdsRef = useRef<Set<string>>(new Set())
+  const criticalOverlayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     incidentsRef.current = incidents
   }, [incidents])
+
+  useEffect(() => {
+    return () => {
+      if (criticalOverlayTimeoutRef.current) clearTimeout(criticalOverlayTimeoutRef.current)
+    }
+  }, [])
 
   // Simulation Tick
   useEffect(() => {
@@ -1788,11 +1806,74 @@ export default function DashboardLayout() {
     return incidents.filter(i => i.status !== 'FALSE_POSITIVE' && i.status !== 'RESOLVED')
   }, [incidents])
 
+  const criticalQueue = useMemo(() => {
+    return activeIncidents.filter(
+      (incident) => incident.sev === 'CRITICAL' && !acknowledgedCriticalIds.has(incident.id),
+    )
+  }, [acknowledgedCriticalIds, activeIncidents])
+
   const visibleIncidents = useMemo(() => {
     let filtered = activeIncidents
     if (mapFilter) filtered = filtered.filter(i => i.region === mapFilter)
     return filtered
   }, [activeIncidents, mapFilter])
+
+  useEffect(() => {
+    if (criticalQueue.length === 0) {
+      setCriticalPanelOpen(false)
+      return
+    }
+
+    const queueIds = new Set(criticalQueue.map((incident) => incident.id))
+    seenCriticalIdsRef.current.forEach((id) => {
+      if (!queueIds.has(id)) seenCriticalIdsRef.current.delete(id)
+    })
+
+    const newCriticals = criticalQueue.filter((incident) => !seenCriticalIdsRef.current.has(incident.id))
+    if (newCriticals.length === 0) return
+
+    newCriticals.forEach((incident) => seenCriticalIdsRef.current.add(incident.id))
+    setCriticalPanelOpen(true)
+    setCriticalOverlayCycle((prev) => prev + 1)
+    setCriticalOverlayActive(true)
+
+    if (criticalOverlayTimeoutRef.current) clearTimeout(criticalOverlayTimeoutRef.current)
+    criticalOverlayTimeoutRef.current = setTimeout(() => {
+      setCriticalOverlayActive(false)
+    }, 7000)
+  }, [criticalQueue])
+
+  const handleDismissCriticalAlert = useCallback((id: string): void => {
+    setAcknowledgedCriticalIds((prev) => {
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+    setCriticalPanelOpen(criticalQueue.some((incident) => incident.id !== id))
+  }, [criticalQueue])
+
+  const handleCloseCriticalPanel = useCallback((): void => {
+    setCriticalPanelOpen(false)
+  }, [])
+
+  const handleOpenCriticalReport = useCallback((queueItem: CriticalAlertQueueItem): void => {
+    const incident = criticalQueue.find((item) => item.id === queueItem.id)
+    if (!incident) return
+
+    setReportTarget(incident)
+    setReportModalOpen(true)
+    setAcknowledgedCriticalIds((prev) => {
+      const next = new Set(prev)
+      next.add(incident.id)
+      return next
+    })
+    setCriticalPanelOpen(criticalQueue.some((item) => item.id !== incident.id))
+  }, [criticalQueue])
+
+  const handleCloseReportModal = useCallback((): void => {
+    setReportModalOpen(false)
+    setReportTarget(null)
+  }, [])
 
   // Stable map-only incidents: strip SLA so the map doesn't re-render every 1.5s tick
   const mapIncidentsRef = useRef<MapIncident[]>([])
@@ -1829,6 +1910,21 @@ export default function DashboardLayout() {
 
   return (
     <div className="relative min-h-[calc(100vh-64px)] bg-[#000102] text-slate-300 font-sans selection:bg-emerald-900/60 selection:text-emerald-50 flex flex-col">
+      {criticalOverlayActive && (
+        <CriticalOverlayFx cycle={criticalOverlayCycle} />
+      )}
+      <CriticalAlertPanel
+        queue={criticalQueue}
+        open={criticalPanelOpen}
+        onReport={handleOpenCriticalReport}
+        onDismiss={handleDismissCriticalAlert}
+        onClose={handleCloseCriticalPanel}
+      />
+      <AttackReportModal
+        incident={reportTarget}
+        open={reportModalOpen}
+        onClose={handleCloseReportModal}
+      />
       <div className="mx-auto flex w-full max-w-[2400px] flex-1 gap-2 p-2 overflow-hidden items-stretch">
 
         {/* ========================================================= */}
