@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { open, type Database } from 'sqlite'
 import { hashPassword } from '@/lib/security'
+import { getPortfolioSeedForUser } from '@/lib/portfolio-profile'
 import type { UserRole } from '@/lib/soc-types'
 
 type SqliteDb = Database
@@ -155,6 +156,56 @@ async function initializeSchema(db: SqliteDb) {
       FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
+    CREATE TABLE IF NOT EXISTS user_profiles (
+      user_id INTEGER PRIMARY KEY,
+      headline TEXT NOT NULL DEFAULT '',
+      bio TEXT NOT NULL DEFAULT '',
+      location TEXT NOT NULL DEFAULT '',
+      website TEXT NOT NULL DEFAULT '',
+      specialties_json TEXT NOT NULL DEFAULT '[]',
+      tools_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS user_certifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      issuer TEXT NOT NULL,
+      issue_date TEXT NOT NULL DEFAULT '',
+      expiry_date TEXT NOT NULL DEFAULT '',
+      credential_id TEXT NOT NULL DEFAULT '',
+      verify_url TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('verified', 'active', 'planned', 'expired')),
+      notes TEXT NOT NULL DEFAULT '',
+      asset_path TEXT,
+      asset_name TEXT,
+      asset_mime_type TEXT,
+      asset_size INTEGER,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS user_education (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      institution TEXT NOT NULL,
+      program TEXT NOT NULL,
+      degree TEXT NOT NULL DEFAULT '',
+      start_date TEXT NOT NULL DEFAULT '',
+      end_date TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('completed', 'active', 'planned', 'paused')),
+      description TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_attack_events_occurred_at ON attack_events(occurred_at);
@@ -164,6 +215,8 @@ async function initializeSchema(db: SqliteDb) {
     CREATE INDEX IF NOT EXISTS idx_alert_events_alert_id ON alert_events(alert_id);
     CREATE INDEX IF NOT EXISTS idx_alert_notes_alert_id ON alert_notes(alert_id);
     CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
+    CREATE INDEX IF NOT EXISTS idx_user_certifications_user_id ON user_certifications(user_id, sort_order, id);
+    CREATE INDEX IF NOT EXISTS idx_user_education_user_id ON user_education(user_id, sort_order, id);
   `)
 }
 
@@ -188,6 +241,98 @@ async function seedUsers(db: SqliteDb) {
   }
 }
 
+async function seedProfileData(db: SqliteDb) {
+  const users = await db.all<{
+    id: number
+    username: string
+    display_name: string
+  }[]>(`
+    SELECT id, username, display_name
+    FROM users
+    WHERE is_active = 1
+  `)
+
+  for (const user of users) {
+    const existingProfile = await db.get<{ user_id: number }>(
+      'SELECT user_id FROM user_profiles WHERE user_id = ? LIMIT 1',
+      user.id,
+    )
+    if (existingProfile) continue
+
+    const now = new Date().toISOString()
+    const seed = getPortfolioSeedForUser({
+      username: user.username,
+      displayName: user.display_name,
+    })
+
+    await db.run(
+      `
+        INSERT INTO user_profiles (
+          user_id, headline, bio, location, website, specialties_json, tools_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      user.id,
+      seed.profile.headline,
+      seed.profile.bio,
+      seed.profile.location,
+      seed.profile.website,
+      JSON.stringify(seed.profile.specialties),
+      JSON.stringify(seed.profile.tools),
+      now,
+      now,
+    )
+
+    for (const certification of seed.certifications) {
+      await db.run(
+        `
+          INSERT INTO user_certifications (
+            user_id, title, issuer, issue_date, expiry_date, credential_id, verify_url,
+            status, notes, asset_path, asset_name, asset_mime_type, asset_size,
+            sort_order, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        user.id,
+        certification.title,
+        certification.issuer,
+        certification.issueDate,
+        certification.expiryDate,
+        certification.credentialId,
+        certification.verifyUrl,
+        certification.status,
+        certification.notes,
+        certification.assetPath,
+        certification.assetName,
+        certification.assetMimeType,
+        certification.assetSize,
+        certification.sortOrder,
+        now,
+        now,
+      )
+    }
+
+    for (const education of seed.education) {
+      await db.run(
+        `
+          INSERT INTO user_education (
+            user_id, institution, program, degree, start_date, end_date, status, description, sort_order, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        user.id,
+        education.institution,
+        education.program,
+        education.degree,
+        education.startDate,
+        education.endDate,
+        education.status,
+        education.description,
+        education.sortOrder,
+        now,
+        now,
+      )
+    }
+  }
+}
+
 export async function getDb(): Promise<SqliteDb> {
   if (!dbPromise) {
     dbPromise = (async () => {
@@ -203,6 +348,7 @@ export async function getDb(): Promise<SqliteDb> {
 
       await initializeSchema(db)
       await seedUsers(db)
+      await seedProfileData(db)
       return db
     })()
   }

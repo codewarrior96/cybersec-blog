@@ -82,6 +82,29 @@ export async function loginWithPassword(username: string, password: string): Pro
   return { ok: true }
 }
 
+export async function registerWithPassword(input: {
+  username: string
+  displayName: string
+  password: string
+  confirmPassword: string
+}): Promise<LoginResult> {
+  const response = await fetch('/api/auth/register', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string }
+    return { ok: false, error: payload.error ?? 'Kayit basarisiz.' }
+  }
+
+  await getAuthSession(true)
+  dispatchAuthChanged()
+  return { ok: true }
+}
+
 export async function logoutAuth(): Promise<void> {
   // Optimistic UI update for instant feedback
   authCache = UNAUTH_STATE

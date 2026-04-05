@@ -24,10 +24,11 @@ export default function AppShellClient({
   const isAuthed = session?.authenticated ?? false
 
   const isLoginRoute = pathname === '/login' || pathname?.startsWith('/login/')
+  const isRegisterRoute = pathname === '/register' || pathname?.startsWith('/register/')
   const isRootRoute = pathname === '/' || pathname === '/home'
 
-  const isAuthGatewayRoute = isLoginRoute || (!isAuthed && isRootRoute)
-  const showOperatorShell = isAuthed && !isLoginRoute
+  const isAuthGatewayRoute = isLoginRoute || isRegisterRoute || (!isAuthed && isRootRoute)
+  const showOperatorShell = isAuthed && !isLoginRoute && !isRegisterRoute
   const showGlobalTools = !isAuthGatewayRoute && !showOperatorShell
 
   const handleLogout = useCallback(async () => {

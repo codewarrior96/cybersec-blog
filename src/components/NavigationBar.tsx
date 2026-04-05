@@ -16,7 +16,7 @@ const NAV_LINKS = [
   { label: 'BLOG', href: '/blog' },
   { label: 'COMMUNITY', href: '/community' },
   { label: 'SENTINEL', href: '/zafiyet-taramasi' },
-  { label: 'PORTFOLIO', href: '/portfolio' },
+  { label: 'PROFIL', href: '/portfolio' },
 ] as const
 
 const CVE_BADGE_COUNT = 3

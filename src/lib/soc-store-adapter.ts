@@ -5,7 +5,7 @@ import type { AttackEventInput, LiveMetrics } from '@/lib/soc-store-memory'
 type StoreModule = typeof import('@/lib/soc-store-memory')
 type StorageMode = 'memory' | 'sqlite'
 
-const requestedStorageMode = (process.env.SOC_STORAGE ?? 'memory').toLowerCase()
+const requestedStorageMode = (process.env.SOC_STORAGE ?? 'sqlite').toLowerCase()
 let activeStorageMode: StorageMode = requestedStorageMode === 'sqlite' ? 'sqlite' : 'memory'
 
 let sqliteStorePromise: Promise<StoreModule> | null = null
@@ -145,6 +145,76 @@ export async function createUser(...args: Parameters<StoreModule['createUser']>)
   return withStore('createUser', (store) => store.createUser(...args))
 }
 
+export async function registerUser(...args: Parameters<StoreModule['registerUser']>) {
+  return withStore('registerUser', (store) => store.registerUser(...args))
+}
+
+export async function getPortfolioProfile(...args: Parameters<StoreModule['getPortfolioProfile']>) {
+  return withStore('getPortfolioProfile', (store) => store.getPortfolioProfile(...args))
+}
+
+export async function getPortfolioCertificationById(
+  ...args: Parameters<StoreModule['getPortfolioCertificationById']>
+) {
+  return withStore('getPortfolioCertificationById', (store) =>
+    store.getPortfolioCertificationById(...args),
+  )
+}
+
+export async function updatePortfolioProfile(
+  ...args: Parameters<StoreModule['updatePortfolioProfile']>
+) {
+  return withStore('updatePortfolioProfile', (store) => store.updatePortfolioProfile(...args))
+}
+
+export async function createPortfolioCertification(
+  ...args: Parameters<StoreModule['createPortfolioCertification']>
+) {
+  return withStore('createPortfolioCertification', (store) =>
+    store.createPortfolioCertification(...args),
+  )
+}
+
+export async function updatePortfolioCertification(
+  ...args: Parameters<StoreModule['updatePortfolioCertification']>
+) {
+  return withStore('updatePortfolioCertification', (store) =>
+    store.updatePortfolioCertification(...args),
+  )
+}
+
+export async function deletePortfolioCertification(
+  ...args: Parameters<StoreModule['deletePortfolioCertification']>
+) {
+  return withStore('deletePortfolioCertification', (store) =>
+    store.deletePortfolioCertification(...args),
+  )
+}
+
+export async function createPortfolioEducation(
+  ...args: Parameters<StoreModule['createPortfolioEducation']>
+) {
+  return withStore('createPortfolioEducation', (store) =>
+    store.createPortfolioEducation(...args),
+  )
+}
+
+export async function updatePortfolioEducation(
+  ...args: Parameters<StoreModule['updatePortfolioEducation']>
+) {
+  return withStore('updatePortfolioEducation', (store) =>
+    store.updatePortfolioEducation(...args),
+  )
+}
+
+export async function deletePortfolioEducation(
+  ...args: Parameters<StoreModule['deletePortfolioEducation']>
+) {
+  return withStore('deletePortfolioEducation', (store) =>
+    store.deletePortfolioEducation(...args),
+  )
+}
+
 export type {
   RequestMetadata,
   SessionRecord,
@@ -156,4 +226,7 @@ export type {
   UserWorkload,
   LiveMetrics,
   ReportRecord,
+  PortfolioProfilePatchInput,
+  PortfolioCertificationInput,
+  PortfolioEducationInput,
 } from '@/lib/soc-store-memory'

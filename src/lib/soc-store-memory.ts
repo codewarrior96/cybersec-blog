@@ -1,7 +1,16 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
 import { hashPassword, verifyPassword } from '@/lib/security'
+import { dedupeStringList, getPortfolioSeedForUser } from '@/lib/portfolio-profile'
 import type { AlertPriority, AlertStatus, AttackSeverity, SessionUser, UserRole } from '@/lib/soc-types'
 import { mapAttackTypeToTag, priorityWeight, severityToPriority } from '@/lib/soc-attack-utils'
+import type {
+  CertificationStatus,
+  EducationStatus,
+  PortfolioCertificationRecord,
+  PortfolioEducationRecord,
+  PortfolioProfileFields,
+  PortfolioProfileRecord,
+} from '@/lib/portfolio-profile'
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
 const ATTACK_RETENTION_MS = 7 * 24 * 60 * 60 * 1000
@@ -42,6 +51,53 @@ interface InternalUser {
   role: UserRole
   passwordHash: string
   isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+interface InternalProfile {
+  userId: number
+  headline: string
+  bio: string
+  location: string
+  website: string
+  specialties: string[]
+  tools: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+interface InternalCertification {
+  id: number
+  userId: number
+  title: string
+  issuer: string
+  issueDate: string
+  expiryDate: string
+  credentialId: string
+  verifyUrl: string
+  status: CertificationStatus
+  notes: string
+  assetPath: string | null
+  assetName: string | null
+  assetMimeType: string | null
+  assetSize: number | null
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+interface InternalEducation {
+  id: number
+  userId: number
+  institution: string
+  program: string
+  degree: string
+  startDate: string
+  endDate: string
+  status: EducationStatus
+  description: string
+  sortOrder: number
   createdAt: string
   updatedAt: string
 }
@@ -106,6 +162,9 @@ interface InternalAuditLog {
 
 interface StoreState {
   users: InternalUser[]
+  profiles: InternalProfile[]
+  certifications: InternalCertification[]
+  education: InternalEducation[]
   alerts: InternalAlert[]
   alertNotes: InternalAlertNote[]
   attackEvents: InternalAttackEvent[]
@@ -114,6 +173,8 @@ interface StoreState {
   revokedTokens: Set<string>
   counters: {
     userId: number
+    certificationId: number
+    educationId: number
     alertId: number
     noteId: number
     attackId: number
@@ -154,8 +215,75 @@ function createSeededState(): StoreState {
     updatedAt: now,
   }))
 
+  const profiles: InternalProfile[] = []
+  const certifications: InternalCertification[] = []
+  const education: InternalEducation[] = []
+  let certificationIdCounter = 1
+  let educationIdCounter = 1
+
+  users.forEach((user) => {
+    const seed = getPortfolioSeedForUser({
+      username: user.username,
+      displayName: user.displayName,
+    })
+
+    profiles.push({
+      userId: user.id,
+      headline: seed.profile.headline,
+      bio: seed.profile.bio,
+      location: seed.profile.location,
+      website: seed.profile.website,
+      specialties: [...seed.profile.specialties],
+      tools: [...seed.profile.tools],
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    seed.certifications.forEach((item, index) => {
+      certifications.push({
+        id: certificationIdCounter++,
+        userId: user.id,
+        title: item.title,
+        issuer: item.issuer,
+        issueDate: item.issueDate,
+        expiryDate: item.expiryDate,
+        credentialId: item.credentialId,
+        verifyUrl: item.verifyUrl,
+        status: item.status,
+        notes: item.notes,
+        assetPath: item.assetPath,
+        assetName: item.assetName,
+        assetMimeType: item.assetMimeType,
+        assetSize: item.assetSize,
+        sortOrder: item.sortOrder,
+        createdAt: now,
+        updatedAt: now,
+      })
+    })
+
+    seed.education.forEach((item, index) => {
+      education.push({
+        id: educationIdCounter++,
+        userId: user.id,
+        institution: item.institution,
+        program: item.program,
+        degree: item.degree,
+        startDate: item.startDate,
+        endDate: item.endDate,
+        status: item.status,
+        description: item.description,
+        sortOrder: item.sortOrder,
+        createdAt: now,
+        updatedAt: now,
+      })
+    })
+  })
+
   return {
     users,
+    profiles,
+    certifications,
+    education,
     alerts: [],
     alertNotes: [],
     attackEvents: [],
@@ -164,6 +292,8 @@ function createSeededState(): StoreState {
     revokedTokens: new Set<string>(),
     counters: {
       userId: users.length + 1,
+      certificationId: certifications.length + 1,
+      educationId: education.length + 1,
       alertId: 1,
       noteId: 1,
       attackId: 1,
@@ -190,6 +320,79 @@ function toSessionUser(user: InternalUser): SessionUser {
     displayName: user.displayName,
     role: user.role,
   }
+}
+
+function findProfileByUserId(userId: number): InternalProfile | null {
+  return getStore().profiles.find((item) => item.userId === userId) ?? null
+}
+
+function findCertificationById(id: number): InternalCertification | null {
+  return getStore().certifications.find((item) => item.id === id) ?? null
+}
+
+function toCertificationRecord(item: InternalCertification): PortfolioCertificationRecord {
+  return {
+    id: item.id,
+    userId: item.userId,
+    title: item.title,
+    issuer: item.issuer,
+    issueDate: item.issueDate,
+    expiryDate: item.expiryDate,
+    credentialId: item.credentialId,
+    verifyUrl: item.verifyUrl,
+    status: item.status,
+    notes: item.notes,
+    assetPath: item.assetPath,
+    assetName: item.assetName,
+    assetMimeType: item.assetMimeType,
+    assetSize: item.assetSize,
+    sortOrder: item.sortOrder,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  }
+}
+
+function toEducationRecord(item: InternalEducation): PortfolioEducationRecord {
+  return {
+    id: item.id,
+    userId: item.userId,
+    institution: item.institution,
+    program: item.program,
+    degree: item.degree,
+    startDate: item.startDate,
+    endDate: item.endDate,
+    status: item.status,
+    description: item.description,
+    sortOrder: item.sortOrder,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  }
+}
+
+function ensureProfileForUser(user: InternalUser): InternalProfile {
+  const store = getStore()
+  const existing = store.profiles.find((item) => item.userId === user.id)
+  if (existing) return existing
+
+  const now = toIsoNow()
+  const seed = getPortfolioSeedForUser({
+    username: user.username,
+    displayName: user.displayName,
+  })
+
+  const created: InternalProfile = {
+    userId: user.id,
+    headline: seed.profile.headline,
+    bio: seed.profile.bio,
+    location: seed.profile.location,
+    website: seed.profile.website,
+    specialties: [...seed.profile.specialties],
+    tools: [...seed.profile.tools],
+    createdAt: now,
+    updatedAt: now,
+  }
+  store.profiles.push(created)
+  return created
 }
 
 function findActiveUserById(userId: number | null | undefined): InternalUser | null {
@@ -409,6 +612,35 @@ export interface ReportRecord {
   severity: string
   tags: string[]
   createdAt: string
+}
+
+export interface PortfolioProfilePatchInput extends PortfolioProfileFields {}
+
+export interface PortfolioCertificationInput {
+  title: string
+  issuer: string
+  issueDate: string
+  expiryDate: string
+  credentialId: string
+  verifyUrl: string
+  status: CertificationStatus
+  notes: string
+  assetPath?: string | null
+  assetName?: string | null
+  assetMimeType?: string | null
+  assetSize?: number | null
+  sortOrder?: number
+}
+
+export interface PortfolioEducationInput {
+  institution: string
+  program: string
+  degree: string
+  startDate: string
+  endDate: string
+  status: EducationStatus
+  description: string
+  sortOrder?: number
 }
 
 export async function writeAuditLog(input: {
@@ -934,6 +1166,313 @@ export async function deleteReport(id: number, actor: SessionUser, metadata: Req
   return true
 }
 
+export async function registerUser(input: {
+  username: string
+  displayName: string
+  role: UserRole
+  passwordHash: string
+  metadata: RequestMetadata
+}): Promise<SessionUser> {
+  const store = getStore()
+  const usernameKey = input.username.toLocaleLowerCase('tr-TR')
+  const exists = store.users.some((user) => user.username.toLocaleLowerCase('tr-TR') === usernameKey)
+  if (exists) {
+    throw new Error('User already exists')
+  }
+
+  const now = toIsoNow()
+  const user: InternalUser = {
+    id: store.counters.userId++,
+    username: input.username,
+    displayName: input.displayName,
+    role: input.role,
+    passwordHash: input.passwordHash,
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  store.users.push(user)
+  ensureProfileForUser(user)
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: 'user.register',
+    entityType: 'user',
+    entityId: user.id,
+    details: { username: user.username, role: user.role },
+    metadata: input.metadata,
+  })
+
+  return toSessionUser(user)
+}
+
+export async function getPortfolioProfile(userId: number): Promise<PortfolioProfileRecord | null> {
+  const user = findActiveUserById(userId)
+  if (!user) return null
+  const profile = ensureProfileForUser(user)
+  const store = getStore()
+
+  return {
+    user: toSessionUser(user),
+    profile: {
+      headline: profile.headline,
+      bio: profile.bio,
+      location: profile.location,
+      website: profile.website,
+      specialties: [...profile.specialties],
+      tools: [...profile.tools],
+      updatedAt: profile.updatedAt,
+    },
+    certifications: store.certifications
+      .filter((item) => item.userId === userId)
+      .sort((a, b) => a.sortOrder - b.sortOrder || b.id - a.id)
+      .map(toCertificationRecord),
+    education: store.education
+      .filter((item) => item.userId === userId)
+      .sort((a, b) => a.sortOrder - b.sortOrder || b.id - a.id)
+      .map(toEducationRecord),
+  }
+}
+
+export async function getPortfolioCertificationById(
+  certificationId: number,
+): Promise<PortfolioCertificationRecord | null> {
+  const item = findCertificationById(certificationId)
+  return item ? toCertificationRecord(item) : null
+}
+
+export async function updatePortfolioProfile(
+  userId: number,
+  patch: PortfolioProfilePatchInput,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioProfileRecord | null> {
+  const user = findActiveUserById(userId)
+  if (!user) return null
+  const profile = ensureProfileForUser(user)
+  const now = toIsoNow()
+
+  profile.headline = patch.headline.trim()
+  profile.bio = patch.bio.trim()
+  profile.location = patch.location.trim()
+  profile.website = patch.website.trim()
+  profile.specialties = dedupeStringList(patch.specialties)
+  profile.tools = dedupeStringList(patch.tools)
+  profile.updatedAt = now
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.update',
+    entityType: 'profile',
+    entityId: userId,
+    details: { headline: profile.headline, specialtyCount: profile.specialties.length, toolCount: profile.tools.length },
+    metadata,
+  })
+
+  return getPortfolioProfile(userId)
+}
+
+export async function createPortfolioCertification(
+  userId: number,
+  input: PortfolioCertificationInput,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioCertificationRecord | null> {
+  const user = findActiveUserById(userId)
+  if (!user) return null
+
+  const store = getStore()
+  const now = toIsoNow()
+  const item: InternalCertification = {
+    id: store.counters.certificationId++,
+    userId,
+    title: input.title.trim(),
+    issuer: input.issuer.trim(),
+    issueDate: input.issueDate.trim(),
+    expiryDate: input.expiryDate.trim(),
+    credentialId: input.credentialId.trim(),
+    verifyUrl: input.verifyUrl.trim(),
+    status: input.status,
+    notes: input.notes.trim(),
+    assetPath: input.assetPath ?? null,
+    assetName: input.assetName ?? null,
+    assetMimeType: input.assetMimeType ?? null,
+    assetSize: input.assetSize ?? null,
+    sortOrder: input.sortOrder ?? store.certifications.filter((cert) => cert.userId === userId).length,
+    createdAt: now,
+    updatedAt: now,
+  }
+  store.certifications.push(item)
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.certification.create',
+    entityType: 'profile_certification',
+    entityId: item.id,
+    details: { userId, title: item.title, hasAsset: Boolean(item.assetPath) },
+    metadata,
+  })
+
+  return toCertificationRecord(item)
+}
+
+export async function updatePortfolioCertification(
+  certificationId: number,
+  userId: number,
+  input: PortfolioCertificationInput,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioCertificationRecord | null> {
+  const item = findCertificationById(certificationId)
+  if (!item || item.userId !== userId) return null
+
+  item.title = input.title.trim()
+  item.issuer = input.issuer.trim()
+  item.issueDate = input.issueDate.trim()
+  item.expiryDate = input.expiryDate.trim()
+  item.credentialId = input.credentialId.trim()
+  item.verifyUrl = input.verifyUrl.trim()
+  item.status = input.status
+  item.notes = input.notes.trim()
+  item.assetPath = input.assetPath !== undefined ? input.assetPath : item.assetPath ?? null
+  item.assetName = input.assetName !== undefined ? input.assetName : item.assetName ?? null
+  item.assetMimeType = input.assetMimeType !== undefined ? input.assetMimeType : item.assetMimeType ?? null
+  item.assetSize = input.assetSize !== undefined ? input.assetSize : item.assetSize ?? null
+  item.sortOrder = input.sortOrder ?? item.sortOrder
+  item.updatedAt = toIsoNow()
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.certification.update',
+    entityType: 'profile_certification',
+    entityId: item.id,
+    details: { userId, title: item.title, hasAsset: Boolean(item.assetPath) },
+    metadata,
+  })
+
+  return toCertificationRecord(item)
+}
+
+export async function deletePortfolioCertification(
+  certificationId: number,
+  userId: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioCertificationRecord | null> {
+  const store = getStore()
+  const index = store.certifications.findIndex((item) => item.id === certificationId && item.userId === userId)
+  if (index < 0) return null
+
+  const [removed] = store.certifications.splice(index, 1)
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.certification.delete',
+    entityType: 'profile_certification',
+    entityId: certificationId,
+    details: { userId, title: removed.title, assetPath: removed.assetPath },
+    metadata,
+  })
+
+  return toCertificationRecord(removed)
+}
+
+export async function createPortfolioEducation(
+  userId: number,
+  input: PortfolioEducationInput,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioEducationRecord | null> {
+  const user = findActiveUserById(userId)
+  if (!user) return null
+
+  const store = getStore()
+  const now = toIsoNow()
+  const item: InternalEducation = {
+    id: store.counters.educationId++,
+    userId,
+    institution: input.institution.trim(),
+    program: input.program.trim(),
+    degree: input.degree.trim(),
+    startDate: input.startDate.trim(),
+    endDate: input.endDate.trim(),
+    status: input.status,
+    description: input.description.trim(),
+    sortOrder: input.sortOrder ?? store.education.filter((entry) => entry.userId === userId).length,
+    createdAt: now,
+    updatedAt: now,
+  }
+  store.education.push(item)
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.education.create',
+    entityType: 'profile_education',
+    entityId: item.id,
+    details: { userId, institution: item.institution, program: item.program },
+    metadata,
+  })
+
+  return toEducationRecord(item)
+}
+
+export async function updatePortfolioEducation(
+  educationId: number,
+  userId: number,
+  input: PortfolioEducationInput,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioEducationRecord | null> {
+  const item = getStore().education.find((entry) => entry.id === educationId && entry.userId === userId)
+  if (!item) return null
+
+  item.institution = input.institution.trim()
+  item.program = input.program.trim()
+  item.degree = input.degree.trim()
+  item.startDate = input.startDate.trim()
+  item.endDate = input.endDate.trim()
+  item.status = input.status
+  item.description = input.description.trim()
+  item.sortOrder = input.sortOrder ?? item.sortOrder
+  item.updatedAt = toIsoNow()
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.education.update',
+    entityType: 'profile_education',
+    entityId: item.id,
+    details: { userId, institution: item.institution, program: item.program },
+    metadata,
+  })
+
+  return toEducationRecord(item)
+}
+
+export async function deletePortfolioEducation(
+  educationId: number,
+  userId: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioEducationRecord | null> {
+  const store = getStore()
+  const index = store.education.findIndex((entry) => entry.id === educationId && entry.userId === userId)
+  if (index < 0) return null
+
+  const [removed] = store.education.splice(index, 1)
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.education.delete',
+    entityType: 'profile_education',
+    entityId: removed.id,
+    details: { userId, institution: removed.institution, program: removed.program },
+    metadata,
+  })
+
+  return toEducationRecord(removed)
+}
+
 export async function createUser(input: {
   username: string
   displayName: string
@@ -960,6 +1499,7 @@ export async function createUser(input: {
     updatedAt: now,
   }
   store.users.push(user)
+  ensureProfileForUser(user)
 
   await writeAuditLog({
     actorUserId: input.actor.id,

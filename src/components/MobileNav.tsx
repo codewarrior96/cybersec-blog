@@ -15,7 +15,7 @@ const mobileItems = [
 
 const drawerItems = [
   { label: 'SYS', href: '/about', icon: Cpu },
-  { label: 'PORTFOLIO', href: '/portfolio', icon: Briefcase },
+  { label: 'PROFIL', href: '/portfolio', icon: Briefcase },
   { label: 'ROADMAP', href: '/roadmap', icon: Map },
   { label: 'TIMELINE', href: '/breach-timeline', icon: Clock },
 ]

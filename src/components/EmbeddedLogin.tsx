@@ -696,7 +696,7 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
           </span>
           <button
             type="button"
-            onClick={() => setHint('Kayit sistemi yakinda aktif olacak.')}
+            onClick={() => router.push('/register')}
             style={{
               background: 'transparent',
               border: 'none',

@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import { getDb } from '@/lib/db'
 import { verifyPassword } from '@/lib/security'
+import { dedupeStringList, getPortfolioSeedForUser } from '@/lib/portfolio-profile'
 import { mapAttackTypeToTag, priorityWeight, severityToPriority } from '@/lib/soc-attack-utils'
 import type {
   AlertPriority,
@@ -9,6 +10,14 @@ import type {
   SessionUser,
   UserRole,
 } from '@/lib/soc-types'
+import type {
+  CertificationStatus,
+  EducationStatus,
+  PortfolioCertificationRecord,
+  PortfolioEducationRecord,
+  PortfolioProfileFields,
+  PortfolioProfileRecord,
+} from '@/lib/portfolio-profile'
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
 const ATTACK_RETENTION_MS = 7 * 24 * 60 * 60 * 1000
@@ -136,6 +145,35 @@ export interface ReportRecord {
   createdAt: string
 }
 
+export interface PortfolioProfilePatchInput extends PortfolioProfileFields {}
+
+export interface PortfolioCertificationInput {
+  title: string
+  issuer: string
+  issueDate: string
+  expiryDate: string
+  credentialId: string
+  verifyUrl: string
+  status: CertificationStatus
+  notes: string
+  assetPath?: string | null
+  assetName?: string | null
+  assetMimeType?: string | null
+  assetSize?: number | null
+  sortOrder?: number
+}
+
+export interface PortfolioEducationInput {
+  institution: string
+  program: string
+  degree: string
+  startDate: string
+  endDate: string
+  status: EducationStatus
+  description: string
+  sortOrder?: number
+}
+
 function toIsoNow() {
   return new Date().toISOString()
 }
@@ -153,6 +191,100 @@ function parseTags(jsonValue: string): string[] {
     return parsed.filter((tag): tag is string => typeof tag === 'string')
   } catch {
     return []
+  }
+}
+
+function parseStringList(jsonValue: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(jsonValue)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((value): value is string => typeof value === 'string')
+  } catch {
+    return []
+  }
+}
+
+function toSessionUserFromRow(row: {
+  id: number
+  username: string
+  display_name: string
+  role: UserRole
+}): SessionUser {
+  return {
+    id: row.id,
+    username: row.username,
+    displayName: row.display_name,
+    role: row.role,
+  }
+}
+
+function toPortfolioCertificationRecord(row: {
+  id: number
+  user_id: number
+  title: string
+  issuer: string
+  issue_date: string
+  expiry_date: string
+  credential_id: string
+  verify_url: string
+  status: CertificationStatus
+  notes: string
+  asset_path: string | null
+  asset_name: string | null
+  asset_mime_type: string | null
+  asset_size: number | null
+  sort_order: number
+  created_at: string
+  updated_at: string
+}): PortfolioCertificationRecord {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    title: row.title,
+    issuer: row.issuer,
+    issueDate: row.issue_date,
+    expiryDate: row.expiry_date,
+    credentialId: row.credential_id,
+    verifyUrl: row.verify_url,
+    status: row.status,
+    notes: row.notes,
+    assetPath: row.asset_path,
+    assetName: row.asset_name,
+    assetMimeType: row.asset_mime_type,
+    assetSize: row.asset_size == null ? null : Number(row.asset_size),
+    sortOrder: Number(row.sort_order ?? 0),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function toPortfolioEducationRecord(row: {
+  id: number
+  user_id: number
+  institution: string
+  program: string
+  degree: string
+  start_date: string
+  end_date: string
+  status: EducationStatus
+  description: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+}): PortfolioEducationRecord {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    institution: row.institution,
+    program: row.program,
+    degree: row.degree,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    status: row.status,
+    description: row.description,
+    sortOrder: Number(row.sort_order ?? 0),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }
 
@@ -253,6 +385,215 @@ export async function authenticateUser(username: string, password: string): Prom
     displayName: row.display_name,
     role: row.role,
   }
+}
+
+async function getActiveUserById(userId: number): Promise<{
+  id: number
+  username: string
+  display_name: string
+  role: UserRole
+} | null> {
+  const db = await getDb()
+  const row = await db.get<{
+    id: number
+    username: string
+    display_name: string
+    role: UserRole
+  }>(
+    `
+      SELECT id, username, display_name, role
+      FROM users
+      WHERE id = ? AND is_active = 1
+      LIMIT 1
+    `,
+    userId,
+  )
+
+  return row ?? null
+}
+
+async function getActiveUserByUsername(username: string): Promise<{
+  id: number
+  username: string
+  display_name: string
+  role: UserRole
+} | null> {
+  const db = await getDb()
+  const row = await db.get<{
+    id: number
+    username: string
+    display_name: string
+    role: UserRole
+  }>(
+    `
+      SELECT id, username, display_name, role
+      FROM users
+      WHERE username = ? AND is_active = 1
+      LIMIT 1
+    `,
+    username,
+  )
+
+  return row ?? null
+}
+
+async function ensurePortfolioSeedDataForUser(user: {
+  id: number
+  username: string
+  display_name: string
+}): Promise<void> {
+  const db = await getDb()
+  const existingProfile = await db.get<{ user_id: number }>(
+    'SELECT user_id FROM user_profiles WHERE user_id = ? LIMIT 1',
+    user.id,
+  )
+  if (existingProfile) return
+
+  const now = toIsoNow()
+  const seed = getPortfolioSeedForUser({
+    username: user.username,
+    displayName: user.display_name,
+  })
+
+  await db.run('BEGIN')
+  try {
+    await db.run(
+      `
+        INSERT INTO user_profiles (
+          user_id, headline, bio, location, website, specialties_json, tools_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      user.id,
+      seed.profile.headline,
+      seed.profile.bio,
+      seed.profile.location,
+      seed.profile.website,
+      JSON.stringify(seed.profile.specialties),
+      JSON.stringify(seed.profile.tools),
+      now,
+      now,
+    )
+
+    for (const certification of seed.certifications) {
+      await db.run(
+        `
+          INSERT INTO user_certifications (
+            user_id, title, issuer, issue_date, expiry_date, credential_id, verify_url,
+            status, notes, asset_path, asset_name, asset_mime_type, asset_size,
+            sort_order, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        user.id,
+        certification.title,
+        certification.issuer,
+        certification.issueDate,
+        certification.expiryDate,
+        certification.credentialId,
+        certification.verifyUrl,
+        certification.status,
+        certification.notes,
+        certification.assetPath,
+        certification.assetName,
+        certification.assetMimeType,
+        certification.assetSize,
+        certification.sortOrder,
+        now,
+        now,
+      )
+    }
+
+    for (const education of seed.education) {
+      await db.run(
+        `
+          INSERT INTO user_education (
+            user_id, institution, program, degree, start_date, end_date, status, description, sort_order, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        user.id,
+        education.institution,
+        education.program,
+        education.degree,
+        education.startDate,
+        education.endDate,
+        education.status,
+        education.description,
+        education.sortOrder,
+        now,
+        now,
+      )
+    }
+
+    await db.run('COMMIT')
+  } catch (error) {
+    await db.run('ROLLBACK')
+    throw error
+  }
+}
+
+async function listPortfolioCertificationsByUserId(userId: number): Promise<PortfolioCertificationRecord[]> {
+  const db = await getDb()
+  const rows = await db.all<{
+    id: number
+    user_id: number
+    title: string
+    issuer: string
+    issue_date: string
+    expiry_date: string
+    credential_id: string
+    verify_url: string
+    status: CertificationStatus
+    notes: string
+    asset_path: string | null
+    asset_name: string | null
+    asset_mime_type: string | null
+    asset_size: number | null
+    sort_order: number
+    created_at: string
+    updated_at: string
+  }[]>(
+    `
+      SELECT
+        id, user_id, title, issuer, issue_date, expiry_date, credential_id, verify_url,
+        status, notes, asset_path, asset_name, asset_mime_type, asset_size,
+        sort_order, created_at, updated_at
+      FROM user_certifications
+      WHERE user_id = ?
+      ORDER BY sort_order ASC, id DESC
+    `,
+    userId,
+  )
+
+  return rows.map(toPortfolioCertificationRecord)
+}
+
+async function listPortfolioEducationByUserId(userId: number): Promise<PortfolioEducationRecord[]> {
+  const db = await getDb()
+  const rows = await db.all<{
+    id: number
+    user_id: number
+    institution: string
+    program: string
+    degree: string
+    start_date: string
+    end_date: string
+    status: EducationStatus
+    description: string
+    sort_order: number
+    created_at: string
+    updated_at: string
+  }[]>(
+    `
+      SELECT
+        id, user_id, institution, program, degree, start_date, end_date,
+        status, description, sort_order, created_at, updated_at
+      FROM user_education
+      WHERE user_id = ?
+      ORDER BY sort_order ASC, id DESC
+    `,
+    userId,
+  )
+
+  return rows.map(toPortfolioEducationRecord)
 }
 
 export async function createSession(user: SessionUser, metadata: RequestMetadata): Promise<SessionRecord> {
@@ -1312,6 +1653,549 @@ export async function deleteReport(id: number, actor: SessionUser, metadata: Req
   return true
 }
 
+export async function registerUser(input: {
+  username: string
+  displayName: string
+  role: UserRole
+  passwordHash: string
+  metadata: RequestMetadata
+}): Promise<SessionUser> {
+  const db = await getDb()
+  const existing = await getActiveUserByUsername(input.username)
+  if (existing) {
+    throw new Error('User already exists')
+  }
+
+  const now = toIsoNow()
+  const result = await db.run(
+    `
+      INSERT INTO users (username, display_name, password_hash, role, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 1, ?, ?)
+    `,
+    input.username,
+    input.displayName,
+    input.passwordHash,
+    input.role,
+    now,
+    now,
+  )
+
+  const user = {
+    id: Number(result.lastID),
+    username: input.username,
+    display_name: input.displayName,
+    role: input.role,
+  }
+
+  await ensurePortfolioSeedDataForUser(user)
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: 'user.register',
+    entityType: 'user',
+    entityId: user.id,
+    details: { username: user.username, role: user.role },
+    metadata: input.metadata,
+  })
+
+  return toSessionUserFromRow(user)
+}
+
+export async function getPortfolioProfile(userId: number): Promise<PortfolioProfileRecord | null> {
+  const user = await getActiveUserById(userId)
+  if (!user) return null
+
+  await ensurePortfolioSeedDataForUser(user)
+  const db = await getDb()
+
+  const [profileRow, certifications, education] = await Promise.all([
+    db.get<{
+      headline: string
+      bio: string
+      location: string
+      website: string
+      specialties_json: string
+      tools_json: string
+      updated_at: string
+    }>(
+      `
+        SELECT headline, bio, location, website, specialties_json, tools_json, updated_at
+        FROM user_profiles
+        WHERE user_id = ?
+        LIMIT 1
+      `,
+      userId,
+    ),
+    listPortfolioCertificationsByUserId(userId),
+    listPortfolioEducationByUserId(userId),
+  ])
+
+  if (!profileRow) return null
+
+  return {
+    user: toSessionUserFromRow(user),
+    profile: {
+      headline: profileRow.headline,
+      bio: profileRow.bio,
+      location: profileRow.location,
+      website: profileRow.website,
+      specialties: parseStringList(profileRow.specialties_json),
+      tools: parseStringList(profileRow.tools_json),
+      updatedAt: profileRow.updated_at,
+    },
+    certifications,
+    education,
+  }
+}
+
+export async function getPortfolioCertificationById(
+  certificationId: number,
+): Promise<PortfolioCertificationRecord | null> {
+  const db = await getDb()
+  const row = await db.get<{
+    id: number
+    user_id: number
+    title: string
+    issuer: string
+    issue_date: string
+    expiry_date: string
+    credential_id: string
+    verify_url: string
+    status: CertificationStatus
+    notes: string
+    asset_path: string | null
+    asset_name: string | null
+    asset_mime_type: string | null
+    asset_size: number | null
+    sort_order: number
+    created_at: string
+    updated_at: string
+  }>(
+    `
+      SELECT
+        id, user_id, title, issuer, issue_date, expiry_date, credential_id, verify_url,
+        status, notes, asset_path, asset_name, asset_mime_type, asset_size,
+        sort_order, created_at, updated_at
+      FROM user_certifications
+      WHERE id = ?
+      LIMIT 1
+    `,
+    certificationId,
+  )
+
+  return row ? toPortfolioCertificationRecord(row) : null
+}
+
+export async function updatePortfolioProfile(
+  userId: number,
+  patch: PortfolioProfilePatchInput,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioProfileRecord | null> {
+  const user = await getActiveUserById(userId)
+  if (!user) return null
+
+  await ensurePortfolioSeedDataForUser(user)
+  const db = await getDb()
+  const now = toIsoNow()
+
+  await db.run(
+    `
+      UPDATE user_profiles
+      SET headline = ?, bio = ?, location = ?, website = ?, specialties_json = ?, tools_json = ?, updated_at = ?
+      WHERE user_id = ?
+    `,
+    patch.headline.trim(),
+    patch.bio.trim(),
+    patch.location.trim(),
+    patch.website.trim(),
+    JSON.stringify(dedupeStringList(patch.specialties)),
+    JSON.stringify(dedupeStringList(patch.tools)),
+    now,
+    userId,
+  )
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.update',
+    entityType: 'profile',
+    entityId: userId,
+    details: {
+      headline: patch.headline.trim(),
+      specialtyCount: patch.specialties.length,
+      toolCount: patch.tools.length,
+    },
+    metadata,
+  })
+
+  return getPortfolioProfile(userId)
+}
+
+export async function createPortfolioCertification(
+  userId: number,
+  input: PortfolioCertificationInput,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioCertificationRecord | null> {
+  const user = await getActiveUserById(userId)
+  if (!user) return null
+
+  await ensurePortfolioSeedDataForUser(user)
+  const db = await getDb()
+  const now = toIsoNow()
+  const existingCount = await db.get<{ count: number }>(
+    'SELECT COUNT(*) AS count FROM user_certifications WHERE user_id = ?',
+    userId,
+  )
+
+  const result = await db.run(
+    `
+      INSERT INTO user_certifications (
+        user_id, title, issuer, issue_date, expiry_date, credential_id, verify_url,
+        status, notes, asset_path, asset_name, asset_mime_type, asset_size, sort_order, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    userId,
+    input.title.trim(),
+    input.issuer.trim(),
+    input.issueDate.trim(),
+    input.expiryDate.trim(),
+    input.credentialId.trim(),
+    input.verifyUrl.trim(),
+    input.status,
+    input.notes.trim(),
+    input.assetPath ?? null,
+    input.assetName ?? null,
+    input.assetMimeType ?? null,
+    input.assetSize ?? null,
+    input.sortOrder ?? Number(existingCount?.count ?? 0),
+    now,
+    now,
+  )
+
+  const created = await getPortfolioCertificationById(Number(result.lastID))
+  if (!created) return null
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.certification.create',
+    entityType: 'profile_certification',
+    entityId: created.id,
+    details: { userId, title: created.title, hasAsset: Boolean(created.assetPath) },
+    metadata,
+  })
+
+  return created
+}
+
+export async function updatePortfolioCertification(
+  certificationId: number,
+  userId: number,
+  input: PortfolioCertificationInput,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioCertificationRecord | null> {
+  const existing = await getPortfolioCertificationById(certificationId)
+  if (!existing || existing.userId !== userId) return null
+
+  const db = await getDb()
+  await db.run(
+    `
+      UPDATE user_certifications
+      SET
+        title = ?,
+        issuer = ?,
+        issue_date = ?,
+        expiry_date = ?,
+        credential_id = ?,
+        verify_url = ?,
+        status = ?,
+        notes = ?,
+        asset_path = ?,
+        asset_name = ?,
+        asset_mime_type = ?,
+        asset_size = ?,
+        sort_order = ?,
+        updated_at = ?
+      WHERE id = ? AND user_id = ?
+    `,
+    input.title.trim(),
+    input.issuer.trim(),
+    input.issueDate.trim(),
+    input.expiryDate.trim(),
+    input.credentialId.trim(),
+    input.verifyUrl.trim(),
+    input.status,
+    input.notes.trim(),
+    input.assetPath !== undefined ? input.assetPath : existing.assetPath ?? null,
+    input.assetName !== undefined ? input.assetName : existing.assetName ?? null,
+    input.assetMimeType !== undefined ? input.assetMimeType : existing.assetMimeType ?? null,
+    input.assetSize !== undefined ? input.assetSize : existing.assetSize ?? null,
+    input.sortOrder ?? existing.sortOrder,
+    toIsoNow(),
+    certificationId,
+    userId,
+  )
+
+  const updated = await getPortfolioCertificationById(certificationId)
+  if (!updated) return null
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.certification.update',
+    entityType: 'profile_certification',
+    entityId: certificationId,
+    details: { userId, title: updated.title, hasAsset: Boolean(updated.assetPath) },
+    metadata,
+  })
+
+  return updated
+}
+
+export async function deletePortfolioCertification(
+  certificationId: number,
+  userId: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioCertificationRecord | null> {
+  const existing = await getPortfolioCertificationById(certificationId)
+  if (!existing || existing.userId !== userId) return null
+
+  const db = await getDb()
+  await db.run('DELETE FROM user_certifications WHERE id = ? AND user_id = ?', certificationId, userId)
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.certification.delete',
+    entityType: 'profile_certification',
+    entityId: certificationId,
+    details: { userId, title: existing.title, assetPath: existing.assetPath },
+    metadata,
+  })
+
+  return existing
+}
+
+export async function createPortfolioEducation(
+  userId: number,
+  input: PortfolioEducationInput,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioEducationRecord | null> {
+  const user = await getActiveUserById(userId)
+  if (!user) return null
+
+  await ensurePortfolioSeedDataForUser(user)
+  const db = await getDb()
+  const now = toIsoNow()
+  const existingCount = await db.get<{ count: number }>(
+    'SELECT COUNT(*) AS count FROM user_education WHERE user_id = ?',
+    userId,
+  )
+
+  const result = await db.run(
+    `
+      INSERT INTO user_education (
+        user_id, institution, program, degree, start_date, end_date, status, description, sort_order, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    userId,
+    input.institution.trim(),
+    input.program.trim(),
+    input.degree.trim(),
+    input.startDate.trim(),
+    input.endDate.trim(),
+    input.status,
+    input.description.trim(),
+    input.sortOrder ?? Number(existingCount?.count ?? 0),
+    now,
+    now,
+  )
+
+  const dbRow = await db.get<{
+    id: number
+    user_id: number
+    institution: string
+    program: string
+    degree: string
+    start_date: string
+    end_date: string
+    status: EducationStatus
+    description: string
+    sort_order: number
+    created_at: string
+    updated_at: string
+  }>(
+    `
+      SELECT
+        id, user_id, institution, program, degree, start_date, end_date,
+        status, description, sort_order, created_at, updated_at
+      FROM user_education
+      WHERE id = ?
+      LIMIT 1
+    `,
+    Number(result.lastID),
+  )
+  if (!dbRow) return null
+
+  const created = toPortfolioEducationRecord(dbRow)
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.education.create',
+    entityType: 'profile_education',
+    entityId: created.id,
+    details: { userId, institution: created.institution, program: created.program },
+    metadata,
+  })
+
+  return created
+}
+
+export async function updatePortfolioEducation(
+  educationId: number,
+  userId: number,
+  input: PortfolioEducationInput,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioEducationRecord | null> {
+  const db = await getDb()
+  const existing = await db.get<{
+    id: number
+    user_id: number
+    institution: string
+    program: string
+    degree: string
+    start_date: string
+    end_date: string
+    status: EducationStatus
+    description: string
+    sort_order: number
+    created_at: string
+    updated_at: string
+  }>(
+    `
+      SELECT
+        id, user_id, institution, program, degree, start_date, end_date,
+        status, description, sort_order, created_at, updated_at
+      FROM user_education
+      WHERE id = ? AND user_id = ?
+      LIMIT 1
+    `,
+    educationId,
+    userId,
+  )
+  if (!existing) return null
+
+  await db.run(
+    `
+      UPDATE user_education
+      SET institution = ?, program = ?, degree = ?, start_date = ?, end_date = ?, status = ?, description = ?, sort_order = ?, updated_at = ?
+      WHERE id = ? AND user_id = ?
+    `,
+    input.institution.trim(),
+    input.program.trim(),
+    input.degree.trim(),
+    input.startDate.trim(),
+    input.endDate.trim(),
+    input.status,
+    input.description.trim(),
+    input.sortOrder ?? existing.sort_order,
+    toIsoNow(),
+    educationId,
+    userId,
+  )
+
+  const updated = await db.get<{
+    id: number
+    user_id: number
+    institution: string
+    program: string
+    degree: string
+    start_date: string
+    end_date: string
+    status: EducationStatus
+    description: string
+    sort_order: number
+    created_at: string
+    updated_at: string
+  }>(
+    `
+      SELECT
+        id, user_id, institution, program, degree, start_date, end_date,
+        status, description, sort_order, created_at, updated_at
+      FROM user_education
+      WHERE id = ?
+      LIMIT 1
+    `,
+    educationId,
+  )
+  if (!updated) return null
+
+  const record = toPortfolioEducationRecord(updated)
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.education.update',
+    entityType: 'profile_education',
+    entityId: educationId,
+    details: { userId, institution: record.institution, program: record.program },
+    metadata,
+  })
+
+  return record
+}
+
+export async function deletePortfolioEducation(
+  educationId: number,
+  userId: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioEducationRecord | null> {
+  const db = await getDb()
+  const existing = await db.get<{
+    id: number
+    user_id: number
+    institution: string
+    program: string
+    degree: string
+    start_date: string
+    end_date: string
+    status: EducationStatus
+    description: string
+    sort_order: number
+    created_at: string
+    updated_at: string
+  }>(
+    `
+      SELECT
+        id, user_id, institution, program, degree, start_date, end_date,
+        status, description, sort_order, created_at, updated_at
+      FROM user_education
+      WHERE id = ? AND user_id = ?
+      LIMIT 1
+    `,
+    educationId,
+    userId,
+  )
+  if (!existing) return null
+
+  await db.run('DELETE FROM user_education WHERE id = ? AND user_id = ?', educationId, userId)
+
+  const removed = toPortfolioEducationRecord(existing)
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.education.delete',
+    entityType: 'profile_education',
+    entityId: educationId,
+    details: { userId, institution: removed.institution, program: removed.program },
+    metadata,
+  })
+
+  return removed
+}
+
 export async function createUser(input: {
   username: string
   displayName: string
@@ -1335,6 +2219,12 @@ export async function createUser(input: {
     now,
     now,
   )
+
+  await ensurePortfolioSeedDataForUser({
+    id: Number(result.lastID),
+    username: input.username,
+    display_name: input.displayName,
+  })
 
   await writeAuditLog({
     actorUserId: input.actor.id,

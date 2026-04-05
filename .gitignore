@@ -20,6 +20,7 @@ Thumbs.db
 data/*.db
 data/*.db-wal
 data/*.db-shm
+data/profile-assets/
 
 .vercel
 .env*.local
