@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SESSION_COOKIE_MAX_AGE_SECONDS, SESSION_COOKIE_NAME } from '@/lib/auth-shared'
 import { getRequestMetadata } from '@/lib/auth-server'
+import { getReservedUsernameError, isReservedUsername } from '@/lib/identity-rules'
 import { hashPassword } from '@/lib/security'
 import { createSession, registerUser } from '@/lib/soc-store-adapter'
 
@@ -34,6 +35,10 @@ export async function POST(request: NextRequest) {
       { error: 'Kullanici adi 3-32 karakter olmali ve sadece harf, rakam, nokta, tire veya alt cizgi icermeli.' },
       { status: 400 },
     )
+  }
+
+  if (isReservedUsername(username)) {
+    return NextResponse.json({ error: getReservedUsernameError() }, { status: 400 })
   }
 
   if (displayName.length < 2) {
@@ -81,6 +86,9 @@ export async function POST(request: NextRequest) {
     const message = error instanceof Error ? error.message : 'Kayit basarisiz oldu.'
     if (message === 'User already exists') {
       return NextResponse.json({ error: 'Bu kullanici adi zaten kullaniliyor.' }, { status: 409 })
+    }
+    if (message === 'Reserved username') {
+      return NextResponse.json({ error: getReservedUsernameError() }, { status: 400 })
     }
 
     console.error('[auth/register] Registration failed:', error)

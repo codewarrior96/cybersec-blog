@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { getDb } from '@/lib/db'
+import { isReservedUsername } from '@/lib/identity-rules'
 import { verifyPassword } from '@/lib/security'
 import { dedupeStringList, getPortfolioSeedForUser } from '@/lib/portfolio-profile'
 import { mapAttackTypeToTag, priorityWeight, severityToPriority } from '@/lib/soc-attack-utils'
@@ -536,96 +537,6 @@ async function ensurePortfolioSeedDataForUser(user: {
   } catch (error) {
     await db.run('ROLLBACK')
     throw error
-  }
-}
-
-async function backfillPortfolioStarterDataForUser(
-  user: {
-    id: number
-    username: string
-    display_name: string
-  },
-  input: {
-    specialties: string[]
-    tools: string[]
-    certifications: PortfolioCertificationRecord[]
-    education: PortfolioEducationRecord[]
-  },
-): Promise<void> {
-  if (user.username === 'ghost') return
-
-  const db = await getDb()
-  const seed = getPortfolioSeedForUser({
-    username: user.username,
-    displayName: user.display_name,
-  })
-  const now = toIsoNow()
-
-  if (input.specialties.length === 0 || input.tools.length === 0) {
-    await db.run(
-      `
-        UPDATE user_profiles
-        SET specialties_json = ?, tools_json = ?, updated_at = ?
-        WHERE user_id = ?
-      `,
-      JSON.stringify(input.specialties.length === 0 ? seed.profile.specialties : input.specialties),
-      JSON.stringify(input.tools.length === 0 ? seed.profile.tools : input.tools),
-      now,
-      user.id,
-    )
-  }
-
-  if (input.certifications.length === 0) {
-    for (const certification of seed.certifications) {
-      await db.run(
-        `
-          INSERT INTO user_certifications (
-            user_id, title, issuer, issue_date, expiry_date, credential_id, verify_url,
-            status, notes, asset_path, asset_name, asset_mime_type, asset_size,
-            sort_order, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `,
-        user.id,
-        certification.title,
-        certification.issuer,
-        certification.issueDate,
-        certification.expiryDate,
-        certification.credentialId,
-        certification.verifyUrl,
-        certification.status,
-        certification.notes,
-        certification.assetPath,
-        certification.assetName,
-        certification.assetMimeType,
-        certification.assetSize,
-        certification.sortOrder,
-        now,
-        now,
-      )
-    }
-  }
-
-  if (input.education.length === 0) {
-    for (const education of seed.education) {
-      await db.run(
-        `
-          INSERT INTO user_education (
-            user_id, institution, program, degree, start_date, end_date, status, description, sort_order, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `,
-        user.id,
-        education.institution,
-        education.program,
-        education.degree,
-        education.startDate,
-        education.endDate,
-        education.status,
-        education.description,
-        education.sortOrder,
-        now,
-        now,
-      )
-    }
   }
 }
 
@@ -1760,6 +1671,9 @@ export async function registerUser(input: {
   metadata: RequestMetadata
 }): Promise<SessionUser> {
   const db = await getDb()
+  if (isReservedUsername(input.username)) {
+    throw new Error('Reserved username')
+  }
   const existing = await getActiveUserByUsername(input.username)
   if (existing) {
     throw new Error('User already exists')
@@ -2359,6 +2273,13 @@ export async function createUser(input: {
   metadata: RequestMetadata
 }) {
   const db = await getDb()
+  if (isReservedUsername(input.username)) {
+    throw new Error('Reserved username')
+  }
+  const existing = await getActiveUserByUsername(input.username)
+  if (existing) {
+    throw new Error('User already exists')
+  }
   const now = toIsoNow()
 
   const result = await db.run(

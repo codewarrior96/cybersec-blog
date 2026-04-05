@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto'
+import { isReservedUsername } from '@/lib/identity-rules'
 import { hashPassword, verifyPassword } from '@/lib/security'
 import { dedupeStringList, getPortfolioSeedForUser } from '@/lib/portfolio-profile'
 import {
@@ -182,99 +183,6 @@ async function ensureProfileSeedDataForUser(user: StoredUser): Promise<StoredPro
   return profile
 }
 
-async function backfillPortfolioStarterDataForUser(
-  user: StoredUser,
-  profile: StoredProfile,
-  certifications: PortfolioCertificationRecord[],
-  education: PortfolioEducationRecord[],
-): Promise<{
-  profile: StoredProfile
-  certifications: PortfolioCertificationRecord[]
-  education: PortfolioEducationRecord[]
-}> {
-  if (user.username === 'ghost') {
-    return { profile, certifications, education }
-  }
-
-  const seed = getPortfolioSeedForUser({
-    username: user.username,
-    displayName: user.displayName,
-  })
-  const now = toIsoNow()
-  let nextProfile = profile
-
-  if (profile.specialties.length === 0 || profile.tools.length === 0) {
-    nextProfile = {
-      ...profile,
-      specialties: profile.specialties.length === 0 ? [...seed.profile.specialties] : [...profile.specialties],
-      tools: profile.tools.length === 0 ? [...seed.profile.tools] : [...profile.tools],
-      updatedAt: now,
-    }
-    await uploadJsonObject(profilePath(user.id), nextProfile)
-  }
-
-  if (certifications.length === 0) {
-    for (const certification of seed.certifications) {
-      const certificationId = makeId()
-      const createdAt = toIsoNow()
-      const record: PortfolioCertificationRecord = {
-        id: certificationId,
-        userId: user.id,
-        title: certification.title,
-        issuer: certification.issuer,
-        issueDate: certification.issueDate,
-        expiryDate: certification.expiryDate,
-        credentialId: certification.credentialId,
-        verifyUrl: certification.verifyUrl,
-        status: certification.status,
-        notes: certification.notes,
-        assetPath: certification.assetPath ?? null,
-        assetName: certification.assetName ?? null,
-        assetMimeType: certification.assetMimeType ?? null,
-        assetSize: certification.assetSize ?? null,
-        sortOrder: certification.sortOrder,
-        createdAt,
-        updatedAt: createdAt,
-      }
-      await uploadJsonObject(certificationPath(user.id, certificationId), record)
-      await uploadJsonObject(certificationIndexPath(certificationId), {
-        id: certificationId,
-        userId: user.id,
-      } satisfies CertificationIndexEntry)
-    }
-    certifications = await listPortfolioCertificationsByUserId(user.id)
-  }
-
-  if (education.length === 0) {
-    for (const item of seed.education) {
-      const educationId = makeId()
-      const createdAt = toIsoNow()
-      const record: PortfolioEducationRecord = {
-        id: educationId,
-        userId: user.id,
-        institution: item.institution,
-        program: item.program,
-        degree: item.degree,
-        startDate: item.startDate,
-        endDate: item.endDate,
-        status: item.status,
-        description: item.description,
-        sortOrder: item.sortOrder,
-        createdAt,
-        updatedAt: createdAt,
-      }
-      await uploadJsonObject(educationPath(user.id, educationId), record)
-    }
-    education = await listPortfolioEducationByUserId(user.id)
-  }
-
-  return {
-    profile: nextProfile,
-    certifications,
-    education,
-  }
-}
-
 async function listPortfolioCertificationsByUserId(userId: number): Promise<PortfolioCertificationRecord[]> {
   const paths = await listObjectPaths(certificationPrefix(userId))
   const rows = (
@@ -411,6 +319,9 @@ export async function registerUser(input: {
   metadata: RequestMetadata
 }): Promise<SessionUser> {
   await ensureSeedUsers()
+  if (isReservedUsername(input.username)) {
+    throw new Error('Reserved username')
+  }
   const existing = await readUserByUsername(input.username)
   if (existing?.isActive) {
     throw new Error('User already exists')
@@ -453,6 +364,9 @@ export async function createUser(input: {
   metadata: RequestMetadata
 }) {
   await ensureSeedUsers()
+  if (isReservedUsername(input.username)) {
+    throw new Error('Reserved username')
+  }
   const existing = await readUserByUsername(input.username)
   if (existing?.isActive) {
     throw new Error('User already exists')
