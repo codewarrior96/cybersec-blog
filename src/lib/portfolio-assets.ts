@@ -80,7 +80,6 @@ export async function saveCertificationAsset(
 
   const userSegment = sanitizePathSegment(`user-${userId}`)
   const directory = path.join(CERTIFICATION_ASSET_ROOT, userSegment)
-  await fs.mkdir(directory, { recursive: true })
 
   const safeBaseName = sanitizeFileName(path.basename(file.name, path.extname(file.name))) || 'certificate'
   const extension = getFileExtension(file.name, mimeType)
@@ -91,6 +90,7 @@ export async function saveCertificationAsset(
   if (isSupabaseAppStateEnabled()) {
     await uploadBinaryObject(assetPath, buffer, mimeType)
   } else {
+    await fs.mkdir(directory, { recursive: true })
     const absolutePath = path.join(directory, fileName)
     await fs.writeFile(absolutePath, buffer)
   }
@@ -120,7 +120,6 @@ export async function saveAvatarAsset(
 
   const userSegment = sanitizePathSegment(`user-${userId}`)
   const directory = path.join(AVATAR_ASSET_ROOT, userSegment)
-  await fs.mkdir(directory, { recursive: true })
 
   const safeBaseName = sanitizeFileName(path.basename(file.name, path.extname(file.name))) || 'avatar'
   const extension = getFileExtension(file.name, mimeType)
@@ -131,6 +130,7 @@ export async function saveAvatarAsset(
   if (isSupabaseAppStateEnabled()) {
     await uploadBinaryObject(assetPath, buffer, mimeType)
   } else {
+    await fs.mkdir(directory, { recursive: true })
     const absolutePath = path.join(directory, fileName)
     await fs.writeFile(absolutePath, buffer)
   }

@@ -56,6 +56,13 @@ async function readError(response: Response, fallback: string) {
   return payload.error ?? fallback
 }
 
+function normalizeWebsiteUrl(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  return `https://${trimmed}`
+}
+
 function buildAvatarSrc(userId: number, username: string, avatarPath: string | null | undefined) {
   if (avatarPath) {
     return `/api/profile/avatar/${userId}?v=${encodeURIComponent(avatarPath)}`
@@ -140,6 +147,7 @@ export default function PortfolioWorkspace({
     () => buildAvatarSrc(data.user.id, data.user.username, data.profile.avatarPath),
     [data.profile.avatarPath, data.user.id, data.user.username],
   )
+  const websiteUrl = useMemo(() => normalizeWebsiteUrl(profileForm.website), [profileForm.website])
 
   useEffect(() => setData(initialProfile), [initialProfile])
   useEffect(() => {
@@ -157,6 +165,11 @@ export default function PortfolioWorkspace({
       tools: listToText(data.profile.tools),
     })
   }, [data.profile])
+
+  useEffect(() => {
+    setError(null)
+    setMessage(null)
+  }, [tab])
 
   useEffect(() => {
     let active = true
@@ -578,6 +591,21 @@ export default function PortfolioWorkspace({
                     </p>
                   </div>
                 </div>
+                {websiteUrl && (
+                  <div className="mt-5 rounded-[22px] border border-emerald-400/14 bg-emerald-400/[0.05] p-4">
+                    <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-emerald-300/55">
+                      Website
+                    </p>
+                    <a
+                      href={websiteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-flex max-w-full items-center rounded-2xl border border-emerald-300/20 bg-black/25 px-4 py-3 text-sm text-emerald-100 transition hover:border-emerald-300/35 hover:bg-emerald-400/[0.08]"
+                    >
+                      <span className="truncate">{profileForm.website.trim()}</span>
+                    </a>
+                  </div>
+                )}
                 <p className="mt-5 text-sm leading-7 text-slate-300/85">{profileForm.bio || 'Biyografi burada gorunur.'}</p>
                 <div className="mt-6 flex flex-wrap gap-2">{textToList(profileForm.specialties).map((item) => <span key={item} className="rounded-full border border-emerald-400/18 bg-emerald-400/6 px-3 py-1 text-xs text-emerald-100/80">{item}</span>)}</div>
                 <div className="mt-6 flex flex-wrap gap-2">{textToList(profileForm.tools).map((item) => <span key={item} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">{item}</span>)}</div>
