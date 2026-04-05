@@ -133,8 +133,12 @@ export default function PortfolioWorkspace({
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [certComposerMode, setCertComposerMode] = useState<'create' | 'edit' | null>(null)
+  const [eduComposerMode, setEduComposerMode] = useState<'create' | 'edit' | null>(null)
   const [lastSelectedCertId, setLastSelectedCertId] = useState<number | null>(
     initialProfile.certifications[0]?.id ?? null,
+  )
+  const [lastSelectedEduId, setLastSelectedEduId] = useState<number | null>(
+    initialProfile.education[0]?.id ?? null,
   )
   const avatarFileRef = useRef<HTMLInputElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
@@ -153,6 +157,7 @@ export default function PortfolioWorkspace({
   )
   const websiteUrl = useMemo(() => normalizeWebsiteUrl(profileForm.website), [profileForm.website])
   const isCertComposerOpen = certComposerMode !== null
+  const isEduComposerOpen = eduComposerMode !== null
   const featuredCert = useMemo(
     () =>
       selectedCert ??
@@ -169,6 +174,23 @@ export default function PortfolioWorkspace({
         ? [featuredCert, ...data.certifications.filter((item) => item.id !== featuredCert.id).slice(0, 2)]
         : data.certifications.slice(0, 3),
     [data.certifications, featuredCert],
+  )
+  const featuredEdu = useMemo(
+    () =>
+      selectedEdu ??
+      (lastSelectedEduId != null
+        ? data.education.find((item) => item.id === lastSelectedEduId) ?? null
+        : null) ??
+      data.education[0] ??
+      null,
+    [data.education, lastSelectedEduId, selectedEdu],
+  )
+  const educationShowcase = useMemo(
+    () =>
+      featuredEdu
+        ? [featuredEdu, ...data.education.filter((item) => item.id !== featuredEdu.id).slice(0, 2)]
+        : data.education.slice(0, 3),
+    [data.education, featuredEdu],
   )
 
   useEffect(() => setData(initialProfile), [initialProfile])
@@ -211,6 +233,25 @@ export default function PortfolioWorkspace({
       }
     }
   }, [certId, data.certifications, isCertComposerOpen, lastSelectedCertId])
+
+  useEffect(() => {
+    if (typeof eduId === 'number') {
+      setLastSelectedEduId(eduId)
+      return
+    }
+
+    if (!isEduComposerOpen && data.education[0]?.id) {
+      const fallbackId =
+        (lastSelectedEduId != null &&
+        data.education.some((item) => item.id === lastSelectedEduId)
+          ? lastSelectedEduId
+          : data.education[0]?.id) ?? null
+      if (fallbackId != null) {
+        setEduId(fallbackId)
+        setLastSelectedEduId(fallbackId)
+      }
+    }
+  }, [data.education, eduId, isEduComposerOpen, lastSelectedEduId])
 
   useEffect(() => {
     let active = true
@@ -504,7 +545,7 @@ export default function PortfolioWorkspace({
     if (!canEdit || saving) return
     setSaving(true); setError(null); setMessage(null)
     try {
-      const isNew = eduId === 'new'
+      const isNew = eduComposerMode === 'create' || eduId === 'new'
       const response = await fetch(isNew ? '/api/profile/education' : `/api/profile/education/${eduId}`, {
         method: isNew ? 'POST' : 'PATCH',
         credentials: 'include',
@@ -517,7 +558,10 @@ export default function PortfolioWorkspace({
         ...current,
         education: (isNew ? [payload.education, ...current.education] : current.education.map((item) => item.id === payload.education.id ? payload.education : item)).sort((a, b) => a.sortOrder - b.sortOrder || b.id - a.id),
       }))
-      setEduId(payload.education.id); setMessage(isNew ? 'Egitim eklendi.' : 'Egitim guncellendi.')
+      setEduId(payload.education.id)
+      setLastSelectedEduId(payload.education.id)
+      setEduComposerMode(null)
+      setMessage(isNew ? 'Egitim eklendi.' : 'Egitim guncellendi.')
     } finally { setSaving(false) }
   }
 
@@ -527,9 +571,52 @@ export default function PortfolioWorkspace({
     try {
       const response = await fetch(`/api/profile/education/${eduId}`, { method: 'DELETE', credentials: 'include' })
       if (!response.ok) return setError(await readError(response, 'Egitim silinemedi.'))
+      const nextEducation = data.education.filter((item) => item.id !== eduId)
+      const nextSelectedId = nextEducation[0]?.id ?? 'new'
       setData((current) => ({ ...current, education: current.education.filter((item) => item.id !== eduId) }))
-      setEduId('new'); setMessage('Egitim kaldirildi.')
+      setEduId(nextSelectedId)
+      setLastSelectedEduId(typeof nextSelectedId === 'number' ? nextSelectedId : null)
+      setEduComposerMode(null)
+      setMessage('Egitim kaldirildi.')
     } finally { setSaving(false) }
+  }
+
+  function openNewEducationComposer() {
+    if (!canEdit) return
+    if (typeof eduId === 'number') {
+      setLastSelectedEduId(eduId)
+    }
+    setEduId('new')
+    setEduForm({ ...emptyEdu, sortOrder: data.education.length })
+    setEduComposerMode('create')
+    setError(null)
+    setMessage(null)
+  }
+
+  function openEditEducationComposer() {
+    if (!canEdit || !featuredEdu) return
+    setEduId(featuredEdu.id)
+    setLastSelectedEduId(featuredEdu.id)
+    setEduForm({
+      institution: featuredEdu.institution,
+      program: featuredEdu.program,
+      degree: featuredEdu.degree,
+      startDate: featuredEdu.startDate,
+      endDate: featuredEdu.endDate,
+      status: featuredEdu.status,
+      description: featuredEdu.description,
+      sortOrder: featuredEdu.sortOrder,
+    })
+    setEduComposerMode('edit')
+    setError(null)
+    setMessage(null)
+  }
+
+  function closeEducationComposer() {
+    setEduComposerMode(null)
+    if (eduId === 'new') {
+      setEduId(lastSelectedEduId ?? data.education[0]?.id ?? 'new')
+    }
   }
 
   return (
@@ -911,24 +998,174 @@ export default function PortfolioWorkspace({
           {tab === 'education' && (
             <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
               <div className="rounded-[28px] border border-white/8 bg-black/25 p-5 md:p-6">
-                {canEdit && <button type="button" onClick={() => setEduId('new')} className="mb-5 rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200">Yeni egitim</button>}
-                <div className="space-y-4">{data.education.map((item) => <button key={item.id} type="button" onClick={() => setEduId(item.id)} className={`w-full rounded-[24px] border px-5 py-4 text-left ${item.id === eduId ? 'border-emerald-300/40 bg-emerald-400/8' : 'border-white/8 bg-black/20'}`}><h3 className="text-lg font-semibold text-slate-100">{item.program}</h3><p className="mt-1 text-sm text-slate-400">{item.institution}</p><p className="mt-3 text-sm leading-7 text-slate-300/80">{item.description}</p></button>)}</div>
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={openNewEducationComposer}
+                      className="rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 transition hover:bg-emerald-400/14"
+                    >
+                      Yeni egitim
+                    </button>
+                  )}
+                  <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-slate-500">
+                    Sol panel kayitlar, sag panel yolculuk
+                  </p>
+                </div>
+                {data.education.length > 0 ? (
+                  <div className="space-y-4">
+                    {data.education.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => { setEduId(item.id); setLastSelectedEduId(item.id) }}
+                        className={`w-full rounded-[24px] border px-5 py-4 text-left transition ${item.id === featuredEdu?.id ? 'border-emerald-300/40 bg-emerald-400/8 shadow-[0_18px_45px_rgba(16,185,129,0.08)]' : 'border-white/8 bg-black/20 hover:-translate-y-1 hover:border-emerald-300/20'}`}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <h3 className="text-lg font-semibold text-slate-100">{item.program}</h3>
+                            <p className="mt-1 text-sm text-slate-400">{item.institution}</p>
+                          </div>
+                          <span className="rounded-full border border-emerald-400/18 px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-emerald-200/75">
+                            {item.status}
+                          </span>
+                        </div>
+                        <p className="mt-3 text-sm leading-7 text-slate-300/80">{item.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-dashed border-emerald-400/12 bg-black/20 px-8 text-center">
+                    <div className="max-w-md">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-emerald-300/55">
+                        Egitim vitrini hazir
+                      </p>
+                      <p className="mt-4 text-sm leading-7 text-slate-300/78">
+                        Ilk egitim kaydinda sol liste dolacak, sag tarafta da profesyonel ogrenim yolculugu gorunmeye baslayacak.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="rounded-[28px] border border-white/8 bg-black/30 p-5 md:p-6">
-                {canEdit ? (
-                  <div className="space-y-4">
-                    <input value={eduForm.institution} onChange={(event) => setEduForm((v) => ({ ...v, institution: event.target.value }))} className={fieldClass} placeholder="Kurum" />
-                    <input value={eduForm.program} onChange={(event) => setEduForm((v) => ({ ...v, program: event.target.value }))} className={fieldClass} placeholder="Program" />
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <input value={eduForm.degree} onChange={(event) => setEduForm((v) => ({ ...v, degree: event.target.value }))} className={fieldClass} placeholder="Derece / Track" />
-                      <select value={eduForm.status} onChange={(event) => setEduForm((v) => ({ ...v, status: event.target.value as PortfolioEducationRecord['status'] }))} className={fieldClass}><option value="completed">completed</option><option value="active">active</option><option value="planned">planned</option><option value="paused">paused</option></select>
-                      <input value={eduForm.startDate} onChange={(event) => setEduForm((v) => ({ ...v, startDate: event.target.value }))} className={fieldClass} placeholder="Baslangic" />
-                      <input value={eduForm.endDate} onChange={(event) => setEduForm((v) => ({ ...v, endDate: event.target.value }))} className={fieldClass} placeholder="Bitis" />
+                {featuredEdu ? (
+                  <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(8,14,12,0.95),rgba(3,7,6,0.98))] p-5">
+                    <div className="pointer-events-none absolute -right-16 top-8 h-44 w-44 rounded-full bg-emerald-400/10 blur-3xl animate-pulse" />
+                    <div className="pointer-events-none absolute -left-6 bottom-8 h-32 w-32 rounded-full bg-cyan-400/8 blur-3xl animate-pulse" />
+                    <div className="relative">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-emerald-300/55">
+                            Egitim yolculugu
+                          </p>
+                          <h3 className="mt-3 text-2xl font-semibold text-slate-100">{featuredEdu.program}</h3>
+                          <p className="mt-2 text-sm text-slate-400">{featuredEdu.institution}</p>
+                        </div>
+                        <span className="rounded-full border border-emerald-400/18 bg-emerald-400/8 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.24em] text-emerald-200/80">
+                          {featuredEdu.status}
+                        </span>
+                      </div>
+
+                      <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        <div className="rounded-[22px] border border-white/8 bg-black/25 p-4">
+                          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-emerald-300/55">
+                            Kurum
+                          </p>
+                          <p className="mt-3 text-sm text-slate-200">
+                            {featuredEdu.institution}
+                          </p>
+                        </div>
+                        <div className="rounded-[22px] border border-white/8 bg-black/25 p-4">
+                          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-emerald-300/55">
+                            Derece / Track
+                          </p>
+                          <p className="mt-3 text-sm text-slate-200">
+                            {featuredEdu.degree || 'Belirtilmedi'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 rounded-[22px] border border-white/8 bg-black/25 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-emerald-300/55">
+                            Zaman cizgisi
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {featuredEdu.startDate || 'Baslangic yok'}
+                            {featuredEdu.endDate ? ` -> ${featuredEdu.endDate}` : ' -> Devam ediyor'}
+                          </p>
+                        </div>
+                        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/6">
+                          <div className="h-full w-2/3 rounded-full bg-[linear-gradient(90deg,rgba(16,185,129,0.8),rgba(34,211,238,0.75))] shadow-[0_0_24px_rgba(16,185,129,0.25)]" />
+                        </div>
+                      </div>
+
+                      <div className="mt-5 rounded-[22px] border border-white/8 bg-black/25 p-4">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-emerald-300/55">
+                          Ogrenim ozeti
+                        </p>
+                        <p className="mt-3 text-sm leading-7 text-slate-300/80">
+                          {featuredEdu.description || 'Bu egitim kaydi icin aciklama eklenmedi.'}
+                        </p>
+                      </div>
+
+                      <div className="mt-5 flex flex-wrap gap-3">
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={openEditEducationComposer}
+                            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-slate-200 transition hover:border-emerald-300/20 hover:text-emerald-100"
+                          >
+                            Duzenle
+                          </button>
+                        )}
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => void deleteEducation()}
+                            disabled={saving}
+                            className="rounded-2xl border border-rose-300/25 bg-rose-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-rose-200 transition hover:bg-rose-400/14 disabled:opacity-60"
+                          >
+                            Sil
+                          </button>
+                        )}
+                      </div>
+
+                      {educationShowcase.length > 1 && (
+                        <div className="mt-6 grid gap-3 md:grid-cols-3">
+                          {educationShowcase.map((item, index) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => { setEduId(item.id); setLastSelectedEduId(item.id) }}
+                              className={`rounded-[22px] border bg-black/35 px-4 py-4 text-left transition hover:-translate-y-1 ${item.id === featuredEdu.id ? 'border-emerald-300/35' : 'border-white/8'}`}
+                              style={{ transform: `translateY(${index * 2}px)` }}
+                            >
+                              <p className="text-sm font-semibold text-slate-100">{item.program}</p>
+                              <p className="mt-2 text-xs text-slate-400">{item.institution}</p>
+                              <p className="mt-3 line-clamp-3 text-xs leading-6 text-slate-300/75">{item.description}</p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <textarea value={eduForm.description} onChange={(event) => setEduForm((v) => ({ ...v, description: event.target.value }))} rows={6} className={fieldClass} placeholder="Aciklama" />
-                    <div className="flex flex-wrap gap-3"><button type="button" onClick={() => void saveEducation()} disabled={saving} className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200">{saving ? 'Kaydediliyor' : eduId === 'new' ? 'Egitim Ekle' : 'Guncelle'}</button>{eduId !== 'new' && <button type="button" onClick={() => void deleteEducation()} disabled={saving} className="rounded-2xl border border-rose-300/25 bg-rose-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-rose-200">Sil</button>}</div>
                   </div>
-                ) : selectedEdu ? <div className="space-y-3 text-sm text-slate-300"><p>{selectedEdu.institution}</p><p>{selectedEdu.description}</p></div> : null}
+                ) : (
+                  <div className="relative flex min-h-[620px] items-center justify-center overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(3,7,6,0.95),rgba(2,4,3,0.98))] p-8 text-center">
+                    <div className="pointer-events-none absolute inset-x-10 top-10 h-24 rounded-full bg-emerald-400/8 blur-3xl animate-pulse" />
+                    <div className="relative max-w-md">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-emerald-300/55">
+                        Gorsel egitim alani
+                      </p>
+                      <h3 className="mt-4 text-2xl font-semibold text-slate-100">
+                        Egitim ekledigin anda yolculuk panosu canlanacak
+                      </h3>
+                      <p className="mt-4 text-sm leading-7 text-slate-300/78">
+                        Yeni egitim paneli sagdan acilacak, kaydettiginde otomatik kapanacak ve ogrenim akisin burada gorsel hale gelecek.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -988,6 +1225,69 @@ export default function PortfolioWorkspace({
                     <button
                       type="button"
                       onClick={closeCertificationComposer}
+                      disabled={saving}
+                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-slate-200 disabled:opacity-60"
+                    >
+                      Vazgec
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {canEdit && isEduComposerOpen && (
+            <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm">
+              <div
+                className="absolute inset-0"
+                onClick={closeEducationComposer}
+                aria-hidden="true"
+              />
+              <div className="relative h-full w-full max-w-2xl overflow-y-auto border-l border-emerald-400/12 bg-[linear-gradient(180deg,#040807,#020403)] p-6 shadow-[-24px_0_80px_rgba(0,0,0,0.45)] md:p-8">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-emerald-300/55">
+                      Education Composer
+                    </p>
+                    <h3 className="mt-3 text-2xl font-semibold text-slate-100">
+                      {eduComposerMode === 'create' ? 'Yeni egitim ekle' : 'Egitimi guncelle'}
+                    </h3>
+                    <p className="mt-3 max-w-xl text-sm leading-7 text-slate-300/78">
+                      Bu panel sekme degil, gecici bir egitim ekrani. Kaydedince kapanir ve egitim yolculugunda hemen yerini alir.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeEducationComposer}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-slate-200 transition hover:border-emerald-300/25 hover:text-emerald-100"
+                  >
+                    Kapat
+                  </button>
+                </div>
+
+                <div className="mt-8 space-y-4 rounded-[28px] border border-white/8 bg-black/25 p-5 md:p-6">
+                  <input value={eduForm.institution} onChange={(event) => setEduForm((v) => ({ ...v, institution: event.target.value }))} className={fieldClass} placeholder="Kurum" />
+                  <input value={eduForm.program} onChange={(event) => setEduForm((v) => ({ ...v, program: event.target.value }))} className={fieldClass} placeholder="Program" />
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <input value={eduForm.degree} onChange={(event) => setEduForm((v) => ({ ...v, degree: event.target.value }))} className={fieldClass} placeholder="Derece / Track" />
+                    <select value={eduForm.status} onChange={(event) => setEduForm((v) => ({ ...v, status: event.target.value as PortfolioEducationRecord['status'] }))} className={fieldClass}><option value="completed">completed</option><option value="active">active</option><option value="planned">planned</option><option value="paused">paused</option></select>
+                    <input value={eduForm.startDate} onChange={(event) => setEduForm((v) => ({ ...v, startDate: event.target.value }))} className={fieldClass} placeholder="Baslangic" />
+                    <input value={eduForm.endDate} onChange={(event) => setEduForm((v) => ({ ...v, endDate: event.target.value }))} className={fieldClass} placeholder="Bitis" />
+                  </div>
+                  <textarea value={eduForm.description} onChange={(event) => setEduForm((v) => ({ ...v, description: event.target.value }))} rows={6} className={fieldClass} placeholder="Aciklama" />
+
+                  <div className="flex flex-wrap gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => void saveEducation()}
+                      disabled={saving}
+                      className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 disabled:opacity-60"
+                    >
+                      {saving ? 'Kaydediliyor' : eduComposerMode === 'create' ? 'Egitim Ekle' : 'Guncelle'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeEducationComposer}
                       disabled={saving}
                       className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-slate-200 disabled:opacity-60"
                     >
