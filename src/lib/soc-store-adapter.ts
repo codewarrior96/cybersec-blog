@@ -1,4 +1,6 @@
 import * as memoryStore from '@/lib/soc-store-memory'
+import * as supabaseStore from '@/lib/soc-store-supabase'
+import { isSupabaseAppStateEnabled } from '@/lib/supabase-app-state'
 import { getSupabaseAttackMetrics, isSupabaseAttackStoreEnabled, recordAttackEventToSupabase } from '@/lib/supabase-attack-metrics'
 import type { AttackEventInput, LiveMetrics } from '@/lib/soc-store-memory'
 
@@ -13,6 +15,9 @@ let activeStorageMode: StorageMode = requestedStorageMode === 'sqlite' ? 'sqlite
 const allowCriticalMemoryFallback =
   process.env.SOC_ALLOW_CRITICAL_MEMORY_FALLBACK === '1' ||
   process.env.NODE_ENV === 'production'
+const useSupabaseIdentityStore =
+  isSupabaseAppStateEnabled() &&
+  (process.env.SOC_IDENTITY_STORE ?? 'supabase').toLowerCase() !== 'disabled'
 
 let sqliteStorePromise: Promise<StoreModule> | null = null
 
@@ -59,30 +64,45 @@ async function withStore<T>(
 }
 
 export async function writeAuditLog(...args: Parameters<StoreModule['writeAuditLog']>) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.writeAuditLog(...args)
+  }
   return withStore('writeAuditLog', (store) => store.writeAuditLog(...args))
 }
 
 export async function cleanupExpiredSessions(
   ...args: Parameters<StoreModule['cleanupExpiredSessions']>
 ) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.cleanupExpiredSessions(...args)
+  }
   return withStore('cleanupExpiredSessions', (store) => store.cleanupExpiredSessions(...args))
 }
 
 export async function authenticateUser(
   ...args: Parameters<StoreModule['authenticateUser']>
 ) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.authenticateUser(...args)
+  }
   return withStore('authenticateUser', (store) => store.authenticateUser(...args), {
     allowMemoryFallback: allowCriticalMemoryFallback,
   })
 }
 
 export async function createSession(...args: Parameters<StoreModule['createSession']>) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.createSession(...args)
+  }
   return withStore('createSession', (store) => store.createSession(...args), {
     allowMemoryFallback: allowCriticalMemoryFallback,
   })
 }
 
 export async function deleteSession(...args: Parameters<StoreModule['deleteSession']>) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.deleteSession(...args)
+  }
   return withStore('deleteSession', (store) => store.deleteSession(...args), {
     allowMemoryFallback: allowCriticalMemoryFallback,
   })
@@ -91,6 +111,9 @@ export async function deleteSession(...args: Parameters<StoreModule['deleteSessi
 export async function getSessionByToken(
   ...args: Parameters<StoreModule['getSessionByToken']>
 ) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.getSessionByToken(...args)
+  }
   return withStore('getSessionByToken', (store) => store.getSessionByToken(...args), {
     allowMemoryFallback: allowCriticalMemoryFallback,
   })
@@ -169,18 +192,27 @@ export async function deleteReport(...args: Parameters<StoreModule['deleteReport
 }
 
 export async function createUser(...args: Parameters<StoreModule['createUser']>) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.createUser(...args)
+  }
   return withStore('createUser', (store) => store.createUser(...args), {
     allowMemoryFallback: allowCriticalMemoryFallback,
   })
 }
 
 export async function registerUser(...args: Parameters<StoreModule['registerUser']>) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.registerUser(...args)
+  }
   return withStore('registerUser', (store) => store.registerUser(...args), {
     allowMemoryFallback: allowCriticalMemoryFallback,
   })
 }
 
 export async function getPortfolioProfile(...args: Parameters<StoreModule['getPortfolioProfile']>) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.getPortfolioProfile(...args)
+  }
   return withStore('getPortfolioProfile', (store) => store.getPortfolioProfile(...args), {
     allowMemoryFallback: allowCriticalMemoryFallback,
   })
@@ -189,6 +221,9 @@ export async function getPortfolioProfile(...args: Parameters<StoreModule['getPo
 export async function getPortfolioCertificationById(
   ...args: Parameters<StoreModule['getPortfolioCertificationById']>
 ) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.getPortfolioCertificationById(...args)
+  }
   return withStore(
     'getPortfolioCertificationById',
     (store) => store.getPortfolioCertificationById(...args),
@@ -199,6 +234,9 @@ export async function getPortfolioCertificationById(
 export async function updatePortfolioProfile(
   ...args: Parameters<StoreModule['updatePortfolioProfile']>
 ) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.updatePortfolioProfile(...args)
+  }
   return withStore('updatePortfolioProfile', (store) => store.updatePortfolioProfile(...args), {
     allowMemoryFallback: allowCriticalMemoryFallback,
   })
@@ -207,6 +245,9 @@ export async function updatePortfolioProfile(
 export async function updatePortfolioAvatar(
   ...args: Parameters<StoreModule['updatePortfolioAvatar']>
 ) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.updatePortfolioAvatar(...args)
+  }
   return withStore('updatePortfolioAvatar', (store) => store.updatePortfolioAvatar(...args), {
     allowMemoryFallback: allowCriticalMemoryFallback,
   })
@@ -215,6 +256,9 @@ export async function updatePortfolioAvatar(
 export async function createPortfolioCertification(
   ...args: Parameters<StoreModule['createPortfolioCertification']>
 ) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.createPortfolioCertification(...args)
+  }
   return withStore(
     'createPortfolioCertification',
     (store) => store.createPortfolioCertification(...args),
@@ -225,6 +269,9 @@ export async function createPortfolioCertification(
 export async function updatePortfolioCertification(
   ...args: Parameters<StoreModule['updatePortfolioCertification']>
 ) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.updatePortfolioCertification(...args)
+  }
   return withStore(
     'updatePortfolioCertification',
     (store) => store.updatePortfolioCertification(...args),
@@ -235,6 +282,9 @@ export async function updatePortfolioCertification(
 export async function deletePortfolioCertification(
   ...args: Parameters<StoreModule['deletePortfolioCertification']>
 ) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.deletePortfolioCertification(...args)
+  }
   return withStore(
     'deletePortfolioCertification',
     (store) => store.deletePortfolioCertification(...args),
@@ -245,6 +295,9 @@ export async function deletePortfolioCertification(
 export async function createPortfolioEducation(
   ...args: Parameters<StoreModule['createPortfolioEducation']>
 ) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.createPortfolioEducation(...args)
+  }
   return withStore(
     'createPortfolioEducation',
     (store) => store.createPortfolioEducation(...args),
@@ -255,6 +308,9 @@ export async function createPortfolioEducation(
 export async function updatePortfolioEducation(
   ...args: Parameters<StoreModule['updatePortfolioEducation']>
 ) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.updatePortfolioEducation(...args)
+  }
   return withStore(
     'updatePortfolioEducation',
     (store) => store.updatePortfolioEducation(...args),
@@ -265,6 +321,9 @@ export async function updatePortfolioEducation(
 export async function deletePortfolioEducation(
   ...args: Parameters<StoreModule['deletePortfolioEducation']>
 ) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.deletePortfolioEducation(...args)
+  }
   return withStore(
     'deletePortfolioEducation',
     (store) => store.deletePortfolioEducation(...args),

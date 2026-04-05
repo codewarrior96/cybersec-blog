@@ -1,7 +1,8 @@
-import fs from 'fs/promises'
 import { NextRequest, NextResponse } from 'next/server'
+import { createSignedObjectUrl, isSupabaseAppStateEnabled } from '@/lib/supabase-app-state'
+import * as supabaseStore from '@/lib/soc-store-supabase'
 import { getPortfolioProfile } from '@/lib/soc-store-adapter'
-import { resolveStoredAssetPath } from '@/lib/portfolio-assets'
+import { readStoredAsset } from '@/lib/portfolio-assets'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -21,19 +22,38 @@ export async function GET(
     return NextResponse.json({ error: 'Gecersiz kullanici.' }, { status: 400 })
   }
 
-  const profile = await getPortfolioProfile(userId)
-  if (!profile?.profile.avatarPath) {
+  const localProfile = isSupabaseAppStateEnabled() ? null : await getPortfolioProfile(userId)
+  const avatarMeta = isSupabaseAppStateEnabled()
+    ? await supabaseStore.getPortfolioAvatarForUser(userId)
+    : localProfile?.profile.avatarPath
+      ? {
+          assetPath: localProfile.profile.avatarPath,
+          assetName: localProfile.profile.avatarName ?? null,
+          assetMimeType: localProfile.profile.avatarMimeType ?? null,
+        }
+      : null
+  if (!avatarMeta?.assetPath) {
     return NextResponse.json({ error: 'Profil fotografisi bulunamadi.' }, { status: 404 })
   }
 
   try {
-    const absolutePath = resolveStoredAssetPath(profile.profile.avatarPath)
-    const buffer = await fs.readFile(absolutePath)
+    if (isSupabaseAppStateEnabled()) {
+      const signedUrl = await createSignedObjectUrl(avatarMeta.assetPath, 60)
+      if (!signedUrl) {
+        return NextResponse.json({ error: 'Profil fotografisi bulunamadi.' }, { status: 404 })
+      }
+      return NextResponse.redirect(signedUrl)
+    }
 
-    return new NextResponse(buffer, {
+    const buffer = await readStoredAsset(avatarMeta.assetPath)
+    if (!buffer) {
+      return NextResponse.json({ error: 'Profil fotografisi bulunamadi.' }, { status: 404 })
+    }
+
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
-        'Content-Type': profile.profile.avatarMimeType ?? 'application/octet-stream',
+        'Content-Type': avatarMeta.assetMimeType ?? 'application/octet-stream',
         'Content-Length': String(buffer.byteLength),
         'Cache-Control': 'private, max-age=60',
       },

@@ -1,6 +1,12 @@
 import { randomUUID } from 'crypto'
 import fs from 'fs/promises'
 import path from 'path'
+import {
+  deleteObject as deleteSupabaseObject,
+  isSupabaseAppStateEnabled,
+  readBinaryObject,
+  uploadBinaryObject,
+} from '@/lib/supabase-app-state'
 
 const PROFILE_ASSET_ROOT = path.join(process.cwd(), 'data', 'profile-assets')
 const CERTIFICATION_ASSET_ROOT = path.join(PROFILE_ASSET_ROOT, 'certifications')
@@ -79,12 +85,18 @@ export async function saveCertificationAsset(
   const safeBaseName = sanitizeFileName(path.basename(file.name, path.extname(file.name))) || 'certificate'
   const extension = getFileExtension(file.name, mimeType)
   const fileName = `${Date.now()}-${randomUUID()}-${safeBaseName}${extension}`
-  const absolutePath = path.join(directory, fileName)
   const buffer = Buffer.from(await file.arrayBuffer())
-  await fs.writeFile(absolutePath, buffer)
+  const assetPath = path.posix.join('certifications', userSegment, fileName)
+
+  if (isSupabaseAppStateEnabled()) {
+    await uploadBinaryObject(assetPath, buffer, mimeType)
+  } else {
+    const absolutePath = path.join(directory, fileName)
+    await fs.writeFile(absolutePath, buffer)
+  }
 
   return {
-    assetPath: path.posix.join('certifications', userSegment, fileName),
+    assetPath,
     assetName: file.name,
     assetMimeType: mimeType,
     assetSize: file.size,
@@ -113,12 +125,18 @@ export async function saveAvatarAsset(
   const safeBaseName = sanitizeFileName(path.basename(file.name, path.extname(file.name))) || 'avatar'
   const extension = getFileExtension(file.name, mimeType)
   const fileName = `${Date.now()}-${randomUUID()}-${safeBaseName}${extension}`
-  const absolutePath = path.join(directory, fileName)
   const buffer = Buffer.from(await file.arrayBuffer())
-  await fs.writeFile(absolutePath, buffer)
+  const assetPath = path.posix.join('avatars', userSegment, fileName)
+
+  if (isSupabaseAppStateEnabled()) {
+    await uploadBinaryObject(assetPath, buffer, mimeType)
+  } else {
+    const absolutePath = path.join(directory, fileName)
+    await fs.writeFile(absolutePath, buffer)
+  }
 
   return {
-    assetPath: path.posix.join('avatars', userSegment, fileName),
+    assetPath,
     assetName: file.name,
     assetMimeType: mimeType,
   }
@@ -134,8 +152,29 @@ export function resolveStoredAssetPath(assetPath: string): string {
   return absolutePath
 }
 
+export async function readStoredAsset(assetPath: string): Promise<Buffer | null> {
+  if (isSupabaseAppStateEnabled()) {
+    return readBinaryObject(assetPath)
+  }
+
+  try {
+    return await fs.readFile(resolveStoredAssetPath(assetPath))
+  } catch (error) {
+    const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : ''
+    if (code === 'ENOENT') {
+      return null
+    }
+    throw error
+  }
+}
+
 export async function deleteStoredAsset(assetPath: string | null | undefined): Promise<void> {
   if (!assetPath) return
+
+  if (isSupabaseAppStateEnabled()) {
+    await deleteSupabaseObject(assetPath)
+    return
+  }
 
   try {
     await fs.unlink(resolveStoredAssetPath(assetPath))

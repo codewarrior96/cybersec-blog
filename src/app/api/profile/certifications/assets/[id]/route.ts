@@ -1,7 +1,8 @@
-import fs from 'fs/promises'
 import { NextRequest, NextResponse } from 'next/server'
+import { createSignedObjectUrl, isSupabaseAppStateEnabled } from '@/lib/supabase-app-state'
+import * as supabaseStore from '@/lib/soc-store-supabase'
 import { getPortfolioCertificationById } from '@/lib/soc-store-adapter'
-import { resolveStoredAssetPath } from '@/lib/portfolio-assets'
+import { readStoredAsset } from '@/lib/portfolio-assets'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -21,16 +22,28 @@ export async function GET(
     return NextResponse.json({ error: 'Gecersiz sertifika kimligi.' }, { status: 400 })
   }
 
-  const certification = await getPortfolioCertificationById(certificationId)
+  const certification = isSupabaseAppStateEnabled()
+    ? await supabaseStore.getPortfolioCertificationById(certificationId)
+    : await getPortfolioCertificationById(certificationId)
   if (!certification?.assetPath) {
     return NextResponse.json({ error: 'Sertifika dokumani bulunamadi.' }, { status: 404 })
   }
 
   try {
-    const absolutePath = resolveStoredAssetPath(certification.assetPath)
-    const buffer = await fs.readFile(absolutePath)
+    if (isSupabaseAppStateEnabled()) {
+      const signedUrl = await createSignedObjectUrl(certification.assetPath, 60)
+      if (!signedUrl) {
+        return NextResponse.json({ error: 'Sertifika dokumani bulunamadi.' }, { status: 404 })
+      }
+      return NextResponse.redirect(signedUrl)
+    }
 
-    return new NextResponse(buffer, {
+    const buffer = await readStoredAsset(certification.assetPath)
+    if (!buffer) {
+      return NextResponse.json({ error: 'Sertifika dokumani bulunamadi.' }, { status: 404 })
+    }
+
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type': certification.assetMimeType ?? 'application/octet-stream',
