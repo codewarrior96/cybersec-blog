@@ -1,4 +1,4 @@
-// ─── Filesystem ───────────────────────────────────────────────────────────────
+﻿// Filesystem
 
 export interface FileNode {
   type: 'file'
@@ -14,7 +14,7 @@ export interface DirNode {
 
 export type FSNode = FileNode | DirNode
 
-// ─── Terminal ─────────────────────────────────────────────────────────────────
+// Terminal
 
 export interface TerminalLine {
   id: number
@@ -28,7 +28,18 @@ export interface CommandContext {
   history: string[]
 }
 
-// ─── Lab Platform ─────────────────────────────────────────────────────────────
+export type TerminalCommandSource = 'manual' | 'assisted'
+
+export interface TerminalExecution {
+  raw: string
+  source: TerminalCommandSource
+  cwdBefore: string
+  cwdAfter: string
+  output: string[]
+  timestamp: number
+}
+
+// Lab Platform
 
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced' | 'expert'
 
@@ -41,7 +52,7 @@ export interface Module {
   icon: string
   topics: string[]
   resources: Resource[]
-  toolIds: string[]          // araç-modül çapraz bağlantı
+  toolIds: string[]
 }
 
 export interface Resource {
@@ -58,9 +69,9 @@ export interface ToolCard {
   flags: Flag[]
   examples: Example[]
   tags: string[]
-  difficulty: Difficulty     // öğrenme zorluğu
-  version: string            // ör: "7.94"
-  os: string[]               // ör: ['Linux', 'Windows', 'macOS']
+  difficulty: Difficulty
+  version: string
+  os: string[]
 }
 
 export interface Flag {
@@ -81,20 +92,51 @@ export interface Challenge {
   color: string
   description: string
   flagKey: string
-  hints: string[]            // 3 kademeli ipucu
+  hints: string[]
 }
 
-// ─── Training Sets ────────────────────────────────────────────────────────────
+// Training Sets
 
 export type LessonDifficulty = 'kolay' | 'orta' | 'zor'
+
+export type LessonValidationType =
+  | 'commandIncludesAll'
+  | 'commandIncludesAny'
+  | 'outputIncludes'
+  | 'cwdEquals'
+
+export interface LessonValidationCheck {
+  id: string
+  label: string
+  type: LessonValidationType
+  values: string[]
+}
+
+export interface LessonMission {
+  objective: string
+  operatorBrief: string
+  task: string
+  evidence: string[]
+  hints: string[]
+  reflection: string
+  validation: LessonValidationCheck[]
+}
+
+export interface TrainingSetBriefing {
+  heading: string
+  summary: string
+  pillars: string[]
+  assessment: string
+}
 
 export interface Lesson {
   id: string
   title: string
   description: string
   difficulty: LessonDifficulty
-  practiceCmd?: string   // terminale gönderilecek örnek komut
-  duration: number       // dakika
+  practiceCmd?: string
+  duration: number
+  mission?: LessonMission
 }
 
 export interface TrainingSet {
@@ -103,12 +145,13 @@ export interface TrainingSet {
   subtitle: string
   icon: string
   color: string
-  lessons: Lesson[]      // kolay/orta/zor karışık — UI gruplar
+  overview?: TrainingSetBriefing
+  lessons: Lesson[]
 }
 
-// ─── Terminal Command Injection ────────────────────────────────────────────────
+// Terminal Command Injection
 
 export interface PendingCommand {
   cmd: string
-  id: number   // Date.now() — aynı komut tekrar gönderilebilsin
+  id: number
 }

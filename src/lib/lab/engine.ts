@@ -1,4 +1,4 @@
-import { resolvePath, getNode, basename, colorEntry, ROOT } from './filesystem'
+﻿import { resolvePath, getNode, basename, colorEntry, ROOT } from './filesystem'
 import type { CommandContext, FSNode } from './types'
 
 // ─── Valid CTF Flags ──────────────────────────────────────────────────────────
@@ -115,7 +115,23 @@ function runSingle(raw: string, ctx: CommandContext, stdin: string): string[] {
     case 'ssh': case 'ftp': case 'telnet': return cmdSsh(cmd, args)
     case 'burpsuite': case 'burp': return [`\x1b[33m[*] Burp Suite GUI uygulamasıdır, terminal üzerinden başlatılamaz.\x1b[0m`, `\x1b[90m    Gerçek ortamda: java -jar burpsuite.jar\x1b[0m`]
     case 'ghidra': case 'radare2': case 'r2': return [`\x1b[33m[*] ${cmd} GUI/TUI uygulamasıdır.\x1b[0m`, `\x1b[90m    Gerçek ortamda: ${cmd === 'ghidra' ? 'ghidraRun' : 'r2 <binary>'}\x1b[0m`]
-    default:             return [`\x1b[31mbash: ${cmd}: komut bulunamadı\x1b[0m`]
+    default: {
+      const maybePath = stripQuotes(cmd)
+      if (maybePath.startsWith('/') || maybePath.startsWith('~') || maybePath.startsWith('.')) {
+        const candidate = resolvePath(ctx.cwd, maybePath)
+        const node = getNode(candidate)
+
+        if (node?.type === 'dir') {
+          return [`\x1b[33m[?] ${maybePath} bir dizin yolu. Geciş için cd ${maybePath} kullan.\x1b[0m`]
+        }
+
+        if (node?.type === 'file') {
+          return [`\x1b[33m[?] ${maybePath} bir dosya. Görüntülemek için cat ${maybePath} kullan.\x1b[0m`]
+        }
+      }
+
+      return [`\x1b[31mbash: ${cmd}: komut bulunamadı\x1b[0m`]
+    }
   }
 }
 
@@ -612,6 +628,29 @@ function cmdWhich(args: string[]): string[] {
 }
 
 function cmdBash(args: string[], ctx: CommandContext): string[] {
+  if (args[0] === '-c') {
+    const script = args.slice(1).join(' ')
+    const normalized = script.replace(/^['"]|['"]$/g, '')
+
+    if (normalized.includes('for') && normalized.includes('Port')) {
+      const ports: string[] = []
+      const portRegex = /\b(\d{2,5})\b/g
+      let portMatch = portRegex.exec(normalized)
+
+      while (portMatch) {
+        ports.push(portMatch[1])
+        portMatch = portRegex.exec(normalized)
+      }
+
+      const uniquePorts = Array.from(new Set(ports)).slice(0, 6)
+      if (uniquePorts.length) {
+        return uniquePorts.map(port => `Port ${port}`)
+      }
+    }
+
+    return [`\x1b[90m[bash -c]\x1b[0m ${normalized || '(boş komut)'}`]
+  }
+
   const file = args[0]
   if (!file) return ['\x1b[31mbash: dosya belirtilmedi\x1b[0m']
   const node = resolve(ctx.cwd, file)

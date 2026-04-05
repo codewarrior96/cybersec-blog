@@ -700,63 +700,51 @@ export default function ZafiyetTaramasiPage() {
   const allTags = Array.from(new Set(reports.flatMap(r => r.tags))).slice(0, 20);
 
   return (
-    <div className="min-h-screen bg-[#06000f] text-slate-200 font-mono">
+    <div className="route-page-frame py-6 font-mono text-slate-200">
 
       {/* ── Page Header ── */}
-      <div className="border-b border-violet-500/20 px-6 py-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center gap-3 mb-3">
-            <Shield className="w-5 h-5 text-violet-400" />
+      <div className="route-hero px-6 py-5">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+          <div className="flex items-start gap-3">
+            <Shield className="mt-0.5 h-5 w-5" style={{ color: 'rgb(var(--route-accent-rgb))' }} />
             <div>
-              <h1 className="text-violet-400 font-bold tracking-widest text-sm uppercase">
+              <h1 className="route-kicker">
                 ⬡ Threat Intelligence Hub
               </h1>
-              <p className="text-slate-600 text-[10px] mt-0.5">
+              <p className="route-copy mt-3 text-sm">
                 Aktif saldırı raporları, CVE takibi & siber tarih veritabanı
               </p>
             </div>
           </div>
 
           {/* Tab switcher */}
-          <div className="flex gap-1">
+          <div className="route-tabs">
             <button
               onClick={() => setActiveTab('reports')}
-              className="flex items-center gap-2 px-4 py-1.5 rounded text-[10px] font-bold tracking-widest transition-all border"
-              style={{
-                borderColor: activeTab === 'reports' ? '#8b5cf680' : 'rgba(255,255,255,0.06)',
-                background:  activeTab === 'reports' ? '#8b5cf615' : 'transparent',
-                color:       activeTab === 'reports' ? '#c084fc' : '#475569',
-              }}
+              className="route-tab-btn"
+              data-active={activeTab === 'reports'}
             >
               <FileText className="w-3 h-3" />
               RAPORLAR
-              <span className="bg-violet-900/50 border border-violet-700/40 px-1.5 py-0.5 rounded text-[8px] text-violet-300">
+              <span className="route-tab-count">
                 {reports.length}
               </span>
             </button>
             <button
               onClick={() => setActiveTab('history')}
-              className="flex items-center gap-2 px-4 py-1.5 rounded text-[10px] font-bold tracking-widest transition-all border"
-              style={{
-                borderColor: activeTab === 'history' ? '#f9731680' : 'rgba(255,255,255,0.06)',
-                background:  activeTab === 'history' ? '#f9731610' : 'transparent',
-                color:       activeTab === 'history' ? '#f97316' : '#475569',
-              }}
+              className="route-tab-btn"
+              data-active={activeTab === 'history'}
             >
               <Clock className="w-3 h-3" />
               TARİHSEL VERİTABANI
-              <span className="bg-orange-900/40 border border-orange-700/30 px-1.5 py-0.5 rounded text-[8px] text-orange-400">
+              <span className="route-tab-count">
                 {breachData.length}
               </span>
             </button>
             <button
               onClick={() => setActiveTab('cve')}
-              className="flex items-center gap-2 px-4 py-1.5 rounded text-[10px] font-bold tracking-widest transition-all border"
-              style={{
-                borderColor: activeTab === 'cve' ? '#f59e0b80' : 'rgba(255,255,255,0.06)',
-                background:  activeTab === 'cve' ? '#f59e0b10' : 'transparent',
-                color:       activeTab === 'cve' ? '#f59e0b' : '#475569',
-              }}
+              className="route-tab-btn"
+              data-active={activeTab === 'cve'}
             >
               <Zap className="w-3 h-3" />
               CVE RADAR
@@ -766,7 +754,7 @@ export default function ZafiyetTaramasiPage() {
       </div>
 
       {/* ── Body ── */}
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="mx-auto max-w-6xl px-4 py-6">
 
         {/* REPORTS TAB */}
         {activeTab === 'reports' && (

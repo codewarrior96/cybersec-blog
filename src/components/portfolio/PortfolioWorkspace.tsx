@@ -42,6 +42,14 @@ const emptyEdu = {
 
 const fieldClass =
   'w-full rounded-2xl border border-white/10 bg-[#050807] px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-emerald-300/50'
+const actionButtonBaseClass = 'route-action-btn'
+const primaryButtonClass = `${actionButtonBaseClass} route-action-btn--primary`
+const secondaryButtonClass = `${actionButtonBaseClass} route-action-btn--secondary`
+const dangerButtonClass = `${actionButtonBaseClass} route-action-btn--danger`
+const fileInputClass = `${fieldClass} route-file-input`
+const tokenInputClass =
+  'w-full rounded-2xl border border-white/10 bg-[#050807] px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-emerald-300/50'
+const compactPrimaryButtonClass = `${primaryButtonClass} min-w-[124px] justify-center tracking-[0.18em]`
 
 function listToText(value: string[]) {
   return value.join('\n')
@@ -101,6 +109,110 @@ function CertificationPreview({ item }: { item: PortfolioCertificationRecord }) 
   )
 }
 
+function TokenBoardEditor({
+  label,
+  caption,
+  items,
+  draft,
+  placeholder,
+  canEdit,
+  onDraftChange,
+  onAdd,
+  onRemove,
+}: {
+  label: string
+  caption: string
+  items: string[]
+  draft: string
+  placeholder: string
+  canEdit: boolean
+  onDraftChange: (value: string) => void
+  onAdd: () => void
+  onRemove: (value: string) => void
+}) {
+  return (
+    <div className="relative flex h-full min-h-[360px] flex-col overflow-hidden rounded-[26px] border border-white/8 bg-[linear-gradient(180deg,rgba(8,14,12,0.78),rgba(4,8,7,0.92))] p-4 shadow-[0_16px_40px_rgba(0,0,0,0.18)]">
+      <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-emerald-400/10 blur-3xl" />
+      <div className="relative flex h-full flex-col">
+        <div className="grid min-h-[86px] grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+          <div className="pr-2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-emerald-300/55">
+              {label}
+            </p>
+            <p className="mt-3 max-w-[30ch] text-sm leading-6 text-slate-400/88">
+              {caption}
+            </p>
+          </div>
+          <span className="inline-flex min-h-[44px] min-w-[86px] items-center justify-center rounded-full border border-emerald-400/16 bg-emerald-400/8 px-4 py-1 text-center font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-100/80">
+            {items.length} kayit
+          </span>
+        </div>
+
+        <div className="mt-5 flex-1 rounded-[22px] border border-white/8 bg-black/20 p-3.5">
+          {items.length > 0 ? (
+            <div className="flex flex-wrap content-start gap-2.5">
+              {items.map((item) => (
+                <div
+                  key={item}
+                  className="group inline-flex min-h-[40px] items-center gap-2 rounded-full border border-emerald-400/16 bg-emerald-400/[0.07] px-3.5 py-2 text-[13px] text-emerald-50/92 transition hover:-translate-y-0.5 hover:border-emerald-300/28 hover:bg-emerald-400/[0.12]"
+                >
+                  <span className="leading-none">{item}</span>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => onRemove(item)}
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-transparent text-[10px] text-emerald-200/75 transition hover:border-rose-300/25 hover:bg-rose-400/12 hover:text-rose-200"
+                      aria-label={`${item} kaldir`}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex h-full min-h-[140px] items-center justify-center rounded-[18px] border border-dashed border-emerald-400/12 bg-black/20 px-6 text-center">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.26em] text-emerald-300/50">
+                  Bekleyen alan
+                </p>
+                <p className="mt-3 text-sm leading-7 text-slate-400">
+                  Ilk kayit eklendiginde bu alan chip tabanli bir uzmanlik panosuna donusecek.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {canEdit && (
+          <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_128px] md:items-end">
+            <input
+              value={draft}
+              onChange={(event) => onDraftChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  onAdd()
+                }
+              }}
+              className={tokenInputClass}
+              placeholder={placeholder}
+            />
+            <button
+              type="button"
+              onClick={onAdd}
+              disabled={!draft.trim()}
+              className={compactPrimaryButtonClass}
+            >
+              Ekle
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function PortfolioWorkspace({
   initialProfile,
   initialTab = 'profile',
@@ -122,6 +234,8 @@ export default function PortfolioWorkspace({
     specialties: listToText(initialProfile.profile.specialties),
     tools: listToText(initialProfile.profile.tools),
   })
+  const [specialtyDraft, setSpecialtyDraft] = useState('')
+  const [toolDraft, setToolDraft] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [certId, setCertId] = useState<number | 'new'>(initialProfile.certifications[0]?.id ?? 'new')
   const [eduId, setEduId] = useState<number | 'new'>(initialProfile.education[0]?.id ?? 'new')
@@ -156,6 +270,8 @@ export default function PortfolioWorkspace({
     [data.profile.avatarPath, data.user.id, data.user.username],
   )
   const websiteUrl = useMemo(() => normalizeWebsiteUrl(profileForm.website), [profileForm.website])
+  const specialtiesList = useMemo(() => textToList(profileForm.specialties), [profileForm.specialties])
+  const toolsList = useMemo(() => textToList(profileForm.tools), [profileForm.tools])
   const isCertComposerOpen = certComposerMode !== null
   const isEduComposerOpen = eduComposerMode !== null
   const featuredCert = useMemo(
@@ -619,17 +735,48 @@ export default function PortfolioWorkspace({
     }
   }
 
+  function updateProfileListField(field: 'specialties' | 'tools', items: string[]) {
+    setProfileForm((current) => ({
+      ...current,
+      [field]: listToText(items),
+    }))
+  }
+
+  function addProfileToken(field: 'specialties' | 'tools', draft: string) {
+    const candidate = draft.trim()
+    if (!candidate) return
+
+    const source = field === 'specialties' ? specialtiesList : toolsList
+    const exists = source.some((item) => item.toLowerCase() === candidate.toLowerCase())
+    if (exists) return
+
+    updateProfileListField(field, [...source, candidate])
+    if (field === 'specialties') {
+      setSpecialtyDraft('')
+      return
+    }
+    setToolDraft('')
+  }
+
+  function removeProfileToken(field: 'specialties' | 'tools', value: string) {
+    const source = field === 'specialties' ? specialtiesList : toolsList
+    updateProfileListField(
+      field,
+      source.filter((item) => item !== value),
+    )
+  }
+
   return (
-    <div className="mx-auto max-w-[1680px] px-4 py-8 md:px-6 lg:px-8 xl:px-10 md:py-10">
-      <section className="overflow-hidden rounded-[32px] border border-emerald-400/12 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.09),rgba(4,8,7,0.94)_55%,rgba(1,4,3,0.98)_100%)] shadow-[0_20px_70px_rgba(0,0,0,0.32)]">
-        <div className="border-b border-emerald-400/10 px-5 py-6 md:px-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.42em] text-emerald-300/65">Portfolio Control Surface</p>
+    <div className="route-page-frame py-6 md:py-8">
+      <section className="route-hero">
+        <div className="border-b px-5 py-6 md:px-8" style={{ borderColor: 'rgb(var(--route-accent-rgb) / 0.12)' }}>
+          <p className="route-kicker">Portfolio Control Surface</p>
           <div className="mt-4 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
-              <h1 className="text-3xl font-semibold text-slate-100 md:text-5xl">Profil merkezi</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300/75">Profil, sertifika ve egitimlerini burada tek merkezden yonetebilirsin.</p>
+              <h1 className="route-title text-3xl md:text-5xl">Profil merkezi</h1>
+              <p className="route-copy mt-3 max-w-3xl text-sm">Profil, sertifika ve egitimlerini burada tek merkezden yonetebilirsin.</p>
             </div>
-            <div className="min-w-0 rounded-[28px] border border-emerald-400/12 bg-black/30 p-4 shadow-[0_18px_45px_rgba(0,0,0,0.18)] md:min-w-[360px]">
+            <div className="route-panel min-w-0 p-4 md:min-w-[360px]">
               <div className="flex items-center gap-4">
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[22px] border border-emerald-400/20 bg-emerald-400/8">
                   {avatarSrc ? (
@@ -651,21 +798,25 @@ export default function PortfolioWorkspace({
                   </p>
                 </div>
 
-                <div className="flex flex-col items-end gap-2">
-                  <span className="rounded-full border border-emerald-400/20 px-3 py-1 text-[11px] text-emerald-200/80">
-                    {data.user.role.toUpperCase()}
-                  </span>
-                  <span className="rounded-full border border-emerald-400/20 px-3 py-1 text-[11px] text-emerald-200/80">
-                    {authSyncing ? 'SESSION SYNC' : canEdit ? 'EDIT MODE' : 'READ ONLY'}
-                  </span>
-                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="border-b border-emerald-400/10 px-5 py-4 md:px-8">
-          <div className="flex flex-wrap gap-3">{tabs.map((item) => <button key={item.id} type="button" onClick={() => setTab(item.id)} className={`rounded-2xl border px-4 py-3 font-mono text-xs tracking-[0.25em] transition ${tab === item.id ? 'border-emerald-300/45 bg-emerald-400/10 text-emerald-100' : 'border-white/10 bg-black/20 text-slate-400 hover:border-emerald-400/25 hover:text-emerald-100'}`}>{item.label}</button>)}</div>
+        <div className="border-b px-5 py-4 md:px-8" style={{ borderColor: 'rgb(var(--route-accent-rgb) / 0.12)' }}>
+          <div className="route-tabs">
+            {tabs.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setTab(item.id)}
+                className="route-tab-btn"
+                data-active={tab === item.id}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="px-5 py-6 md:px-8">
@@ -682,13 +833,13 @@ export default function PortfolioWorkspace({
               <div className="flex flex-wrap gap-3">
                 <Link
                   href="/login"
-                  className="rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 transition hover:bg-emerald-400/16"
+                  className={primaryButtonClass}
                 >
                   Giris Yap
                 </Link>
                 <Link
                   href="/register"
-                  className="rounded-2xl border border-emerald-300/25 bg-transparent px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 transition hover:bg-emerald-400/10"
+                  className={secondaryButtonClass}
                 >
                   Kayit Ol
                 </Link>
@@ -721,7 +872,7 @@ export default function PortfolioWorkspace({
                         )}
                       </div>
 
-                      <div className="flex-1 space-y-3">
+                      <div className="flex flex-1 flex-col justify-center gap-3">
                         <input
                           ref={avatarFileRef}
                           type="file"
@@ -730,15 +881,12 @@ export default function PortfolioWorkspace({
                           disabled={!canEdit || avatarUploading}
                           className="hidden"
                         />
-                        <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-slate-300">
-                          {data.profile.avatarName ?? 'JPG, PNG veya WEBP - maksimum 5 MB'}
-                        </div>
                         <div className="flex flex-wrap gap-3">
                           <button
                             type="button"
                             onClick={() => avatarFileRef.current?.click()}
                             disabled={!canEdit || avatarUploading}
-                            className="rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 transition hover:bg-emerald-400/14 disabled:opacity-60"
+                            className={primaryButtonClass}
                           >
                             {avatarUploading ? 'Yukleniyor' : data.profile.avatarPath ? 'Fotografi Degistir' : 'Fotograf Yukle'}
                           </button>
@@ -747,15 +895,12 @@ export default function PortfolioWorkspace({
                               type="button"
                               onClick={() => void removeAvatar()}
                               disabled={!canEdit || avatarUploading}
-                              className="rounded-2xl border border-rose-300/25 bg-rose-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-rose-200 transition hover:bg-rose-400/14 disabled:opacity-60"
+                              className={dangerButtonClass}
                             >
                               Fotografi Kaldir
                             </button>
                           )}
                         </div>
-                        <p className="text-xs leading-6 text-slate-400">
-                          Bu fotograf, sag ustteki operator kartinda ve profil alaninda kimligini daha profesyonel gostermek icin kullanilir.
-                        </p>
                       </div>
                     </div>
                   </div>
@@ -764,10 +909,32 @@ export default function PortfolioWorkspace({
                   <input value={profileForm.location} onChange={(event) => setProfileForm((v) => ({ ...v, location: event.target.value }))} disabled={!canEdit} className={fieldClass} placeholder="Lokasyon" />
                   <input value={profileForm.website} onChange={(event) => setProfileForm((v) => ({ ...v, website: event.target.value }))} disabled={!canEdit} className={fieldClass} placeholder="Website" />
                   <textarea value={profileForm.bio} onChange={(event) => setProfileForm((v) => ({ ...v, bio: event.target.value }))} disabled={!canEdit} rows={5} className={`${fieldClass} md:col-span-2`} placeholder="Biyografi" />
-                  <textarea value={profileForm.specialties} onChange={(event) => setProfileForm((v) => ({ ...v, specialties: event.target.value }))} disabled={!canEdit} rows={5} className={fieldClass} placeholder="Uzmanlik alanlari" />
-                  <textarea value={profileForm.tools} onChange={(event) => setProfileForm((v) => ({ ...v, tools: event.target.value }))} disabled={!canEdit} rows={5} className={fieldClass} placeholder="Araclar" />
+                  <div className="md:col-span-2 grid gap-4 xl:grid-cols-2">
+                    <TokenBoardEditor
+                      label="Uzmanlik panosu"
+                      caption="Operasyonel kimligini tanimlayan uzmanlik alanlarini vitrin gibi yonet."
+                      items={specialtiesList}
+                      draft={specialtyDraft}
+                      placeholder="Ornek: Malware Analysis"
+                      canEdit={canEdit}
+                      onDraftChange={setSpecialtyDraft}
+                      onAdd={() => addProfileToken('specialties', specialtyDraft)}
+                      onRemove={(value) => removeProfileToken('specialties', value)}
+                    />
+                    <TokenBoardEditor
+                      label="Arac vitrini"
+                      caption="Kullandigin stack'i tek bakista premium bir arac panosuna donustur."
+                      items={toolsList}
+                      draft={toolDraft}
+                      placeholder="Ornek: Burp Suite"
+                      canEdit={canEdit}
+                      onDraftChange={setToolDraft}
+                      onAdd={() => addProfileToken('tools', toolDraft)}
+                      onRemove={(value) => removeProfileToken('tools', value)}
+                    />
+                  </div>
                 </div>
-                {canEdit && <button type="button" onClick={() => void saveProfile()} disabled={saving} className="mt-4 rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200">{saving ? 'Kaydediliyor' : 'Profili Kaydet'}</button>}
+                {canEdit && <button type="button" onClick={() => void saveProfile()} disabled={saving} className={`mt-4 ${primaryButtonClass}`}>{saving ? 'Kaydediliyor' : 'Profili Kaydet'}</button>}
               </div>
               <div className="rounded-[28px] border border-white/8 bg-black/20 p-6">
                 <div className="flex items-start gap-4">
@@ -804,8 +971,44 @@ export default function PortfolioWorkspace({
                   </div>
                 )}
                 <p className="mt-5 text-sm leading-7 text-slate-300/85">{profileForm.bio || 'Biyografi burada gorunur.'}</p>
-                <div className="mt-6 flex flex-wrap gap-2">{textToList(profileForm.specialties).map((item) => <span key={item} className="rounded-full border border-emerald-400/18 bg-emerald-400/6 px-3 py-1 text-xs text-emerald-100/80">{item}</span>)}</div>
-                <div className="mt-6 flex flex-wrap gap-2">{textToList(profileForm.tools).map((item) => <span key={item} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">{item}</span>)}</div>
+
+                <div className="mt-6 grid gap-4 xl:grid-cols-2">
+                  <div className="rounded-[22px] border border-emerald-400/14 bg-emerald-400/[0.04] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-emerald-300/55">
+                        Uzmanlik alanlari
+                      </p>
+                      <span className="rounded-full border border-emerald-400/16 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-emerald-100/70">
+                        {specialtiesList.length}
+                      </span>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {specialtiesList.length > 0 ? specialtiesList.map((item) => (
+                        <span key={item} className="rounded-full border border-emerald-400/18 bg-emerald-400/6 px-3 py-1 text-xs text-emerald-100/80">{item}</span>
+                      )) : (
+                        <p className="text-sm text-slate-500">Uzmanlik eklendikce burada gozukur.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-emerald-300/55">
+                        Arac seti
+                      </p>
+                      <span className="rounded-full border border-white/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-slate-300/75">
+                        {toolsList.length}
+                      </span>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {toolsList.length > 0 ? toolsList.map((item) => (
+                        <span key={item} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">{item}</span>
+                      )) : (
+                        <p className="text-sm text-slate-500">Araclar eklendikce burada gozukur.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -818,7 +1021,7 @@ export default function PortfolioWorkspace({
                     <button
                       type="button"
                       onClick={openNewCertificationComposer}
-                      className="rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 transition hover:bg-emerald-400/14"
+                      className={primaryButtonClass}
                     >
                       Yeni sertifika
                     </button>
@@ -927,7 +1130,7 @@ export default function PortfolioWorkspace({
                             href={featuredCert.verifyUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 transition hover:bg-emerald-400/14"
+                            className={primaryButtonClass}
                           >
                             Sertifikayi Dogrula
                           </a>
@@ -936,7 +1139,7 @@ export default function PortfolioWorkspace({
                           <button
                             type="button"
                             onClick={openEditCertificationComposer}
-                            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-slate-200 transition hover:border-emerald-300/20 hover:text-emerald-100"
+                            className={secondaryButtonClass}
                           >
                             Duzenle
                           </button>
@@ -946,7 +1149,7 @@ export default function PortfolioWorkspace({
                             type="button"
                             onClick={() => void deleteCertification()}
                             disabled={saving}
-                            className="rounded-2xl border border-rose-300/25 bg-rose-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-rose-200 transition hover:bg-rose-400/14 disabled:opacity-60"
+                            className={dangerButtonClass}
                           >
                             Sil
                           </button>
@@ -1003,7 +1206,7 @@ export default function PortfolioWorkspace({
                     <button
                       type="button"
                       onClick={openNewEducationComposer}
-                      className="rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 transition hover:bg-emerald-400/14"
+                      className={primaryButtonClass}
                     >
                       Yeni egitim
                     </button>
@@ -1114,7 +1317,7 @@ export default function PortfolioWorkspace({
                           <button
                             type="button"
                             onClick={openEditEducationComposer}
-                            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-slate-200 transition hover:border-emerald-300/20 hover:text-emerald-100"
+                            className={secondaryButtonClass}
                           >
                             Duzenle
                           </button>
@@ -1124,7 +1327,7 @@ export default function PortfolioWorkspace({
                             type="button"
                             onClick={() => void deleteEducation()}
                             disabled={saving}
-                            className="rounded-2xl border border-rose-300/25 bg-rose-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-rose-200 transition hover:bg-rose-400/14 disabled:opacity-60"
+                            className={dangerButtonClass}
                           >
                             Sil
                           </button>
@@ -1193,7 +1396,7 @@ export default function PortfolioWorkspace({
                   <button
                     type="button"
                     onClick={closeCertificationComposer}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-slate-200 transition hover:border-emerald-300/25 hover:text-emerald-100"
+                    className={secondaryButtonClass}
                   >
                     Kapat
                   </button>
@@ -1209,7 +1412,7 @@ export default function PortfolioWorkspace({
                     <select value={certForm.status} onChange={(event) => setCertForm((v) => ({ ...v, status: event.target.value as PortfolioCertificationRecord['status'] }))} className={fieldClass}><option value="verified">verified</option><option value="active">active</option><option value="planned">planned</option><option value="expired">expired</option></select>
                   </div>
                   <input value={certForm.verifyUrl} onChange={(event) => setCertForm((v) => ({ ...v, verifyUrl: event.target.value }))} className={fieldClass} placeholder="Dogrulama linki" />
-                  <input ref={fileRef} type="file" accept="application/pdf,image/png,image/jpeg,image/webp" onChange={(event) => setCertFile(event.target.files?.[0] ?? null)} className={`${fieldClass} file:mr-4 file:rounded-xl file:border-0 file:bg-emerald-400/12 file:px-3 file:py-2 file:text-xs file:font-mono file:uppercase file:tracking-[0.22em] file:text-emerald-200`} />
+                  <input ref={fileRef} type="file" accept="application/pdf,image/png,image/jpeg,image/webp" onChange={(event) => setCertFile(event.target.files?.[0] ?? null)} className={fileInputClass} />
                   {featuredCert?.assetPath && certComposerMode === 'edit' && <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-slate-300"><input type="checkbox" checked={removeCertAsset} onChange={(event) => setRemoveCertAsset(event.target.checked)} className="h-4 w-4" />Mevcut belgeyi kaldir</label>}
                   <textarea value={certForm.notes} onChange={(event) => setCertForm((v) => ({ ...v, notes: event.target.value }))} rows={6} className={fieldClass} placeholder="Notlar" />
 
@@ -1218,7 +1421,7 @@ export default function PortfolioWorkspace({
                       type="button"
                       onClick={() => void saveCertification()}
                       disabled={saving}
-                      className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 disabled:opacity-60"
+                      className={primaryButtonClass}
                     >
                       {saving ? 'Kaydediliyor' : certComposerMode === 'create' ? 'Sertifika Ekle' : 'Guncelle'}
                     </button>
@@ -1226,7 +1429,7 @@ export default function PortfolioWorkspace({
                       type="button"
                       onClick={closeCertificationComposer}
                       disabled={saving}
-                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-slate-200 disabled:opacity-60"
+                      className={secondaryButtonClass}
                     >
                       Vazgec
                     </button>
@@ -1259,7 +1462,7 @@ export default function PortfolioWorkspace({
                   <button
                     type="button"
                     onClick={closeEducationComposer}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-slate-200 transition hover:border-emerald-300/25 hover:text-emerald-100"
+                    className={secondaryButtonClass}
                   >
                     Kapat
                   </button>
@@ -1281,7 +1484,7 @@ export default function PortfolioWorkspace({
                       type="button"
                       onClick={() => void saveEducation()}
                       disabled={saving}
-                      className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 disabled:opacity-60"
+                      className={primaryButtonClass}
                     >
                       {saving ? 'Kaydediliyor' : eduComposerMode === 'create' ? 'Egitim Ekle' : 'Guncelle'}
                     </button>
@@ -1289,7 +1492,7 @@ export default function PortfolioWorkspace({
                       type="button"
                       onClick={closeEducationComposer}
                       disabled={saving}
-                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-slate-200 disabled:opacity-60"
+                      className={secondaryButtonClass}
                     >
                       Vazgec
                     </button>

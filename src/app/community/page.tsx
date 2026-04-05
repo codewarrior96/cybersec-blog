@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { TOOLS, CHALLENGES, TOOL_CATEGORIES, TRAINING_SETS } from '@/lib/lab/content'
 import { VALID_FLAGS, isValidFlag } from '@/lib/lab/engine'
-import type { ToolCard, Challenge, Difficulty, PendingCommand, TrainingSet, Lesson, LessonDifficulty } from '@/lib/lab/types'
+import type { ToolCard, Challenge, Difficulty, PendingCommand, TrainingSet, Lesson, LessonDifficulty, TerminalExecution, LessonMission } from '@/lib/lab/types'
 
 const Terminal = dynamic(() => import('@/components/lab/Terminal'), { ssr: false })
 
@@ -17,23 +17,23 @@ type ToolCategory = typeof TOOL_CATEGORIES[number]
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DIFFICULTY_META: Record<Difficulty, { label: string; color: string }> = {
-  beginner:     { label: 'Başlangıç', color: '#00ff41' },
+  beginner:     { label: 'Başlangıç', color: 'rgb(var(--route-accent-rgb))' },
   intermediate: { label: 'Orta',      color: '#f59e0b' },
   advanced:     { label: 'İleri',     color: '#ef4444' },
   expert:       { label: 'Uzman',     color: '#7c3aed' },
 }
 
 const CONTENT_TABS: { id: ContentTab; icon: string; label: string }[] = [
-  { id: 'curriculum', icon: '📚', label: 'Müfredat'      },
-  { id: 'tools',      icon: '🛠',  label: 'Araçlar'      },
-  { id: 'ctf',        icon: '🚩', label: 'CTF Görevleri' },
+  { id: 'curriculum', icon: '[]', label: 'Müfredat'      },
+  { id: 'tools',      icon: '{}', label: 'Araçlar'       },
+  { id: 'ctf',        icon: '##', label: 'CTF Görevleri' },
 ]
 
 const MOBILE_TABS: { id: MobileTab; icon: string; label: string }[] = [
-  { id: 'curriculum', icon: '📚', label: 'Müfredat'      },
-  { id: 'tools',      icon: '🛠',  label: 'Araçlar'      },
-  { id: 'ctf',        icon: '🚩', label: 'CTF'           },
-  { id: 'terminal',   icon: '⌨',  label: 'Terminal'     },
+  { id: 'curriculum', icon: '[]', label: 'Müfredat' },
+  { id: 'tools',      icon: '{}', label: 'Araçlar'  },
+  { id: 'ctf',        icon: '##', label: 'CTF'      },
+  { id: 'terminal',   icon: '>_', label: 'Terminal' },
 ]
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -49,6 +49,10 @@ export default function LabPage() {
     setPendingCommand({ cmd, id: Date.now() })
   }, [])
   const handleCommandConsumed = useCallback(() => setPendingCommand(null), [])
+  const [terminalExecutions, setTerminalExecutions] = useState<TerminalExecution[]>([])
+  const handleCommandExecuted = useCallback((execution: TerminalExecution) => {
+    setTerminalExecutions(prev => [...prev.slice(-79), execution])
+  }, [])
 
   // ── Araçlar sekmesi çapraz navigasyon ────────────────────────────────────
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null)
@@ -115,9 +119,12 @@ export default function LabPage() {
 
   function renderContent(tab: ContentTab, isMobile = false) {
     if (tab === 'curriculum') return (
-      <CurriculumTab onSendCommand={isMobile
+      <CurriculumTab
+        terminalExecutions={terminalExecutions}
+        onSendCommand={isMobile
         ? cmd => { sendToTerminal(cmd); setMobileTab('terminal') }
-        : sendToTerminal} />
+        : sendToTerminal}
+      />
     )
     if (tab === 'tools') return (
       <ToolsTab
@@ -146,7 +153,7 @@ export default function LabPage() {
   const shellStyle: React.CSSProperties = {
     height: 'calc(100vh - 64px)',
     flexDirection: 'column',
-    background: '#000', color: '#e2e8f0',
+    background: 'rgb(var(--route-bg-rgb))', color: 'rgb(var(--route-text-rgb))',
     fontFamily: '"JetBrains Mono", "Fira Code", monospace',
     overflow: 'hidden',
   }
@@ -156,23 +163,24 @@ export default function LabPage() {
       {/* ═══════════════════════════════════════════════════════
           DESKTOP — 2-column: sol içerik + sağ sabit terminal
           ═══════════════════════════════════════════════════════ */}
-      <div className="hidden md:flex flex-col" style={shellStyle}>
+      <div className="community-shell hidden md:flex flex-col" style={shellStyle}>
         <DesktopTopBar activeTab={contentTab} onTabChange={setContentTab} progress={progress} total={total} />
         <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
           {/* Sol — içerik */}
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="community-content-pane" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {renderContent(contentTab)}
           </div>
           {/* Ayırıcı */}
-          <div style={{ width: 1, background: 'linear-gradient(to bottom, #1a2e1a 0%, #0d200d 100%)', flexShrink: 0 }} />
+          <div className="community-split-divider" />
           {/* Sağ — terminal (her zaman görünür) */}
-          <div style={{ width: '44%', flexShrink: 0, display: 'flex', flexDirection: 'column', background: '#030303' }}>
+          <div className="community-terminal-pane" style={{ width: '44%', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
             <TerminalPanelBar />
             <div style={{ flex: 1, minHeight: 0 }}>
               <Terminal
                 pendingCommand={pendingCommand}
                 onCommandConsumed={handleCommandConsumed}
                 onFlagSubmit={handleFlagSubmit}
+                onCommandExecuted={handleCommandExecuted}
               />
             </div>
           </div>
@@ -182,11 +190,11 @@ export default function LabPage() {
       {/* ═══════════════════════════════════════════════════════
           MOBİL — tam ekran + alt navigasyon
           ═══════════════════════════════════════════════════════ */}
-      <div className="flex md:hidden flex-col" style={shellStyle}>
+      <div className="community-shell flex md:hidden flex-col" style={shellStyle}>
         <MobileTopBar activeTab={mobileTab} progress={progress} total={total} />
         <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {mobileTab === 'terminal'
-            ? <Terminal pendingCommand={pendingCommand} onCommandConsumed={handleCommandConsumed} onFlagSubmit={handleFlagSubmit} />
+            ? <Terminal pendingCommand={pendingCommand} onCommandConsumed={handleCommandConsumed} onFlagSubmit={handleFlagSubmit} onCommandExecuted={handleCommandExecuted} />
             : renderContent(mobileTab as ContentTab, true)
           }
         </div>
@@ -202,37 +210,22 @@ function DesktopTopBar({ activeTab, onTabChange, progress, total }: {
   activeTab: ContentTab; onTabChange: (t: ContentTab) => void; progress: number; total: number
 }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0 20px', height: 46, flexShrink: 0,
-      background: '#060906', borderBottom: '1px solid #172517',
-    }}>
+    <div className="community-topbar">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontSize: 15 }}>⬡</span>
-        <span style={{ color: '#00ff41', fontWeight: 800, letterSpacing: '0.18em', fontSize: 12 }}>
+        <span style={{ fontSize: 13, letterSpacing: '0.1em' }}>[]</span>
+        <span style={{ color: 'rgb(var(--route-accent-rgb))', fontWeight: 800, letterSpacing: '0.18em', fontSize: 12 }}>
           BREACH LAB
         </span>
         <span style={{ padding: '1px 7px', borderRadius: 3, fontSize: 9, fontWeight: 700,
-          background: 'rgba(0,255,65,0.07)', color: 'rgba(0,255,65,0.45)',
-          border: '1px solid rgba(0,255,65,0.15)' }}>SİBER GÜVENLİK</span>
+          background: 'rgb(var(--route-accent-rgb) / 0.08)', color: 'rgb(var(--route-accent-rgb) / 0.65)',
+          border: '1px solid rgb(var(--route-accent-rgb) / 0.16)' }}>SİBER GÜVENLİK</span>
       </div>
 
-      <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.03)',
-        padding: '3px 4px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="community-tab-group">
         {CONTENT_TABS.map(tab => {
           const isActive = activeTab === tab.id
           return (
-            <button key={tab.id} onClick={() => onTabChange(tab.id)} style={{
-              padding: '5px 16px', cursor: 'pointer',
-              fontFamily: 'inherit', fontSize: 12, fontWeight: 600,
-              letterSpacing: '0.04em',
-              background: isActive ? 'rgba(0,255,65,0.12)' : 'transparent',
-              border: isActive ? '1px solid rgba(0,255,65,0.25)' : '1px solid transparent',
-              borderRadius: 5,
-              color: isActive ? '#00ff41' : '#6b7280',
-              transition: 'all 0.15s', outline: 'none',
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}>
+            <button key={tab.id} onClick={() => onTabChange(tab.id)} className="community-tab-btn" data-active={isActive}>
               <span style={{ fontSize: 13 }}>{tab.icon}</span>
               {tab.label}
             </button>
@@ -241,15 +234,15 @@ function DesktopTopBar({ activeTab, onTabChange, progress, total }: {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ color: '#4ade80', fontSize: 11 }}>
-          🚩 <strong>{progress}</strong>/{total}
+        <span style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 11 }}>
+          OPS <strong>{progress}</strong>/{total}
         </span>
-        <div style={{ width: 64, height: 4, background: 'rgba(0,255,65,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+        <div className="route-progress" style={{ width: 64, height: 4 }}>
           <div style={{
             width: `${total ? (progress / total) * 100 : 0}%`, height: '100%',
-            background: 'linear-gradient(90deg, #00ff41, #4ade80)',
+            background: 'linear-gradient(90deg, rgb(var(--route-accent-rgb)), rgb(var(--route-accent-alt-rgb)))',
             borderRadius: 2, transition: 'width 0.5s',
-            boxShadow: progress > 0 ? '0 0 8px #00ff41' : 'none',
+            boxShadow: progress > 0 ? '0 0 8px rgb(var(--route-accent-rgb) / 0.55)' : 'none',
           }} />
         </div>
       </div>
@@ -259,18 +252,14 @@ function DesktopTopBar({ activeTab, onTabChange, progress, total }: {
 
 function TerminalPanelBar() {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '7px 14px', flexShrink: 0,
-      background: '#040604', borderBottom: '1px solid #0f1f0f',
-    }}>
+    <div className="community-panelbar">
       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        <span style={{ fontSize: 11 }}>⌨</span>
-        <span style={{ color: '#4b5563', fontSize: 10, letterSpacing: '0.12em', fontWeight: 700 }}>
+        <span style={{ fontSize: 11 }}>{'>_'}</span>
+        <span style={{ color: 'rgb(var(--route-muted-rgb) / 0.8)', fontSize: 10, letterSpacing: '0.12em', fontWeight: 700 }}>
           LIVE TERMINAL
         </span>
       </div>
-      <span style={{ color: '#1f2937', fontSize: 9, letterSpacing: '0.08em' }}>TAB · ↑↓ · Ctrl+L</span>
+      <span style={{ color: 'rgb(var(--route-muted-rgb) / 0.52)', fontSize: 9, letterSpacing: '0.08em' }}>TAB - UP/DOWN - Ctrl+L</span>
     </div>
   )
 }
@@ -282,19 +271,15 @@ function MobileTopBar({ activeTab, progress, total }: {
 }) {
   const current = MOBILE_TABS.find(t => t.id === activeTab)
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '10px 16px', flexShrink: 0,
-      background: '#060906', borderBottom: '1px solid #172517',
-    }}>
+    <div className="community-mobilebar">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ color: '#00ff41', fontSize: 14 }}>⬡</span>
-        <span style={{ color: '#00ff41', fontWeight: 800, fontSize: 12, letterSpacing: '0.12em' }}>
+        <span style={{ color: 'rgb(var(--route-accent-rgb))', fontSize: 13, letterSpacing: '0.1em' }}>[]</span>
+        <span style={{ color: 'rgb(var(--route-accent-rgb))', fontWeight: 800, fontSize: 12, letterSpacing: '0.12em' }}>
           BREACH LAB
         </span>
-        {current && <span style={{ color: '#374151', fontSize: 11 }}>/ {current.icon} {current.label}</span>}
+        {current && <span style={{ color: 'rgb(var(--route-muted-rgb) / 0.72)', fontSize: 11 }}>/ {current.icon} {current.label}</span>}
       </div>
-      <span style={{ color: '#4ade80', fontSize: 11 }}>🚩 {progress}/{total}</span>
+      <span style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 11 }}>OPS {progress}/{total}</span>
     </div>
   )
 }
@@ -303,21 +288,13 @@ function MobileBottomNav({ activeTab, onTabChange }: {
   activeTab: MobileTab; onTabChange: (t: MobileTab) => void
 }) {
   return (
-    <div style={{ display: 'flex', flexShrink: 0, background: '#060906', borderTop: '1px solid #172517' }}>
+    <div className="community-bottom-nav">
       {MOBILE_TABS.map(tab => {
         const isActive = activeTab === tab.id
         return (
-          <button key={tab.id} onClick={() => onTabChange(tab.id)} style={{
-            flex: 1, padding: '10px 4px', cursor: 'pointer',
-            background: isActive ? 'rgba(0,255,65,0.07)' : 'transparent',
-            border: 'none',
-            borderTop: `2px solid ${isActive ? '#00ff41' : 'transparent'}`,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            outline: 'none', transition: 'all 0.15s',
-          }}>
+          <button key={tab.id} onClick={() => onTabChange(tab.id)} className="community-bottom-nav-btn" data-active={isActive}>
             <span style={{ fontSize: 18 }}>{tab.icon}</span>
-            <span style={{ fontSize: 9, fontFamily: 'inherit', fontWeight: 700,
-              letterSpacing: '0.06em', color: isActive ? '#00ff41' : '#4b5563' }}>
+            <span className="community-bottom-nav-label">
               {tab.label.toUpperCase()}
             </span>
           </button>
@@ -348,7 +325,7 @@ function CTFTab({
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
           <div>
-            <p style={{ color: 'rgba(0,255,65,0.45)', fontSize: 10, letterSpacing: '0.2em', margin: '0 0 4px' }}>
+            <p style={{ color: 'rgb(var(--route-accent-rgb) / 0.65)', fontSize: 10, letterSpacing: '0.2em', margin: '0 0 4px' }}>
               PRATİK GÖREVLER
             </p>
             <h2 style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 20, fontFamily: 'inherit', margin: 0 }}>
@@ -359,8 +336,8 @@ function CTFTab({
             </p>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ color: '#4ade80', fontSize: 20, fontWeight: 800 }}>{completed}/{CHALLENGES.length}</div>
-            <div style={{ color: '#374151', fontSize: 10, letterSpacing: '0.1em' }}>TAMAMLANDI</div>
+            <div style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 20, fontWeight: 800 }}>{completed}/{CHALLENGES.length}</div>
+            <div style={{ color: 'rgb(var(--route-muted-rgb) / 0.72)', fontSize: 10, letterSpacing: '0.1em' }}>TAMAMLANDI</div>
           </div>
         </div>
 
@@ -368,7 +345,7 @@ function CTFTab({
         <div style={{ height: 3, background: 'rgba(0,255,65,0.08)', borderRadius: 2, marginBottom: '1.5rem', overflow: 'hidden' }}>
           <div style={{
             width: `${CHALLENGES.length ? (completed / CHALLENGES.length) * 100 : 0}%`,
-            height: '100%', background: 'linear-gradient(90deg, #00ff41, #4ade80)',
+            height: '100%', background: 'linear-gradient(90deg, rgb(var(--route-accent-rgb)), rgb(var(--route-accent-alt-rgb)))',
             borderRadius: 2, transition: 'width 0.6s ease',
           }} />
         </div>
@@ -463,8 +440,8 @@ function ChallengeCard({
         </div>
       ) : isCompleted ? (
         <div style={{ padding: '0.85rem 1.1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ color: '#00ff41', fontSize: 14 }}>✓</span>
-          <span style={{ color: '#4ade80', fontSize: 12, fontWeight: 700 }}>Görev Tamamlandı</span>
+          <span style={{ color: 'rgb(var(--route-accent-rgb))', fontSize: 14 }}>✓</span>
+          <span style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 12, fontWeight: 700 }}>Görev Tamamlandı</span>
           <code style={{ marginLeft: 'auto', color: 'rgba(0,255,65,0.5)', fontSize: 10 }}>{ch.flagKey}</code>
         </div>
       ) : (
@@ -472,8 +449,8 @@ function ChallengeCard({
           {/* Terminale git butonu */}
           <button onClick={onSendCommand} style={{
             padding: '6px 12px', borderRadius: 5, cursor: 'pointer',
-            background: 'rgba(0,255,65,0.07)', border: '1px solid rgba(0,255,65,0.2)',
-            color: '#4ade80', fontSize: 11, fontFamily: 'inherit', fontWeight: 700,
+            background: 'rgb(var(--route-accent-rgb) / 0.08)', border: '1px solid rgba(0,255,65,0.2)',
+            color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 11, fontFamily: 'inherit', fontWeight: 700,
             display: 'flex', alignItems: 'center', gap: 6, width: 'fit-content',
             outline: 'none',
           }}>
@@ -537,7 +514,7 @@ function ChallengeCard({
               <button onClick={handleSubmit} style={{
                 padding: '6px 14px', borderRadius: 5, cursor: 'pointer',
                 background: 'rgba(0,255,65,0.1)', border: '1px solid rgba(0,255,65,0.25)',
-                color: '#00ff41', fontSize: 12, fontFamily: 'inherit', fontWeight: 700,
+                color: 'rgb(var(--route-accent-rgb))', fontSize: 12, fontFamily: 'inherit', fontWeight: 700,
                 outline: 'none', flexShrink: 0,
               }}>
                 Gönder
@@ -550,7 +527,7 @@ function ChallengeCard({
               <p style={{ color: '#f59e0b', fontSize: 10, margin: '4px 0 0' }}>⚠ Bu flag zaten gönderildi.</p>
             )}
             {submitState === 'valid' && (
-              <p style={{ color: '#00ff41', fontSize: 10, margin: '4px 0 0' }}>✓ Doğru! Sonraki görev açıldı.</p>
+              <p style={{ color: 'rgb(var(--route-accent-rgb))', fontSize: 10, margin: '4px 0 0' }}>✓ Doğru! Sonraki görev açıldı.</p>
             )}
           </div>
         </div>
@@ -562,33 +539,113 @@ function ChallengeCard({
 // ─── Curriculum Tab ───────────────────────────────────────────────────────────
 
 const LESSON_DIFF_META: Record<LessonDifficulty, { label: string; color: string; bg: string }> = {
-  kolay: { label: 'KOLAY', color: '#4ade80', bg: 'rgba(74,222,128,0.08)' },
+  kolay: { label: 'KOLAY', color: 'rgb(var(--route-accent-rgb) / 0.82)', bg: 'rgba(74,222,128,0.08)' },
   orta:  { label: 'ORTA',  color: '#fbbf24', bg: 'rgba(251,191,36,0.08)'  },
   zor:   { label: 'ZOR',   color: '#f87171', bg: 'rgba(248,113,113,0.08)' },
 }
 
 const DIFF_ORDER: LessonDifficulty[] = ['kolay', 'orta', 'zor']
+const CURRICULUM_STORAGE_KEY = 'breach-curriculum-v3'
+const LEGACY_CURRICULUM_STORAGE_KEY = 'breach-curriculum-v2'
+
+type MissionProofSnapshot = {
+  matchedIds: string[]
+  manualCount: number
+}
+
+type CurriculumProgressSnapshot = {
+  completed: string[]
+  missionProof: Record<string, MissionProofSnapshot>
+}
+
+function normalizeLabText(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function includesAll(text: string, values: string[]): boolean {
+  return values.every(value => text.includes(normalizeLabText(value)))
+}
+
+function validateLessonMission(mission: LessonMission, executions: TerminalExecution[]) {
+  const manualExecutions = executions.filter(execution => execution.source === 'manual')
+  const matched = mission.validation.filter(check => {
+    if (check.type === 'cwdEquals') {
+      return manualExecutions.some(execution => normalizeLabText(execution.cwdAfter) === normalizeLabText(check.values[0] ?? ''))
+    }
+
+    if (check.type === 'commandIncludesAll') {
+      return manualExecutions.some(execution => includesAll(normalizeLabText(execution.raw), check.values))
+    }
+
+    if (check.type === 'commandIncludesAny') {
+      return manualExecutions.some(execution => {
+        const raw = normalizeLabText(execution.raw)
+        return check.values.some(value => raw.includes(normalizeLabText(value)))
+      })
+    }
+
+    const outputs = manualExecutions.map(execution => normalizeLabText(execution.output.join('\n')))
+    return outputs.some(output => includesAll(output, check.values))
+  })
+
+  return {
+    matched,
+    missing: mission.validation.filter(check => !matched.some(item => item.id === check.id)),
+    passed: matched.length === mission.validation.length,
+    manualCount: manualExecutions.length,
+  }
+}
 
 function useCurriculumProgress() {
   const [completed, setCompleted] = useState<Set<string>>(new Set())
+  const [missionProof, setMissionProof] = useState<Record<string, MissionProofSnapshot>>({})
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('breach-curriculum-v2')
-      if (raw) setCompleted(new Set(JSON.parse(raw) as string[]))
+      const raw = localStorage.getItem(CURRICULUM_STORAGE_KEY) ?? localStorage.getItem(LEGACY_CURRICULUM_STORAGE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw) as CurriculumProgressSnapshot | string[]
+      if (Array.isArray(parsed)) {
+        setCompleted(new Set(parsed))
+        return
+      }
+
+      setCompleted(new Set(parsed.completed ?? []))
+      setMissionProof(parsed.missionProof ?? {})
     } catch { /* ignore */ }
   }, [])
 
-  const toggle = (lessonId: string) => {
+  useEffect(() => {
+    try {
+      const snapshot: CurriculumProgressSnapshot = {
+        completed: Array.from(completed),
+        missionProof,
+      }
+      localStorage.setItem(CURRICULUM_STORAGE_KEY, JSON.stringify(snapshot))
+    } catch { /* ignore */ }
+  }, [completed, missionProof])
+
+  const markComplete = (lessonId: string, proof?: MissionProofSnapshot) => {
     setCompleted(prev => {
+      if (prev.has(lessonId)) return prev
       const next = new Set(prev)
-      next.has(lessonId) ? next.delete(lessonId) : next.add(lessonId)
-      try { localStorage.setItem('breach-curriculum-v2', JSON.stringify(Array.from(next))) } catch { /* ignore */ }
+      next.add(lessonId)
       return next
+    })
+
+    if (proof) {
+      setMissionProof(prev => ({ ...prev, [lessonId]: proof }))
+    }
+  }
+
+  const storeMissionProof = (lessonId: string, proof: MissionProofSnapshot) => {
+    setMissionProof(prev => {
+      if (prev[lessonId]) return prev
+      return { ...prev, [lessonId]: proof }
     })
   }
 
-  return { completed, toggle }
+  return { completed, missionProof, markComplete, storeMissionProof }
 }
 
 function isSetUnlocked(setIndex: number, sets: TrainingSet[], completed: Set<string>): boolean {
@@ -601,15 +658,36 @@ function setProgress(set: TrainingSet, completed: Set<string>): number {
   return set.lessons.filter(l => completed.has(l.id)).length
 }
 
-function CurriculumTab({ onSendCommand }: { onSendCommand: (cmd: string) => void }) {
-  const { completed, toggle } = useCurriculumProgress()
+function isDifficultyUnlocked(set: TrainingSet, difficulty: LessonDifficulty, completed: Set<string>): boolean {
+  const difficultyIndex = DIFF_ORDER.indexOf(difficulty)
+  if (difficultyIndex <= 0) return true
+
+  return DIFF_ORDER.slice(0, difficultyIndex).every(level =>
+    set.lessons.filter(lesson => lesson.difficulty === level).every(lesson => completed.has(lesson.id))
+  )
+}
+
+function isLessonUnlocked(lessons: Lesson[], lessonIndex: number, completed: Set<string>): boolean {
+  if (lessonIndex === 0) return true
+  return completed.has(lessons[lessonIndex - 1].id)
+}
+
+function CurriculumTab({ onSendCommand, terminalExecutions }: { onSendCommand: (cmd: string) => void; terminalExecutions: TerminalExecution[] }) {
+  const { completed, missionProof, markComplete, storeMissionProof } = useCurriculumProgress()
   const [activeSet, setActiveSet] = useState<string>(TRAINING_SETS[0].id)
   const [activeDiff, setActiveDiff] = useState<LessonDifficulty>('kolay')
 
   const currentSet = TRAINING_SETS.find(s => s.id === activeSet) ?? TRAINING_SETS[0]
+  const unlockedDifficulties = DIFF_ORDER.filter(difficulty => isDifficultyUnlocked(currentSet, difficulty, completed))
   const lessons = currentSet.lessons.filter(l => l.difficulty === activeDiff)
   const totalCompleted = TRAINING_SETS.reduce((acc, s) => acc + setProgress(s, completed), 0)
   const totalLessons   = TRAINING_SETS.reduce((acc, s) => acc + s.lessons.length, 0)
+
+  useEffect(() => {
+    if (!isDifficultyUnlocked(currentSet, activeDiff, completed)) {
+      setActiveDiff(unlockedDifficulties[0] ?? 'kolay')
+    }
+  }, [activeDiff, completed, currentSet, unlockedDifficulties])
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -619,13 +697,13 @@ function CurriculumTab({ onSendCommand }: { onSendCommand: (cmd: string) => void
         borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.9rem' }}>
           <div>
-            <p style={{ color: 'rgba(0,255,65,0.5)', fontSize: 9, letterSpacing: '0.18em', margin: 0 }}>EĞİTİM SETLERİ</p>
+            <p style={{ color: 'rgba(0,255,65,0.5)', fontSize: 9, letterSpacing: '0.18em', margin: 0 }}>EGITIM SETLERI</p>
             <h2 style={{ color: '#e2e8f0', fontSize: 15, fontWeight: 800, margin: '2px 0 0', letterSpacing: '0.04em' }}>
-              Öğrenme Yolu
+              Ogrenme Yolu
             </h2>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <span style={{ color: '#4ade80', fontSize: 18, fontWeight: 800 }}>{totalCompleted}</span>
+            <span style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 18, fontWeight: 800 }}>{totalCompleted}</span>
             <span style={{ color: '#475569', fontSize: 12 }}>/{totalLessons}</span>
             <p style={{ color: '#475569', fontSize: 9, margin: '2px 0 0', letterSpacing: '0.1em' }}>DERS TAMAMLANDI</p>
           </div>
@@ -682,14 +760,18 @@ function CurriculumTab({ onSendCommand }: { onSendCommand: (cmd: string) => void
               const m = LESSON_DIFF_META[d]
               const count = currentSet.lessons.filter(l => l.difficulty === d).length
               const doneC = currentSet.lessons.filter(l => l.difficulty === d && completed.has(l.id)).length
+              const unlocked = isDifficultyUnlocked(currentSet, d, completed)
               return (
-                <button key={d} onClick={() => setActiveDiff(d)}
-                  style={{ padding: '3px 10px', borderRadius: 5, cursor: 'pointer',
+                <button key={d} onClick={() => { if (unlocked) setActiveDiff(d) }} disabled={!unlocked}
+                  style={{ padding: '3px 10px', borderRadius: 5,
                     background: activeDiff === d ? m.bg : 'transparent',
                     border: `1px solid ${activeDiff === d ? m.color + '50' : 'rgba(255,255,255,0.07)'}`,
-                    color: activeDiff === d ? m.color : '#475569',
+                    color: !unlocked ? '#334155' : activeDiff === d ? m.color : '#475569',
                     fontFamily: 'inherit', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-                    transition: 'all 0.12s' }}>
+                    transition: 'all 0.12s',
+                    opacity: unlocked ? 1 : 0.46,
+                    cursor: unlocked ? 'pointer' : 'not-allowed',
+                  }}>
                   {m.label} <span style={{ opacity: 0.7 }}>{doneC}/{count}</span>
                 </button>
               )
@@ -700,12 +782,81 @@ function CurriculumTab({ onSendCommand }: { onSendCommand: (cmd: string) => void
         {/* Lessons list */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.5rem',
           scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
+          {currentSet.overview && (
+            <div style={{
+              marginBottom: '1rem',
+              border: `1px solid ${currentSet.color}20`,
+              borderRadius: 12,
+              background: 'linear-gradient(180deg, rgba(6,10,8,0.96), rgba(4,6,5,0.92))',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1.35fr) minmax(260px, 0.9fr)',
+                gap: '1rem',
+                padding: '1rem 1.1rem',
+              }}>
+                <div>
+                  <p style={{ color: currentSet.color, fontSize: 9, letterSpacing: '0.2em', margin: '0 0 6px', fontWeight: 800 }}>
+                    OPERASYON BRIFINGI
+                  </p>
+                  <h3 style={{ color: '#f8fafc', fontSize: 18, lineHeight: 1.25, margin: 0, fontWeight: 800 }}>
+                    {currentSet.overview.heading}
+                  </h3>
+                  <p style={{ color: 'rgba(148,163,184,0.82)', fontSize: 12, lineHeight: 1.75, margin: '10px 0 0' }}>
+                    {currentSet.overview.summary}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 10,
+                    padding: '0.85rem 0.9rem',
+                    background: 'rgba(255,255,255,0.02)',
+                  }}>
+                    <p style={{ color: '#64748b', fontSize: 9, fontWeight: 800, letterSpacing: '0.18em', margin: '0 0 8px' }}>
+                      OGRENME MODELI
+                    </p>
+                    <p style={{ color: 'rgba(226,232,240,0.8)', fontSize: 11, lineHeight: 1.7, margin: 0 }}>
+                      {currentSet.overview.assessment}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 8,
+                padding: '0 1.1rem 1rem',
+              }}>
+                {currentSet.overview.pillars.map(pillar => (
+                  <span key={pillar} style={{
+                    padding: '4px 10px',
+                    borderRadius: 999,
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: `${currentSet.color}0f`,
+                    color: 'rgba(226,232,240,0.78)',
+                    fontSize: 10,
+                    letterSpacing: '0.06em',
+                    fontWeight: 700,
+                  }}>
+                    {pillar}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             {lessons.map((lesson, i) => (
               <LessonCard key={lesson.id} lesson={lesson} index={i}
                 isCompleted={completed.has(lesson.id)}
-                onToggle={() => toggle(lesson.id)}
+                isUnlocked={isLessonUnlocked(lessons, i, completed)}
+                proofSnapshot={missionProof[lesson.id]}
+                onComplete={(proof) => markComplete(lesson.id, proof)}
+                onStoreMissionProof={(proof) => storeMissionProof(lesson.id, proof)}
                 onPractice={lesson.practiceCmd ? () => onSendCommand(lesson.practiceCmd!) : undefined}
+                terminalExecutions={terminalExecutions}
               />
             ))}
           </div>
@@ -715,88 +866,539 @@ function CurriculumTab({ onSendCommand }: { onSendCommand: (cmd: string) => void
   )
 }
 
-function LessonCard({ lesson, index, isCompleted, onToggle, onPractice }: {
-  lesson: Lesson; index: number; isCompleted: boolean
-  onToggle: () => void; onPractice?: () => void
+function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onComplete, onStoreMissionProof, onPractice, terminalExecutions }: {
+  lesson: Lesson
+  index: number
+  isCompleted: boolean
+  isUnlocked: boolean
+  proofSnapshot?: MissionProofSnapshot
+  onComplete: (proof?: MissionProofSnapshot) => void
+  onStoreMissionProof: (proof: MissionProofSnapshot) => void
+  onPractice?: () => void
+  terminalExecutions: TerminalExecution[]
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [revealedHints, setRevealedHints] = useState(0)
+  const [validationState, setValidationState] = useState<'idle' | 'failed' | 'passed'>('idle')
   const m = LESSON_DIFF_META[lesson.difficulty]
+  const missionStatus = lesson.mission ? validateLessonMission(lesson.mission, terminalExecutions) : null
+  const totalChecks = lesson.mission?.validation.length ?? 0
+  const persistedMatchedIds = new Set(
+    proofSnapshot?.matchedIds
+    ?? (lesson.mission && isCompleted ? lesson.mission.validation.map(check => check.id) : [])
+  )
+  const liveMatchedIds = new Set(missionStatus?.matched.map(item => item.id) ?? [])
+  const matchedIds = new Set(
+    isCompleted
+      ? [...Array.from(persistedMatchedIds), ...Array.from(liveMatchedIds)]
+      : Array.from(liveMatchedIds)
+  )
+  const matchedCount = matchedIds.size
+  const displayManualCount = isCompleted
+    ? Math.max(proofSnapshot?.manualCount ?? 0, missionStatus?.manualCount ?? 0, matchedCount > 0 ? 1 : 0)
+    : (missionStatus?.manualCount ?? 0)
+
+  useEffect(() => {
+    if (!lesson.mission || !isCompleted || proofSnapshot) return
+    onStoreMissionProof({
+      matchedIds: lesson.mission.validation.map(check => check.id),
+      manualCount: Math.max(missionStatus?.manualCount ?? 0, 1),
+    })
+  }, [isCompleted, lesson.mission, missionStatus?.manualCount, onStoreMissionProof, proofSnapshot])
+
+  const handleValidate = () => {
+    if (!lesson.mission || !missionStatus) return
+    if (missionStatus.passed) {
+      setValidationState('passed')
+      if (!isCompleted) {
+        onComplete({
+          matchedIds: lesson.mission.validation.map(check => check.id),
+          manualCount: Math.max(missionStatus.manualCount, 1),
+        })
+      }
+      return
+    }
+    setValidationState('failed')
+  }
+
+  const revealNextHint = () => {
+    if (!lesson.mission) return
+    setRevealedHints(prev => Math.min(prev + 1, lesson.mission!.hints.length))
+  }
+
+  const resetMissionState = () => {
+    setValidationState('idle')
+    setRevealedHints(0)
+  }
 
   return (
-    <div style={{ border: `1px solid ${isCompleted ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.06)'}`,
-      borderRadius: 8, overflow: 'hidden',
-      background: isCompleted ? 'rgba(74,222,128,0.03)' : 'rgba(255,255,255,0.015)',
-      transition: 'border-color 0.2s' }}>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', padding: '0.75rem 1rem', cursor: 'pointer' }}
-        onClick={() => setExpanded(v => !v)}>
-
-        {/* Checkbox */}
-        <button onClick={e => { e.stopPropagation(); onToggle() }}
-          style={{ width: 22, height: 22, borderRadius: 5, border: isCompleted ? '2px solid #4ade80' : '2px solid #334155',
-            background: isCompleted ? 'rgba(74,222,128,0.15)' : 'transparent',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}>
-          {isCompleted && <span style={{ color: '#4ade80', fontSize: 12, fontWeight: 900 }}>✓</span>}
-        </button>
+    <div
+      style={{
+        border: `1px solid ${isCompleted ? 'rgba(74,222,128,0.28)' : 'rgba(255,255,255,0.08)'}`,
+        borderRadius: 14,
+        overflow: 'hidden',
+        background: isCompleted
+          ? 'linear-gradient(180deg, rgba(9,42,20,0.98), rgba(4,18,9,0.96))'
+          : isUnlocked
+            ? 'linear-gradient(180deg, rgba(7,10,9,0.95), rgba(4,6,6,0.9))'
+            : 'linear-gradient(180deg, rgba(5,7,8,0.9), rgba(3,4,5,0.88))',
+        boxShadow: isCompleted ? '0 0 0 1px rgba(74,222,128,0.12), inset 0 0 42px rgba(34,197,94,0.08)' : 'none',
+        transition: 'border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease',
+        opacity: isUnlocked || isCompleted ? 1 : 0.48,
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.95rem',
+          padding: '0.9rem 1rem',
+          cursor: isUnlocked || isCompleted ? 'pointer' : 'not-allowed',
+        }}
+        onClick={() => {
+          if (!isUnlocked && !isCompleted) return
+          setExpanded(v => !v)
+        }}
+      >
+        <span
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 9,
+            border: `1px solid ${isCompleted ? 'rgba(74,222,128,0.45)' : isUnlocked ? 'rgba(71,85,105,0.72)' : 'rgba(51,65,85,0.5)'}`,
+            background: isCompleted ? 'rgba(34,197,94,0.14)' : isUnlocked ? 'rgba(2,6,8,0.75)' : 'rgba(2,6,8,0.58)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            color: isCompleted ? '#86efac' : isUnlocked ? '#94a3b8' : '#475569',
+            fontSize: 10,
+            fontWeight: 800,
+            letterSpacing: '0.08em',
+          }}
+        >
+          {isCompleted ? 'OK' : String(index + 1).padStart(2, '0')}
+        </span>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ color: '#475569', fontSize: 10, fontWeight: 700 }}>
               {String(index + 1).padStart(2, '0')}
             </span>
-            <span style={{ color: isCompleted ? '#4ade80' : '#e2e8f0', fontWeight: 700, fontSize: 13,
-              textDecoration: isCompleted ? 'line-through' : 'none', opacity: isCompleted ? 0.7 : 1 }}>
+            <span
+              style={{
+                color: isCompleted ? '#86efac' : '#f8fafc',
+                fontWeight: 800,
+                fontSize: 13,
+                letterSpacing: '0.01em',
+                textDecoration: isCompleted ? 'line-through' : 'none',
+                opacity: isCompleted ? 0.78 : 1,
+              }}
+            >
               {lesson.title}
             </span>
-            <span style={{ padding: '1px 6px', borderRadius: 3, fontSize: 8, fontWeight: 800,
-              background: m.bg, color: m.color, border: `1px solid ${m.color}30`, letterSpacing: '0.08em' }}>
+            <span
+              style={{
+                padding: '2px 7px',
+                borderRadius: 999,
+                fontSize: 8,
+                fontWeight: 800,
+                background: m.bg,
+                color: m.color,
+                border: `1px solid ${m.color}30`,
+                letterSpacing: '0.08em',
+              }}
+            >
               {m.label}
             </span>
+            {!isUnlocked && !isCompleted && (
+              <span
+                style={{
+                  padding: '2px 7px',
+                  borderRadius: 999,
+                  fontSize: 8,
+                  fontWeight: 800,
+                  background: 'rgba(15,23,42,0.95)',
+                  color: '#64748b',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  letterSpacing: '0.08em',
+                }}
+              >
+                KILITLI
+              </span>
+            )}
+            {lesson.mission && (
+              <span
+                style={{
+                  padding: '2px 7px',
+                  borderRadius: 999,
+                  fontSize: 8,
+                  fontWeight: 800,
+                background: (isCompleted || missionStatus?.passed) ? 'rgba(74,222,128,0.12)' : 'rgba(15,23,42,0.95)',
+                color: (isCompleted || missionStatus?.passed) ? '#86efac' : '#94a3b8',
+                border: `1px solid ${(isCompleted || missionStatus?.passed) ? 'rgba(74,222,128,0.22)' : 'rgba(255,255,255,0.08)'}`,
+                letterSpacing: '0.08em',
+              }}
+            >
+                KANIT {matchedCount}/{totalChecks}
+              </span>
+            )}
           </div>
-          <p style={{ color: '#475569', fontSize: 11, margin: '2px 0 0', overflow: 'hidden',
-            textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <p
+            style={{
+              color: isCompleted ? 'rgba(187,247,208,0.82)' : '#64748b',
+              fontSize: 11,
+              margin: '4px 0 0',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
             {lesson.description}
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <span style={{ color: '#334155', fontSize: 10 }}>⏱ {lesson.duration}dk</span>
-          <span style={{ color: '#334155', fontSize: 14, transition: 'transform 0.2s',
-            transform: expanded ? 'rotate(90deg)' : 'none' }}>›</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          {isCompleted && (
+            <span style={{
+              padding: '3px 8px',
+              borderRadius: 999,
+              background: 'rgba(34,197,94,0.12)',
+              border: '1px solid rgba(74,222,128,0.24)',
+              color: '#86efac',
+              fontSize: 8,
+              fontWeight: 800,
+              letterSpacing: '0.12em',
+            }}>
+              TAMAMLANDI
+            </span>
+          )}
+          <span style={{ color: '#475569', fontSize: 10 }}>{lesson.duration} dk</span>
+          <span
+            style={{
+              color: expanded ? 'rgb(var(--route-accent-rgb) / 0.82)' : '#334155',
+              fontSize: 14,
+              transition: 'transform 0.2s ease, color 0.2s ease',
+              transform: expanded ? 'rotate(90deg)' : 'none',
+            }}
+          >
+            ›
+          </span>
         </div>
       </div>
 
       {expanded && (
-        <div style={{ padding: '0 1rem 0.9rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          <p style={{ color: 'rgba(148,163,184,0.8)', fontSize: 12, margin: '0.7rem 0 0.9rem', lineHeight: 1.6 }}>
-            {lesson.description}
-          </p>
-          {lesson.practiceCmd && onPractice && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8,
-              background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(0,255,65,0.12)',
-              borderRadius: 6, padding: '0.5rem 0.8rem' }}>
-              <code style={{ flex: 1, color: '#4ade80', fontSize: 11, fontFamily: 'monospace' }}>
-                $ {lesson.practiceCmd}
-              </code>
-              <button onClick={onPractice}
-                style={{ padding: '3px 10px', borderRadius: 4, cursor: 'pointer',
-                  background: 'rgba(0,255,65,0.1)', border: '1px solid rgba(0,255,65,0.25)',
-                  color: '#4ade80', fontFamily: 'inherit', fontSize: 10, fontWeight: 700,
-                  letterSpacing: '0.06em', whiteSpace: 'nowrap', transition: 'all 0.12s' }}>
-                ▶ TERMINALE GÖNDER
+        <div style={{ padding: '0 1rem 1rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          {lesson.mission ? (
+            <>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))',
+                  gap: '0.9rem',
+                  marginTop: '0.95rem',
+                }}
+              >
+                <div
+                  style={{
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 12,
+                    padding: '0.9rem',
+                    background: 'rgba(255,255,255,0.02)',
+                  }}
+                >
+                  <p style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 9, letterSpacing: '0.18em', margin: '0 0 8px', fontWeight: 800 }}>
+                    OPERASYON BRIFINGI
+                  </p>
+                  <p style={{ color: '#f8fafc', fontSize: 13, fontWeight: 700, lineHeight: 1.55, margin: 0 }}>
+                    {lesson.mission.objective}
+                  </p>
+                  <p style={{ color: 'rgba(148,163,184,0.8)', fontSize: 11, lineHeight: 1.75, margin: '10px 0 0' }}>
+                    {lesson.mission.operatorBrief}
+                  </p>
+                </div>
+
+                <div
+                  style={{
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 12,
+                    padding: '0.9rem',
+                    background: 'rgba(2,6,8,0.78)',
+                  }}
+                >
+                  <p style={{ color: '#94a3b8', fontSize: 9, letterSpacing: '0.18em', margin: '0 0 8px', fontWeight: 800 }}>
+                    GOREV TANIMI
+                  </p>
+                  <p style={{ color: '#e2e8f0', fontSize: 12, lineHeight: 1.7, margin: 0 }}>{lesson.mission.task}</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: '0.8rem' }}>
+                    {lesson.mission.evidence.map(item => (
+                      <span
+                        key={item}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: 999,
+                          background: 'rgba(255,255,255,0.03)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          color: '#cbd5e1',
+                          fontSize: 10,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  marginTop: '0.9rem',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 12,
+                  padding: '0.95rem',
+                  background: 'linear-gradient(180deg, rgba(1,8,6,0.94), rgba(3,8,6,0.85))',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                  <div>
+                    <p style={{ color: '#94a3b8', fontSize: 9, letterSpacing: '0.18em', margin: 0, fontWeight: 800 }}>
+                      DOGRULAMA MERKEZI
+                    </p>
+                    <p style={{ color: 'rgba(148,163,184,0.76)', fontSize: 11, margin: '8px 0 0', lineHeight: 1.7 }}>
+                      Bu görev için terminale kendi komutunu yaz. Sistem sadece manuel girişlerden kanıt toplar.
+                    </p>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ color: (isCompleted || missionStatus?.passed) ? '#86efac' : '#e2e8f0', fontSize: 18, fontWeight: 800, margin: 0 }}>
+                      {matchedCount}/{totalChecks}
+                    </p>
+                    <p style={{ color: '#475569', fontSize: 10, margin: '3px 0 0', letterSpacing: '0.08em' }}>
+                      MANUAL KOMUT {displayManualCount}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gap: 8, marginTop: '0.85rem' }}>
+                  {lesson.mission.validation.map(check => {
+                    const isMatched = matchedIds.has(check.id)
+                    return (
+                      <div
+                        key={check.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          padding: '0.7rem 0.85rem',
+                          borderRadius: 10,
+                          border: `1px solid ${isMatched ? 'rgba(74,222,128,0.22)' : 'rgba(255,255,255,0.07)'}`,
+                          background: isMatched ? 'rgba(74,222,128,0.06)' : 'rgba(255,255,255,0.02)',
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: 999,
+                            border: `1px solid ${isMatched ? 'rgba(74,222,128,0.45)' : 'rgba(100,116,139,0.4)'}`,
+                            background: isMatched ? 'rgba(74,222,128,0.14)' : 'rgba(2,6,8,0.9)',
+                            color: isMatched ? '#86efac' : '#64748b',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 10,
+                            fontWeight: 800,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {isMatched ? '✓' : ''}
+                        </span>
+                        <span style={{ color: isMatched ? '#dcfce7' : '#cbd5e1', fontSize: 11, lineHeight: 1.6 }}>
+                          {check.label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {validationState === 'failed' && missionStatus && missionStatus.missing.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: '0.85rem',
+                      padding: '0.8rem 0.9rem',
+                      borderRadius: 10,
+                      border: '1px solid rgba(248,113,113,0.22)',
+                      background: 'rgba(127,29,29,0.16)',
+                    }}
+                  >
+                    <p style={{ color: '#fda4af', fontSize: 10, letterSpacing: '0.14em', fontWeight: 800, margin: '0 0 6px' }}>
+                      EKSIK KANIT
+                    </p>
+                    <p style={{ color: '#fecdd3', fontSize: 11, margin: 0, lineHeight: 1.7 }}>
+                      {missionStatus.missing.map(check => check.label).join(' | ')}
+                    </p>
+                  </div>
+                )}
+
+                {validationState === 'passed' && (
+                  <div
+                    style={{
+                      marginTop: '0.85rem',
+                      padding: '0.85rem 0.95rem',
+                      borderRadius: 10,
+                      border: '1px solid rgba(74,222,128,0.2)',
+                      background: 'rgba(20,83,45,0.16)',
+                    }}
+                  >
+                    <p style={{ color: '#86efac', fontSize: 10, letterSpacing: '0.18em', fontWeight: 800, margin: '0 0 6px' }}>
+                      NEDEN BU CALISTI
+                    </p>
+                    <p style={{ color: '#dcfce7', fontSize: 11, margin: 0, lineHeight: 1.8 }}>
+                      {lesson.mission.reflection}
+                    </p>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: '0.95rem' }}>
+                  <button
+                    onClick={handleValidate}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      background: 'rgba(0,255,65,0.1)',
+                      border: '1px solid rgba(0,255,65,0.24)',
+                      color: 'rgb(var(--route-accent-rgb) / 0.9)',
+                      fontFamily: 'inherit',
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: '0.12em',
+                    }}
+                  >
+                    COZUMUNU KONTROL ET
+                  </button>
+                  <button
+                    onClick={revealNextHint}
+                    disabled={revealedHints >= lesson.mission.hints.length}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 8,
+                      cursor: revealedHints >= lesson.mission.hints.length ? 'default' : 'pointer',
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      color: revealedHints >= lesson.mission.hints.length ? '#475569' : '#e2e8f0',
+                      fontFamily: 'inherit',
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: '0.12em',
+                      opacity: revealedHints >= lesson.mission.hints.length ? 0.55 : 1,
+                    }}
+                  >
+                    {revealedHints >= lesson.mission.hints.length ? 'TUM IPUCLARI ACILDI' : `IPUCU AC ${revealedHints}/${lesson.mission.hints.length}`}
+                  </button>
+                  {validationState !== 'idle' && (
+                    <button
+                      onClick={resetMissionState}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        color: '#94a3b8',
+                        fontFamily: 'inherit',
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: '0.12em',
+                      }}
+                    >
+                      DURUMU TEMIZLE
+                    </button>
+                  )}
+                </div>
+
+                {revealedHints > 0 && (
+                  <div style={{ display: 'grid', gap: 8, marginTop: '0.95rem' }}>
+                    {lesson.mission.hints.slice(0, revealedHints).map((hint, hintIndex) => (
+                      <div
+                        key={`${lesson.id}-hint-${hintIndex}`}
+                        style={{
+                          padding: '0.78rem 0.9rem',
+                          borderRadius: 10,
+                          border: '1px solid rgba(251,191,36,0.18)',
+                          background: 'rgba(120,53,15,0.14)',
+                        }}
+                      >
+                        <p style={{ color: '#fbbf24', fontSize: 9, letterSpacing: '0.18em', margin: '0 0 6px', fontWeight: 800 }}>
+                          IPUCU {String(hintIndex + 1).padStart(2, '0')}
+                        </p>
+                        <p style={{ color: '#fde68a', fontSize: 11, lineHeight: 1.7, margin: 0 }}>{hint}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <p style={{ color: 'rgba(148,163,184,0.8)', fontSize: 12, margin: '0.8rem 0 0.9rem', lineHeight: 1.6 }}>
+                {lesson.description}
+              </p>
+              {lesson.practiceCmd && onPractice && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: 'rgba(0,0,0,0.4)',
+                    border: '1px solid rgba(0,255,65,0.12)',
+                    borderRadius: 8,
+                    padding: '0.6rem 0.8rem',
+                  }}
+                >
+                  <code style={{ flex: 1, color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 11, fontFamily: 'monospace' }}>
+                    $ {lesson.practiceCmd}
+                  </code>
+                  <button
+                    onClick={onPractice}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      cursor: 'pointer',
+                      background: 'rgba(0,255,65,0.1)',
+                      border: '1px solid rgba(0,255,65,0.25)',
+                      color: 'rgb(var(--route-accent-rgb) / 0.82)',
+                      fontFamily: 'inherit',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: '0.08em',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    TERMINALE GONDER
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={() => onComplete()}
+                style={{
+                  marginTop: '0.8rem',
+                  padding: '7px 14px',
+                  borderRadius: 7,
+                  cursor: 'pointer',
+                  background: isCompleted ? 'rgba(248,113,113,0.08)' : 'rgba(74,222,128,0.08)',
+                  border: `1px solid ${isCompleted ? 'rgba(248,113,113,0.25)' : 'rgba(74,222,128,0.25)'}`,
+                  color: isCompleted ? '#f87171' : '#4ade80',
+                  fontFamily: 'inherit',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                }}
+              >
+                {isCompleted ? 'TAMAMLANMAMIS OLARAK ISARETLE' : 'TAMAMLANDI'}
               </button>
-            </div>
+            </>
           )}
-          <button onClick={onToggle} style={{ marginTop: '0.8rem',
-            padding: '5px 14px', borderRadius: 5, cursor: 'pointer',
-            background: isCompleted ? 'rgba(248,113,113,0.08)' : 'rgba(74,222,128,0.08)',
-            border: `1px solid ${isCompleted ? 'rgba(248,113,113,0.25)' : 'rgba(74,222,128,0.25)'}`,
-            color: isCompleted ? '#f87171' : '#4ade80',
-            fontFamily: 'inherit', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-            transition: 'all 0.12s' }}>
-            {isCompleted ? '✗ TAMAMLANMAMIŞ İŞARETLE' : '✓ TAMAMLANDI'}
-          </button>
         </div>
       )}
     </div>
@@ -849,7 +1451,7 @@ function ToolsTab({ initialToolId, onSendCommand, onSelectTool, isMobile = false
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '10px 14px', background: '#060906',
             border: 'none', borderBottom: '1px solid #172517',
-            color: '#4ade80', fontSize: 12, fontFamily: 'inherit',
+            color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 12, fontFamily: 'inherit',
             cursor: 'pointer', flexShrink: 0, outline: 'none',
           }}>
             ← Araç Listesi
@@ -974,11 +1576,11 @@ function ToolDetail({ tool, onSendCommand }: { tool: ToolCard; onSendCommand: (c
       {/* Header */}
       <div style={{ marginBottom: '1.25rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-          <h2 style={{ color: '#00ff41', fontFamily: 'inherit', fontSize: 20, fontWeight: 800, margin: 0 }}>
+          <h2 style={{ color: 'rgb(var(--route-accent-rgb))', fontFamily: 'inherit', fontSize: 20, fontWeight: 800, margin: 0 }}>
             {tool.name}
           </h2>
           <span style={{ padding: '2px 9px', borderRadius: 10, fontSize: 10,
-            background: 'rgba(0,255,65,0.08)', color: '#4ade80', border: '1px solid rgba(0,255,65,0.2)' }}>
+            background: 'rgba(0,255,65,0.08)', color: 'rgb(var(--route-accent-rgb) / 0.82)', border: '1px solid rgba(0,255,65,0.2)' }}>
             {tool.category}
           </span>
           <span style={{ padding: '2px 9px', borderRadius: 10, fontSize: 10,
@@ -988,8 +1590,8 @@ function ToolDetail({ tool, onSendCommand }: { tool: ToolCard; onSendCommand: (c
         </div>
         {/* Versiyon & OS */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <span style={{ color: '#4b5563', fontSize: 11 }}>v{tool.version}</span>
-          <span style={{ color: '#1f2937' }}>·</span>
+          <span style={{ color: 'rgb(var(--route-muted-rgb) / 0.8)', fontSize: 11 }}>v{tool.version}</span>
+          <span style={{ color: 'rgb(var(--route-muted-rgb) / 0.52)' }}>Â·</span>
           <div style={{ display: 'flex', gap: 4 }}>
             {tool.os.map(os => (
               <span key={os} style={{ padding: '1px 7px', borderRadius: 4, fontSize: 10,
@@ -1010,7 +1612,7 @@ function ToolDetail({ tool, onSendCommand }: { tool: ToolCard; onSendCommand: (c
           {tool.flags.map(f => (
             <div key={f.flag} style={{ display: 'flex', gap: '0.85rem', padding: '0.45rem 0.65rem',
               borderRadius: 4, background: 'rgba(255,255,255,0.02)', alignItems: 'flex-start' }}>
-              <code style={{ color: '#00ff41', fontSize: 11, minWidth: 130, flexShrink: 0, fontFamily: 'inherit' }}>
+              <code style={{ color: 'rgb(var(--route-accent-rgb))', fontSize: 11, minWidth: 130, flexShrink: 0, fontFamily: 'inherit' }}>
                 {f.flag}
               </code>
               <span style={{ color: 'rgba(226,232,240,0.62)', fontSize: 11 }}>{f.description}</span>
@@ -1031,8 +1633,8 @@ function ToolDetail({ tool, onSendCommand }: { tool: ToolCard; onSendCommand: (c
                   title="Terminale gönder"
                   style={{
                     flexShrink: 0, padding: '3px 8px', borderRadius: 4, cursor: 'pointer',
-                    background: 'rgba(0,255,65,0.07)', border: '1px solid rgba(0,255,65,0.15)',
-                    color: '#4ade80', fontSize: 10, fontFamily: 'inherit',
+                    background: 'rgb(var(--route-accent-rgb) / 0.08)', border: '1px solid rgb(var(--route-accent-rgb) / 0.16)',
+                    color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 10, fontFamily: 'inherit',
                     outline: 'none', whiteSpace: 'nowrap',
                   }}>
                   ⌨ Terminal
@@ -1061,7 +1663,7 @@ function ToolDetail({ tool, onSendCommand }: { tool: ToolCard; onSendCommand: (c
 function SectionHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle: string }) {
   return (
     <div style={{ marginBottom: '1.75rem' }}>
-      <p style={{ color: 'rgba(0,255,65,0.45)', fontSize: 10, letterSpacing: '0.2em',
+      <p style={{ color: 'rgb(var(--route-accent-rgb) / 0.65)', fontSize: 10, letterSpacing: '0.2em',
         textTransform: 'uppercase', margin: '0 0 4px' }}>{eyebrow}</p>
       <h2 style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 20, fontFamily: 'inherit', margin: '0 0 4px' }}>
         {title}
@@ -1074,7 +1676,7 @@ function SectionHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: s
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: '1.75rem' }}>
-      <h3 style={{ color: '#4ade80', fontFamily: 'inherit', fontSize: 12, fontWeight: 700,
+      <h3 style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontFamily: 'inherit', fontSize: 12, fontWeight: 700,
         letterSpacing: '0.08em', margin: '0 0 0.65rem',
         borderBottom: '1px solid rgba(0,255,65,0.12)', paddingBottom: '0.4rem' }}>{title}</h3>
       {children}
@@ -1094,3 +1696,5 @@ function CodeBlock({ label, code }: { label: string; code: string }) {
     </div>
   )
 }
+
+

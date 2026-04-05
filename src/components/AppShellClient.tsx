@@ -8,6 +8,7 @@ import Footer from '@/components/Footer'
 import SearchModal from '@/components/SearchModal'
 import PageTransition from '@/components/PageTransition'
 import NavigationBar from '@/components/NavigationBar'
+import { getRouteTheme } from '@/lib/route-theme'
 
 export default function AppShellClient({
   children,
@@ -22,6 +23,7 @@ export default function AppShellClient({
   const router = useRouter()
   const session = useAuthSession(initialAuth)
   const isAuthed = session?.authenticated ?? false
+  const routeTheme = getRouteTheme(pathname)
 
   const isLoginRoute = pathname === '/login' || pathname?.startsWith('/login/')
   const isRegisterRoute = pathname === '/register' || pathname?.startsWith('/register/')
@@ -39,15 +41,15 @@ export default function AppShellClient({
   return (
     <>
       <OperatorSidebar initialAuth={isAuthed} />
-      <div className={`transition-all duration-300 flex flex-col flex-1 app-shell`}>
+      <div data-route-theme={routeTheme} className="route-shell transition-all duration-300 flex flex-col flex-1 app-shell">
         {showOperatorShell && (
           <NavigationBar
             currentPath={pathname ?? '/'}
             onLogout={handleLogout}
           />
         )}
-        <PageTransition>
-          <main className="flex-1">{children}</main>
+        <PageTransition theme={routeTheme}>
+          <main className="route-shell-main flex-1">{children}</main>
         </PageTransition>
         {showGlobalTools && <Footer />}
       </div>
