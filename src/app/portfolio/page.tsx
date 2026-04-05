@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   title: 'Profil',
 }
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 function buildProfileFromSeed(username: string, displayName: string, userId = 1): PortfolioProfileRecord {
   const seed = getPortfolioSeedForUser({ username, displayName })
 

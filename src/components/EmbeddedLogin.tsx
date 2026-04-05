@@ -7,9 +7,10 @@ import { getAuthSession, loginWithPassword } from '@/lib/auth-client'
 
 interface EmbeddedLoginProps {
   redirectTo?: string
+  autoRedirectIfAuthenticated?: boolean
 }
 
-export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) {
+export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuthenticated = true }: EmbeddedLoginProps) {
   const router = useRouter()
   const [visible, setVisible] = useState(false)
   const [username, setUsername] = useState('ghost')
@@ -80,6 +81,7 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
 
 
   useEffect(() => {
+    if (!autoRedirectIfAuthenticated) return
     let alive = true
     const check = async () => {
       const session = await getAuthSession(false)
@@ -91,7 +93,7 @@ export default function EmbeddedLogin({ redirectTo = '/' }: EmbeddedLoginProps) 
     return () => {
       alive = false
     }
-  }, [redirectTo, router])
+  }, [autoRedirectIfAuthenticated, redirectTo, router])
 
   useEffect(() => {
     const timer = setTimeout(() => setVisible(true), 120)

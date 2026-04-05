@@ -399,7 +399,7 @@ export default function PortfolioWorkspace({
       }
 
       try {
-        const session = await getAuthSession(false)
+        const session = await getAuthSession(true)
         if (!active) return
         if (!session.authenticated) {
           setAuthSyncing(false)
