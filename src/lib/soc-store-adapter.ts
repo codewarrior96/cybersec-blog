@@ -10,6 +10,9 @@ type StoreOptions = {
 
 const requestedStorageMode = (process.env.SOC_STORAGE ?? 'sqlite').toLowerCase()
 let activeStorageMode: StorageMode = requestedStorageMode === 'sqlite' ? 'sqlite' : 'memory'
+const allowCriticalMemoryFallback =
+  process.env.SOC_ALLOW_CRITICAL_MEMORY_FALLBACK === '1' ||
+  process.env.NODE_ENV === 'production'
 
 let sqliteStorePromise: Promise<StoreModule> | null = null
 
@@ -42,7 +45,7 @@ async function withStore<T>(
     activeStorageMode = 'sqlite'
     return result
   } catch (error) {
-    if (!allowMemoryFallback || requestedStorageMode === 'sqlite') {
+    if (!allowMemoryFallback) {
       throw error
     }
 
@@ -69,19 +72,19 @@ export async function authenticateUser(
   ...args: Parameters<StoreModule['authenticateUser']>
 ) {
   return withStore('authenticateUser', (store) => store.authenticateUser(...args), {
-    allowMemoryFallback: false,
+    allowMemoryFallback: allowCriticalMemoryFallback,
   })
 }
 
 export async function createSession(...args: Parameters<StoreModule['createSession']>) {
   return withStore('createSession', (store) => store.createSession(...args), {
-    allowMemoryFallback: false,
+    allowMemoryFallback: allowCriticalMemoryFallback,
   })
 }
 
 export async function deleteSession(...args: Parameters<StoreModule['deleteSession']>) {
   return withStore('deleteSession', (store) => store.deleteSession(...args), {
-    allowMemoryFallback: false,
+    allowMemoryFallback: allowCriticalMemoryFallback,
   })
 }
 
@@ -89,7 +92,7 @@ export async function getSessionByToken(
   ...args: Parameters<StoreModule['getSessionByToken']>
 ) {
   return withStore('getSessionByToken', (store) => store.getSessionByToken(...args), {
-    allowMemoryFallback: false,
+    allowMemoryFallback: allowCriticalMemoryFallback,
   })
 }
 
@@ -167,19 +170,19 @@ export async function deleteReport(...args: Parameters<StoreModule['deleteReport
 
 export async function createUser(...args: Parameters<StoreModule['createUser']>) {
   return withStore('createUser', (store) => store.createUser(...args), {
-    allowMemoryFallback: false,
+    allowMemoryFallback: allowCriticalMemoryFallback,
   })
 }
 
 export async function registerUser(...args: Parameters<StoreModule['registerUser']>) {
   return withStore('registerUser', (store) => store.registerUser(...args), {
-    allowMemoryFallback: false,
+    allowMemoryFallback: allowCriticalMemoryFallback,
   })
 }
 
 export async function getPortfolioProfile(...args: Parameters<StoreModule['getPortfolioProfile']>) {
   return withStore('getPortfolioProfile', (store) => store.getPortfolioProfile(...args), {
-    allowMemoryFallback: false,
+    allowMemoryFallback: allowCriticalMemoryFallback,
   })
 }
 
@@ -189,7 +192,7 @@ export async function getPortfolioCertificationById(
   return withStore(
     'getPortfolioCertificationById',
     (store) => store.getPortfolioCertificationById(...args),
-    { allowMemoryFallback: false },
+    { allowMemoryFallback: allowCriticalMemoryFallback },
   )
 }
 
@@ -197,7 +200,7 @@ export async function updatePortfolioProfile(
   ...args: Parameters<StoreModule['updatePortfolioProfile']>
 ) {
   return withStore('updatePortfolioProfile', (store) => store.updatePortfolioProfile(...args), {
-    allowMemoryFallback: false,
+    allowMemoryFallback: allowCriticalMemoryFallback,
   })
 }
 
@@ -205,7 +208,7 @@ export async function updatePortfolioAvatar(
   ...args: Parameters<StoreModule['updatePortfolioAvatar']>
 ) {
   return withStore('updatePortfolioAvatar', (store) => store.updatePortfolioAvatar(...args), {
-    allowMemoryFallback: false,
+    allowMemoryFallback: allowCriticalMemoryFallback,
   })
 }
 
@@ -215,7 +218,7 @@ export async function createPortfolioCertification(
   return withStore(
     'createPortfolioCertification',
     (store) => store.createPortfolioCertification(...args),
-    { allowMemoryFallback: false },
+    { allowMemoryFallback: allowCriticalMemoryFallback },
   )
 }
 
@@ -225,7 +228,7 @@ export async function updatePortfolioCertification(
   return withStore(
     'updatePortfolioCertification',
     (store) => store.updatePortfolioCertification(...args),
-    { allowMemoryFallback: false },
+    { allowMemoryFallback: allowCriticalMemoryFallback },
   )
 }
 
@@ -235,7 +238,7 @@ export async function deletePortfolioCertification(
   return withStore(
     'deletePortfolioCertification',
     (store) => store.deletePortfolioCertification(...args),
-    { allowMemoryFallback: false },
+    { allowMemoryFallback: allowCriticalMemoryFallback },
   )
 }
 
@@ -245,7 +248,7 @@ export async function createPortfolioEducation(
   return withStore(
     'createPortfolioEducation',
     (store) => store.createPortfolioEducation(...args),
-    { allowMemoryFallback: false },
+    { allowMemoryFallback: allowCriticalMemoryFallback },
   )
 }
 
@@ -255,7 +258,7 @@ export async function updatePortfolioEducation(
   return withStore(
     'updatePortfolioEducation',
     (store) => store.updatePortfolioEducation(...args),
-    { allowMemoryFallback: false },
+    { allowMemoryFallback: allowCriticalMemoryFallback },
   )
 }
 
@@ -265,7 +268,7 @@ export async function deletePortfolioEducation(
   return withStore(
     'deletePortfolioEducation',
     (store) => store.deletePortfolioEducation(...args),
-    { allowMemoryFallback: false },
+    { allowMemoryFallback: allowCriticalMemoryFallback },
   )
 }
 
