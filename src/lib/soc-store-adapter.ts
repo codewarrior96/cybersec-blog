@@ -331,6 +331,19 @@ export async function deletePortfolioEducation(
   )
 }
 
+export async function repairPortfolioStarterData(
+  ...args: Parameters<StoreModule['repairPortfolioStarterData']>
+) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.repairPortfolioStarterData(...args)
+  }
+  return withStore(
+    'repairPortfolioStarterData',
+    (store) => store.repairPortfolioStarterData(...args),
+    { allowMemoryFallback: allowCriticalMemoryFallback },
+  )
+}
+
 export type {
   RequestMetadata,
   SessionRecord,

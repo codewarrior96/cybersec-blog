@@ -44,6 +44,31 @@ function buildProfileFromSeed(username: string, displayName: string, userId = 1)
   }
 }
 
+function buildReadonlyVisitorProfile(): PortfolioProfileRecord {
+  return {
+    user: {
+      id: 0,
+      username: 'visitor',
+      displayName: 'Portfolio Visitor',
+      role: 'viewer',
+    },
+    profile: {
+      headline: 'Profil vitrini',
+      bio: 'Profil, sertifika ve egitim alanlarini gormek icin oturum acabilirsin.',
+      location: 'Istanbul, Turkiye',
+      website: '',
+      specialties: [],
+      tools: [],
+      avatarPath: null,
+      avatarName: null,
+      avatarMimeType: null,
+      updatedAt: new Date('2026-04-05T09:00:00.000Z').toISOString(),
+    },
+    certifications: [],
+    education: [],
+  }
+}
+
 function normalizeTab(value: string | undefined): 'profile' | 'certifications' | 'education' {
   if (value === 'certifications' || value === 'education' || value === 'profile') {
     return value
@@ -62,7 +87,7 @@ export default async function PortfolioPage({
   const session = await getServerSessionFromCookies(cookieStore)
 
   if (!session) {
-    return <PortfolioWorkspace initialProfile={buildProfileFromSeed('ghost', 'Ghost Admin')} initialTab={initialTab} editable={false} />
+    return <PortfolioWorkspace initialProfile={buildReadonlyVisitorProfile()} initialTab={initialTab} editable={false} />
   }
 
   const profile =

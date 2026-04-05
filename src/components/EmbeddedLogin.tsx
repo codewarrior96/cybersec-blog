@@ -13,8 +13,8 @@ interface EmbeddedLoginProps {
 export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuthenticated = true }: EmbeddedLoginProps) {
   const router = useRouter()
   const [visible, setVisible] = useState(false)
-  const [username, setUsername] = useState('ghost')
-  const [password, setPassword] = useState('demo_pass')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [remember, setRemember] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -676,7 +676,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
         <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
           <button
             type="button"
-            onClick={() => setHint('demo: ghost / demo_pass')}
+            onClick={() => setHint(process.env.NODE_ENV === 'production' ? '' : 'demo: ghost / demo_pass')}
             style={{
               background: 'transparent',
               border: 'none',

@@ -539,6 +539,96 @@ async function ensurePortfolioSeedDataForUser(user: {
   }
 }
 
+async function backfillPortfolioStarterDataForUser(
+  user: {
+    id: number
+    username: string
+    display_name: string
+  },
+  input: {
+    specialties: string[]
+    tools: string[]
+    certifications: PortfolioCertificationRecord[]
+    education: PortfolioEducationRecord[]
+  },
+): Promise<void> {
+  if (user.username === 'ghost') return
+
+  const db = await getDb()
+  const seed = getPortfolioSeedForUser({
+    username: user.username,
+    displayName: user.display_name,
+  })
+  const now = toIsoNow()
+
+  if (input.specialties.length === 0 || input.tools.length === 0) {
+    await db.run(
+      `
+        UPDATE user_profiles
+        SET specialties_json = ?, tools_json = ?, updated_at = ?
+        WHERE user_id = ?
+      `,
+      JSON.stringify(input.specialties.length === 0 ? seed.profile.specialties : input.specialties),
+      JSON.stringify(input.tools.length === 0 ? seed.profile.tools : input.tools),
+      now,
+      user.id,
+    )
+  }
+
+  if (input.certifications.length === 0) {
+    for (const certification of seed.certifications) {
+      await db.run(
+        `
+          INSERT INTO user_certifications (
+            user_id, title, issuer, issue_date, expiry_date, credential_id, verify_url,
+            status, notes, asset_path, asset_name, asset_mime_type, asset_size,
+            sort_order, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        user.id,
+        certification.title,
+        certification.issuer,
+        certification.issueDate,
+        certification.expiryDate,
+        certification.credentialId,
+        certification.verifyUrl,
+        certification.status,
+        certification.notes,
+        certification.assetPath,
+        certification.assetName,
+        certification.assetMimeType,
+        certification.assetSize,
+        certification.sortOrder,
+        now,
+        now,
+      )
+    }
+  }
+
+  if (input.education.length === 0) {
+    for (const education of seed.education) {
+      await db.run(
+        `
+          INSERT INTO user_education (
+            user_id, institution, program, degree, start_date, end_date, status, description, sort_order, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        user.id,
+        education.institution,
+        education.program,
+        education.degree,
+        education.startDate,
+        education.endDate,
+        education.status,
+        education.description,
+        education.sortOrder,
+        now,
+        now,
+      )
+    }
+  }
+}
+
 async function listPortfolioCertificationsByUserId(userId: number): Promise<PortfolioCertificationRecord[]> {
   const db = await getDb()
   const rows = await db.all<{
@@ -1717,7 +1807,7 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
   await ensurePortfolioSeedDataForUser(user)
   const db = await getDb()
 
-  const [profileRow, certifications, education] = await Promise.all([
+  let [profileRow, certifications, education] = await Promise.all([
     db.get<{
       headline: string
       bio: string
@@ -1761,6 +1851,57 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
     certifications,
     education,
   }
+}
+
+export async function repairPortfolioStarterData(
+  userId: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioProfileRecord | null> {
+  const user = await getActiveUserById(userId)
+  if (!user) return null
+
+  await ensurePortfolioSeedDataForUser(user)
+  const db = await getDb()
+  const [profileRow, certifications, education] = await Promise.all([
+    db.get<{
+      specialties_json: string
+      tools_json: string
+    }>(
+      `
+        SELECT specialties_json, tools_json
+        FROM user_profiles
+        WHERE user_id = ?
+        LIMIT 1
+      `,
+      userId,
+    ),
+    listPortfolioCertificationsByUserId(userId),
+    listPortfolioEducationByUserId(userId),
+  ])
+
+  if (!profileRow) return null
+
+  await backfillPortfolioStarterDataForUser(user, {
+    specialties: parseStringList(profileRow.specialties_json),
+    tools: parseStringList(profileRow.tools_json),
+    certifications,
+    education,
+  })
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.repair.starter',
+    entityType: 'profile',
+    entityId: userId,
+    details: {
+      certificationCountBefore: certifications.length,
+      educationCountBefore: education.length,
+    },
+    metadata,
+  })
+
+  return getPortfolioProfile(userId)
 }
 
 export async function getPortfolioCertificationById(

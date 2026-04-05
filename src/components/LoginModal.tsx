@@ -8,8 +8,8 @@ interface LoginModalProps {
 }
 
 export default function LoginModal({ onClose }: LoginModalProps) {
-  const [username, setUsername] = useState('ghost')
-  const [password, setPassword] = useState('demo_pass')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -134,9 +134,11 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         >
           {loading ? '[ CONNECTING... ]' : '[ ACCESS ]'}
         </button>
-        <div style={{ marginTop: 8, color: '#64748b', fontFamily: 'monospace', fontSize: 10 }}>
-          demo: ghost / demo_pass
-        </div>
+        {process.env.NODE_ENV !== 'production' && (
+          <div style={{ marginTop: 8, color: '#64748b', fontFamily: 'monospace', fontSize: 10 }}>
+            demo: ghost / demo_pass
+          </div>
+        )}
       </div>
     </div>
   )

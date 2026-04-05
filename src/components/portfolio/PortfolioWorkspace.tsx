@@ -256,6 +256,7 @@ export default function PortfolioWorkspace({
   )
   const avatarFileRef = useRef<HTMLInputElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
+  const starterRepairAttemptedRef = useRef(false)
 
   const selectedCert = useMemo(
     () => (typeof certId === 'number' ? data.certifications.find((item) => item.id === certId) ?? null : null),
@@ -470,6 +471,54 @@ export default function PortfolioWorkspace({
       })
     }
   }, [data.education.length, eduId, selectedEdu])
+
+  useEffect(() => {
+    if (!canEdit || authSyncing || starterRepairAttemptedRef.current) return
+    if (data.user.username === 'ghost') return
+    const repairKey = `portfolio-starter-repair:${data.user.id}`
+
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage.getItem(repairKey) === '1') {
+        starterRepairAttemptedRef.current = true
+        return
+      }
+    } catch {
+      // Ignore sessionStorage issues and continue with in-memory guard.
+    }
+
+    const needsStarterRepair =
+      data.profile.specialties.length === 0 &&
+      data.profile.tools.length === 0 &&
+      data.certifications.length === 0 &&
+      data.education.length === 0
+
+    if (!needsStarterRepair) return
+
+    starterRepairAttemptedRef.current = true
+
+    const runRepair = async () => {
+      try {
+        const response = await fetch('/api/profile/repair', {
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store',
+        })
+
+        if (!response.ok) return
+
+        const payload = (await response.json()) as { profile: PortfolioProfileRecord }
+        setData(payload.profile)
+        setMessage('Profil icerigi geri yuklendi.')
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(repairKey, '1')
+        }
+      } catch {
+        // No-op: keep the empty profile if repair is unavailable.
+      }
+    }
+
+    void runRepair()
+  }, [authSyncing, canEdit, data])
 
   async function saveProfile() {
     if (!canEdit || saving) return

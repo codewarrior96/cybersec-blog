@@ -404,6 +404,73 @@ function ensureProfileForUser(user: InternalUser): InternalProfile {
   return created
 }
 
+function backfillPortfolioStarterDataForUser(user: InternalUser) {
+  if (user.username === 'ghost') return
+
+  const store = getStore()
+  const profile = ensureProfileForUser(user)
+  const certifications = store.certifications.filter((item) => item.userId === user.id)
+  const education = store.education.filter((item) => item.userId === user.id)
+  const seed = getPortfolioSeedForUser({
+    username: user.username,
+    displayName: user.displayName,
+  })
+  const now = toIsoNow()
+
+  if (profile.specialties.length === 0) {
+    profile.specialties = [...seed.profile.specialties]
+    profile.updatedAt = now
+  }
+
+  if (profile.tools.length === 0) {
+    profile.tools = [...seed.profile.tools]
+    profile.updatedAt = now
+  }
+
+  if (certifications.length === 0) {
+    seed.certifications.forEach((item) => {
+      store.certifications.push({
+        id: store.counters.certificationId++,
+        userId: user.id,
+        title: item.title,
+        issuer: item.issuer,
+        issueDate: item.issueDate,
+        expiryDate: item.expiryDate,
+        credentialId: item.credentialId,
+        verifyUrl: item.verifyUrl,
+        status: item.status,
+        notes: item.notes,
+        assetPath: item.assetPath ?? null,
+        assetName: item.assetName ?? null,
+        assetMimeType: item.assetMimeType ?? null,
+        assetSize: item.assetSize ?? null,
+        sortOrder: item.sortOrder,
+        createdAt: now,
+        updatedAt: now,
+      })
+    })
+  }
+
+  if (education.length === 0) {
+    seed.education.forEach((item) => {
+      store.education.push({
+        id: store.counters.educationId++,
+        userId: user.id,
+        institution: item.institution,
+        program: item.program,
+        degree: item.degree,
+        startDate: item.startDate,
+        endDate: item.endDate,
+        status: item.status,
+        description: item.description,
+        sortOrder: item.sortOrder,
+        createdAt: now,
+        updatedAt: now,
+      })
+    })
+  }
+}
+
 function findActiveUserById(userId: number | null | undefined): InternalUser | null {
   if (!userId) return null
   const user = getStore().users.find((item) => item.id === userId && item.isActive)
@@ -1252,6 +1319,28 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
       .sort((a, b) => a.sortOrder - b.sortOrder || b.id - a.id)
       .map(toEducationRecord),
   }
+}
+
+export async function repairPortfolioStarterData(
+  userId: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioProfileRecord | null> {
+  const user = findActiveUserById(userId)
+  if (!user) return null
+
+  backfillPortfolioStarterDataForUser(user)
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.repair.starter',
+    entityType: 'profile',
+    entityId: userId,
+    details: { username: user.username },
+    metadata,
+  })
+
+  return getPortfolioProfile(userId)
 }
 
 export async function getPortfolioCertificationById(
