@@ -494,10 +494,14 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
   if (!user || !user.isActive) return null
 
   const profile = await ensureProfileSeedDataForUser(user)
-  const [certifications, education] = await Promise.all([
+  const [certifications, education, avatarAsset] = await Promise.all([
     listPortfolioCertificationsByUserId(user.id),
     listPortfolioEducationByUserId(user.id),
+    getPortfolioAvatarForUser(user.id),
   ])
+  const avatarPath = profile.avatarPath ?? avatarAsset?.assetPath ?? null
+  const avatarName = profile.avatarName ?? avatarAsset?.assetName ?? null
+  const avatarMimeType = profile.avatarMimeType ?? avatarAsset?.assetMimeType ?? null
 
   return {
     user: toSessionUser(user),
@@ -508,9 +512,9 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
       website: profile.website,
       specialties: [...profile.specialties],
       tools: [...profile.tools],
-      avatarPath: profile.avatarPath,
-      avatarName: profile.avatarName,
-      avatarMimeType: profile.avatarMimeType,
+      avatarPath,
+      avatarName,
+      avatarMimeType,
       updatedAt: profile.updatedAt,
     },
     certifications,
@@ -537,6 +541,10 @@ export async function updatePortfolioProfile(
   if (!user || !user.isActive) return null
 
   const current = await ensureProfileSeedDataForUser(user)
+  const fallbackAvatar =
+    current.avatarPath || current.avatarName || current.avatarMimeType
+      ? null
+      : await getPortfolioAvatarForUser(userId)
   const updated: StoredProfile = {
     ...current,
     headline: patch.headline.trim(),
@@ -545,6 +553,9 @@ export async function updatePortfolioProfile(
     website: patch.website.trim(),
     specialties: dedupeStringList(patch.specialties),
     tools: dedupeStringList(patch.tools),
+    avatarPath: current.avatarPath ?? fallbackAvatar?.assetPath ?? null,
+    avatarName: current.avatarName ?? fallbackAvatar?.assetName ?? null,
+    avatarMimeType: current.avatarMimeType ?? fallbackAvatar?.assetMimeType ?? null,
     updatedAt: toIsoNow(),
   }
 

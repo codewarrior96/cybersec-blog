@@ -289,7 +289,17 @@ export default function PortfolioWorkspace({
       })
       if (!response.ok) return setError(await readError(response, 'Profil kaydedilemedi.'))
       const payload = (await response.json()) as { profile: PortfolioProfileRecord }
-      setData(payload.profile); setMessage('Profil guncellendi.')
+      setData((current) => ({
+        ...payload.profile,
+        profile: {
+          ...payload.profile.profile,
+          avatarPath: payload.profile.profile.avatarPath ?? current.profile.avatarPath ?? null,
+          avatarName: payload.profile.profile.avatarName ?? current.profile.avatarName ?? null,
+          avatarMimeType:
+            payload.profile.profile.avatarMimeType ?? current.profile.avatarMimeType ?? null,
+        },
+      }))
+      setMessage('Profil guncellendi.')
     } finally { setSaving(false) }
   }
 
