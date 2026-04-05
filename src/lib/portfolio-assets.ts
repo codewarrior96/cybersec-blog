@@ -4,6 +4,7 @@ import path from 'path'
 
 const PROFILE_ASSET_ROOT = path.join(process.cwd(), 'data', 'profile-assets')
 const CERTIFICATION_ASSET_ROOT = path.join(PROFILE_ASSET_ROOT, 'certifications')
+const AVATAR_ASSET_ROOT = path.join(PROFILE_ASSET_ROOT, 'avatars')
 
 const MIME_EXTENSION_MAP: Record<string, string> = {
   'application/pdf': '.pdf',
@@ -13,13 +14,21 @@ const MIME_EXTENSION_MAP: Record<string, string> = {
 }
 
 const ALLOWED_CERTIFICATION_MIME_TYPES = new Set(Object.keys(MIME_EXTENSION_MAP))
+const ALLOWED_AVATAR_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const MAX_CERTIFICATION_ASSET_BYTES = 10 * 1024 * 1024
+const MAX_AVATAR_ASSET_BYTES = 5 * 1024 * 1024
 
 export interface StoredCertificationAsset {
   assetPath: string
   assetName: string
   assetMimeType: string
   assetSize: number
+}
+
+export interface StoredAvatarAsset {
+  assetPath: string
+  assetName: string
+  assetMimeType: string
 }
 
 function sanitizePathSegment(value: string): string {
@@ -42,6 +51,10 @@ export function isSupportedCertificationMimeType(mimeType: string): boolean {
 
 export function getCertificationAssetUrl(certificationId: number): string {
   return `/api/profile/certifications/assets/${certificationId}`
+}
+
+export function getAvatarAssetUrl(userId: number): string {
+  return `/api/profile/avatar/${userId}`
 }
 
 export async function saveCertificationAsset(
@@ -75,6 +88,39 @@ export async function saveCertificationAsset(
     assetName: file.name,
     assetMimeType: mimeType,
     assetSize: file.size,
+  }
+}
+
+export async function saveAvatarAsset(
+  userId: number,
+  file: File,
+): Promise<StoredAvatarAsset> {
+  const mimeType = file.type || 'application/octet-stream'
+  if (!ALLOWED_AVATAR_MIME_TYPES.has(mimeType)) {
+    throw new Error('Profil fotografisi yalnizca JPG, PNG veya WEBP olabilir.')
+  }
+  if (file.size <= 0) {
+    throw new Error('Bos dosya yuklenemez.')
+  }
+  if (file.size > MAX_AVATAR_ASSET_BYTES) {
+    throw new Error('Profil fotografisi en fazla 5 MB olabilir.')
+  }
+
+  const userSegment = sanitizePathSegment(`user-${userId}`)
+  const directory = path.join(AVATAR_ASSET_ROOT, userSegment)
+  await fs.mkdir(directory, { recursive: true })
+
+  const safeBaseName = sanitizeFileName(path.basename(file.name, path.extname(file.name))) || 'avatar'
+  const extension = getFileExtension(file.name, mimeType)
+  const fileName = `${Date.now()}-${randomUUID()}-${safeBaseName}${extension}`
+  const absolutePath = path.join(directory, fileName)
+  const buffer = Buffer.from(await file.arrayBuffer())
+  await fs.writeFile(absolutePath, buffer)
+
+  return {
+    assetPath: path.posix.join('avatars', userSegment, fileName),
+    assetName: file.name,
+    assetMimeType: mimeType,
   }
 }
 

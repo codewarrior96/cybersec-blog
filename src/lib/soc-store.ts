@@ -218,6 +218,10 @@ function toSessionUserFromRow(row: {
   }
 }
 
+function normalizeUsernameKey(username: string) {
+  return username.trim().toLowerCase()
+}
+
 function toPortfolioCertificationRecord(row: {
   id: number
   user_id: number
@@ -359,6 +363,7 @@ export async function cleanupExpiredSessions() {
 
 export async function authenticateUser(username: string, password: string): Promise<SessionUser | null> {
   const db = await getDb()
+  const usernameKey = normalizeUsernameKey(username)
   const row = await db.get<{
     id: number
     username: string
@@ -370,10 +375,10 @@ export async function authenticateUser(username: string, password: string): Prom
     `
       SELECT id, username, display_name, role, password_hash, is_active
       FROM users
-      WHERE username = ?
+      WHERE lower(username) = ?
       LIMIT 1
     `,
-    username,
+    usernameKey,
   )
 
   if (!row || row.is_active !== 1) return null
@@ -419,6 +424,7 @@ async function getActiveUserByUsername(username: string): Promise<{
   role: UserRole
 } | null> {
   const db = await getDb()
+  const usernameKey = normalizeUsernameKey(username)
   const row = await db.get<{
     id: number
     username: string
@@ -428,10 +434,10 @@ async function getActiveUserByUsername(username: string): Promise<{
     `
       SELECT id, username, display_name, role
       FROM users
-      WHERE username = ? AND is_active = 1
+      WHERE lower(username) = ? AND is_active = 1
       LIMIT 1
     `,
-    username,
+    usernameKey,
   )
 
   return row ?? null
@@ -460,8 +466,8 @@ async function ensurePortfolioSeedDataForUser(user: {
     await db.run(
       `
         INSERT INTO user_profiles (
-          user_id, headline, bio, location, website, specialties_json, tools_json, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          user_id, headline, bio, location, website, specialties_json, tools_json, avatar_path, avatar_name, avatar_mime_type, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       user.id,
       seed.profile.headline,
@@ -470,6 +476,9 @@ async function ensurePortfolioSeedDataForUser(user: {
       seed.profile.website,
       JSON.stringify(seed.profile.specialties),
       JSON.stringify(seed.profile.tools),
+      seed.profile.avatarPath ?? null,
+      seed.profile.avatarName ?? null,
+      seed.profile.avatarMimeType ?? null,
       now,
       now,
     )
@@ -1716,10 +1725,13 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
       website: string
       specialties_json: string
       tools_json: string
+      avatar_path: string | null
+      avatar_name: string | null
+      avatar_mime_type: string | null
       updated_at: string
     }>(
       `
-        SELECT headline, bio, location, website, specialties_json, tools_json, updated_at
+        SELECT headline, bio, location, website, specialties_json, tools_json, avatar_path, avatar_name, avatar_mime_type, updated_at
         FROM user_profiles
         WHERE user_id = ?
         LIMIT 1
@@ -1741,6 +1753,9 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
       website: profileRow.website,
       specialties: parseStringList(profileRow.specialties_json),
       tools: parseStringList(profileRow.tools_json),
+      avatarPath: profileRow.avatar_path,
+      avatarName: profileRow.avatar_name,
+      avatarMimeType: profileRow.avatar_mime_type,
       updatedAt: profileRow.updated_at,
     },
     certifications,
@@ -1825,6 +1840,47 @@ export async function updatePortfolioProfile(
       specialtyCount: patch.specialties.length,
       toolCount: patch.tools.length,
     },
+    metadata,
+  })
+
+  return getPortfolioProfile(userId)
+}
+
+export async function updatePortfolioAvatar(
+  userId: number,
+  input: {
+    avatarPath: string | null
+    avatarName: string | null
+    avatarMimeType: string | null
+  },
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioProfileRecord | null> {
+  const user = await getActiveUserById(userId)
+  if (!user) return null
+
+  await ensurePortfolioSeedDataForUser(user)
+  const db = await getDb()
+
+  await db.run(
+    `
+      UPDATE user_profiles
+      SET avatar_path = ?, avatar_name = ?, avatar_mime_type = ?, updated_at = ?
+      WHERE user_id = ?
+    `,
+    input.avatarPath,
+    input.avatarName,
+    input.avatarMimeType,
+    toIsoNow(),
+    userId,
+  )
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: input.avatarPath ? 'profile.avatar.update' : 'profile.avatar.clear',
+    entityType: 'profile',
+    entityId: userId,
+    details: { hasAvatar: Boolean(input.avatarPath) },
     metadata,
   })
 

@@ -4,6 +4,9 @@ import type { AttackEventInput, LiveMetrics } from '@/lib/soc-store-memory'
 
 type StoreModule = typeof import('@/lib/soc-store-memory')
 type StorageMode = 'memory' | 'sqlite'
+type StoreOptions = {
+  allowMemoryFallback?: boolean
+}
 
 const requestedStorageMode = (process.env.SOC_STORAGE ?? 'sqlite').toLowerCase()
 let activeStorageMode: StorageMode = requestedStorageMode === 'sqlite' ? 'sqlite' : 'memory'
@@ -21,15 +24,28 @@ async function getSqliteStore(): Promise<StoreModule> {
   return sqliteStorePromise
 }
 
-async function withStore<T>(operation: string, runner: (store: StoreModule) => Promise<T>): Promise<T> {
-  if (activeStorageMode === 'memory') {
+async function withStore<T>(
+  operation: string,
+  runner: (store: StoreModule) => Promise<T>,
+  options: StoreOptions = {},
+): Promise<T> {
+  const allowMemoryFallback = options.allowMemoryFallback ?? true
+  const forceSqlite = requestedStorageMode === 'sqlite' && !allowMemoryFallback
+
+  if (activeStorageMode === 'memory' && !forceSqlite) {
     return runner(memoryStore)
   }
 
   try {
     const sqliteStore = await getSqliteStore()
-    return await runner(sqliteStore)
+    const result = await runner(sqliteStore)
+    activeStorageMode = 'sqlite'
+    return result
   } catch (error) {
+    if (!allowMemoryFallback || requestedStorageMode === 'sqlite') {
+      throw error
+    }
+
     console.error(
       `[soc-store-adapter] ${operation} failed on sqlite store. Falling back to memory store.`,
       error,
@@ -52,21 +68,29 @@ export async function cleanupExpiredSessions(
 export async function authenticateUser(
   ...args: Parameters<StoreModule['authenticateUser']>
 ) {
-  return withStore('authenticateUser', (store) => store.authenticateUser(...args))
+  return withStore('authenticateUser', (store) => store.authenticateUser(...args), {
+    allowMemoryFallback: false,
+  })
 }
 
 export async function createSession(...args: Parameters<StoreModule['createSession']>) {
-  return withStore('createSession', (store) => store.createSession(...args))
+  return withStore('createSession', (store) => store.createSession(...args), {
+    allowMemoryFallback: false,
+  })
 }
 
 export async function deleteSession(...args: Parameters<StoreModule['deleteSession']>) {
-  return withStore('deleteSession', (store) => store.deleteSession(...args))
+  return withStore('deleteSession', (store) => store.deleteSession(...args), {
+    allowMemoryFallback: false,
+  })
 }
 
 export async function getSessionByToken(
   ...args: Parameters<StoreModule['getSessionByToken']>
 ) {
-  return withStore('getSessionByToken', (store) => store.getSessionByToken(...args))
+  return withStore('getSessionByToken', (store) => store.getSessionByToken(...args), {
+    allowMemoryFallback: false,
+  })
 }
 
 export async function listAssignableUsers(
@@ -142,76 +166,106 @@ export async function deleteReport(...args: Parameters<StoreModule['deleteReport
 }
 
 export async function createUser(...args: Parameters<StoreModule['createUser']>) {
-  return withStore('createUser', (store) => store.createUser(...args))
+  return withStore('createUser', (store) => store.createUser(...args), {
+    allowMemoryFallback: false,
+  })
 }
 
 export async function registerUser(...args: Parameters<StoreModule['registerUser']>) {
-  return withStore('registerUser', (store) => store.registerUser(...args))
+  return withStore('registerUser', (store) => store.registerUser(...args), {
+    allowMemoryFallback: false,
+  })
 }
 
 export async function getPortfolioProfile(...args: Parameters<StoreModule['getPortfolioProfile']>) {
-  return withStore('getPortfolioProfile', (store) => store.getPortfolioProfile(...args))
+  return withStore('getPortfolioProfile', (store) => store.getPortfolioProfile(...args), {
+    allowMemoryFallback: false,
+  })
 }
 
 export async function getPortfolioCertificationById(
   ...args: Parameters<StoreModule['getPortfolioCertificationById']>
 ) {
-  return withStore('getPortfolioCertificationById', (store) =>
-    store.getPortfolioCertificationById(...args),
+  return withStore(
+    'getPortfolioCertificationById',
+    (store) => store.getPortfolioCertificationById(...args),
+    { allowMemoryFallback: false },
   )
 }
 
 export async function updatePortfolioProfile(
   ...args: Parameters<StoreModule['updatePortfolioProfile']>
 ) {
-  return withStore('updatePortfolioProfile', (store) => store.updatePortfolioProfile(...args))
+  return withStore('updatePortfolioProfile', (store) => store.updatePortfolioProfile(...args), {
+    allowMemoryFallback: false,
+  })
+}
+
+export async function updatePortfolioAvatar(
+  ...args: Parameters<StoreModule['updatePortfolioAvatar']>
+) {
+  return withStore('updatePortfolioAvatar', (store) => store.updatePortfolioAvatar(...args), {
+    allowMemoryFallback: false,
+  })
 }
 
 export async function createPortfolioCertification(
   ...args: Parameters<StoreModule['createPortfolioCertification']>
 ) {
-  return withStore('createPortfolioCertification', (store) =>
-    store.createPortfolioCertification(...args),
+  return withStore(
+    'createPortfolioCertification',
+    (store) => store.createPortfolioCertification(...args),
+    { allowMemoryFallback: false },
   )
 }
 
 export async function updatePortfolioCertification(
   ...args: Parameters<StoreModule['updatePortfolioCertification']>
 ) {
-  return withStore('updatePortfolioCertification', (store) =>
-    store.updatePortfolioCertification(...args),
+  return withStore(
+    'updatePortfolioCertification',
+    (store) => store.updatePortfolioCertification(...args),
+    { allowMemoryFallback: false },
   )
 }
 
 export async function deletePortfolioCertification(
   ...args: Parameters<StoreModule['deletePortfolioCertification']>
 ) {
-  return withStore('deletePortfolioCertification', (store) =>
-    store.deletePortfolioCertification(...args),
+  return withStore(
+    'deletePortfolioCertification',
+    (store) => store.deletePortfolioCertification(...args),
+    { allowMemoryFallback: false },
   )
 }
 
 export async function createPortfolioEducation(
   ...args: Parameters<StoreModule['createPortfolioEducation']>
 ) {
-  return withStore('createPortfolioEducation', (store) =>
-    store.createPortfolioEducation(...args),
+  return withStore(
+    'createPortfolioEducation',
+    (store) => store.createPortfolioEducation(...args),
+    { allowMemoryFallback: false },
   )
 }
 
 export async function updatePortfolioEducation(
   ...args: Parameters<StoreModule['updatePortfolioEducation']>
 ) {
-  return withStore('updatePortfolioEducation', (store) =>
-    store.updatePortfolioEducation(...args),
+  return withStore(
+    'updatePortfolioEducation',
+    (store) => store.updatePortfolioEducation(...args),
+    { allowMemoryFallback: false },
   )
 }
 
 export async function deletePortfolioEducation(
   ...args: Parameters<StoreModule['deletePortfolioEducation']>
 ) {
-  return withStore('deletePortfolioEducation', (store) =>
-    store.deletePortfolioEducation(...args),
+  return withStore(
+    'deletePortfolioEducation',
+    (store) => store.deletePortfolioEducation(...args),
+    { allowMemoryFallback: false },
   )
 }
 

@@ -63,6 +63,9 @@ interface InternalProfile {
   website: string
   specialties: string[]
   tools: string[]
+  avatarPath: string | null
+  avatarName: string | null
+  avatarMimeType: string | null
   createdAt: string
   updatedAt: string
 }
@@ -235,6 +238,9 @@ function createSeededState(): StoreState {
       website: seed.profile.website,
       specialties: [...seed.profile.specialties],
       tools: [...seed.profile.tools],
+      avatarPath: seed.profile.avatarPath ?? null,
+      avatarName: seed.profile.avatarName ?? null,
+      avatarMimeType: seed.profile.avatarMimeType ?? null,
       createdAt: now,
       updatedAt: now,
     })
@@ -388,6 +394,9 @@ function ensureProfileForUser(user: InternalUser): InternalProfile {
     website: seed.profile.website,
     specialties: [...seed.profile.specialties],
     tools: [...seed.profile.tools],
+    avatarPath: seed.profile.avatarPath ?? null,
+    avatarName: seed.profile.avatarName ?? null,
+    avatarMimeType: seed.profile.avatarMimeType ?? null,
     createdAt: now,
     updatedAt: now,
   }
@@ -401,8 +410,15 @@ function findActiveUserById(userId: number | null | undefined): InternalUser | n
   return user ?? null
 }
 
+function normalizeUsernameKey(username: string) {
+  return username.trim().toLowerCase()
+}
+
 function findActiveUserByUsername(username: string): InternalUser | null {
-  const user = getStore().users.find((item) => item.username === username && item.isActive)
+  const usernameKey = normalizeUsernameKey(username)
+  const user = getStore().users.find(
+    (item) => normalizeUsernameKey(item.username) === usernameKey && item.isActive,
+  )
   return user ?? null
 }
 
@@ -1174,8 +1190,8 @@ export async function registerUser(input: {
   metadata: RequestMetadata
 }): Promise<SessionUser> {
   const store = getStore()
-  const usernameKey = input.username.toLocaleLowerCase('tr-TR')
-  const exists = store.users.some((user) => user.username.toLocaleLowerCase('tr-TR') === usernameKey)
+  const usernameKey = normalizeUsernameKey(input.username)
+  const exists = store.users.some((user) => normalizeUsernameKey(user.username) === usernameKey)
   if (exists) {
     throw new Error('User already exists')
   }
@@ -1222,6 +1238,9 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
       website: profile.website,
       specialties: [...profile.specialties],
       tools: [...profile.tools],
+      avatarPath: profile.avatarPath,
+      avatarName: profile.avatarName,
+      avatarMimeType: profile.avatarMimeType,
       updatedAt: profile.updatedAt,
     },
     certifications: store.certifications
@@ -1267,6 +1286,37 @@ export async function updatePortfolioProfile(
     entityType: 'profile',
     entityId: userId,
     details: { headline: profile.headline, specialtyCount: profile.specialties.length, toolCount: profile.tools.length },
+    metadata,
+  })
+
+  return getPortfolioProfile(userId)
+}
+
+export async function updatePortfolioAvatar(
+  userId: number,
+  input: {
+    avatarPath: string | null
+    avatarName: string | null
+    avatarMimeType: string | null
+  },
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioProfileRecord | null> {
+  const user = findActiveUserById(userId)
+  if (!user) return null
+  const profile = ensureProfileForUser(user)
+
+  profile.avatarPath = input.avatarPath
+  profile.avatarName = input.avatarName
+  profile.avatarMimeType = input.avatarMimeType
+  profile.updatedAt = toIsoNow()
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: input.avatarPath ? 'profile.avatar.update' : 'profile.avatar.clear',
+    entityType: 'profile',
+    entityId: userId,
+    details: { hasAvatar: Boolean(input.avatarPath) },
     metadata,
   })
 
@@ -1482,7 +1532,8 @@ export async function createUser(input: {
   metadata: RequestMetadata
 }) {
   const store = getStore()
-  const exists = store.users.some((user) => user.username === input.username)
+  const usernameKey = normalizeUsernameKey(input.username)
+  const exists = store.users.some((user) => normalizeUsernameKey(user.username) === usernameKey)
   if (exists) {
     throw new Error('User already exists')
   }

@@ -45,6 +45,12 @@ async function loadSqliteDriver() {
   return ('default' in sqliteModule ? sqliteModule.default : sqliteModule) as typeof import('sqlite3')
 }
 
+async function ensureColumn(db: SqliteDb, tableName: string, columnName: string, definition: string) {
+  const columns = await db.all<{ name: string }[]>(`PRAGMA table_info(${tableName})`)
+  if (columns.some((column) => column.name === columnName)) return
+  await db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`)
+}
+
 async function initializeSchema(db: SqliteDb) {
   await db.exec('PRAGMA journal_mode = WAL;')
   await db.exec('PRAGMA foreign_keys = ON;')
@@ -164,6 +170,9 @@ async function initializeSchema(db: SqliteDb) {
       website TEXT NOT NULL DEFAULT '',
       specialties_json TEXT NOT NULL DEFAULT '[]',
       tools_json TEXT NOT NULL DEFAULT '[]',
+      avatar_path TEXT,
+      avatar_name TEXT,
+      avatar_mime_type TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -218,6 +227,10 @@ async function initializeSchema(db: SqliteDb) {
     CREATE INDEX IF NOT EXISTS idx_user_certifications_user_id ON user_certifications(user_id, sort_order, id);
     CREATE INDEX IF NOT EXISTS idx_user_education_user_id ON user_education(user_id, sort_order, id);
   `)
+
+  await ensureColumn(db, 'user_profiles', 'avatar_path', 'TEXT')
+  await ensureColumn(db, 'user_profiles', 'avatar_name', 'TEXT')
+  await ensureColumn(db, 'user_profiles', 'avatar_mime_type', 'TEXT')
 }
 
 async function seedUsers(db: SqliteDb) {
@@ -268,8 +281,8 @@ async function seedProfileData(db: SqliteDb) {
     await db.run(
       `
         INSERT INTO user_profiles (
-          user_id, headline, bio, location, website, specialties_json, tools_json, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          user_id, headline, bio, location, website, specialties_json, tools_json, avatar_path, avatar_name, avatar_mime_type, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       user.id,
       seed.profile.headline,
@@ -278,6 +291,9 @@ async function seedProfileData(db: SqliteDb) {
       seed.profile.website,
       JSON.stringify(seed.profile.specialties),
       JSON.stringify(seed.profile.tools),
+      seed.profile.avatarPath ?? null,
+      seed.profile.avatarName ?? null,
+      seed.profile.avatarMimeType ?? null,
       now,
       now,
     )

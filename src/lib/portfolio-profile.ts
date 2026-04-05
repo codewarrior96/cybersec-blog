@@ -10,6 +10,9 @@ export interface PortfolioProfileFields {
   website: string
   specialties: string[]
   tools: string[]
+  avatarPath?: string | null
+  avatarName?: string | null
+  avatarMimeType?: string | null
 }
 
 export interface PortfolioCertificationRecord {
@@ -70,6 +73,9 @@ const DEFAULT_EMPTY_PROFILE: PortfolioProfileSeed = {
     website: '',
     specialties: [],
     tools: [],
+    avatarPath: null,
+    avatarName: null,
+    avatarMimeType: null,
   },
   certifications: [],
   education: [],
@@ -83,6 +89,9 @@ const GHOST_PROFILE: PortfolioProfileSeed = {
     website: 'https://cybersec.blog',
     specialties: ['Web Security', 'Threat Analysis', 'CTF', 'Writeup', 'Blue Team Thinking'],
     tools: ['Burp Suite', 'Nmap', 'Metasploit', 'Wireshark', 'Ghidra', 'Python', 'Linux', 'Sqlmap'],
+    avatarPath: null,
+    avatarName: null,
+    avatarMimeType: null,
   },
   certifications: [
     {

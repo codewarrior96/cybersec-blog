@@ -1,6 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { getAuthSession } from '@/lib/auth-client'
 import type {
   PortfolioCertificationRecord,
   PortfolioEducationRecord,
@@ -54,6 +56,22 @@ async function readError(response: Response, fallback: string) {
   return payload.error ?? fallback
 }
 
+function buildAvatarSrc(userId: number, username: string, avatarPath: string | null | undefined) {
+  if (avatarPath) {
+    return `/api/profile/avatar/${userId}?v=${encodeURIComponent(avatarPath)}`
+  }
+  if (username === 'ghost') {
+    return '/skull.jpg'
+  }
+  return ''
+}
+
+function getInitials(value: string) {
+  const parts = value.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return 'OP'
+  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('')
+}
+
 function CertificationPreview({ item }: { item: PortfolioCertificationRecord }) {
   const url = item.assetPath ? `/api/profile/certifications/assets/${item.id}` : ''
   if (item.assetPath && item.assetMimeType?.startsWith('image/')) {
@@ -87,6 +105,8 @@ export default function PortfolioWorkspace({
 }) {
   const [tab, setTab] = useState<TabId>(initialTab)
   const [data, setData] = useState(initialProfile)
+  const [canEdit, setCanEdit] = useState(editable)
+  const [authSyncing, setAuthSyncing] = useState(!editable)
   const [profileForm, setProfileForm] = useState({
     headline: initialProfile.profile.headline,
     bio: initialProfile.profile.bio,
@@ -95,6 +115,7 @@ export default function PortfolioWorkspace({
     specialties: listToText(initialProfile.profile.specialties),
     tools: listToText(initialProfile.profile.tools),
   })
+  const [avatarUploading, setAvatarUploading] = useState(false)
   const [certId, setCertId] = useState<number | 'new'>(initialProfile.certifications[0]?.id ?? 'new')
   const [eduId, setEduId] = useState<number | 'new'>(initialProfile.education[0]?.id ?? 'new')
   const [certForm, setCertForm] = useState(emptyCert)
@@ -104,6 +125,7 @@ export default function PortfolioWorkspace({
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const avatarFileRef = useRef<HTMLInputElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
 
   const selectedCert = useMemo(
@@ -114,8 +136,16 @@ export default function PortfolioWorkspace({
     () => (typeof eduId === 'number' ? data.education.find((item) => item.id === eduId) ?? null : null),
     [data.education, eduId],
   )
+  const avatarSrc = useMemo(
+    () => buildAvatarSrc(data.user.id, data.user.username, data.profile.avatarPath),
+    [data.profile.avatarPath, data.user.id, data.user.username],
+  )
 
   useEffect(() => setData(initialProfile), [initialProfile])
+  useEffect(() => {
+    setCanEdit(editable)
+    setAuthSyncing(!editable)
+  }, [editable])
 
   useEffect(() => {
     setProfileForm({
@@ -127,6 +157,75 @@ export default function PortfolioWorkspace({
       tools: listToText(data.profile.tools),
     })
   }, [data.profile])
+
+  useEffect(() => {
+    let active = true
+
+    const syncEditableMode = async () => {
+      if (editable) {
+        try {
+          const response = await fetch('/api/profile/me', {
+            method: 'GET',
+            credentials: 'include',
+            cache: 'no-store',
+          })
+
+          if (!active) return
+
+          if (response.ok) {
+            const payload = (await response.json()) as { profile: PortfolioProfileRecord }
+            setData(payload.profile)
+          }
+        } catch {
+          // Keep the server-rendered profile as a safe fallback.
+        } finally {
+          if (active) {
+            setCanEdit(true)
+            setAuthSyncing(false)
+          }
+        }
+        return
+      }
+
+      try {
+        const session = await getAuthSession(false)
+        if (!active) return
+        if (!session.authenticated) {
+          setAuthSyncing(false)
+          return
+        }
+
+        const response = await fetch('/api/profile/me', {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-store',
+        })
+
+        if (!active) return
+        if (!response.ok) {
+          setAuthSyncing(false)
+          return
+        }
+
+        const payload = (await response.json()) as { profile: PortfolioProfileRecord }
+        setData(payload.profile)
+        setCanEdit(true)
+      } catch {
+        if (active) {
+          setCanEdit(false)
+        }
+      } finally {
+        if (active) {
+          setAuthSyncing(false)
+        }
+      }
+    }
+
+    void syncEditableMode()
+    return () => {
+      active = false
+    }
+  }, [editable])
 
   useEffect(() => {
     if (certId === 'new') return setCertForm({ ...emptyCert, sortOrder: data.certifications.length })
@@ -162,7 +261,7 @@ export default function PortfolioWorkspace({
   }, [data.education.length, eduId, selectedEdu])
 
   async function saveProfile() {
-    if (!editable || saving) return
+    if (!canEdit || saving) return
     setSaving(true); setError(null); setMessage(null)
     try {
       const response = await fetch('/api/profile/me', {
@@ -181,8 +280,69 @@ export default function PortfolioWorkspace({
     } finally { setSaving(false) }
   }
 
+  async function uploadAvatar(file: File | null) {
+    if (!canEdit || !file || avatarUploading) return
+
+    setAvatarUploading(true)
+    setError(null)
+    setMessage(null)
+
+    try {
+      const formData = new FormData()
+      formData.set('avatar', file)
+      const response = await fetch('/api/profile/avatar', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        setError(await readError(response, 'Profil fotografisi yuklenemedi.'))
+        return
+      }
+
+      const payload = (await response.json()) as { profile: PortfolioProfileRecord }
+      setData(payload.profile)
+      setMessage('Profil fotografisi guncellendi.')
+    } finally {
+      setAvatarUploading(false)
+      if (avatarFileRef.current) {
+        avatarFileRef.current.value = ''
+      }
+    }
+  }
+
+  async function removeAvatar() {
+    if (!canEdit || avatarUploading || !data.profile.avatarPath) return
+
+    setAvatarUploading(true)
+    setError(null)
+    setMessage(null)
+
+    try {
+      const response = await fetch('/api/profile/avatar', {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        setError(await readError(response, 'Profil fotografisi kaldirilamadi.'))
+        return
+      }
+
+      const payload = (await response.json()) as { profile: PortfolioProfileRecord }
+      setData(payload.profile)
+      setMessage('Profil fotografisi kaldirildi.')
+    } finally {
+      setAvatarUploading(false)
+      if (avatarFileRef.current) {
+        avatarFileRef.current.value = ''
+      }
+    }
+  }
+
   async function saveCertification() {
-    if (!editable || saving) return
+    if (!canEdit || saving) return
     setSaving(true); setError(null); setMessage(null)
     try {
       const formData = new FormData()
@@ -207,7 +367,7 @@ export default function PortfolioWorkspace({
   }
 
   async function deleteCertification() {
-    if (!editable || certId === 'new' || saving) return
+    if (!canEdit || certId === 'new' || saving) return
     setSaving(true); setError(null); setMessage(null)
     try {
       const response = await fetch(`/api/profile/certifications/${certId}`, { method: 'DELETE', credentials: 'include' })
@@ -218,7 +378,7 @@ export default function PortfolioWorkspace({
   }
 
   async function saveEducation() {
-    if (!editable || saving) return
+    if (!canEdit || saving) return
     setSaving(true); setError(null); setMessage(null)
     try {
       const isNew = eduId === 'new'
@@ -239,7 +399,7 @@ export default function PortfolioWorkspace({
   }
 
   async function deleteEducation() {
-    if (!editable || eduId === 'new' || saving) return
+    if (!canEdit || eduId === 'new' || saving) return
     setSaving(true); setError(null); setMessage(null)
     try {
       const response = await fetch(`/api/profile/education/${eduId}`, { method: 'DELETE', credentials: 'include' })
@@ -250,7 +410,7 @@ export default function PortfolioWorkspace({
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-10">
+    <div className="mx-auto max-w-[1680px] px-4 py-8 md:px-6 lg:px-8 xl:px-10 md:py-10">
       <section className="overflow-hidden rounded-[32px] border border-emerald-400/12 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.09),rgba(4,8,7,0.94)_55%,rgba(1,4,3,0.98)_100%)] shadow-[0_20px_70px_rgba(0,0,0,0.32)]">
         <div className="border-b border-emerald-400/10 px-5 py-6 md:px-8">
           <p className="font-mono text-[11px] uppercase tracking-[0.42em] text-emerald-300/65">Portfolio Control Surface</p>
@@ -259,9 +419,37 @@ export default function PortfolioWorkspace({
               <h1 className="text-3xl font-semibold text-slate-100 md:text-5xl">Profil merkezi</h1>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300/75">Profil, sertifika ve egitimlerini burada tek merkezden yonetebilirsin.</p>
             </div>
-            <div className="flex flex-wrap gap-2 text-xs text-emerald-200/80">
-              <span className="rounded-full border border-emerald-400/20 px-3 py-1">{data.user.displayName}</span>
-              <span className="rounded-full border border-emerald-400/20 px-3 py-1">{editable ? 'EDIT MODE' : 'READ ONLY'}</span>
+            <div className="min-w-0 rounded-[28px] border border-emerald-400/12 bg-black/30 p-4 shadow-[0_18px_45px_rgba(0,0,0,0.18)] md:min-w-[360px]">
+              <div className="flex items-center gap-4">
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[22px] border border-emerald-400/20 bg-emerald-400/8">
+                  {avatarSrc ? (
+                    <img src={avatarSrc} alt={data.user.displayName} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center font-mono text-lg tracking-[0.18em] text-emerald-200/85">
+                      {getInitials(data.user.displayName)}
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-base font-semibold text-slate-100">{data.user.displayName}</p>
+                  <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.24em] text-emerald-300/60">
+                    @{data.user.username}
+                  </p>
+                  <p className="mt-2 truncate text-xs text-slate-400">
+                    {profileForm.headline || data.profile.headline || 'Operator profile active'}
+                  </p>
+                </div>
+
+                <div className="flex flex-col items-end gap-2">
+                  <span className="rounded-full border border-emerald-400/20 px-3 py-1 text-[11px] text-emerald-200/80">
+                    {data.user.role.toUpperCase()}
+                  </span>
+                  <span className="rounded-full border border-emerald-400/20 px-3 py-1 text-[11px] text-emerald-200/80">
+                    {authSyncing ? 'SESSION SYNC' : canEdit ? 'EDIT MODE' : 'READ ONLY'}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -271,22 +459,125 @@ export default function PortfolioWorkspace({
         </div>
 
         <div className="px-5 py-6 md:px-8">
+          {!canEdit && !authSyncing && (
+            <div className="mb-6 flex flex-col gap-4 rounded-[26px] border border-amber-300/15 bg-amber-400/[0.04] px-5 py-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-amber-200/75">
+                  Duzenleme kilidi
+                </p>
+                <p className="mt-2 text-sm leading-7 text-slate-300/80">
+                  Profili duzenlemek, sertifika eklemek ve egitim kayitlarini yonetmek icin giris yapman veya yeni hesap olusturman gerekiyor.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href="/login"
+                  className="rounded-2xl border border-emerald-300/25 bg-emerald-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 transition hover:bg-emerald-400/16"
+                >
+                  Giris Yap
+                </Link>
+                <Link
+                  href="/register"
+                  className="rounded-2xl border border-emerald-300/25 bg-transparent px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 transition hover:bg-emerald-400/10"
+                >
+                  Kayit Ol
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {authSyncing && (
+            <div className="mb-6 rounded-[24px] border border-emerald-400/10 bg-emerald-400/[0.04] px-5 py-4 font-mono text-[11px] uppercase tracking-[0.32em] text-emerald-200/70">
+              Oturum senkronize ediliyor...
+            </div>
+          )}
+
           {tab === 'profile' && (
             <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
               <div className="rounded-[28px] border border-white/8 bg-black/30 p-5 md:p-6">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <input value={profileForm.headline} onChange={(event) => setProfileForm((v) => ({ ...v, headline: event.target.value }))} disabled={!editable} className={`${fieldClass} md:col-span-2`} placeholder="Profil basligi" />
-                  <input value={profileForm.location} onChange={(event) => setProfileForm((v) => ({ ...v, location: event.target.value }))} disabled={!editable} className={fieldClass} placeholder="Lokasyon" />
-                  <input value={profileForm.website} onChange={(event) => setProfileForm((v) => ({ ...v, website: event.target.value }))} disabled={!editable} className={fieldClass} placeholder="Website" />
-                  <textarea value={profileForm.bio} onChange={(event) => setProfileForm((v) => ({ ...v, bio: event.target.value }))} disabled={!editable} rows={5} className={`${fieldClass} md:col-span-2`} placeholder="Biyografi" />
-                  <textarea value={profileForm.specialties} onChange={(event) => setProfileForm((v) => ({ ...v, specialties: event.target.value }))} disabled={!editable} rows={5} className={fieldClass} placeholder="Uzmanlik alanlari" />
-                  <textarea value={profileForm.tools} onChange={(event) => setProfileForm((v) => ({ ...v, tools: event.target.value }))} disabled={!editable} rows={5} className={fieldClass} placeholder="Araclar" />
+                  <div className="md:col-span-2 rounded-[24px] border border-white/8 bg-black/20 p-4">
+                    <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-300/55">
+                      Profil fotografisi ve kisisellestirme
+                    </p>
+                    <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center">
+                      <div className="h-24 w-24 shrink-0 overflow-hidden rounded-[28px] border border-emerald-400/18 bg-emerald-400/8">
+                        {avatarSrc ? (
+                          <img src={avatarSrc} alt={data.user.displayName} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center font-mono text-2xl tracking-[0.2em] text-emerald-200/85">
+                            {getInitials(data.user.displayName)}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 space-y-3">
+                        <input
+                          ref={avatarFileRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          onChange={(event) => void uploadAvatar(event.target.files?.[0] ?? null)}
+                          disabled={!canEdit || avatarUploading}
+                          className="hidden"
+                        />
+                        <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-slate-300">
+                          {data.profile.avatarName ?? 'JPG, PNG veya WEBP - maksimum 5 MB'}
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={() => avatarFileRef.current?.click()}
+                            disabled={!canEdit || avatarUploading}
+                            className="rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 transition hover:bg-emerald-400/14 disabled:opacity-60"
+                          >
+                            {avatarUploading ? 'Yukleniyor' : data.profile.avatarPath ? 'Fotografi Degistir' : 'Fotograf Yukle'}
+                          </button>
+                          {data.profile.avatarPath && (
+                            <button
+                              type="button"
+                              onClick={() => void removeAvatar()}
+                              disabled={!canEdit || avatarUploading}
+                              className="rounded-2xl border border-rose-300/25 bg-rose-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-rose-200 transition hover:bg-rose-400/14 disabled:opacity-60"
+                            >
+                              Fotografi Kaldir
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-xs leading-6 text-slate-400">
+                          Bu fotograf, sag ustteki operator kartinda ve profil alaninda kimligini daha profesyonel gostermek icin kullanilir.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <input value={profileForm.headline} onChange={(event) => setProfileForm((v) => ({ ...v, headline: event.target.value }))} disabled={!canEdit} className={`${fieldClass} md:col-span-2`} placeholder="Profil basligi" />
+                  <input value={profileForm.location} onChange={(event) => setProfileForm((v) => ({ ...v, location: event.target.value }))} disabled={!canEdit} className={fieldClass} placeholder="Lokasyon" />
+                  <input value={profileForm.website} onChange={(event) => setProfileForm((v) => ({ ...v, website: event.target.value }))} disabled={!canEdit} className={fieldClass} placeholder="Website" />
+                  <textarea value={profileForm.bio} onChange={(event) => setProfileForm((v) => ({ ...v, bio: event.target.value }))} disabled={!canEdit} rows={5} className={`${fieldClass} md:col-span-2`} placeholder="Biyografi" />
+                  <textarea value={profileForm.specialties} onChange={(event) => setProfileForm((v) => ({ ...v, specialties: event.target.value }))} disabled={!canEdit} rows={5} className={fieldClass} placeholder="Uzmanlik alanlari" />
+                  <textarea value={profileForm.tools} onChange={(event) => setProfileForm((v) => ({ ...v, tools: event.target.value }))} disabled={!canEdit} rows={5} className={fieldClass} placeholder="Araclar" />
                 </div>
-                {editable && <button type="button" onClick={() => void saveProfile()} disabled={saving} className="mt-4 rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200">{saving ? 'Kaydediliyor' : 'Profili Kaydet'}</button>}
+                {canEdit && <button type="button" onClick={() => void saveProfile()} disabled={saving} className="mt-4 rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200">{saving ? 'Kaydediliyor' : 'Profili Kaydet'}</button>}
               </div>
               <div className="rounded-[28px] border border-white/8 bg-black/20 p-6">
-                <h2 className="text-2xl font-semibold text-slate-100">{profileForm.headline || 'Profil basligi'}</h2>
-                <p className="mt-2 text-sm text-slate-400">{profileForm.location || 'Lokasyon bilgisi'}</p>
+                <div className="flex items-start gap-4">
+                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[24px] border border-emerald-400/18 bg-emerald-400/8">
+                    {avatarSrc ? (
+                      <img src={avatarSrc} alt={data.user.displayName} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center font-mono text-2xl tracking-[0.2em] text-emerald-200/85">
+                        {getInitials(data.user.displayName)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-2xl font-semibold text-slate-100">{profileForm.headline || 'Profil basligi'}</h2>
+                    <p className="mt-2 text-sm text-slate-400">{profileForm.location || 'Lokasyon bilgisi'}</p>
+                    <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.24em] text-emerald-300/55">
+                      @{data.user.username}
+                    </p>
+                  </div>
+                </div>
                 <p className="mt-5 text-sm leading-7 text-slate-300/85">{profileForm.bio || 'Biyografi burada gorunur.'}</p>
                 <div className="mt-6 flex flex-wrap gap-2">{textToList(profileForm.specialties).map((item) => <span key={item} className="rounded-full border border-emerald-400/18 bg-emerald-400/6 px-3 py-1 text-xs text-emerald-100/80">{item}</span>)}</div>
                 <div className="mt-6 flex flex-wrap gap-2">{textToList(profileForm.tools).map((item) => <span key={item} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">{item}</span>)}</div>
@@ -297,12 +588,12 @@ export default function PortfolioWorkspace({
           {tab === 'certifications' && (
             <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
               <div className="rounded-[28px] border border-white/8 bg-black/25 p-5 md:p-6">
-                {editable && <button type="button" onClick={() => setCertId('new')} className="mb-5 rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200">Yeni sertifika</button>}
+                {canEdit && <button type="button" onClick={() => setCertId('new')} className="mb-5 rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200">Yeni sertifika</button>}
                 <div className="grid gap-4 md:grid-cols-2">{data.certifications.map((item) => <button key={item.id} type="button" onClick={() => setCertId(item.id)} className={`overflow-hidden rounded-[28px] border text-left ${item.id === certId ? 'border-emerald-300/40 bg-emerald-400/7' : 'border-white/8 bg-black/30'}`}><div className="h-[220px] bg-black"><CertificationPreview item={item} /></div><div className="p-4"><h3 className="text-base font-semibold text-slate-100">{item.title}</h3><p className="mt-1 text-sm text-slate-400">{item.issuer}</p></div></button>)}</div>
               </div>
               <div className="rounded-[28px] border border-white/8 bg-black/30 p-5 md:p-6">
                 {selectedCert && <div className="mb-5 h-[300px] overflow-hidden rounded-[24px] border border-white/10 bg-black"><CertificationPreview item={selectedCert} /></div>}
-                {editable ? (
+                {canEdit ? (
                   <div className="space-y-4">
                     <input value={certForm.title} onChange={(event) => setCertForm((v) => ({ ...v, title: event.target.value }))} className={fieldClass} placeholder="Sertifika basligi" />
                     <input value={certForm.issuer} onChange={(event) => setCertForm((v) => ({ ...v, issuer: event.target.value }))} className={fieldClass} placeholder="Veren kurum" />
@@ -318,7 +609,28 @@ export default function PortfolioWorkspace({
                     <textarea value={certForm.notes} onChange={(event) => setCertForm((v) => ({ ...v, notes: event.target.value }))} rows={5} className={fieldClass} placeholder="Notlar" />
                     <div className="flex flex-wrap gap-3"><button type="button" onClick={() => void saveCertification()} disabled={saving} className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200">{saving ? 'Kaydediliyor' : certId === 'new' ? 'Sertifika Ekle' : 'Guncelle'}</button>{certId !== 'new' && <button type="button" onClick={() => void deleteCertification()} disabled={saving} className="rounded-2xl border border-rose-300/25 bg-rose-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-rose-200">Sil</button>}</div>
                   </div>
-                ) : selectedCert ? <div className="space-y-3 text-sm text-slate-300"><p>{selectedCert.issuer}</p><p>{selectedCert.notes}</p>{selectedCert.verifyUrl && <a href={selectedCert.verifyUrl} target="_blank" rel="noreferrer" className="text-emerald-300">Dogrula</a>}</div> : null}
+                ) : selectedCert ? (
+                  <div className="space-y-4 rounded-[24px] border border-white/8 bg-black/25 p-4">
+                    <div>
+                      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-300/55">Veren Kurum</p>
+                      <p className="mt-2 text-base text-slate-100">{selectedCert.issuer}</p>
+                    </div>
+                    <div>
+                      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-300/55">Aciklama</p>
+                      <p className="mt-2 text-sm leading-7 text-slate-300/80">{selectedCert.notes}</p>
+                    </div>
+                    {selectedCert.verifyUrl && (
+                      <a
+                        href={selectedCert.verifyUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 transition hover:bg-emerald-400/14"
+                      >
+                        Sertifikayi Dogrula
+                      </a>
+                    )}
+                  </div>
+                ) : null}
               </div>
             </div>
           )}
@@ -326,11 +638,11 @@ export default function PortfolioWorkspace({
           {tab === 'education' && (
             <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
               <div className="rounded-[28px] border border-white/8 bg-black/25 p-5 md:p-6">
-                {editable && <button type="button" onClick={() => setEduId('new')} className="mb-5 rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200">Yeni egitim</button>}
+                {canEdit && <button type="button" onClick={() => setEduId('new')} className="mb-5 rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200">Yeni egitim</button>}
                 <div className="space-y-4">{data.education.map((item) => <button key={item.id} type="button" onClick={() => setEduId(item.id)} className={`w-full rounded-[24px] border px-5 py-4 text-left ${item.id === eduId ? 'border-emerald-300/40 bg-emerald-400/8' : 'border-white/8 bg-black/20'}`}><h3 className="text-lg font-semibold text-slate-100">{item.program}</h3><p className="mt-1 text-sm text-slate-400">{item.institution}</p><p className="mt-3 text-sm leading-7 text-slate-300/80">{item.description}</p></button>)}</div>
               </div>
               <div className="rounded-[28px] border border-white/8 bg-black/30 p-5 md:p-6">
-                {editable ? (
+                {canEdit ? (
                   <div className="space-y-4">
                     <input value={eduForm.institution} onChange={(event) => setEduForm((v) => ({ ...v, institution: event.target.value }))} className={fieldClass} placeholder="Kurum" />
                     <input value={eduForm.program} onChange={(event) => setEduForm((v) => ({ ...v, program: event.target.value }))} className={fieldClass} placeholder="Program" />
