@@ -132,6 +132,10 @@ export default function PortfolioWorkspace({
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [certComposerMode, setCertComposerMode] = useState<'create' | 'edit' | null>(null)
+  const [lastSelectedCertId, setLastSelectedCertId] = useState<number | null>(
+    initialProfile.certifications[0]?.id ?? null,
+  )
   const avatarFileRef = useRef<HTMLInputElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
 
@@ -148,6 +152,24 @@ export default function PortfolioWorkspace({
     [data.profile.avatarPath, data.user.id, data.user.username],
   )
   const websiteUrl = useMemo(() => normalizeWebsiteUrl(profileForm.website), [profileForm.website])
+  const isCertComposerOpen = certComposerMode !== null
+  const featuredCert = useMemo(
+    () =>
+      selectedCert ??
+      (lastSelectedCertId != null
+        ? data.certifications.find((item) => item.id === lastSelectedCertId) ?? null
+        : null) ??
+      data.certifications[0] ??
+      null,
+    [data.certifications, lastSelectedCertId, selectedCert],
+  )
+  const certificationShowcase = useMemo(
+    () =>
+      featuredCert
+        ? [featuredCert, ...data.certifications.filter((item) => item.id !== featuredCert.id).slice(0, 2)]
+        : data.certifications.slice(0, 3),
+    [data.certifications, featuredCert],
+  )
 
   useEffect(() => setData(initialProfile), [initialProfile])
   useEffect(() => {
@@ -170,6 +192,25 @@ export default function PortfolioWorkspace({
     setError(null)
     setMessage(null)
   }, [tab])
+
+  useEffect(() => {
+    if (typeof certId === 'number') {
+      setLastSelectedCertId(certId)
+      return
+    }
+
+    if (!isCertComposerOpen && data.certifications[0]?.id) {
+      const fallbackId =
+        (lastSelectedCertId != null &&
+        data.certifications.some((item) => item.id === lastSelectedCertId)
+          ? lastSelectedCertId
+          : data.certifications[0]?.id) ?? null
+      if (fallbackId != null) {
+        setCertId(fallbackId)
+        setLastSelectedCertId(fallbackId)
+      }
+    }
+  }, [certId, data.certifications, isCertComposerOpen, lastSelectedCertId])
 
   useEffect(() => {
     let active = true
@@ -372,7 +413,7 @@ export default function PortfolioWorkspace({
       Object.entries(certForm).forEach(([key, value]) => formData.set(key, String(value ?? '')))
       if (certFile) formData.set('asset', certFile)
       if (removeCertAsset) formData.set('removeAsset', 'true')
-      const isNew = certId === 'new'
+      const isNew = certComposerMode === 'create' || certId === 'new'
       const response = await fetch(isNew ? '/api/profile/certifications' : `/api/profile/certifications/${certId}`, {
         method: isNew ? 'POST' : 'PATCH',
         credentials: 'include',
@@ -384,7 +425,7 @@ export default function PortfolioWorkspace({
         ...current,
         certifications: (isNew ? [payload.certification, ...current.certifications] : current.certifications.map((item) => item.id === payload.certification.id ? payload.certification : item)).sort((a, b) => a.sortOrder - b.sortOrder || b.id - a.id),
       }))
-      setCertId(payload.certification.id); setCertFile(null); setRemoveCertAsset(false); setMessage(isNew ? 'Sertifika eklendi.' : 'Sertifika guncellendi.')
+      setCertId(payload.certification.id); setLastSelectedCertId(payload.certification.id); setCertFile(null); setRemoveCertAsset(false); setCertComposerMode(null); setMessage(isNew ? 'Sertifika eklendi.' : 'Sertifika guncellendi.')
       if (fileRef.current) fileRef.current.value = ''
     } finally { setSaving(false) }
   }
@@ -395,9 +436,68 @@ export default function PortfolioWorkspace({
     try {
       const response = await fetch(`/api/profile/certifications/${certId}`, { method: 'DELETE', credentials: 'include' })
       if (!response.ok) return setError(await readError(response, 'Sertifika silinemedi.'))
+      const nextCertifications = data.certifications.filter((item) => item.id !== certId)
+      const nextSelectedId = nextCertifications[0]?.id ?? 'new'
       setData((current) => ({ ...current, certifications: current.certifications.filter((item) => item.id !== certId) }))
-      setCertId('new'); setMessage('Sertifika kaldirildi.')
+      setCertId(nextSelectedId)
+      setLastSelectedCertId(typeof nextSelectedId === 'number' ? nextSelectedId : null)
+      setCertComposerMode(null)
+      setMessage('Sertifika kaldirildi.')
     } finally { setSaving(false) }
+  }
+
+  function openNewCertificationComposer() {
+    if (!canEdit) return
+    if (typeof certId === 'number') {
+      setLastSelectedCertId(certId)
+    }
+    setCertId('new')
+    setCertForm({ ...emptyCert, sortOrder: data.certifications.length })
+    setCertFile(null)
+    setRemoveCertAsset(false)
+    setCertComposerMode('create')
+    setError(null)
+    setMessage(null)
+    if (fileRef.current) {
+      fileRef.current.value = ''
+    }
+  }
+
+  function openEditCertificationComposer() {
+    if (!canEdit || !featuredCert) return
+    setCertId(featuredCert.id)
+    setLastSelectedCertId(featuredCert.id)
+    setCertForm({
+      title: featuredCert.title,
+      issuer: featuredCert.issuer,
+      issueDate: featuredCert.issueDate,
+      expiryDate: featuredCert.expiryDate,
+      credentialId: featuredCert.credentialId,
+      verifyUrl: featuredCert.verifyUrl,
+      status: featuredCert.status,
+      notes: featuredCert.notes,
+      sortOrder: featuredCert.sortOrder,
+    })
+    setCertFile(null)
+    setRemoveCertAsset(false)
+    setCertComposerMode('edit')
+    setError(null)
+    setMessage(null)
+    if (fileRef.current) {
+      fileRef.current.value = ''
+    }
+  }
+
+  function closeCertificationComposer() {
+    setCertComposerMode(null)
+    setCertFile(null)
+    setRemoveCertAsset(false)
+    if (fileRef.current) {
+      fileRef.current.value = ''
+    }
+    if (certId === 'new') {
+      setCertId(lastSelectedCertId ?? data.certifications[0]?.id ?? 'new')
+    }
   }
 
   async function saveEducation() {
@@ -626,49 +726,184 @@ export default function PortfolioWorkspace({
           {tab === 'certifications' && (
             <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
               <div className="rounded-[28px] border border-white/8 bg-black/25 p-5 md:p-6">
-                {canEdit && <button type="button" onClick={() => setCertId('new')} className="mb-5 rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200">Yeni sertifika</button>}
-                <div className="grid gap-4 md:grid-cols-2">{data.certifications.map((item) => <button key={item.id} type="button" onClick={() => setCertId(item.id)} className={`overflow-hidden rounded-[28px] border text-left ${item.id === certId ? 'border-emerald-300/40 bg-emerald-400/7' : 'border-white/8 bg-black/30'}`}><div className="h-[220px] bg-black"><CertificationPreview item={item} /></div><div className="p-4"><h3 className="text-base font-semibold text-slate-100">{item.title}</h3><p className="mt-1 text-sm text-slate-400">{item.issuer}</p></div></button>)}</div>
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={openNewCertificationComposer}
+                      className="rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-2 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 transition hover:bg-emerald-400/14"
+                    >
+                      Yeni sertifika
+                    </button>
+                  )}
+                  <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-slate-500">
+                    Sol panel kayitlar, sag panel vitrin
+                  </p>
+                </div>
+                {data.certifications.length > 0 ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {data.certifications.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => { setCertId(item.id); setLastSelectedCertId(item.id) }}
+                        className={`overflow-hidden rounded-[28px] border text-left transition ${item.id === featuredCert?.id ? 'border-emerald-300/40 bg-emerald-400/7 shadow-[0_18px_45px_rgba(16,185,129,0.08)]' : 'border-white/8 bg-black/30 hover:-translate-y-1 hover:border-emerald-300/20'}`}
+                      >
+                        <div className="h-[220px] bg-black">
+                          <CertificationPreview item={item} />
+                        </div>
+                        <div className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h3 className="text-base font-semibold text-slate-100">{item.title}</h3>
+                              <p className="mt-1 text-sm text-slate-400">{item.issuer}</p>
+                            </div>
+                            <span className="rounded-full border border-emerald-400/18 px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-emerald-200/75">
+                              {item.status}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex min-h-[420px] items-center justify-center rounded-[28px] border border-dashed border-emerald-400/12 bg-black/20 px-8 text-center">
+                    <div className="max-w-md">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-emerald-300/55">
+                        Sertifika vitrini hazir
+                      </p>
+                      <p className="mt-4 text-sm leading-7 text-slate-300/78">
+                        Ilk sertifikani eklediginde sol tarafa kayit karti, sag tarafa da gorsel sertifika vitrini otomatik duscek.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="rounded-[28px] border border-white/8 bg-black/30 p-5 md:p-6">
-                {selectedCert && <div className="mb-5 h-[300px] overflow-hidden rounded-[24px] border border-white/10 bg-black"><CertificationPreview item={selectedCert} /></div>}
-                {canEdit ? (
-                  <div className="space-y-4">
-                    <input value={certForm.title} onChange={(event) => setCertForm((v) => ({ ...v, title: event.target.value }))} className={fieldClass} placeholder="Sertifika basligi" />
-                    <input value={certForm.issuer} onChange={(event) => setCertForm((v) => ({ ...v, issuer: event.target.value }))} className={fieldClass} placeholder="Veren kurum" />
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <input value={certForm.issueDate} onChange={(event) => setCertForm((v) => ({ ...v, issueDate: event.target.value }))} className={fieldClass} placeholder="Verilis tarihi" />
-                      <input value={certForm.expiryDate} onChange={(event) => setCertForm((v) => ({ ...v, expiryDate: event.target.value }))} className={fieldClass} placeholder="Son gecerlilik" />
-                      <input value={certForm.credentialId} onChange={(event) => setCertForm((v) => ({ ...v, credentialId: event.target.value }))} className={fieldClass} placeholder="Credential ID" />
-                      <select value={certForm.status} onChange={(event) => setCertForm((v) => ({ ...v, status: event.target.value as PortfolioCertificationRecord['status'] }))} className={fieldClass}><option value="verified">verified</option><option value="active">active</option><option value="planned">planned</option><option value="expired">expired</option></select>
+                {featuredCert ? (
+                  <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(8,14,12,0.95),rgba(3,7,6,0.98))] p-5">
+                    <div className="pointer-events-none absolute -right-14 -top-12 h-40 w-40 rounded-full bg-emerald-400/12 blur-3xl animate-pulse" />
+                    <div className="pointer-events-none absolute -left-8 bottom-6 h-28 w-28 rounded-full bg-cyan-400/8 blur-3xl animate-pulse" />
+                    <div className="relative">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-emerald-300/55">
+                            Sertifika vitrini
+                          </p>
+                          <h3 className="mt-3 text-2xl font-semibold text-slate-100">{featuredCert.title}</h3>
+                          <p className="mt-2 text-sm text-slate-400">{featuredCert.issuer}</p>
+                        </div>
+                        <span className="rounded-full border border-emerald-400/18 bg-emerald-400/8 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.24em] text-emerald-200/80">
+                          {featuredCert.status}
+                        </span>
+                      </div>
+
+                      <div className="mt-5 overflow-hidden rounded-[26px] border border-white/10 bg-black">
+                        <div className="relative h-[320px]">
+                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.16),transparent_52%)] animate-pulse" />
+                          <CertificationPreview item={featuredCert} />
+                        </div>
+                      </div>
+
+                      <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        <div className="rounded-[22px] border border-white/8 bg-black/25 p-4">
+                          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-emerald-300/55">
+                            Credential ID
+                          </p>
+                          <p className="mt-3 text-sm text-slate-200">
+                            {featuredCert.credentialId || 'Belirtilmedi'}
+                          </p>
+                        </div>
+                        <div className="rounded-[22px] border border-white/8 bg-black/25 p-4">
+                          <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-emerald-300/55">
+                            Gecerlilik
+                          </p>
+                          <p className="mt-3 text-sm text-slate-200">
+                            {featuredCert.issueDate || 'Tarih bekleniyor'}
+                            {featuredCert.expiryDate ? ` - ${featuredCert.expiryDate}` : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 rounded-[22px] border border-white/8 bg-black/25 p-4">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-emerald-300/55">
+                          Aciklama
+                        </p>
+                        <p className="mt-3 text-sm leading-7 text-slate-300/80">
+                          {featuredCert.notes || 'Bu sertifika icin aciklama eklenmedi.'}
+                        </p>
+                      </div>
+
+                      <div className="mt-5 flex flex-wrap gap-3">
+                        {featuredCert.verifyUrl && (
+                          <a
+                            href={featuredCert.verifyUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 transition hover:bg-emerald-400/14"
+                          >
+                            Sertifikayi Dogrula
+                          </a>
+                        )}
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={openEditCertificationComposer}
+                            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-slate-200 transition hover:border-emerald-300/20 hover:text-emerald-100"
+                          >
+                            Duzenle
+                          </button>
+                        )}
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => void deleteCertification()}
+                            disabled={saving}
+                            className="rounded-2xl border border-rose-300/25 bg-rose-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-rose-200 transition hover:bg-rose-400/14 disabled:opacity-60"
+                          >
+                            Sil
+                          </button>
+                        )}
+                      </div>
+
+                      {certificationShowcase.length > 1 && (
+                        <div className="mt-6 grid gap-3 md:grid-cols-3">
+                          {certificationShowcase.map((item, index) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => { setCertId(item.id); setLastSelectedCertId(item.id) }}
+                              className={`overflow-hidden rounded-[22px] border bg-black/35 text-left transition hover:-translate-y-1 ${item.id === featuredCert.id ? 'border-emerald-300/35' : 'border-white/8'}`}
+                              style={{ transform: `translateY(${index * 2}px)` }}
+                            >
+                              <div className="h-[120px] bg-black">
+                                <CertificationPreview item={item} />
+                              </div>
+                              <div className="px-3 py-3">
+                                <p className="truncate text-sm font-medium text-slate-100">{item.title}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <input value={certForm.verifyUrl} onChange={(event) => setCertForm((v) => ({ ...v, verifyUrl: event.target.value }))} className={fieldClass} placeholder="Dogrulama linki" />
-                    <input ref={fileRef} type="file" accept="application/pdf,image/png,image/jpeg,image/webp" onChange={(event) => setCertFile(event.target.files?.[0] ?? null)} className={`${fieldClass} file:mr-4 file:rounded-xl file:border-0 file:bg-emerald-400/12 file:px-3 file:py-2 file:text-xs file:font-mono file:uppercase file:tracking-[0.22em] file:text-emerald-200`} />
-                    {selectedCert?.assetPath && <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-slate-300"><input type="checkbox" checked={removeCertAsset} onChange={(event) => setRemoveCertAsset(event.target.checked)} className="h-4 w-4" />Mevcut belgeyi kaldir</label>}
-                    <textarea value={certForm.notes} onChange={(event) => setCertForm((v) => ({ ...v, notes: event.target.value }))} rows={5} className={fieldClass} placeholder="Notlar" />
-                    <div className="flex flex-wrap gap-3"><button type="button" onClick={() => void saveCertification()} disabled={saving} className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200">{saving ? 'Kaydediliyor' : certId === 'new' ? 'Sertifika Ekle' : 'Guncelle'}</button>{certId !== 'new' && <button type="button" onClick={() => void deleteCertification()} disabled={saving} className="rounded-2xl border border-rose-300/25 bg-rose-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-rose-200">Sil</button>}</div>
                   </div>
-                ) : selectedCert ? (
-                  <div className="space-y-4 rounded-[24px] border border-white/8 bg-black/25 p-4">
-                    <div>
-                      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-300/55">Veren Kurum</p>
-                      <p className="mt-2 text-base text-slate-100">{selectedCert.issuer}</p>
+                ) : (
+                  <div className="relative flex min-h-[620px] items-center justify-center overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(3,7,6,0.95),rgba(2,4,3,0.98))] p-8 text-center">
+                    <div className="pointer-events-none absolute inset-x-10 top-10 h-24 rounded-full bg-emerald-400/8 blur-3xl animate-pulse" />
+                    <div className="relative max-w-md">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-emerald-300/55">
+                        Gorsel sertifika alani
+                      </p>
+                      <h3 className="mt-4 text-2xl font-semibold text-slate-100">
+                        Sertifika ekledigin anda vitrin canlanacak
+                      </h3>
+                      <p className="mt-4 text-sm leading-7 text-slate-300/78">
+                        Yeni sertifika paneli sagdan acilacak, kaydettiginde otomatik kapanacak ve belge burada gorsel olarak gorunecek.
+                      </p>
                     </div>
-                    <div>
-                      <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-300/55">Aciklama</p>
-                      <p className="mt-2 text-sm leading-7 text-slate-300/80">{selectedCert.notes}</p>
-                    </div>
-                    {selectedCert.verifyUrl && (
-                      <a
-                        href={selectedCert.verifyUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center justify-center rounded-2xl border border-emerald-300/25 bg-emerald-400/8 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 transition hover:bg-emerald-400/14"
-                      >
-                        Sertifikayi Dogrula
-                      </a>
-                    )}
                   </div>
-                ) : null}
+                )}
               </div>
             </div>
           )}
@@ -694,6 +929,72 @@ export default function PortfolioWorkspace({
                     <div className="flex flex-wrap gap-3"><button type="button" onClick={() => void saveEducation()} disabled={saving} className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200">{saving ? 'Kaydediliyor' : eduId === 'new' ? 'Egitim Ekle' : 'Guncelle'}</button>{eduId !== 'new' && <button type="button" onClick={() => void deleteEducation()} disabled={saving} className="rounded-2xl border border-rose-300/25 bg-rose-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-rose-200">Sil</button>}</div>
                   </div>
                 ) : selectedEdu ? <div className="space-y-3 text-sm text-slate-300"><p>{selectedEdu.institution}</p><p>{selectedEdu.description}</p></div> : null}
+              </div>
+            </div>
+          )}
+
+          {canEdit && isCertComposerOpen && (
+            <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm">
+              <div
+                className="absolute inset-0"
+                onClick={closeCertificationComposer}
+                aria-hidden="true"
+              />
+              <div className="relative h-full w-full max-w-2xl overflow-y-auto border-l border-emerald-400/12 bg-[linear-gradient(180deg,#040807,#020403)] p-6 shadow-[-24px_0_80px_rgba(0,0,0,0.45)] md:p-8">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-emerald-300/55">
+                      Certificate Composer
+                    </p>
+                    <h3 className="mt-3 text-2xl font-semibold text-slate-100">
+                      {certComposerMode === 'create' ? 'Yeni sertifika ekle' : 'Sertifikayi guncelle'}
+                    </h3>
+                    <p className="mt-3 max-w-xl text-sm leading-7 text-slate-300/78">
+                      Bu panel sekme degil, gecici bir ekleme ekrani. Kaydedince kapanir ve sertifika vitrinde hemen yerini alir.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeCertificationComposer}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-slate-200 transition hover:border-emerald-300/25 hover:text-emerald-100"
+                  >
+                    Kapat
+                  </button>
+                </div>
+
+                <div className="mt-8 space-y-4 rounded-[28px] border border-white/8 bg-black/25 p-5 md:p-6">
+                  <input value={certForm.title} onChange={(event) => setCertForm((v) => ({ ...v, title: event.target.value }))} className={fieldClass} placeholder="Sertifika basligi" />
+                  <input value={certForm.issuer} onChange={(event) => setCertForm((v) => ({ ...v, issuer: event.target.value }))} className={fieldClass} placeholder="Veren kurum" />
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <input value={certForm.issueDate} onChange={(event) => setCertForm((v) => ({ ...v, issueDate: event.target.value }))} className={fieldClass} placeholder="Verilis tarihi" />
+                    <input value={certForm.expiryDate} onChange={(event) => setCertForm((v) => ({ ...v, expiryDate: event.target.value }))} className={fieldClass} placeholder="Son gecerlilik" />
+                    <input value={certForm.credentialId} onChange={(event) => setCertForm((v) => ({ ...v, credentialId: event.target.value }))} className={fieldClass} placeholder="Credential ID" />
+                    <select value={certForm.status} onChange={(event) => setCertForm((v) => ({ ...v, status: event.target.value as PortfolioCertificationRecord['status'] }))} className={fieldClass}><option value="verified">verified</option><option value="active">active</option><option value="planned">planned</option><option value="expired">expired</option></select>
+                  </div>
+                  <input value={certForm.verifyUrl} onChange={(event) => setCertForm((v) => ({ ...v, verifyUrl: event.target.value }))} className={fieldClass} placeholder="Dogrulama linki" />
+                  <input ref={fileRef} type="file" accept="application/pdf,image/png,image/jpeg,image/webp" onChange={(event) => setCertFile(event.target.files?.[0] ?? null)} className={`${fieldClass} file:mr-4 file:rounded-xl file:border-0 file:bg-emerald-400/12 file:px-3 file:py-2 file:text-xs file:font-mono file:uppercase file:tracking-[0.22em] file:text-emerald-200`} />
+                  {featuredCert?.assetPath && certComposerMode === 'edit' && <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-slate-300"><input type="checkbox" checked={removeCertAsset} onChange={(event) => setRemoveCertAsset(event.target.checked)} className="h-4 w-4" />Mevcut belgeyi kaldir</label>}
+                  <textarea value={certForm.notes} onChange={(event) => setCertForm((v) => ({ ...v, notes: event.target.value }))} rows={6} className={fieldClass} placeholder="Notlar" />
+
+                  <div className="flex flex-wrap gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => void saveCertification()}
+                      disabled={saving}
+                      className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-200 disabled:opacity-60"
+                    >
+                      {saving ? 'Kaydediliyor' : certComposerMode === 'create' ? 'Sertifika Ekle' : 'Guncelle'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeCertificationComposer}
+                      disabled={saving}
+                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-[11px] uppercase tracking-[0.28em] text-slate-200 disabled:opacity-60"
+                    >
+                      Vazgec
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
