@@ -8,9 +8,13 @@ import { getAuthSession, registerWithPassword } from '@/lib/auth-client'
 
 interface EmbeddedRegisterProps {
   redirectTo?: string
+  autoRedirectIfAuthenticated?: boolean
 }
 
-export default function EmbeddedRegister({ redirectTo = '/portfolio?tab=profile' }: EmbeddedRegisterProps) {
+export default function EmbeddedRegister({
+  redirectTo = '/portfolio?tab=profile',
+  autoRedirectIfAuthenticated = false,
+}: EmbeddedRegisterProps) {
   const router = useRouter()
   const [visible, setVisible] = useState(false)
   const [username, setUsername] = useState('')
@@ -23,6 +27,7 @@ export default function EmbeddedRegister({ redirectTo = '/portfolio?tab=profile'
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    if (!autoRedirectIfAuthenticated) return
     let alive = true
     const check = async () => {
       const session = await getAuthSession(false)
@@ -34,7 +39,7 @@ export default function EmbeddedRegister({ redirectTo = '/portfolio?tab=profile'
     return () => {
       alive = false
     }
-  }, [redirectTo, router])
+  }, [autoRedirectIfAuthenticated, redirectTo, router])
 
   useEffect(() => {
     const timer = window.setTimeout(() => setVisible(true), 80)

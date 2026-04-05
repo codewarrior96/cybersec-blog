@@ -12,7 +12,7 @@ interface NavigationBarProps {
 }
 
 const NAV_LINKS = [
-  { label: 'HOME', href: '/' },
+  { label: 'HOME', href: '/home' },
   { label: 'BLOG', href: '/blog' },
   { label: 'COMMUNITY', href: '/community' },
   { label: 'SENTINEL', href: '/zafiyet-taramasi' },

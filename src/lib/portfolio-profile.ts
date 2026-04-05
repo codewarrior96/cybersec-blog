@@ -65,140 +65,23 @@ export interface PortfolioProfileSeed {
   education: Array<Omit<PortfolioEducationRecord, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>
 }
 
-const STARTER_SPECIALTIES = ['Web Security', 'Threat Analysis', 'CTF', 'Writeup', 'Blue Team Thinking']
-const STARTER_TOOLS = ['Burp Suite', 'Nmap', 'Metasploit', 'Wireshark', 'Ghidra', 'Python', 'Linux', 'Sqlmap']
-const STARTER_CERTIFICATIONS: PortfolioProfileSeed['certifications'] = [
-  {
-    title: 'Google Cybersecurity Certificate',
-    issuer: 'Google / Coursera',
-    issueDate: '',
-    expiryDate: '',
-    credentialId: '',
-    verifyUrl: 'https://www.coursera.org/professional-certificates/google-cybersecurity',
-    status: 'active',
-    notes: 'Belge yuklenince dogrudan sertifika onizlemesi burada gorunecek.',
-    assetPath: null,
-    assetName: null,
-    assetMimeType: null,
-    assetSize: null,
-    sortOrder: 0,
-  },
-  {
-    title: 'TryHackMe Learning Path',
-    issuer: 'TryHackMe',
-    issueDate: '',
-    expiryDate: '',
-    credentialId: '',
-    verifyUrl: 'https://tryhackme.com/',
-    status: 'active',
-    notes: 'Tamamlama rozetini veya belge goruntusunu ekleyebilirsin.',
-    assetPath: null,
-    assetName: null,
-    assetMimeType: null,
-    assetSize: null,
-    sortOrder: 1,
-  },
-  {
-    title: 'CompTIA Security+',
-    issuer: 'CompTIA',
-    issueDate: '',
-    expiryDate: '',
-    credentialId: '',
-    verifyUrl: 'https://www.comptia.org/certifications/security',
-    status: 'planned',
-    notes: 'Planlanan sertifika hedefi.',
-    assetPath: null,
-    assetName: null,
-    assetMimeType: null,
-    assetSize: null,
-    sortOrder: 2,
-  },
-  {
-    title: 'eJPT',
-    issuer: 'INE / eLearnSecurity',
-    issueDate: '',
-    expiryDate: '',
-    credentialId: '',
-    verifyUrl: 'https://security.ine.com/certifications/ejpt-certification/',
-    status: 'planned',
-    notes: 'Planlanan teknik sertifika hedefi.',
-    assetPath: null,
-    assetName: null,
-    assetMimeType: null,
-    assetSize: null,
-    sortOrder: 3,
-  },
-]
-const STARTER_EDUCATION: PortfolioProfileSeed['education'] = [
-  {
-    institution: 'Self-Directed Learning Track',
-    program: 'Linux ve Terminal Temelleri',
-    degree: 'Foundation Track',
-    startDate: '2024-01',
-    endDate: '2024-06',
-    status: 'completed',
-    description: 'Terminal komutlari, dosya sistemi, temel script mantigi ve Linux calisma aliskanliklari.',
-    sortOrder: 0,
-  },
-  {
-    institution: 'Self-Directed Learning Track',
-    program: 'Python ve Otomasyon Temelleri',
-    degree: 'Foundation Track',
-    startDate: '2024-04',
-    endDate: '2024-12',
-    status: 'completed',
-    description: 'Dosya islemleri, fonksiyonlar, mini scriptler ve guvenlik odakli otomasyon calismalari.',
-    sortOrder: 1,
-  },
-  {
-    institution: 'Security Practice Path',
-    program: 'Web Security ve OWASP Basics',
-    degree: 'Practice Track',
-    startDate: '2025-01',
-    endDate: '',
-    status: 'active',
-    description: 'OWASP Top 10, Burp Suite, temel web zafiyetleri ve pratik writeup deneyimi.',
-    sortOrder: 2,
-  },
-]
-
 const DEFAULT_EMPTY_PROFILE: PortfolioProfileSeed = {
   profile: {
-    headline: 'Breach Operator',
-    bio: 'Siber guvenlik alaninda kendini gelistiren, arastirma odakli bir operator profili.',
-    location: 'Istanbul, Turkiye',
+    headline: 'Profil operatoru',
+    bio: 'Siber guvenlik yolculugunu, sertifikalarini ve egitimlerini bu alanda duzenli olarak yonetebilirsin.',
+    location: '',
     website: '',
-    specialties: [...STARTER_SPECIALTIES],
-    tools: [...STARTER_TOOLS],
+    specialties: [],
+    tools: [],
     avatarPath: null,
     avatarName: null,
     avatarMimeType: null,
   },
-  certifications: STARTER_CERTIFICATIONS.map((item) => ({ ...item })),
-  education: STARTER_EDUCATION.map((item) => ({ ...item })),
-}
-
-const GHOST_PROFILE: PortfolioProfileSeed = {
-  profile: {
-    headline: 'Cybersecurity Researcher / Breach Operator',
-    bio: 'Siber guvenlik alaninda arastirma yapan, CTF ortamlarinda kendini gelistiren ve ogrendiklerini duzenli olarak paylasan bir operator profili. Ilgi alanlari web guvenligi, tehdit analizi, writeup uretimi ve savunma bakis acisiyla saldiri zinciri incelemesidir.',
-    location: 'Istanbul, Turkiye',
-    website: 'https://cybersec.blog',
-    specialties: [...STARTER_SPECIALTIES],
-    tools: [...STARTER_TOOLS],
-    avatarPath: null,
-    avatarName: null,
-    avatarMimeType: null,
-  },
-  certifications: STARTER_CERTIFICATIONS.map((item) => ({ ...item })),
-  education: STARTER_EDUCATION.map((item) => ({ ...item })),
+  certifications: [],
+  education: [],
 }
 
 export function getPortfolioSeedForUser(user: Pick<SessionUser, 'username' | 'displayName'>): PortfolioProfileSeed {
-  if (user.username === 'ghost') {
-    return GHOST_PROFILE
-  }
-
   return {
     ...DEFAULT_EMPTY_PROFILE,
     profile: {

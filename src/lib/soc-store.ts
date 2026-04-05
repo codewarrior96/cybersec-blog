@@ -1855,52 +1855,9 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
 
 export async function repairPortfolioStarterData(
   userId: number,
-  actor: SessionUser,
-  metadata: RequestMetadata,
+  _actor: SessionUser,
+  _metadata: RequestMetadata,
 ): Promise<PortfolioProfileRecord | null> {
-  const user = await getActiveUserById(userId)
-  if (!user) return null
-
-  await ensurePortfolioSeedDataForUser(user)
-  const db = await getDb()
-  const [profileRow, certifications, education] = await Promise.all([
-    db.get<{
-      specialties_json: string
-      tools_json: string
-    }>(
-      `
-        SELECT specialties_json, tools_json
-        FROM user_profiles
-        WHERE user_id = ?
-        LIMIT 1
-      `,
-      userId,
-    ),
-    listPortfolioCertificationsByUserId(userId),
-    listPortfolioEducationByUserId(userId),
-  ])
-
-  if (!profileRow) return null
-
-  await backfillPortfolioStarterDataForUser(user, {
-    specialties: parseStringList(profileRow.specialties_json),
-    tools: parseStringList(profileRow.tools_json),
-    certifications,
-    education,
-  })
-
-  await writeAuditLog({
-    actorUserId: actor.id,
-    action: 'profile.repair.starter',
-    entityType: 'profile',
-    entityId: userId,
-    details: {
-      certificationCountBefore: certifications.length,
-      educationCountBefore: education.length,
-    },
-    metadata,
-  })
-
   return getPortfolioProfile(userId)
 }
 

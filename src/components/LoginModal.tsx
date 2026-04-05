@@ -134,11 +134,6 @@ export default function LoginModal({ onClose }: LoginModalProps) {
         >
           {loading ? '[ CONNECTING... ]' : '[ ACCESS ]'}
         </button>
-        {process.env.NODE_ENV !== 'production' && (
-          <div style={{ marginTop: 8, color: '#64748b', fontFamily: 'monospace', fontSize: 10 }}>
-            demo: ghost / demo_pass
-          </div>
-        )}
       </div>
     </div>
   )

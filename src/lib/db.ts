@@ -17,26 +17,8 @@ interface SeedUser {
   password: string
 }
 
-const SEED_USERS: SeedUser[] = [
-  {
-    username: 'ghost',
-    displayName: 'Ghost Admin',
-    role: 'admin',
-    password: 'demo_pass',
-  },
-  {
-    username: 'analyst1',
-    displayName: 'SOC Analyst 1',
-    role: 'analyst',
-    password: 'analyst_pass',
-  },
-  {
-    username: 'viewer1',
-    displayName: 'SOC Viewer 1',
-    role: 'viewer',
-    password: 'viewer_pass',
-  },
-]
+const SEED_USERS: SeedUser[] = []
+const LEGACY_DEMO_USERNAMES = ['ghost', 'analyst1', 'viewer1']
 
 let dbPromise: Promise<SqliteDb> | null = null
 
@@ -254,6 +236,21 @@ async function seedUsers(db: SqliteDb) {
   }
 }
 
+async function deactivateLegacyDemoUsers(db: SqliteDb) {
+  if (LEGACY_DEMO_USERNAMES.length === 0) return
+
+  const placeholders = LEGACY_DEMO_USERNAMES.map(() => '?').join(', ')
+  await db.run(
+    `
+      UPDATE users
+      SET is_active = 0, updated_at = ?
+      WHERE lower(username) IN (${placeholders})
+    `,
+    new Date().toISOString(),
+    ...LEGACY_DEMO_USERNAMES,
+  )
+}
+
 async function seedProfileData(db: SqliteDb) {
   const users = await db.all<{
     id: number
@@ -364,6 +361,7 @@ export async function getDb(): Promise<SqliteDb> {
 
       await initializeSchema(db)
       await seedUsers(db)
+      await deactivateLegacyDemoUsers(db)
       await seedProfileData(db)
       return db
     })()

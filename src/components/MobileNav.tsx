@@ -7,7 +7,7 @@ import { Shield, Newspaper, Users, Radio, Cpu, MoreHorizontal, Briefcase, Map, C
 import { useAuthSession } from '@/lib/auth-client'
 
 const mobileItems = [
-  { label: 'HOME', href: '/', icon: Shield },
+  { label: 'HOME', href: '/home', icon: Shield },
   { label: 'RADAR', href: '/cve-radar', icon: Radio },
   { label: 'LOGS', href: '/blog', icon: Newspaper },
   { label: 'SQUAD', href: '/community', icon: Users },
@@ -70,7 +70,9 @@ export default function MobileNav({ initialAuth = null }: MobileNavProps) {
 
       <nav className="fixed bottom-0 left-0 w-full z-50 lg:hidden flex items-center justify-around bg-[#0a0f16]/95 backdrop-blur-md border-t border-cyan-900/50 pb-4 pt-3 px-2 shadow-[0_-10px_40px_rgba(0,0,0,0.8)]">
         {mobileItems.map((item) => {
-          const isActive = item.href === '/' ? pathname === '/' : pathname?.startsWith(item.href)
+          const isActive = item.href === '/home'
+            ? pathname === '/' || pathname === '/home'
+            : pathname?.startsWith(item.href)
           const Icon = item.icon
           return (
             <Link

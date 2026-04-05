@@ -66,32 +66,6 @@ interface CertificationIndexEntry {
   userId: number
 }
 
-const DEMO_USERS = [
-  {
-    id: 1,
-    username: 'ghost',
-    displayName: 'Ghost Admin',
-    role: 'admin' as const,
-    password: process.env.DEMO_ADMIN_PASS ?? 'demo_pass',
-  },
-  {
-    id: 2,
-    username: 'analyst1',
-    displayName: 'SOC Analyst 1',
-    role: 'analyst' as const,
-    password: process.env.DEMO_ANALYST_PASS ?? 'analyst_pass',
-  },
-  {
-    id: 3,
-    username: 'viewer1',
-    displayName: 'SOC Viewer 1',
-    role: 'viewer' as const,
-    password: process.env.DEMO_VIEWER_PASS ?? 'viewer_pass',
-  },
-]
-
-let seedPromise: Promise<void> | null = null
-
 function toIsoNow() {
   return new Date().toISOString()
 }
@@ -177,29 +151,7 @@ async function writeUser(user: StoredUser) {
 }
 
 async function ensureSeedUsers() {
-  if (!seedPromise) {
-    seedPromise = (async () => {
-      for (const demo of DEMO_USERS) {
-        const existing = await readUserByUsername(demo.username)
-        if (existing) continue
-
-        const now = toIsoNow()
-        await writeUser({
-          id: demo.id,
-          username: demo.username,
-          usernameKey: normalizeUsernameKey(demo.username),
-          displayName: demo.displayName,
-          role: demo.role,
-          passwordHash: hashPassword(demo.password),
-          isActive: true,
-          createdAt: now,
-          updatedAt: now,
-        })
-      }
-    })()
-  }
-
-  return seedPromise
+  return
 }
 
 async function ensureProfileSeedDataForUser(user: StoredUser): Promise<StoredProfile> {
@@ -226,55 +178,6 @@ async function ensureProfileSeedDataForUser(user: StoredUser): Promise<StoredPro
   }
 
   await uploadJsonObject(profilePath(user.id), profile)
-
-  for (const certification of seed.certifications) {
-    const certificationId = makeId()
-    const createdAt = toIsoNow()
-    const record: PortfolioCertificationRecord = {
-      id: certificationId,
-      userId: user.id,
-      title: certification.title,
-      issuer: certification.issuer,
-      issueDate: certification.issueDate,
-      expiryDate: certification.expiryDate,
-      credentialId: certification.credentialId,
-      verifyUrl: certification.verifyUrl,
-      status: certification.status,
-      notes: certification.notes,
-      assetPath: certification.assetPath ?? null,
-      assetName: certification.assetName ?? null,
-      assetMimeType: certification.assetMimeType ?? null,
-      assetSize: certification.assetSize ?? null,
-      sortOrder: certification.sortOrder,
-      createdAt,
-      updatedAt: createdAt,
-    }
-    await uploadJsonObject(certificationPath(user.id, certificationId), record)
-    await uploadJsonObject(certificationIndexPath(certificationId), {
-      id: certificationId,
-      userId: user.id,
-    } satisfies CertificationIndexEntry)
-  }
-
-  for (const education of seed.education) {
-    const educationId = makeId()
-    const createdAt = toIsoNow()
-    const record: PortfolioEducationRecord = {
-      id: educationId,
-      userId: user.id,
-      institution: education.institution,
-      program: education.program,
-      degree: education.degree,
-      startDate: education.startDate,
-      endDate: education.endDate,
-      status: education.status,
-      description: education.description,
-      sortOrder: education.sortOrder,
-      createdAt,
-      updatedAt: createdAt,
-    }
-    await uploadJsonObject(educationPath(user.id, educationId), record)
-  }
 
   return profile
 }
@@ -400,24 +303,24 @@ export async function getPortfolioAvatarForUser(userId: number): Promise<{
   assetMimeType: string | null
 } | null> {
   const profile = await readJsonObject<StoredProfile>(profilePath(userId))
-  if (profile?.avatarPath) {
-    return {
-      assetPath: profile.avatarPath,
-      assetName: profile.avatarName,
-      assetMimeType: profile.avatarMimeType,
-    }
-  }
-
   const fallbackAssets = (await listObjectPaths(avatarPrefix(userId)))
     .filter((item) => !item.endsWith('.json'))
     .sort()
-  const latestAssetPath = fallbackAssets.at(-1) ?? null
+  const preferredAssetPath =
+    profile?.avatarPath && fallbackAssets.includes(profile.avatarPath) ? profile.avatarPath : null
+  const latestAssetPath = preferredAssetPath ?? fallbackAssets.at(-1) ?? null
   if (!latestAssetPath) return null
 
   return {
     assetPath: latestAssetPath,
-    assetName: latestAssetPath.split('/').at(-1) ?? null,
-    assetMimeType: null,
+    assetName:
+      latestAssetPath === profile?.avatarPath
+        ? profile.avatarName
+        : (latestAssetPath.split('/').at(-1) ?? null),
+    assetMimeType:
+      latestAssetPath === profile?.avatarPath
+        ? profile.avatarMimeType
+        : null,
   }
 }
 
@@ -592,9 +495,9 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
     listPortfolioEducationByUserId(user.id),
     getPortfolioAvatarForUser(user.id),
   ])
-  const avatarPath = profile.avatarPath ?? avatarAsset?.assetPath ?? null
-  const avatarName = profile.avatarName ?? avatarAsset?.assetName ?? null
-  const avatarMimeType = profile.avatarMimeType ?? avatarAsset?.assetMimeType ?? null
+  const avatarPath = avatarAsset?.assetPath ?? null
+  const avatarName = avatarAsset?.assetName ?? null
+  const avatarMimeType = avatarAsset?.assetMimeType ?? null
 
   return {
     user: toSessionUser(user),
@@ -617,35 +520,9 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
 
 export async function repairPortfolioStarterData(
   userId: number,
-  actor: SessionUser,
-  metadata: RequestMetadata,
+  _actor: SessionUser,
+  _metadata: RequestMetadata,
 ): Promise<PortfolioProfileRecord | null> {
-  await ensureSeedUsers()
-  const user = await readUserById(userId)
-  if (!user || !user.isActive) return null
-
-  const profile = await ensureProfileSeedDataForUser(user)
-  const [certifications, education] = await Promise.all([
-    listPortfolioCertificationsByUserId(user.id),
-    listPortfolioEducationByUserId(user.id),
-  ])
-
-  const repaired = await backfillPortfolioStarterDataForUser(user, profile, certifications, education)
-
-  await writeAuditLog({
-    actorUserId: actor.id,
-    action: 'profile.repair.starter',
-    entityType: 'profile',
-    entityId: userId,
-    details: {
-      specialtiesCount: repaired.profile.specialties.length,
-      toolsCount: repaired.profile.tools.length,
-      certificationCount: repaired.certifications.length,
-      educationCount: repaired.education.length,
-    },
-    metadata,
-  })
-
   return getPortfolioProfile(userId)
 }
 

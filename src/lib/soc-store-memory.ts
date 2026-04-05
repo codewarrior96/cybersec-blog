@@ -21,26 +21,12 @@ const SLA_TARGET_MINUTES: Record<AlertPriority, number> = {
   P4: 720,
 }
 
-const DEMO_USERS = [
-  {
-    username: 'ghost',
-    displayName: 'Ghost Admin',
-    role: 'admin' as const,
-    password: process.env.DEMO_ADMIN_PASS ?? 'demo_pass',
-  },
-  {
-    username: 'analyst1',
-    displayName: 'SOC Analyst 1',
-    role: 'analyst' as const,
-    password: process.env.DEMO_ANALYST_PASS ?? 'analyst_pass',
-  },
-  {
-    username: 'viewer1',
-    displayName: 'SOC Viewer 1',
-    role: 'viewer' as const,
-    password: process.env.DEMO_VIEWER_PASS ?? 'viewer_pass',
-  },
-]
+const DEMO_USERS: Array<{
+  username: string
+  displayName: string
+  role: UserRole
+  password: string
+}> = []
 
 const MEMORY_SECRET = process.env.SOC_DEMO_SECRET ?? 'soc-demo-secret'
 
@@ -1323,23 +1309,9 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
 
 export async function repairPortfolioStarterData(
   userId: number,
-  actor: SessionUser,
-  metadata: RequestMetadata,
+  _actor: SessionUser,
+  _metadata: RequestMetadata,
 ): Promise<PortfolioProfileRecord | null> {
-  const user = findActiveUserById(userId)
-  if (!user) return null
-
-  backfillPortfolioStarterDataForUser(user)
-
-  await writeAuditLog({
-    actorUserId: actor.id,
-    action: 'profile.repair.starter',
-    entityType: 'profile',
-    entityId: userId,
-    details: { username: user.username },
-    metadata,
-  })
-
   return getPortfolioProfile(userId)
 }
 

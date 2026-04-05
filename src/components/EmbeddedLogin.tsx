@@ -676,7 +676,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
         <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
           <button
             type="button"
-            onClick={() => setHint(process.env.NODE_ENV === 'production' ? '' : 'demo: ghost / demo_pass')}
+            onClick={() => setHint('')}
             style={{
               background: 'transparent',
               border: 'none',

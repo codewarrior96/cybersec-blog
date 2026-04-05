@@ -24,3 +24,6 @@ data/profile-assets/
 
 .vercel
 .env*.local
+.env.local.backup.*
+tmp/
+test-results/

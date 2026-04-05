@@ -4,6 +4,7 @@ import PortfolioWorkspace from '@/components/portfolio/PortfolioWorkspace'
 import { getServerSessionFromCookies } from '@/lib/auth-server'
 import { getPortfolioProfile } from '@/lib/soc-store-adapter'
 import { getPortfolioSeedForUser } from '@/lib/portfolio-profile'
+import type { SessionUser } from '@/lib/soc-types'
 import type { PortfolioProfileRecord } from '@/lib/portfolio-profile'
 
 export const metadata: Metadata = {
@@ -13,30 +14,28 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-function buildProfileFromSeed(username: string, displayName: string, userId = 1): PortfolioProfileRecord {
-  const seed = getPortfolioSeedForUser({ username, displayName })
+function buildProfileFromSeed(user: SessionUser): PortfolioProfileRecord {
+  const seed = getPortfolioSeedForUser({
+    username: user.username,
+    displayName: user.displayName,
+  })
 
   return {
-    user: {
-      id: userId,
-      username,
-      displayName,
-      role: username === 'ghost' ? 'admin' : 'viewer',
-    },
+    user,
     profile: {
       ...seed.profile,
       updatedAt: new Date('2026-04-05T09:00:00.000Z').toISOString(),
     },
     certifications: seed.certifications.map((item, index) => ({
       id: index + 1,
-      userId,
+      userId: user.id,
       createdAt: new Date('2026-04-05T09:00:00.000Z').toISOString(),
       updatedAt: new Date('2026-04-05T09:00:00.000Z').toISOString(),
       ...item,
     })),
     education: seed.education.map((item, index) => ({
       id: index + 1,
-      userId,
+      userId: user.id,
       createdAt: new Date('2026-04-05T09:00:00.000Z').toISOString(),
       updatedAt: new Date('2026-04-05T09:00:00.000Z').toISOString(),
       ...item,
@@ -92,6 +91,6 @@ export default async function PortfolioPage({
 
   const profile =
     (await getPortfolioProfile(session.user.id)) ??
-    buildProfileFromSeed(session.user.username, session.user.displayName, session.user.id)
+    buildProfileFromSeed(session.user)
   return <PortfolioWorkspace initialProfile={profile} initialTab={initialTab} editable={true} />
 }

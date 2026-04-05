@@ -42,6 +42,9 @@ export async function getAuthSession(force = false): Promise<AuthSessionState> {
     })
 
     if (!response.ok) {
+      if (response.status >= 500 && authCache?.authenticated) {
+        return authCache
+      }
       authCache = UNAUTH_STATE
       return UNAUTH_STATE
     }
@@ -58,6 +61,9 @@ export async function getAuthSession(force = false): Promise<AuthSessionState> {
         }
       : UNAUTH_STATE
   } catch {
+    if (authCache?.authenticated) {
+      return authCache
+    }
     authCache = UNAUTH_STATE
   }
 
