@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireRole } from '@/lib/api-auth'
+import { requireRole, requireSession } from '@/lib/api-auth'
 import { getRequestMetadata } from '@/lib/auth-server'
 import { createReport, deleteReport, listReports } from '@/lib/soc-store-adapter'
 
@@ -12,6 +12,10 @@ interface PostBody {
 
 interface DeleteBody {
   id?: unknown
+}
+
+function hasBrokenEncoding(value: string) {
+  return value.includes('\uFFFD')
 }
 
 export const runtime = 'nodejs'
@@ -29,7 +33,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const guard = await requireRole(request, 'analyst')
+  const guard = await requireSession(request)
   if (guard.response) return guard.response
   if (!guard.session) {
     return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 })
@@ -46,6 +50,13 @@ export async function POST(request: NextRequest) {
 
   if (!title || !content) {
     return NextResponse.json({ error: 'title and content required' }, { status: 400 })
+  }
+
+  if (hasBrokenEncoding(title) || hasBrokenEncoding(content) || tags.some(hasBrokenEncoding)) {
+    return NextResponse.json(
+      { error: 'Rapor metninde bozuk karakter algılandı. Lütfen içeriği yeniden oluşturun.' },
+      { status: 400 },
+    )
   }
 
   const report = await createReport({

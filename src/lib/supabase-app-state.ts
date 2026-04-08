@@ -7,6 +7,19 @@ const SUPABASE_APP_STATE_BUCKET = process.env.SUPABASE_APP_STATE_BUCKET ?? 'cybe
 let supabaseClient: SupabaseClient | null = null
 let ensureBucketPromise: Promise<void> | null = null
 
+async function noStoreSupabaseFetch(input: RequestInfo | URL, init?: RequestInit) {
+  const nextConfig = {
+    ...((init as RequestInit & { next?: Record<string, unknown> } | undefined)?.next ?? {}),
+    revalidate: 0,
+  }
+
+  return fetch(input, {
+    ...init,
+    cache: 'no-store',
+    next: nextConfig,
+  } as RequestInit)
+}
+
 export function isSupabaseAppStateEnabled() {
   return Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY)
 }
@@ -18,6 +31,9 @@ function getSupabaseClient() {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
+      },
+      global: {
+        fetch: noStoreSupabaseFetch,
       },
     })
   }

@@ -1192,6 +1192,7 @@
   position: sticky;
   top: 0;
   z-index: 100;
+  isolation: isolate;
   height: calc(64px + env(safe-area-inset-top));
   padding: env(safe-area-inset-top) 20px 0;
   display: flex;
@@ -1302,6 +1303,9 @@
 }
 
 .nb2-links {
+  position: relative;
+  z-index: 3;
+  pointer-events: auto;
   display: flex;
   align-items: center;
   flex: 1;
@@ -1316,7 +1320,13 @@
 }
 
 .nb2-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
   position: relative;
+  z-index: 4;
   text-decoration: none;
   font-size: 10px;
   letter-spacing: 0.13em;
@@ -1351,6 +1361,8 @@
 }
 
 .nb2-tools {
+  position: relative;
+  z-index: 3;
   margin-left: auto;
   display: flex;
   align-items: center;
@@ -1604,6 +1616,13 @@
 }
 
 .nb2-drawer-link {
+  appearance: none;
+  border-top: 0;
+  border-right: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
   height: 48px;
   padding: 0 16px;
   display: flex;
@@ -1614,7 +1633,6 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   color: var(--text-muted);
-  border-left: 3px solid transparent;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   transition: color 0.18s ease, background 0.18s ease;
 }

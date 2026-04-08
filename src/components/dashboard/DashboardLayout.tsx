@@ -1,14 +1,14 @@
 'use client'
 
 import React, { ReactNode, useEffect, useState, useMemo, useCallback, useRef } from 'react'
-import { geoCentroid, geoEquirectangular, geoPath, type GeoPermissibleObjects } from 'd3-geo'
-import type { Feature, FeatureCollection, Geometry } from 'geojson'
+import { geoDistance, geoGraticule10, geoInterpolate, geoOrthographic, geoPath, type GeoProjection, type GeoPermissibleObjects } from 'd3-geo'
 import { feature as topoFeature, mesh as topoMesh } from 'topojson-client'
 import worldTopologyData from '../../../public/world-110m.json'
 import AttackReportModal from '@/components/dashboard/AttackReportModal'
 import CriticalAlertPanel from '@/components/dashboard/CriticalAlertPanel'
 import CriticalOverlayFx from '@/components/dashboard/CriticalOverlayFx'
 import type { CriticalAlertQueueItem } from '@/components/dashboard/CriticalAlertPanel'
+import TelemetryStreamPanel from '@/components/dashboard/TelemetryStreamPanel'
 
 // ============================================================================
 // TYPES & CONSTANTS 
@@ -103,7 +103,7 @@ const formatSLA = (seconds: number): string => {
 }
 
 const generateEvent = (containedNodes: string[], forceMalicious?: boolean, fixedValues?: Partial<ThreatEvent>): ThreatEvent | null => {
-  const isMalicious = forceMalicious !== undefined ? forceMalicious : Math.random() > 0.8
+  const isMalicious = forceMalicious !== undefined ? forceMalicious : Math.random() < MALICIOUS_EVENT_PROBABILITY
   const region = fixedValues?.region || REGIONS[Math.floor(Math.random() * REGIONS.length)]
   const source = fixedValues?.source || `192.168.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`
   const node = fixedValues?.node || `NODE-${Math.floor(Math.random()*999)}`
@@ -113,7 +113,7 @@ const generateEvent = (containedNodes: string[], forceMalicious?: boolean, fixed
   return {
     id: `EVT-${Date.now()}-${Math.floor(Math.random() * 99999)}`,
     timestamp: fixedValues?.timestamp || new Date().toISOString(),
-    sev: fixedValues?.sev || (isMalicious ? (Math.random() > 0.9 ? 'CRITICAL' : 'HIGH') : (Math.random() > 0.5 ? 'MEDIUM' : 'LOW')),
+    sev: fixedValues?.sev || (isMalicious ? (Math.random() < CRITICAL_EVENT_PROBABILITY ? 'CRITICAL' : 'HIGH') : (Math.random() > 0.5 ? 'MEDIUM' : 'LOW')),
     type: fixedValues?.type || ['SYN Flood', 'SQL Injection Payload', 'C2 Beaconing', 'Auth Bypass', 'Large Data Exfil'][Math.floor(Math.random()*5)],
     source,
     node,
@@ -121,6 +121,38 @@ const generateEvent = (containedNodes: string[], forceMalicious?: boolean, fixed
     protocol: fixedValues?.protocol || ['TCP', 'UDP', 'HTTP', 'DNS'][Math.floor(Math.random()*4)] as Protocol,
     port: fixedValues?.port || [443, 53, 80, 22, 3389][Math.floor(Math.random()*5)],
   }
+}
+
+const shouldAutoEscalateCriticalIncident = (event: ThreatEvent, pool: Incident[]): boolean => {
+  if (event.sev !== 'CRITICAL') return false
+
+  const latestCriticalOpenedAt = pool.reduce((latest, incident) => {
+    if (
+      incident.sev !== 'CRITICAL' ||
+      incident.status === 'FALSE_POSITIVE' ||
+      incident.status === 'RESOLVED'
+    ) {
+      return latest
+    }
+
+    const incidentTime = new Date(incident.time).getTime()
+    if (!Number.isFinite(incidentTime)) return latest
+    return Math.max(latest, incidentTime)
+  }, 0)
+
+  if (latestCriticalOpenedAt > 0 && Date.now() - latestCriticalOpenedAt < CRITICAL_INCIDENT_COOLDOWN_MS) {
+    return false
+  }
+
+  return !pool.some(
+    (incident) =>
+      incident.sev === 'CRITICAL' &&
+      incident.source === event.source &&
+      incident.node === event.node &&
+      incident.region === event.region &&
+      incident.status !== 'FALSE_POSITIVE' &&
+      incident.status !== 'RESOLVED',
+  )
 }
 
 // ============================================================================
@@ -153,17 +185,17 @@ const Frame = ({ title, children, rightAction, dim = false, className = '', head
 // ============================================================================
 
 /** Demo: yeni telemetry olayı üretim aralığı (SLA sayacı da buna göre azalır) */
-const TELEMETRY_SIM_INTERVAL_MS = 7000
+const TELEMETRY_SIM_INTERVAL_MS = 18000
 const CRITICAL_ALERT_GRACE_PERIOD_MS = 60000
-const INITIAL_BACKGROUND_EVENT_COUNT = 24
+const INITIAL_BACKGROUND_EVENT_COUNT = 1
+const MALICIOUS_EVENT_PROBABILITY = 0.06
+const CRITICAL_EVENT_PROBABILITY = 0.03
+const CRITICAL_INCIDENT_COOLDOWN_MS = 180000
+const TELEMETRY_EMISSION_PROBABILITY = 0.35
 
 /** Live Telemetry Stream: ekranın geri kalanını sınırsız doldurmasın; içeride kaydır */
 const TELEMETRY_PANEL_HEIGHT_CLASS = 'h-[min(420px,36vh)]'
 
-const MAP_VIEWBOX_WIDTH = 1000
-const MAP_VIEWBOX_HEIGHT = 500
-const MAP_VIEWPORT_INSET = { top: 0, right: 0, bottom: 0, left: 0 }
-const MAP_CONTENT_Y_OFFSET = 0
 
 const REGION_LABELS: Record<string, string> = {
   'US-EAST': 'United States',
@@ -189,37 +221,32 @@ const REGION_HEAT_COLOR: Record<Severity, { glow: string; core: string }> = {
   LOW: { glow: '#3ba8ff', core: '#d8ecff' },
 }
 
-const ATTACK_COLOR_TONE: Record<Severity, { fill: string; stroke: string }> = {
-  CRITICAL: { fill: '#6d2338', stroke: '#ff6c92' },
-  HIGH: { fill: '#665026', stroke: '#ffd46b' },
-  MEDIUM: { fill: '#21586f', stroke: '#72e8ff' },
-  LOW: { fill: '#2a4869', stroke: '#89beff' },
-}
-
-const CONTEXT_CONTINENT_TONE = {
-  fill: '#173127',
-  stroke: '#4f9b76',
-  fillOpacity: 0.26,
-  strokeOpacity: 0.56,
-  strokeWidth: 0.64,
-}
-
-const REGION_CLICK_RADIUS: Record<RegionKey, number> = {
-  'US-EAST': 190,
-  'UK-LON': 135,
-  'JP-TYO': 170,
-  'SG-SIN': 120,
-  'BR-SAO': 190,
-  'RU-MOW': 360,
-  'CN-PEK': 230,
-}
-
-const toMapPoint = (lat: number, lng: number) => ({
-  x: ((lng + 180) / 360) * MAP_VIEWBOX_WIDTH,
-  y: ((90 - lat) / 180) * MAP_VIEWBOX_HEIGHT,
-})
 
 type MapIncident = { id: string; region: RegionKey; sev: Severity; source: string }
+type SampledRoutePoint = { lat: number; lng: number; t: number }
+type SampledRoute = {
+  id: string
+  points: SampledRoutePoint[]
+  sev?: Severity
+  focused?: boolean
+  selected?: boolean
+  liftRatio: number
+}
+
+type MapFocusSignal = {
+  id: string
+  sev: Severity
+  region: RegionKey
+  source: string
+  sourceRegion: RegionKey
+  node: string
+  label: string
+  protocol: Protocol
+  port: number
+  timestamp: string
+  incidentId: string | null
+  caseStatus: IncidentStatus | 'NO_CASE'
+}
 
 type WorldTopologyObject = {
   type: string
@@ -296,8 +323,6 @@ const createSimulationBootstrap = (): SimulationBootstrap => {
 
 const INITIAL_SIMULATION_BOOTSTRAP = createSimulationBootstrap()
 
-const FLOW_ROUTE_LIMIT = 6
-const ALWAYS_VISIBLE_LABEL_REGIONS: readonly RegionKey[] = REGIONS
 const LABEL_OFFSETS: Record<RegionKey, { dx: number; dy: number }> = {
   'US-EAST': { dx: 0, dy: 0 },
   'UK-LON': { dx: 0, dy: -4 },
@@ -322,111 +347,33 @@ const AMBIENT_ROUTE_EDGES: Array<[RegionKey, RegionKey]> = [
   ['BR-SAO', 'SG-SIN'],
 ]
 
-const COUNTRY_REGION_MAP: Partial<Record<string, RegionKey>> = {
-  '840': 'US-EAST', // United States of America
-  '124': 'US-EAST', // Canada
-  '484': 'US-EAST', // Mexico
-  '826': 'UK-LON',  // United Kingdom
-  '250': 'UK-LON',  // France
-  '276': 'UK-LON',  // Germany
-  '528': 'UK-LON',  // Netherlands
-  '392': 'JP-TYO',  // Japan
-  '410': 'JP-TYO',  // South Korea
-  '643': 'RU-MOW',  // Russia
-  '804': 'RU-MOW',  // Ukraine
-  '156': 'CN-PEK',  // China
-  '496': 'CN-PEK',  // Mongolia
-  '076': 'BR-SAO',  // Brazil
-  '032': 'BR-SAO',  // Argentina
-  '152': 'BR-SAO',  // Chile
-  '170': 'BR-SAO',  // Colombia
-  '604': 'BR-SAO',  // Peru
-  '360': 'SG-SIN',  // Indonesia
-  '458': 'SG-SIN',  // Malaysia proxy for Singapore at 110m resolution
-  '704': 'SG-SIN',  // Vietnam
-  '764': 'SG-SIN',  // Thailand
-  '702': 'SG-SIN',  // Singapore
-}
-
-const resolveCountryRegion = (countryId: string): RegionKey | null => {
-  const numeric = countryId.replace(/\D/g, '')
-  if (!numeric) return null
-  const normalized = numeric.padStart(3, '0')
-  return COUNTRY_REGION_MAP[normalized] ?? null
-}
-
-const trimUnitedStatesEdgeFragments = (featureItem: Feature<Geometry>, countryId: string): Feature<Geometry> => {
-  const normalizedCountryId = countryId.replace(/\D/g, '').padStart(3, '0')
-  if (normalizedCountryId !== '840') return featureItem
-  const geometry = featureItem.geometry
-  if (!geometry || geometry.type !== 'MultiPolygon') return featureItem
-
-  const polygons = geometry.coordinates as number[][][][]
-  const filteredPolygons = polygons.filter((polygon) => {
-    let minLon = Infinity
-    let maxLon = -Infinity
-    let minLat = Infinity
-    let maxLat = -Infinity
-
-    polygon.forEach((ring) => {
-      ring.forEach(([lon, lat]) => {
-        minLon = Math.min(minLon, lon)
-        maxLon = Math.max(maxLon, lon)
-        minLat = Math.min(minLat, lat)
-        maxLat = Math.max(maxLat, lat)
-      })
-    })
-
-    const centerLon = (minLon + maxLon) / 2
-    const centerLat = (minLat + maxLat) / 2
-    // Keep only contiguous US bounds; remove Alaska/Hawaii/outlying fragments.
-    const isContinentalUS = centerLon >= -130 && centerLon <= -65 && centerLat >= 22 && centerLat <= 52
-    return isContinentalUS
-  })
-
-  // Safety fallback: if filtering removed everything, keep original geometry.
-  if (filteredPolygons.length === 0) return featureItem
-  if (filteredPolygons.length === polygons.length) return featureItem
-  return {
-    ...featureItem,
-    geometry: {
-      ...geometry,
-      coordinates: filteredPolygons,
-    } as Geometry,
-  }
-}
-
 const deriveSourceRegion = (source: string, targetRegion: RegionKey): RegionKey => {
   const candidates = REGIONS.filter((region) => region !== targetRegion)
   const hash = source.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)
   return candidates[hash % candidates.length]
 }
 
-const buildArcPath = (sx: number, sy: number, tx: number, ty: number) => {
-  const midX = (sx + tx) / 2
-  const midY = (sy + ty) / 2
-  const distance = Math.hypot(tx - sx, ty - sy)
-  const lift = Math.min(120, Math.max(28, distance * 0.18))
-  return `M ${sx.toFixed(2)} ${sy.toFixed(2)} Q ${midX.toFixed(2)} ${(midY - lift).toFixed(2)} ${tx.toFixed(2)} ${ty.toFixed(2)}`
+const buildGreatCircleSamples = (
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+  steps: number,
+): SampledRoutePoint[] => {
+  const interpolate = geoInterpolate([from.lng, from.lat], [to.lng, to.lat])
+  return Array.from({ length: steps + 1 }, (_, index) => {
+    const t = index / steps
+    const [lng, lat] = interpolate(t)
+    return { lat, lng, t }
+  })
 }
 
-const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, onMapClick, onClearFocus }: {
+
+const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, onMapClick, onClearFocus }: {
   mapIncidents: MapIncident[]
   mapFilter: string | null
+  selectedSignal: MapFocusSignal | null
   onMapClick: (r: string) => void
   onClearFocus: () => void
 }) => {
-  const worldTopology = STATIC_WORLD_TOPOLOGY
-
-  const mapProjection = useMemo(
-    () =>
-      geoEquirectangular()
-        .scale(MAP_VIEWBOX_WIDTH / (2 * Math.PI))
-        .translate([MAP_VIEWBOX_WIDTH / 2, MAP_VIEWBOX_HEIGHT / 2]),
-    [],
-  )
-  const mapPathBuilder = useMemo(() => geoPath(mapProjection), [mapProjection])
-
   const fallbackIncidents: MapIncident[] = useMemo(() => ([
     { id: 'demo-1', sev: 'HIGH', region: 'US-EAST', source: 'RU-MOW' },
     { id: 'demo-2', sev: 'CRITICAL', region: 'CN-PEK', source: 'US-EAST' },
@@ -436,8 +383,6 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, onMapClick, onClea
 
   const incidentsForRender = useMemo(() => {
     if (mapIncidents.length > 0) return mapIncidents
-    // Do not inject demo/fallback incidents while a region filter is active.
-    // Otherwise clicking a region with no live incidents repaints unrelated countries.
     if (mapFilter) return []
     return fallbackIncidents
   }, [fallbackIncidents, mapFilter, mapIncidents])
@@ -468,10 +413,17 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, onMapClick, onClea
 
   const totalIncidents = incidentsForRender.length
 
+  const focusSignal = useMemo<MapFocusSignal | null>(() => {
+    if (!selectedSignal) return null
+    if (mapFilter && selectedSignal.region !== mapFilter) return null
+    return selectedSignal
+  }, [mapFilter, selectedSignal])
+
   const focusRegion = useMemo<RegionKey | null>(() => {
     if (mapFilter && (REGIONS as readonly string[]).includes(mapFilter)) return mapFilter as RegionKey
+    if (focusSignal) return focusSignal.region
     return null
-  }, [mapFilter])
+  }, [focusSignal, mapFilter])
 
   const focusRegionStats = useMemo(() => {
     if (!focusRegion) return null
@@ -507,904 +459,742 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, onMapClick, onClea
     [focusRegion, focusSeverityMix, severityMix],
   )
 
-  const landPath = useMemo(() => {
-    if (!worldTopology) return null
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [globeSize, setGlobeSize] = useState({ width: 960, height: 520 })
+  const [globeAngles, setGlobeAngles] = useState({ lon: 22, lat: -10 })
+  const targetAnglesRef = useRef({ lon: 22, lat: -10 })
+  const spinOffsetRef = useRef(0)
+  const animationFrameRef = useRef<number | null>(null)
+  const lastFrameRef = useRef<number | null>(null)
+
+  const normalizeDegrees = useCallback((angle: number) => {
+    let next = angle
+    while (next > 180) next -= 360
+    while (next < -180) next += 360
+    return next
+  }, [])
+
+  const shortestDegreeDelta = useCallback((from: number, to: number) => {
+    return normalizeDegrees(to - from)
+  }, [normalizeDegrees])
+
+  const regionCoords = useMemo(
+    () =>
+      MOCK_MAP_POINTS.reduce((acc, point) => {
+        acc[point.region as RegionKey] = { lat: point.lat, lng: point.lng }
+        return acc
+      }, {} as Record<RegionKey, { lat: number; lng: number }>),
+    [],
+  )
+
+  const worldTopology = STATIC_WORLD_TOPOLOGY
+  const landFeature = useMemo(() => {
     const topo = worldTopology as unknown as Parameters<typeof topoFeature>[0]
     const landObject = worldTopology.objects.land as unknown as Parameters<typeof topoFeature>[1]
-    const landFeature = topoFeature(topo, landObject)
-    return mapPathBuilder(landFeature as GeoPermissibleObjects)
-  }, [mapPathBuilder, worldTopology])
+    return topoFeature(topo, landObject) as GeoPermissibleObjects
+  }, [worldTopology])
 
-  const countryBoundaryPath = useMemo(() => {
-    if (!worldTopology) return null
+  const borderMesh = useMemo(() => {
     const topo = worldTopology as unknown as Parameters<typeof topoMesh>[0]
     const countriesObject = worldTopology.objects.countries as unknown as Parameters<typeof topoMesh>[1]
-    const borderMesh = topoMesh(topo, countriesObject)
-    return mapPathBuilder(borderMesh as GeoPermissibleObjects)
-  }, [mapPathBuilder, worldTopology])
+    return topoMesh(topo, countriesObject) as GeoPermissibleObjects
+  }, [worldTopology])
 
-  const countryShapes = useMemo(() => {
-    if (!worldTopology) return [] as Array<{
-      id: string
-      d: string
-      region: RegionKey | null
-      sev: Severity
-      count: number
-      focused: boolean
-      interactive: boolean
-      isAmericas: boolean
-    }>
-    const topo = worldTopology as unknown as Parameters<typeof topoFeature>[0]
-    const countriesObject = worldTopology.objects.countries as unknown as Parameters<typeof topoFeature>[1]
-    const countries = topoFeature(topo, countriesObject) as FeatureCollection<Geometry>
+  const globeGeometry = useMemo(() => {
+    const width = globeSize.width
+    const height = globeSize.height
+    const radius = Math.min(width * 0.23, height * 0.4)
+    const cx = width * 0.5
+    const cy = height * 0.52
+    return { width, height, radius, cx, cy }
+  }, [globeSize.height, globeSize.width])
 
-    return countries.features
-      .map((featureItem: Feature<Geometry>, index) => {
-        const countryId = String((featureItem as { id?: string | number }).id ?? '')
-        const normalizedFeature = trimUnitedStatesEdgeFragments(featureItem, countryId)
-        const d = mapPathBuilder(normalizedFeature as GeoPermissibleObjects)
-        if (!d) return null
-        const [centroidLon, centroidLat] = geoCentroid(normalizedFeature as GeoPermissibleObjects)
-        const isAmericas =
-          Number.isFinite(centroidLon) &&
-          Number.isFinite(centroidLat) &&
-          centroidLon >= -170 &&
-          centroidLon <= -30 &&
-          centroidLat >= -60 &&
-          centroidLat <= 85
-        const mappedRegion = resolveCountryRegion(countryId)
-        const stats = mappedRegion ? regionStats.get(mappedRegion) : undefined
-        const count = stats?.count ?? 0
-        const sev = stats?.sev ?? 'LOW'
-        const focused = Boolean(mappedRegion && focusRegion && mappedRegion === focusRegion)
-        return {
-          id: `country-${countryId || index}`,
-          d,
-          region: mappedRegion,
-          sev,
-          count,
-          focused,
-          interactive: Boolean(mappedRegion),
-          isAmericas,
-        }
-      })
-      .filter((shape): shape is {
-        id: string
-        d: string
-        region: RegionKey | null
-        sev: Severity
-        count: number
-        focused: boolean
-        interactive: boolean
-        isAmericas: boolean
-      } => Boolean(shape))
-  }, [focusRegion, mapPathBuilder, regionStats, worldTopology])
+  const projection = useMemo<GeoProjection>(() => {
+    return geoOrthographic()
+      .translate([globeGeometry.cx, globeGeometry.cy])
+      .scale(globeGeometry.radius)
+      .rotate([globeAngles.lon, globeAngles.lat])
+      .clipAngle(90)
+      .precision(0.6)
+  }, [globeAngles.lat, globeAngles.lon, globeGeometry.cx, globeGeometry.cy, globeGeometry.radius])
+
+  const pathBuilder = useMemo(() => geoPath(projection), [projection])
+  const landPath = useMemo(() => pathBuilder(landFeature), [landFeature, pathBuilder])
+  const borderPath = useMemo(() => pathBuilder(borderMesh), [borderMesh, pathBuilder])
+  const graticulePath = useMemo(() => pathBuilder(geoGraticule10()), [pathBuilder])
+
+  const visibleCenter = useMemo<[number, number]>(() => [-globeAngles.lon, -globeAngles.lat], [globeAngles.lat, globeAngles.lon])
+
+  const isVisibleOnGlobe = useCallback((lat: number, lng: number) => {
+    return geoDistance([lng, lat], visibleCenter) <= Math.PI / 2
+  }, [visibleCenter])
+
+  const projectPoint = useCallback((lat: number, lng: number) => {
+    const point = projection([lng, lat])
+    if (!point) return null
+    return { x: point[0], y: point[1] }
+  }, [projection])
 
   const nodeData = useMemo(() => {
-    return MOCK_MAP_POINTS.map(point => {
-      const xy = toMapPoint(point.lat, point.lng)
+    return MOCK_MAP_POINTS.map((point) => {
       const region = point.region as RegionKey
       const stats = regionStats.get(region)
       const count = stats?.count ?? 0
       const sev = stats?.sev ?? 'LOW'
-      const focused = Boolean(focusRegion && region === focusRegion)
+      const projected = projectPoint(point.lat, point.lng)
+      const visible = isVisibleOnGlobe(point.lat, point.lng)
       return {
         ...point,
         region,
-        x: xy.x,
-        y: xy.y,
         count,
         sev,
-        focused,
+        focused: Boolean(focusRegion && region === focusRegion),
+        selectedTarget: Boolean(focusSignal && region === focusSignal.region),
+        selectedSource: Boolean(focusSignal && region === focusSignal.sourceRegion),
+        x: projected?.x ?? -999,
+        y: projected?.y ?? -999,
+        visible,
       }
     })
-  }, [focusRegion, regionStats])
+  }, [focusRegion, focusSignal, isVisibleOnGlobe, projectPoint, regionStats])
 
-  const visibleLabelRegions = useMemo(
-    () => new Set<RegionKey>(ALWAYS_VISIBLE_LABEL_REGIONS),
-    [],
+  const projectSampledRoute = useCallback((route: SampledRoute) => {
+    const baseLift = globeGeometry.radius * route.liftRatio
+    const segments: string[] = []
+    let currentSegment: { x: number; y: number }[] = []
+
+    const flushSegment = () => {
+      if (currentSegment.length < 2) {
+        currentSegment = []
+        return
+      }
+
+      const path = currentSegment.reduce((acc, point, index) => {
+        const prefix = index === 0 ? 'M' : 'L'
+        return `${acc}${index === 0 ? '' : ' '}${prefix} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`
+      }, '')
+
+      segments.push(path)
+      currentSegment = []
+    }
+
+    route.points.forEach((point) => {
+      if (!isVisibleOnGlobe(point.lat, point.lng)) {
+        flushSegment()
+        return
+      }
+
+      const projected = projectPoint(point.lat, point.lng)
+      if (!projected) {
+        flushSegment()
+        return
+      }
+
+      const radialX = projected.x - globeGeometry.cx
+      const radialY = projected.y - globeGeometry.cy
+      const radialLength = Math.hypot(radialX, radialY) || 1
+      const orbitalLift = Math.pow(Math.sin(Math.PI * point.t), 1.35) * baseLift
+
+      currentSegment.push({
+        x: projected.x + (radialX / radialLength) * orbitalLift,
+        y: projected.y + (radialY / radialLength) * orbitalLift,
+      })
+    })
+
+    flushSegment()
+    return segments
+  }, [globeGeometry.cx, globeGeometry.cy, globeGeometry.radius, isVisibleOnGlobe, projectPoint])
+
+  const sampledActiveRoutes = useMemo<SampledRoute[]>(
+    () =>
+      incidentsForRender.slice(0, 10).flatMap((incident, index) => {
+        const target = regionCoords[incident.region]
+        if (!target) return []
+        const sourceRegion = deriveSourceRegion(incident.source, incident.region)
+        const source = regionCoords[sourceRegion]
+        if (!source) return []
+
+        const angularDistance = geoDistance([source.lng, source.lat], [target.lng, target.lat])
+        const steps = Math.max(36, Math.ceil(angularDistance * 30))
+
+        return [{
+          id: `${incident.id}-${index}`,
+          points: buildGreatCircleSamples(source, target, steps),
+          sev: incident.sev,
+          focused: Boolean(focusRegion && incident.region === focusRegion),
+          liftRatio: incident.sev === 'CRITICAL' ? 0.055 : incident.sev === 'HIGH' ? 0.045 : 0.034,
+        }]
+      }),
+    [focusRegion, incidentsForRender, regionCoords],
   )
 
-  const regionAnchorMap = useMemo(() => {
-    const anchorMap = new Map<RegionKey, { x: number; y: number }>()
-    nodeData.forEach((node) => {
-      anchorMap.set(node.region, { x: node.x, y: node.y + MAP_CONTENT_Y_OFFSET })
+  const selectedSignalRoute = useMemo<SampledRoute | null>(() => {
+    if (!focusSignal) return null
+    const source = regionCoords[focusSignal.sourceRegion]
+    const target = regionCoords[focusSignal.region]
+    if (!source || !target) return null
+
+    const angularDistance = geoDistance([source.lng, source.lat], [target.lng, target.lat])
+    const steps = Math.max(46, Math.ceil(angularDistance * 36))
+
+    return {
+      id: `selected-${focusSignal.id}`,
+      points: buildGreatCircleSamples(source, target, steps),
+      sev: focusSignal.sev,
+      focused: true,
+      selected: true,
+      liftRatio: focusSignal.sev === 'CRITICAL' ? 0.072 : focusSignal.sev === 'HIGH' ? 0.062 : 0.05,
+    }
+  }, [focusSignal, regionCoords])
+
+  const activeArcs = useMemo(
+    () =>
+      sampledActiveRoutes.flatMap((route) => {
+        const paths = projectSampledRoute(route)
+        if (!paths.length || !route.sev) return []
+        return paths.map((path, segmentIndex) => ({
+          id: `${route.id}-${segmentIndex}`,
+          d: path,
+          sev: route.sev,
+          focused: route.focused ?? false,
+          selected: route.selected ?? false,
+        }))
+      }),
+    [projectSampledRoute, sampledActiveRoutes],
+  )
+
+  const selectedArcs = useMemo(
+    () =>
+      selectedSignalRoute
+        ? projectSampledRoute(selectedSignalRoute).map((path, segmentIndex) => ({
+            id: `${selectedSignalRoute.id}-${segmentIndex}`,
+            d: path,
+            sev: selectedSignalRoute.sev ?? 'MEDIUM',
+          }))
+        : [],
+    [projectSampledRoute, selectedSignalRoute],
+  )
+
+  const sampledAmbientRoutes = useMemo<SampledRoute[]>(
+    () =>
+      AMBIENT_ROUTE_EDGES.flatMap(([from, to], index) => {
+        const source = regionCoords[from]
+        const target = regionCoords[to]
+        if (!source || !target) return []
+
+        const angularDistance = geoDistance([source.lng, source.lat], [target.lng, target.lat])
+        const steps = Math.max(28, Math.ceil(angularDistance * 24))
+
+        return [{
+          id: `ambient-${index}`,
+          points: buildGreatCircleSamples(source, target, steps),
+          liftRatio: 0.02,
+        }]
+      }),
+    [regionCoords],
+  )
+
+  const ambientArcs = useMemo(
+    () =>
+      sampledAmbientRoutes.flatMap((route) => {
+        const paths = projectSampledRoute(route)
+        if (!paths.length) return []
+        return paths.map((path, segmentIndex) => ({
+          id: `${route.id}-${segmentIndex}`,
+          d: path,
+        }))
+      }),
+    [projectSampledRoute, sampledAmbientRoutes],
+  )
+
+  const visibleNodes = useMemo(
+    () => nodeData.filter((node) => node.visible || node.focused),
+    [nodeData],
+  )
+
+  const focusNode = useMemo(
+    () => visibleNodes.find((node) => node.region === focusRegion || node.selectedTarget) ?? null,
+    [focusRegion, visibleNodes],
+  )
+
+  useEffect(() => {
+    const element = containerRef.current
+    if (!element) return
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      const width = Math.max(320, Math.round(entry.contentRect.width))
+      const height = Math.max(280, Math.round(entry.contentRect.height))
+      setGlobeSize((current) => (current.width === width && current.height === height ? current : { width, height }))
     })
-    return anchorMap
-  }, [nodeData])
-
-  const isCountryClickAllowed = useCallback((region: RegionKey, event: React.MouseEvent<SVGPathElement>) => {
-    const svgElement = event.currentTarget.ownerSVGElement
-    if (!svgElement) return true
-
-    const rect = svgElement.getBoundingClientRect()
-    if (!rect.width || !rect.height) return true
-
-    const clickX = ((event.clientX - rect.left) / rect.width) * MAP_VIEWBOX_WIDTH
-    const clickY = ((event.clientY - rect.top) / rect.height) * MAP_VIEWBOX_HEIGHT - MAP_CONTENT_Y_OFFSET
-    const anchor = regionAnchorMap.get(region)
-    if (!anchor) return true
-
-    const allowedRadius = REGION_CLICK_RADIUS[region] ?? 180
-    const distance = Math.hypot(clickX - anchor.x, clickY - anchor.y)
-    return distance <= allowedRadius
-  }, [regionAnchorMap])
-
-  const flowRoutes = useMemo(() => {
-    return incidentsForRender
-      .slice(0, FLOW_ROUTE_LIMIT)
-      .map((incident, index) => {
-        const targetPoint = MOCK_MAP_POINTS.find((point) => point.region === incident.region)
-        if (!targetPoint) return null
-        const sourceRegion = deriveSourceRegion(incident.source, incident.region)
-        const sourcePoint = MOCK_MAP_POINTS.find((point) => point.region === sourceRegion)
-        if (!sourcePoint) return null
-        const sourceXY = toMapPoint(sourcePoint.lat, sourcePoint.lng)
-        const targetXY = toMapPoint(targetPoint.lat, targetPoint.lng)
-        return {
-          id: `flow-${incident.id}-${index}`,
-          pathId: `flow-path-${index}`,
-          d: buildArcPath(sourceXY.x, sourceXY.y, targetXY.x, targetXY.y),
-          critical: incident.sev === 'CRITICAL',
-          focused: Boolean(focusRegion && incident.region === focusRegion),
-          from: sourceRegion,
-          to: incident.region,
-        }
-      })
-      .filter((route): route is {
-        id: string
-        pathId: string
-        d: string
-        critical: boolean
-        focused: boolean
-        from: RegionKey
-        to: RegionKey
-      } => Boolean(route))
-  }, [focusRegion, incidentsForRender])
-
-  const ambientRoutes = useMemo(() => {
-    return AMBIENT_ROUTE_EDGES
-      .map(([from, to], index) => {
-        const sourcePoint = MOCK_MAP_POINTS.find((point) => point.region === from)
-        const targetPoint = MOCK_MAP_POINTS.find((point) => point.region === to)
-        if (!sourcePoint || !targetPoint) return null
-        const sourceXY = toMapPoint(sourcePoint.lat, sourcePoint.lng)
-        const targetXY = toMapPoint(targetPoint.lat, targetPoint.lng)
-        return {
-          id: `ambient-${from}-${to}-${index}`,
-          d: buildArcPath(sourceXY.x, sourceXY.y, targetXY.x, targetXY.y),
-        }
-      })
-      .filter((route): route is { id: string; d: string } => Boolean(route))
+    resizeObserver.observe(element)
+    return () => resizeObserver.disconnect()
   }, [])
 
-  const focusCardGeometry = useMemo(() => {
-    if (!focusRegion) return null
-    const anchor = nodeData.find((node) => node.region === focusRegion)
-    if (!anchor) return null
-
-    const cardWidth = 248
-    const cardHeight = 188
-    const gap = 12
-    const openRight = anchor.x < MAP_VIEWBOX_WIDTH * 0.68
-    const xRaw = openRight ? anchor.x + gap : anchor.x - cardWidth - gap
-    const x = Math.max(10, Math.min(MAP_VIEWBOX_WIDTH - cardWidth - 10, xRaw))
-    const y = Math.max(12, Math.min(MAP_VIEWBOX_HEIGHT - cardHeight - 12, anchor.y - cardHeight / 2))
-
-    return {
-      x,
-      y,
-      width: cardWidth,
-      height: cardHeight,
-      anchorX: anchor.x,
-      anchorY: anchor.y,
-      openRight,
+  useEffect(() => {
+    if (!focusRegion && !focusSignal) {
+      targetAnglesRef.current = { lon: 22, lat: -10 }
+      return
     }
-  }, [focusRegion, nodeData])
-
-  const focusOverlayGeometry = useMemo(() => {
-    if (!focusCardGeometry) return null
-    return {
-      ...focusCardGeometry,
-      y: focusCardGeometry.y + MAP_CONTENT_Y_OFFSET,
-      anchorY: focusCardGeometry.anchorY + MAP_CONTENT_Y_OFFSET,
+    const targetRegion = focusSignal?.region ?? focusRegion
+    if (!targetRegion) return
+    const coords = regionCoords[targetRegion]
+    if (!coords) return
+    targetAnglesRef.current = {
+      lon: normalizeDegrees(-coords.lng),
+      lat: Math.max(-22, Math.min(22, -coords.lat * 0.35)),
     }
-  }, [focusCardGeometry])
+  }, [focusRegion, focusSignal, normalizeDegrees, regionCoords])
+
+  useEffect(() => {
+    lastFrameRef.current = null
+
+    const animate = (timestamp: number) => {
+      const previousTimestamp = lastFrameRef.current ?? timestamp
+      const delta = Math.min(32, timestamp - previousTimestamp)
+      lastFrameRef.current = timestamp
+
+      const spinVelocity = focusSignal ? -0.01 : focusRegion ? -0.012 : -0.018
+      spinOffsetRef.current = normalizeDegrees(spinOffsetRef.current + spinVelocity * delta)
+
+      setGlobeAngles((current) => {
+        const target = targetAnglesRef.current
+        const driftedTargetLon = normalizeDegrees(target.lon + spinOffsetRef.current)
+        const lonBlend = 1 - Math.pow(focusSignal ? 0.76 : focusRegion ? 0.78 : 0.86, delta / 16.67)
+        const latBlend = 1 - Math.pow(0.84, delta / 16.67)
+
+        return {
+          lon: normalizeDegrees(current.lon + shortestDegreeDelta(current.lon, driftedTargetLon) * lonBlend),
+          lat: current.lat + (target.lat - current.lat) * latBlend,
+        }
+      })
+
+      animationFrameRef.current = window.requestAnimationFrame(animate)
+    }
+
+    animationFrameRef.current = window.requestAnimationFrame(animate)
+
+    return () => {
+      if (animationFrameRef.current) window.cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
+      lastFrameRef.current = null
+    }
+  }, [focusRegion, focusSignal, normalizeDegrees, shortestDegreeDelta])
 
   return (
-    <section className="flex-none h-[52vh] border border-[#1a2e1a] bg-transparent overflow-hidden shadow-2xl">
-      <div className="relative h-full">
+    <section className="flex-none h-[clamp(320px,52vh,620px)] border border-[#1a2e1a] bg-transparent overflow-hidden shadow-2xl">
+      <div ref={containerRef} className="relative h-full overflow-hidden bg-[#03110d]">
         <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-2 px-3 py-2 bg-gradient-to-b from-[#091409]/96 to-transparent border-b border-[#1c3a22]/55 pointer-events-none">
           <span className="w-1.5 h-1.5 rounded-full bg-[#00e640] shadow-[0_0_7px_rgba(0,230,64,0.85)]" />
           <span className="text-[9px] font-bold tracking-[0.22em] uppercase text-slate-200">Global Threat Map</span>
           <span className="ml-auto text-[8px] font-mono text-[#7effb2]/85">TOTAL INCIDENTS {totalIncidents}</span>
         </div>
 
-        <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${MAP_VIEWBOX_WIDTH} ${MAP_VIEWBOX_HEIGHT}`} preserveAspectRatio="none" aria-label="Global threat heat map">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(24,132,90,0.2),rgba(3,8,8,0.96)_55%,rgba(1,3,3,1))]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(6,22,14,0.2),rgba(2,9,8,0.88))]" />
+          <div className="absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(80,255,176,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(80,255,176,0.05)_1px,transparent_1px)] [background-size:42px_42px]" />
+          <div className="absolute inset-x-[-8%] top-[-12%] h-[78%] rounded-full bg-[radial-gradient(circle,rgba(57,255,193,0.14),rgba(57,255,193,0)_68%)] blur-3xl" />
+          <div className="absolute left-[14%] top-[18%] h-[64%] w-[56%] rounded-full border border-[#54f8b02f] orbital-ring orbital-ring-a" />
+          <div className="absolute left-[16%] top-[25%] h-[50%] w-[52%] rounded-full border border-[#1bd8ff1f] orbital-ring orbital-ring-b" />
+          <div className="absolute left-[5%] top-[51%] h-[1px] w-[90%] bg-gradient-to-r from-transparent via-[#8cffd84f] to-transparent opacity-55 scanline-slow" />
+          <div className="absolute inset-0 opacity-55 map-starfield" />
+        </div>
+
+        <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${globeGeometry.width} ${globeGeometry.height}`} preserveAspectRatio="xMidYMid meet" aria-label="3D threat globe">
           <defs>
-            <pattern id="worldMatrixPattern" width="6" height="6" patternUnits="userSpaceOnUse">
-              <circle cx="1.1" cy="1.1" r="0.62" fill="#7df0c7" fillOpacity="0.56" />
-              <circle cx="4.6" cy="3.8" r="0.52" fill="#9afdd9" fillOpacity="0.26" />
-              <circle cx="3.1" cy="5.1" r="0.36" fill="#9afdd9" fillOpacity="0.18" />
-            </pattern>
-            <pattern id="worldOceanPattern" width="10" height="10" patternUnits="userSpaceOnUse">
-              <circle cx="1.5" cy="1.5" r="0.42" fill="#6fd7c4" fillOpacity="0.2" />
-              <circle cx="6.8" cy="5.4" r="0.36" fill="#6fd7c4" fillOpacity="0.12" />
-              <circle cx="4.1" cy="8.2" r="0.3" fill="#8bf1db" fillOpacity="0.1" />
-            </pattern>
-            <linearGradient id="worldScanGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#6bf8c0" stopOpacity="0" />
-              <stop offset="45%" stopColor="#8affd1" stopOpacity="0.28" />
-              <stop offset="55%" stopColor="#8affd1" stopOpacity="0.34" />
-              <stop offset="100%" stopColor="#6bf8c0" stopOpacity="0" />
-            </linearGradient>
-            <radialGradient id="worldBaseGlow" cx="50%" cy="46%" r="70%">
-              <stop offset="0%" stopColor="#1f5f80" stopOpacity="0.52" />
-              <stop offset="60%" stopColor="#10324a" stopOpacity="0.34" />
-              <stop offset="100%" stopColor="#02060b" stopOpacity="0" />
+            <radialGradient id="globeOceanGradient" cx="34%" cy="22%" r="86%">
+              <stop offset="0%" stopColor="#8dffea" stopOpacity="0.9" />
+              <stop offset="18%" stopColor="#4dd7b8" stopOpacity="0.76" />
+              <stop offset="42%" stopColor="#137762" stopOpacity="0.94" />
+              <stop offset="72%" stopColor="#08261e" stopOpacity="1" />
+              <stop offset="100%" stopColor="#030d0a" stopOpacity="1" />
             </radialGradient>
-            <radialGradient id="worldVignette" cx="50%" cy="42%" r="72%">
-              <stop offset="65%" stopColor="#00000000" />
-              <stop offset="100%" stopColor="#000000" stopOpacity="0.14" />
+            <radialGradient id="globeHighlightGradient" cx="28%" cy="18%" r="56%">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.22" />
+              <stop offset="34%" stopColor="#d7fff4" stopOpacity="0.12" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
             </radialGradient>
-            <clipPath id="mapViewportClip">
-              <rect
-                x={MAP_VIEWPORT_INSET.left}
-                y={MAP_VIEWPORT_INSET.top}
-                width={MAP_VIEWBOX_WIDTH - MAP_VIEWPORT_INSET.left - MAP_VIEWPORT_INSET.right}
-                height={MAP_VIEWBOX_HEIGHT - MAP_VIEWPORT_INSET.top - MAP_VIEWPORT_INSET.bottom}
-                rx="3"
-              />
+            <radialGradient id="globeShadowGradient" cx="72%" cy="68%" r="62%">
+              <stop offset="0%" stopColor="#000000" stopOpacity="0" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="0.28" />
+            </radialGradient>
+            <radialGradient id="globeLandGradient" cx="38%" cy="26%" r="78%">
+              <stop offset="0%" stopColor="#f4fffb" stopOpacity="0.98" />
+              <stop offset="16%" stopColor="#a8ffe2" stopOpacity="0.94" />
+              <stop offset="48%" stopColor="#3fd3aa" stopOpacity="0.88" />
+              <stop offset="100%" stopColor="#0d5f49" stopOpacity="0.82" />
+            </radialGradient>
+            <radialGradient id="globeLandGlow" cx="42%" cy="28%" r="74%">
+              <stop offset="0%" stopColor="#c9fff2" stopOpacity="0.34" />
+              <stop offset="50%" stopColor="#5fffd0" stopOpacity="0.14" />
+              <stop offset="100%" stopColor="#5fffd0" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="globeLandSpecGradient" cx="28%" cy="18%" r="58%">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.3" />
+              <stop offset="20%" stopColor="#dffff6" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+            </radialGradient>
+            <filter id="globeAtmosphereBlur" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="16" />
+            </filter>
+            <filter id="landGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="1.6" />
+            </filter>
+            <clipPath id="globeClip">
+              <circle cx={globeGeometry.cx} cy={globeGeometry.cy} r={globeGeometry.radius} />
             </clipPath>
           </defs>
 
-          <g clipPath="url(#mapViewportClip)" transform={`translate(0 ${MAP_CONTENT_Y_OFFSET})`}>
-            <rect x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill="#071a2a" />
-            <rect x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill="url(#worldBaseGlow)" />
-            <rect x="0" y="0" width={MAP_VIEWBOX_WIDTH} height={MAP_VIEWBOX_HEIGHT} fill="url(#worldOceanPattern)" opacity="0.24" />
+          <circle cx={globeGeometry.cx} cy={globeGeometry.cy} r={globeGeometry.radius + 22} fill="#2bffbe18" filter="url(#globeAtmosphereBlur)" />
+          <circle cx={globeGeometry.cx} cy={globeGeometry.cy} r={globeGeometry.radius + 12} fill="#76ffdb12" filter="url(#globeAtmosphereBlur)" />
+          <circle cx={globeGeometry.cx} cy={globeGeometry.cy} r={globeGeometry.radius + 6} fill="none" stroke="#7effd0aa" strokeWidth="1.2" opacity="0.46" />
+          <circle cx={globeGeometry.cx} cy={globeGeometry.cy} r={globeGeometry.radius} fill="url(#globeOceanGradient)" stroke="#a8ffe866" strokeWidth="1.1" />
 
-          {landPath && (
-            <>
-              <path d={landPath} fill="#0a1927" opacity="0.98" />
-            </>
-          )}
+          <g clipPath="url(#globeClip)">
+            <rect x={globeGeometry.cx - globeGeometry.radius} y={globeGeometry.cy - globeGeometry.radius} width={globeGeometry.radius * 2} height={globeGeometry.radius * 2} fill="#03110d" />
+            {graticulePath && <path d={graticulePath} fill="none" stroke="#8cf7df" strokeOpacity="0.12" strokeWidth="0.6" />}
+            {landPath && <path d={landPath} fill="url(#globeLandGlow)" opacity="0.9" filter="url(#landGlow)" />}
+            {landPath && <path d={landPath} fill="url(#globeLandGradient)" fillOpacity="0.88" stroke="#ecfff7" strokeOpacity="0.4" strokeWidth="0.72" />}
+            {landPath && <path d={landPath} fill="url(#globeLandSpecGradient)" fillOpacity="0.72" />}
+            {borderPath && <path d={borderPath} fill="none" stroke="#dffff4" strokeOpacity="0.16" strokeWidth="0.34" />}
+            {landPath && <path d={landPath} fill="none" stroke="#f7fffb" strokeOpacity="0.2" strokeWidth="1.15" />}
+            <circle cx={globeGeometry.cx} cy={globeGeometry.cy} r={globeGeometry.radius} fill="url(#globeHighlightGradient)" />
+            <circle cx={globeGeometry.cx} cy={globeGeometry.cy} r={globeGeometry.radius} fill="url(#globeShadowGradient)" />
 
-          {countryShapes.map((country) => {
-            const americaContextZone = focusRegion === 'US-EAST' && country.isAmericas && !country.focused
-            const isFocusTarget = country.focused
-            const dimUnfocused = Boolean(focusRegion) && !isFocusTarget && !americaContextZone
-            const effectiveSeverity: Severity = country.focused ? (focusRegionStats?.sev ?? country.sev) : country.sev
-            const tone = ATTACK_COLOR_TONE[effectiveSeverity]
-            const hasActivity = country.count > 0 || country.focused
-            const idleFill = country.interactive || americaContextZone ? '#112a3a' : '#0d2231'
-            const fillColor = isFocusTarget
-              ? tone.fill
-              : americaContextZone
-                ? CONTEXT_CONTINENT_TONE.fill
-                : hasActivity
-                  ? tone.fill
-                  : idleFill
-            const strokeColor = isFocusTarget
-              ? tone.stroke
-              : americaContextZone
-                ? CONTEXT_CONTINENT_TONE.stroke
-              : hasActivity
-                ? tone.stroke
-                : (country.interactive ? '#4a92a8' : '#27485d')
-            return (
-              <path
-                key={country.id}
-                d={country.d}
-                fill={fillColor}
-                fillOpacity={
-                  isFocusTarget
-                    ? 0.84
-                    : americaContextZone
-                      ? CONTEXT_CONTINENT_TONE.fillOpacity
-                    : dimUnfocused
-                      ? 0.18
-                      : hasActivity
-                        ? 0.44
-                        : 0.32
-                }
-                stroke={dimUnfocused ? '#132839' : strokeColor}
-                strokeOpacity={isFocusTarget ? 0.98 : americaContextZone ? CONTEXT_CONTINENT_TONE.strokeOpacity : dimUnfocused ? 0.34 : hasActivity ? 0.76 : 0.58}
-                strokeWidth={isFocusTarget ? 1.18 : americaContextZone ? CONTEXT_CONTINENT_TONE.strokeWidth : dimUnfocused ? 0.42 : hasActivity ? 0.74 : 0.52}
-                className={`${country.interactive ? 'cursor-crosshair' : 'cursor-default'} transition-colors duration-200`}
-                onClick={(event) => {
-                  if (!country.region) return
-                  if (!isCountryClickAllowed(country.region, event)) return
-                  onMapClick(country.region)
-                }}
-              />
-            )
-          })}
-
-          {countryBoundaryPath && (
-            <path
-              d={countryBoundaryPath}
-              fill="none"
-              stroke="#5aa8be"
-              strokeWidth="0.68"
-              strokeOpacity="0.75"
-              pointerEvents="none"
-            />
-          )}
-
-          {landPath && (
-            <g pointerEvents="none">
-              <path d={landPath} fill="url(#worldMatrixPattern)" opacity={focusRegion ? 0.34 : 0.48} className="matrix-drift" />
-              <path d={landPath} fill="url(#worldScanGradient)" opacity={focusRegion ? 0.25 : 0.34} className="scan-sweep" />
-              <path d={landPath} fill="none" stroke="#9cfed8" strokeOpacity={focusRegion ? 0.32 : 0.4} strokeWidth="0.62" />
-            </g>
-          )}
-
-          <g fill="none" strokeLinecap="round" pointerEvents="none">
-            {ambientRoutes.map((route, index) => (
+            {ambientArcs.map((route, index) => (
               <path
                 key={route.id}
                 d={route.d}
-                stroke="#9cf87a"
-                strokeWidth="0.8"
-                strokeDasharray="3 12"
-                opacity={focusRegion ? 0.08 : 0.18}
-                className="ambient-flow"
+                fill="none"
+                stroke="#6bffd5"
+                strokeOpacity={focusRegion ? 0.05 : 0.14}
+                strokeWidth="0.95"
+                strokeDasharray="4 14"
+                strokeLinecap="round"
+                className="ambient-globe-arc"
                 style={{ animationDelay: `${index * 0.24}s` }}
               />
             ))}
-          </g>
 
-          <g fill="none" strokeLinecap="round" pointerEvents="none">
-            {flowRoutes.map((route, index) => (
-              <g key={route.id}>
-                <path id={route.pathId} d={route.d} fill="none" stroke="transparent" />
-                <path
-                  d={route.d}
-                  stroke={route.critical ? '#ff6f90' : '#b9fb72'}
-                  strokeWidth={route.critical ? 1.85 : 1.35}
-                  strokeDasharray={route.critical ? '6 9' : '4 10'}
-                  opacity={focusRegion ? (route.focused ? 0.96 : 0.25) : (route.focused ? 0.9 : 0.58)}
-                  className="hybrid-flow"
-                  style={{ animationDuration: route.critical ? '8s' : '10s', animationDelay: `${index * 0.5}s` }}
-                />
-                <circle r={route.critical ? 2.1 : 1.78} fill={route.critical ? '#ffd4df' : '#e9ffc6'} opacity={0.86}>
-                  <animateMotion dur={route.critical ? '4.1s' : '5.4s'} begin={`${index * 0.35}s`} repeatCount="indefinite" rotate="auto">
-                    <mpath href={`#${route.pathId}`} />
-                  </animateMotion>
-                </circle>
-              </g>
-            ))}
-          </g>
-
-          <g pointerEvents="none">
-            {nodeData
-              .filter((node) => node.count > 0)
-              .map((node) => {
-                const color = REGION_HEAT_COLOR[node.sev]
-                const baseRadius = Math.min(42, 14 + node.count * 6)
-                return (
-                  <g key={`heat-${node.region}`}>
-                    <circle
-                      cx={node.x}
-                      cy={node.y}
-                      r={baseRadius}
-                      fill={color.glow}
-                      opacity={focusRegion ? (node.focused ? (node.sev === 'CRITICAL' ? 0.24 : 0.18) : 0.06) : (node.sev === 'CRITICAL' ? 0.28 : 0.18)}
-                      className="hybrid-pulse"
-                    />
-                    <circle cx={node.x} cy={node.y} r={Math.max(3.4, baseRadius * 0.32)} fill={color.glow} opacity={0.28} />
-                  </g>
-                )
-              })}
-          </g>
-
-          <g>
-            {nodeData.map((node) => {
-              const color = REGION_HEAT_COLOR[node.sev]
-              const isHot = node.count > 0
-              const radius = isHot ? 4.3 : 2.5
-              const showLabel = visibleLabelRegions.has(node.region)
-              const labelOffset = LABEL_OFFSETS[node.region]
-              const alignLabelLeft = node.x + labelOffset.dx > MAP_VIEWBOX_WIDTH - 170
-              const labelX = (alignLabelLeft ? node.x - 9 : node.x + 9) + labelOffset.dx
-              const labelY = node.y - 9 + labelOffset.dy
-              const labelAnchor: 'start' | 'end' = alignLabelLeft ? 'end' : 'start'
-              const isFocusLabel = Boolean(focusRegion && node.region === focusRegion)
-              const isNonFocusLabel = Boolean(focusRegion && node.region !== focusRegion)
+            {activeArcs.map((route, index) => {
+              const routeColor = route.sev === 'CRITICAL' ? '#ff7d9f' : route.sev === 'HIGH' ? '#ffc252' : route.sev === 'MEDIUM' ? '#54ffd4' : '#b7fff1'
+              const routeGlow = route.sev === 'CRITICAL' ? '#ff4c7f' : route.sev === 'HIGH' ? '#ffb235' : '#00ffb7'
               return (
-                <g key={node.region} onClick={() => onMapClick(node.region)} className="cursor-crosshair">
-                  {node.focused && (
-                    <circle cx={node.x} cy={node.y} r={radius + 6} fill="none" stroke="#8be9ff88" strokeWidth="1.2" />
-                  )}
-                  <circle cx={node.x} cy={node.y} r={radius} fill={isHot ? color.core : '#4f6678'} stroke="#06111b" strokeWidth="1.1" />
-                  {showLabel && (
-                    <>
-                      <text
-                        x={labelX}
-                        y={labelY}
-                        textAnchor={labelAnchor}
-                        fill={isFocusLabel ? '#f0fff8' : isNonFocusLabel ? '#b8ddc8' : '#d9f4ff'}
-                        stroke="#051019"
-                        strokeOpacity={isFocusLabel ? 0.96 : isNonFocusLabel ? 0.62 : 0.88}
-                        strokeWidth={isFocusLabel ? '2.3' : '2.1'}
-                        paintOrder="stroke"
-                        fontSize={isFocusLabel ? '10.3' : '9.7'}
-                        fontWeight={isFocusLabel ? '700' : '600'}
-                        opacity={focusRegion ? (isFocusLabel ? 1 : 0.54) : 0.98}
-                        letterSpacing="0.35"
-                        fontFamily={'"JetBrains Mono", "SFMono-Regular", Consolas, monospace'}
-                      >
-                        {REGION_LABELS[node.region] ?? node.region}
-                      </text>
-                    </>
-                  )}
+                <g key={route.id}>
+                  <path
+                    d={route.d}
+                    fill="none"
+                    stroke={routeGlow}
+                    strokeOpacity={route.selected ? 0.5 : route.focused ? 0.28 : 0.14}
+                    strokeWidth={route.selected ? (route.sev === 'CRITICAL' ? 6.2 : 5.1) : route.sev === 'CRITICAL' ? 4.4 : 3.1}
+                    strokeLinecap="round"
+                    filter="url(#globeAtmosphereBlur)"
+                  />
+                  <path
+                    d={route.d}
+                    fill="none"
+                    stroke={routeColor}
+                    strokeOpacity={route.selected ? 1 : focusRegion ? (route.focused ? 0.94 : 0.22) : 0.7}
+                    strokeWidth={route.selected ? (route.sev === 'CRITICAL' ? 2.9 : 2.2) : route.sev === 'CRITICAL' ? 2.1 : 1.45}
+                    strokeDasharray={route.selected ? '12 11' : route.sev === 'CRITICAL' ? '10 12' : '7 13'}
+                    strokeLinecap="round"
+                    className="active-globe-arc"
+                    style={{ animationDelay: `${index * 0.35}s` }}
+                  />
+                </g>
+              )
+            })}
+
+            {selectedArcs.map((route, index) => {
+              const routeColor = route.sev === 'CRITICAL' ? '#ffd5e0' : route.sev === 'HIGH' ? '#ffe5a8' : '#d7fff5'
+              const routeGlow = route.sev === 'CRITICAL' ? '#ff5d8d' : route.sev === 'HIGH' ? '#ffc657' : '#6dffdb'
+              return (
+                <g key={route.id}>
+                  <path
+                    d={route.d}
+                    fill="none"
+                    stroke={routeGlow}
+                    strokeOpacity={0.55}
+                    strokeWidth={route.sev === 'CRITICAL' ? 7.6 : 6}
+                    strokeLinecap="round"
+                    filter="url(#globeAtmosphereBlur)"
+                  />
+                  <path
+                    d={route.d}
+                    fill="none"
+                    stroke={routeColor}
+                    strokeOpacity={0.98}
+                    strokeWidth={route.sev === 'CRITICAL' ? 3.2 : 2.6}
+                    strokeDasharray={route.sev === 'CRITICAL' ? '14 10' : '12 11'}
+                    strokeLinecap="round"
+                    className="selected-globe-arc"
+                    style={{ animationDelay: `${index * 0.22}s` }}
+                  />
                 </g>
               )
             })}
           </g>
-          </g>
+        </svg>
 
-          {focusRegion && focusOverlayGeometry && (
-            <g>
-              <line
-                x1={focusOverlayGeometry.anchorX}
-                y1={focusOverlayGeometry.anchorY}
-                x2={focusOverlayGeometry.openRight ? focusOverlayGeometry.x : focusOverlayGeometry.x + focusOverlayGeometry.width}
-                y2={focusOverlayGeometry.y + focusOverlayGeometry.height / 2}
-                stroke={focusRegionStats ? REGION_HEAT_COLOR[focusRegionStats.sev].glow : '#59f59a'}
-                strokeOpacity="0.62"
-                strokeWidth="1.1"
-                strokeDasharray="4 3"
-              />
-              <circle cx={focusOverlayGeometry.anchorX} cy={focusOverlayGeometry.anchorY} r="2.6" fill="#d4ffe6" />
-              <foreignObject x={focusOverlayGeometry.x} y={focusOverlayGeometry.y} width={focusOverlayGeometry.width} height={focusOverlayGeometry.height}>
-                <div className="h-full w-full rounded-md border border-[#2b4a30] bg-gradient-to-b from-[#0c1f10]/95 via-[#0a180e]/95 to-[#08130b]/95 p-2.5 shadow-[0_0_25px_rgba(0,230,64,0.18)] backdrop-blur-[1px]">
-                  <div className="mb-2 flex items-start justify-between border-b border-[#27422b] pb-1.5">
-                    <div className="min-w-0">
-                      <p className="text-[8px] font-bold uppercase tracking-[0.22em] text-[#9fffc4]/90">Country Intelligence</p>
-                      <p className="truncate pt-0.5 text-[11px] font-semibold text-slate-100">
-                        {REGION_LABELS[focusRegion] ?? focusRegion}
-                      </p>
-                    </div>
+        <div className="pointer-events-none absolute inset-0 z-10">
+          {visibleNodes.map((node, index) => {
+            const labelOffset = LABEL_OFFSETS[node.region]
+            const isFocusLabel = Boolean((focusRegion && node.region === focusRegion) || node.selectedTarget)
+            const isSourceLabel = Boolean(node.selectedSource)
+            const isHot = node.count > 0 || node.selectedTarget || node.selectedSource
+            const tone = REGION_HEAT_COLOR[node.sev]
+            const left = `${(node.x / globeGeometry.width) * 100}%`
+            const top = `${(node.y / globeGeometry.height) * 100}%`
+            return (
+              <button
+                key={node.region}
+                type="button"
+                onClick={() => onMapClick(node.region)}
+                className="pointer-events-auto absolute group"
+                style={{
+                  left,
+                  top,
+                  transform: `translate(-50%, -50%) translate(${labelOffset.dx}px, ${labelOffset.dy}px)`,
+                }}
+              >
+                <span
+                  className={`absolute left-1/2 top-1/2 rounded-full ${isHot ? 'map-node-pulse' : ''} ${node.selectedTarget ? 'map-node-selected' : ''}`}
+                  style={{
+                    width: isFocusLabel ? 42 : isSourceLabel ? 32 : isHot ? 26 : 16,
+                    height: isFocusLabel ? 42 : isSourceLabel ? 32 : isHot ? 26 : 16,
+                    background: `radial-gradient(circle, ${(node.selectedTarget || isSourceLabel) ? '#e8fff7aa' : `${tone.glow}66`} 0%, ${tone.glow}18 58%, transparent 72%)`,
+                    transform: 'translate(-50%, -50%)',
+                    opacity: isFocusLabel ? 0.92 : isSourceLabel ? 0.82 : isHot ? 0.72 : 0.4,
+                    animationDelay: `${index * 0.18}s`,
+                  }}
+                />
+                <span
+                  className="absolute left-1/2 top-1/2 rounded-full border border-[#dffff2] shadow-[0_0_18px_rgba(34,255,176,0.24)]"
+                  style={{
+                    width: isFocusLabel ? 12 : isSourceLabel ? 10 : isHot ? 9 : 7,
+                    height: isFocusLabel ? 12 : isSourceLabel ? 10 : isHot ? 9 : 7,
+                    backgroundColor: node.selectedTarget ? '#f8fff9' : isSourceLabel ? '#ffe0bf' : isHot ? tone.core : '#d7f7e9',
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                />
+                <span
+                  className={`absolute text-[9px] font-bold uppercase tracking-[0.24em] ${isFocusLabel ? 'text-[#f4fff8]' : isSourceLabel ? 'text-[#ffe2bf]' : 'text-[#b6ffe0]'} drop-shadow-[0_0_12px_rgba(6,14,11,0.95)] transition-opacity duration-300`}
+                  style={{
+                    left: isFocusLabel ? 18 : 14,
+                    top: -7,
+                    opacity: focusRegion ? (isFocusLabel || isSourceLabel ? 1 : 0.45) : 0.94,
+                    fontFamily: '"JetBrains Mono", "SFMono-Regular", Consolas, monospace',
+                  }}
+                >
+                  {REGION_LABELS[node.region] ?? node.region}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {focusRegion && (
+          <div className="absolute right-3 top-14 z-20 w-[min(260px,calc(100%-24px))] rounded-xl border border-[#2d5e42] bg-[linear-gradient(180deg,rgba(6,24,18,0.94),rgba(3,12,10,0.92))] p-3 shadow-[0_0_36px_rgba(24,255,159,0.12)] backdrop-blur-md md:right-4 md:top-16">
+            <div className="mb-2 flex items-start justify-between border-b border-[#214634] pb-2">
+              <div className="min-w-0">
+                <p className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#97ffd1]">Threat Focus</p>
+                <p className="truncate pt-1 text-sm font-semibold text-slate-100">{REGION_LABELS[focusRegion] ?? focusRegion}</p>
+              </div>
+              <span
+                className="rounded-full border px-2 py-1 text-[8px] font-bold uppercase tracking-[0.22em]"
+                style={{
+                  color: focusRegionStats ? REGION_HEAT_COLOR[focusRegionStats.sev].core : '#ddfff1',
+                  borderColor: focusRegionStats ? `${REGION_HEAT_COLOR[focusRegionStats.sev].glow}88` : '#2f6046',
+                  backgroundColor: focusRegionStats ? `${REGION_HEAT_COLOR[focusRegionStats.sev].glow}18` : '#0a1813',
+                }}
+              >
+                {focusRegionStats?.sev ?? 'LOW'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+              <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-2 py-2">
+                <p className="uppercase text-slate-500">Incidents</p>
+                <p className="pt-1 text-lg font-semibold text-[#a7ffd1]">{focusIncidentSet.length}</p>
+              </div>
+              <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-2 py-2">
+                <p className="uppercase text-slate-500">Critical</p>
+                <p className="pt-1 text-lg font-semibold text-rose-300">{focusCriticalCount}</p>
+              </div>
+              <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-2 py-2">
+                <p className="uppercase text-slate-500">Coverage</p>
+                <p className="pt-1 text-lg font-semibold text-[#98ffe0]">{focusActivityRatio}%</p>
+              </div>
+              <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-2 py-2">
+                <p className="uppercase text-slate-500">Marker</p>
+                <p className="pt-1 text-lg font-semibold text-[#dfffee]">{focusNode ? 'LOCK' : 'SCAN'}</p>
+              </div>
+            </div>
+            <div className="mt-3 space-y-1.5 text-[9px] font-mono">
+              {focusSignal && (
+                <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-2 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[7px] font-bold uppercase tracking-[0.22em] text-[#8eb99a]">Selected Signal</p>
                     <span
-                      className="ml-2 rounded border px-1.5 py-0.5 text-[8px] font-mono font-bold tracking-widest"
+                      className="rounded-full border px-2 py-0.5 text-[7px] font-bold uppercase tracking-[0.2em]"
                       style={{
-                        color: focusRegionStats ? REGION_HEAT_COLOR[focusRegionStats.sev].core : '#d7ffe8',
-                        borderColor: focusRegionStats ? `${REGION_HEAT_COLOR[focusRegionStats.sev].glow}88` : '#2c4f31',
-                        backgroundColor: focusRegionStats ? `${REGION_HEAT_COLOR[focusRegionStats.sev].glow}22` : '#0f1f12',
+                        color: REGION_HEAT_COLOR[focusSignal.sev].core,
+                        borderColor: `${REGION_HEAT_COLOR[focusSignal.sev].glow}88`,
+                        backgroundColor: `${REGION_HEAT_COLOR[focusSignal.sev].glow}18`,
                       }}
                     >
-                      {focusRegionStats?.sev ?? 'LOW'}
+                      {focusSignal.caseStatus === 'NO_CASE' ? 'NO CASE' : focusSignal.caseStatus}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-1.5 text-[8px] font-mono">
-                    <div className="rounded border border-[#2a432c] bg-[#0a180e]/85 px-1.5 py-1">
-                      <p className="text-slate-400 uppercase">Incidents</p>
-                      <p className="pt-0.5 text-[10px] font-semibold text-emerald-200 tabular-nums">{focusIncidentSet.length}</p>
-                    </div>
-                    <div className="rounded border border-[#2a432c] bg-[#0a180e]/85 px-1.5 py-1">
-                      <p className="text-slate-400 uppercase">Critical</p>
-                      <p className="pt-0.5 text-[10px] font-semibold text-rose-300 tabular-nums">{focusCriticalCount}</p>
-                    </div>
-                    <div className="rounded border border-[#2a432c] bg-[#0a180e]/85 px-1.5 py-1">
-                      <p className="text-slate-400 uppercase">Mode</p>
-                      <p className="pt-0.5 text-[10px] font-semibold text-[#b2ffd0]">FOCUS</p>
-                    </div>
-                    <div className="rounded border border-[#2a432c] bg-[#0a180e]/85 px-1.5 py-1">
-                      <p className="text-slate-400 uppercase">Coverage</p>
-                      <p className="pt-0.5 text-[10px] font-semibold text-emerald-200 tabular-nums">{focusActivityRatio}%</p>
-                    </div>
+                  <div className="mt-2 text-[10px] text-slate-200">
+                    <div className="font-semibold text-[#effff8]">{focusSignal.label}</div>
+                    <div className="mt-1 text-slate-400">{formatTime(focusSignal.timestamp)} | {focusSignal.protocol}/{focusSignal.port}</div>
                   </div>
-                  <div className="mt-2 space-y-1 text-[8px] font-mono">
-                    {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as Severity[]).map((sev) => {
-                      const count = focusSeverityMix[sev]
-                      const ratio = focusIncidentSet.length > 0 ? Math.round((count / focusIncidentSet.length) * 100) : 0
-                      const barColor = sev === 'CRITICAL'
-                        ? '#f43f5e'
-                        : sev === 'HIGH'
-                          ? '#f59e0b'
-                          : sev === 'MEDIUM'
-                            ? '#22c55e'
-                            : '#86efac'
-                      return (
-                        <div key={sev}>
-                          <div className="flex items-center justify-between text-slate-300">
-                            <span className="tracking-widest">{sev}</span>
-                            <span className="tabular-nums text-slate-400">{count}</span>
-                          </div>
-                          <div className="mt-0.5 h-[4px] overflow-hidden rounded border border-[#1f3524] bg-[#061008]">
-                            <div
-                              className="h-full"
-                              style={{
-                                width: `${count > 0 ? Math.max(6, ratio) : 0}%`,
-                                backgroundColor: barColor,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <div className="mt-2 flex items-center gap-1.5">
-                    <button
-                      onClick={onClearFocus}
-                      className="flex-1 rounded border border-[#2f5b35] bg-[#0d2311] py-1 text-[8px] font-bold uppercase tracking-widest text-[#9bffc2] hover:bg-[#14361a]"
-                    >
-                      Clear Focus
-                    </button>
-                    <span className="rounded border border-[#24432a] bg-[#0a180e]/80 px-1.5 py-1 text-[8px] font-mono text-slate-300">
-                      focus slice
-                    </span>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-[9px] text-slate-300">
+                    <div className="rounded-md border border-[#1b3428] bg-[#08120e] px-2 py-1.5">
+                      <div className="uppercase tracking-[0.2em] text-[#62806f]">Source</div>
+                      <div className="mt-1 font-mono text-[#b9ffd4]">{focusSignal.source}</div>
+                    </div>
+                    <div className="rounded-md border border-[#1b3428] bg-[#08120e] px-2 py-1.5">
+                      <div className="uppercase tracking-[0.2em] text-[#62806f]">Node</div>
+                      <div className="mt-1 font-mono text-slate-200">{focusSignal.node}</div>
+                    </div>
                   </div>
                 </div>
-              </foreignObject>
-            </g>
-          )}
+              )}
+              {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as Severity[]).map((sev) => {
+                const count = focusSeverityMix[sev]
+                const ratio = focusIncidentSet.length > 0 ? Math.round((count / focusIncidentSet.length) * 100) : 0
+                const barColor = sev === 'CRITICAL' ? '#f43f5e' : sev === 'HIGH' ? '#f59e0b' : sev === 'MEDIUM' ? '#22c55e' : '#86efac'
+                return (
+                  <div key={sev}>
+                    <div className="flex items-center justify-between text-slate-300">
+                      <span className="tracking-widest">{sev}</span>
+                      <span className="tabular-nums text-slate-500">{count}</span>
+                    </div>
+                    <div className="mt-1 h-[4px] overflow-hidden rounded-full border border-[#173124] bg-[#04100b]">
+                      <div className="h-full rounded-full" style={{ width: `${count > 0 ? Math.max(8, ratio) : 0}%`, backgroundColor: barColor }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <button
+              onClick={onClearFocus}
+              className="mt-3 w-full rounded-lg border border-[#2e6a4a] bg-[#0b2017] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.24em] text-[#a8ffd4] transition-colors duration-200 hover:bg-[#103022]"
+            >
+              Focus Temizle
+            </button>
+          </div>
+        )}
 
-          <rect
-            x="0"
-            y="0"
-            width={MAP_VIEWBOX_WIDTH}
-            height={MAP_VIEWBOX_HEIGHT}
-            fill="url(#worldVignette)"
-            clipPath="url(#mapViewportClip)"
-            pointerEvents="none"
-          />
-        </svg>
-        <div className="absolute bottom-2 left-2 z-20 flex items-center gap-2 rounded border border-[#204028] bg-[#08130b]/92 px-2 py-1 text-[8px] font-mono">
-          <span className="rounded border border-[#2a4b31] bg-[#09190d] px-1.5 py-0.5 text-[#9dc5a9]">
+        <div className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-24px)] flex-wrap items-center gap-2 rounded-full border border-[#204028] bg-[#08130b]/92 px-3 py-1.5 text-[8px] font-mono shadow-[0_0_18px_rgba(36,255,170,0.08)]">
+          <span className="rounded-full border border-[#2a4b31] bg-[#09190d] px-2 py-0.5 text-[#9dc5a9]">
             {focusRegion ? 'FOCUS MIX' : 'GLOBAL MIX'}
           </span>
-          <span className="text-rose-300">CRITICAL {legendSeverityMix.CRITICAL}</span>
+          <span className="text-rose-300">CRIT {legendSeverityMix.CRITICAL}</span>
           <span className="text-amber-300">HIGH {legendSeverityMix.HIGH}</span>
-          <span className="text-emerald-300">MEDIUM {legendSeverityMix.MEDIUM}</span>
+          <span className="text-emerald-300">MED {legendSeverityMix.MEDIUM}</span>
           <span className="text-green-300">LOW {legendSeverityMix.LOW}</span>
         </div>
 
         <style jsx>{`
-          .matrix-drift {
-            animation: matrix-drift 16s linear infinite;
+          .map-starfield {
+            background-image:
+              radial-gradient(circle at 12% 26%, rgba(137, 255, 218, 0.7) 0 1px, transparent 1.2px),
+              radial-gradient(circle at 64% 18%, rgba(77, 255, 188, 0.52) 0 1px, transparent 1.4px),
+              radial-gradient(circle at 78% 62%, rgba(133, 255, 233, 0.48) 0 1px, transparent 1.2px),
+              radial-gradient(circle at 28% 70%, rgba(68, 255, 181, 0.4) 0 1px, transparent 1.2px),
+              radial-gradient(circle at 90% 28%, rgba(132, 247, 255, 0.38) 0 1px, transparent 1.2px);
+            animation: starfield-drift 22s linear infinite;
           }
 
-          .scan-sweep {
-            animation: scan-sweep 11s ease-in-out infinite;
+          .orbital-ring {
+            box-shadow: inset 0 0 0 1px rgba(73, 255, 179, 0.04), 0 0 40px rgba(45, 255, 173, 0.05);
           }
 
-          .ambient-flow {
-            animation: ambient-flow-dash 18s linear infinite;
+          .orbital-ring-a {
+            animation: orbit-ring-spin 18s linear infinite;
           }
 
-          .hybrid-flow {
-            animation-name: hybrid-flow-dash;
-            animation-timing-function: linear;
-            animation-iteration-count: infinite;
+          .orbital-ring-b {
+            animation: orbit-ring-spin-reverse 24s linear infinite;
           }
 
-          .hybrid-pulse {
-            transform-origin: center;
-            transform-box: fill-box;
-            animation: hybrid-pulse-wave 4.8s ease-in-out infinite;
+          .scanline-slow {
+            animation: scanline-slow 8s ease-in-out infinite;
           }
 
-          @keyframes hybrid-flow-dash {
-            from { stroke-dashoffset: 0; }
-            to { stroke-dashoffset: -220; }
+          .map-node-pulse {
+            animation: map-node-pulse 3.4s ease-in-out infinite;
           }
 
-          @keyframes hybrid-pulse-wave {
-            0%, 100% { opacity: 0.14; transform: scale(0.97); }
-            50% { opacity: 0.28; transform: scale(1.06); }
+          .ambient-globe-arc {
+            animation: ambient-globe-dash 18s linear infinite;
           }
 
-          @keyframes ambient-flow-dash {
-            from { stroke-dashoffset: 0; }
-            to { stroke-dashoffset: -140; }
+          .active-globe-arc {
+            animation: active-globe-dash 9s linear infinite;
           }
 
-          @keyframes scan-sweep {
-            0%, 100% { opacity: 0.2; }
+          .selected-globe-arc {
+            animation: selected-globe-dash 5.2s linear infinite;
+          }
+
+          @keyframes orbit-ring-spin {
+            from { transform: rotate(0deg); opacity: 0.34; }
+            50% { opacity: 0.58; }
+            to { transform: rotate(360deg); opacity: 0.34; }
+          }
+
+          @keyframes orbit-ring-spin-reverse {
+            from { transform: rotate(360deg) scale(1.02); opacity: 0.22; }
             50% { opacity: 0.4; }
+            to { transform: rotate(0deg) scale(1.02); opacity: 0.22; }
           }
 
-          @keyframes matrix-drift {
-            0% { transform: translateX(0); opacity: 0.34; }
-            50% { transform: translateX(-5px); opacity: 0.48; }
-            100% { transform: translateX(0); opacity: 0.34; }
+          @keyframes starfield-drift {
+            from { transform: translate3d(0, 0, 0) scale(1); }
+            50% { transform: translate3d(-1.5%, 1.2%, 0) scale(1.015); }
+            to { transform: translate3d(0, 0, 0) scale(1); }
+          }
+
+          @keyframes scanline-slow {
+            0%, 100% { opacity: 0.16; transform: translateY(-8px); }
+            50% { opacity: 0.42; transform: translateY(10px); }
+          }
+
+          @keyframes map-node-pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(0.82); opacity: 0.22; }
+            50% { transform: translate(-50%, -50%) scale(1.08); opacity: 0.72; }
+          }
+
+          @keyframes ambient-globe-dash {
+            from { stroke-dashoffset: 0; }
+            to { stroke-dashoffset: -120; }
+          }
+
+          @keyframes active-globe-dash {
+            from { stroke-dashoffset: 0; }
+            to { stroke-dashoffset: -180; }
+          }
+
+          @keyframes selected-globe-dash {
+            from { stroke-dashoffset: 0; }
+            to { stroke-dashoffset: -120; }
           }
         `}</style>
       </div>
     </section>
   )
 })
+
 GlobalMapPanel.displayName = 'GlobalMapPanel'
 
 
 
 
 
-const LiveTelemetryStream = React.memo(({
-  visibleEvents,
-  selectedEventId,
-  mapFilter,
-  incidentByEventId,
-  onEventSelect,
-  onPromote,
-  onInvestigate,
-  onContain,
-  onDismiss,
-}: {
-  visibleEvents: ThreatEvent[]
-  selectedEventId: string | null
-  mapFilter: string | null
-  incidentByEventId: Map<string, Incident>
-  onEventSelect: (id: string) => void
-  onPromote: (event: ThreatEvent) => void
-  onInvestigate: (event: ThreatEvent) => void
-  onContain: (event: ThreatEvent) => void
-  onDismiss: (event: ThreatEvent) => void
-}) => {
-  const [severityFilter, setSeverityFilter] = useState<'ALL' | Severity>('ALL')
-  const [caseFilter, setCaseFilter] = useState<TelemetryCaseFilter>('ALL')
-
-  const telemetryRows = useMemo(() => {
-    return visibleEvents.map((event) => {
-      const linkedIncident = incidentByEventId.get(event.id) ?? null
-      const caseStatus = (linkedIncident?.status ?? 'NO_CASE') as TelemetryCaseFilter | IncidentStatus
-      return { event, linkedIncident, caseStatus }
-    })
-  }, [incidentByEventId, visibleEvents])
-
-  const filteredRows = useMemo(() => {
-    return telemetryRows.filter((row) => {
-      if (severityFilter !== 'ALL' && row.event.sev !== severityFilter) return false
-      if (caseFilter === 'ALL') return true
-      if (caseFilter === 'NO_CASE') return row.caseStatus === 'NO_CASE'
-      return row.caseStatus === caseFilter
-    })
-  }, [caseFilter, severityFilter, telemetryRows])
-
-  const tableRows = filteredRows.slice(0, 120)
-  const criticalCount = filteredRows.filter((row) => row.event.sev === 'CRITICAL').length
-  const highCount = filteredRows.filter((row) => row.event.sev === 'HIGH').length
-  const investigatingCount = filteredRows.filter((row) => row.caseStatus === 'INVESTIGATING').length
-  const openCaseCount = filteredRows.filter((row) => row.caseStatus === 'OPEN').length
-  const containedCount = filteredRows.filter((row) => row.caseStatus === 'CONTAINED').length
-  const noCaseCount = filteredRows.filter((row) => row.caseStatus === 'NO_CASE').length
-
-  const selectedTelemetryRow = selectedEventId
-    ? telemetryRows.find((row) => row.event.id === selectedEventId) ?? null
-    : null
-  const selectedTelemetryEvent = selectedTelemetryRow?.event ?? null
-  const selectedTelemetryIncident = selectedTelemetryRow?.linkedIncident ?? null
-
-  return (
-    <Frame
-      title={`Live Telemetry Stream ${mapFilter ? `[FILTER: ${mapFilter}]` : ''}`}
-      className={`flex-none min-h-0 ${TELEMETRY_PANEL_HEIGHT_CLASS} border-[#1a2e1a]`}
-      headerClass="bg-[#08120b]"
-      rightAction={
-        <div className="flex items-center gap-2 text-[8px] font-mono tracking-wider">
-          <span className="text-rose-300">CRIT {criticalCount}</span>
-          <span className="text-amber-300">HIGH {highCount}</span>
-          <span className="text-[#7aa989]">ROWS {tableRows.length}/{filteredRows.length}</span>
-        </div>
-      }
-    >
-      <div className="flex-1 min-h-0 overflow-auto custom-scrollbar -m-3 mt-0">
-        <div className="sticky top-0 z-20 border-b border-[#1d3323] bg-[#0a180d]/95 backdrop-blur-sm">
-          <div className="flex items-center gap-2 px-2 py-1.5">
-            <span className="rounded border border-[#2b4e32] bg-[#0d2212] px-2 py-0.5 text-[8px] font-mono uppercase tracking-widest text-[#99c9a8]">
-              {selectedTelemetryEvent ? `Selected: ${formatTime(selectedTelemetryEvent.timestamp)}` : 'Selected: none'}
-            </span>
-            {selectedTelemetryIncident && (
-              <span className="rounded border border-[#2a4a31] bg-[#0e1e12] px-2 py-0.5 text-[8px] font-mono uppercase tracking-widest text-[#9fe3b3]">
-                Case {selectedTelemetryIncident.id}
-              </span>
-            )}
-            <span className="rounded border border-[#2a4a31] bg-[#0e1e12] px-2 py-0.5 text-[8px] font-mono uppercase tracking-widest text-[#9dc9a8]">
-              Open {openCaseCount}
-            </span>
-            <span className="rounded border border-[#265140] bg-[#0d2218] px-2 py-0.5 text-[8px] font-mono uppercase tracking-widest text-[#9cead0]">
-              Inv {investigatingCount}
-            </span>
-            <span className="rounded border border-[#2d5642] bg-[#11231a] px-2 py-0.5 text-[8px] font-mono uppercase tracking-widest text-[#89e0b5]">
-              Con {containedCount}
-            </span>
-            <div className="ml-auto flex items-center gap-1">
-              <button
-                disabled={!selectedTelemetryEvent}
-                onClick={() => selectedTelemetryEvent && onPromote(selectedTelemetryEvent)}
-                className="rounded border border-[#2f5f3c] bg-[#122716] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-[#a9efbc] hover:bg-[#17311d] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Create/Open
-              </button>
-              <button
-                disabled={!selectedTelemetryEvent}
-                onClick={() => selectedTelemetryEvent && onInvestigate(selectedTelemetryEvent)}
-                className="rounded border border-cyan-500/45 bg-cyan-900/25 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-cyan-100 hover:bg-cyan-800/35 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Investigate
-              </button>
-              <button
-                disabled={!selectedTelemetryEvent}
-                onClick={() => selectedTelemetryEvent && onContain(selectedTelemetryEvent)}
-                className="rounded border border-rose-500/45 bg-rose-900/30 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-rose-100 hover:bg-rose-800/40 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Contain
-              </button>
-              <button
-                disabled={!selectedTelemetryEvent}
-                onClick={() => selectedTelemetryEvent && onDismiss(selectedTelemetryEvent)}
-                className="rounded border border-amber-500/45 bg-amber-900/25 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-amber-100 hover:bg-amber-800/35 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 overflow-x-auto border-t border-[#163122] px-2 py-1 whitespace-nowrap">
-            <span className="text-[7px] uppercase tracking-widest text-[#6f8f78]">Severity</span>
-            {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((sev) => (
-              <button
-                key={`sev-${sev}`}
-                onClick={() => setSeverityFilter(sev)}
-                className={`rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest ${
-                  severityFilter === sev
-                    ? 'border-[#3d7850] bg-[#17311f] text-[#bff7cf]'
-                    : 'border-[#2a4a31] bg-[#0f1f13] text-[#89aa94] hover:bg-[#162a1b]'
-                }`}
-              >
-                {sev}
-              </button>
-            ))}
-            <span className="ml-2 text-[7px] uppercase tracking-widest text-[#6f8f78]">Case</span>
-            {(['ALL', 'NO_CASE', 'OPEN', 'INVESTIGATING', 'CONTAINED', 'FALSE_POSITIVE'] as const).map((item) => (
-              <button
-                key={`case-${item}`}
-                onClick={() => setCaseFilter(item)}
-                className={`rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest ${
-                  caseFilter === item
-                    ? 'border-[#3d7850] bg-[#17311f] text-[#bff7cf]'
-                    : 'border-[#2a4a31] bg-[#0f1f13] text-[#89aa94] hover:bg-[#162a1b]'
-                }`}
-              >
-                {item === 'NO_CASE' ? 'NoCase' : item === 'FALSE_POSITIVE' ? 'Dismissed' : item}
-              </button>
-            ))}
-            <span className="ml-2 rounded border border-[#2a4a31] bg-[#0f1f13] px-1.5 py-0.5 text-[8px] font-mono uppercase tracking-widest text-[#8db09a]">
-              No Case {noCaseCount}
-            </span>
-          </div>
-        </div>
-        <table className="w-full border-collapse table-fixed text-left">
-          <thead className="sticky top-[54px] z-10 bg-[#0b170d] border-b border-[#1f3824]">
-            <tr>
-              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal w-[74px] border-r border-[#183020]">Time</th>
-              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal w-[86px] border-r border-[#183020]">Severity</th>
-              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal border-r border-[#183020]">Incident Type</th>
-              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal w-[130px] border-r border-[#183020]">Source IP</th>
-              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal w-[130px] border-r border-[#183020]">Node</th>
-              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal w-[142px] border-r border-[#183020]">Region</th>
-              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal w-[130px] border-r border-[#183020]">Case</th>
-              <th className="px-3 py-2 text-[8px] uppercase tracking-widest text-[#739b81] font-normal w-[200px]">Ops</th>
-            </tr>
-          </thead>
-          <tbody className="font-mono divide-y divide-[#15251a]">
-            {tableRows.map((row, index) => {
-              const evt = row.event
-              const isSelected = selectedEventId === evt.id
-              const linkedIncident = row.linkedIncident
-              const linkedStatus = linkedIncident?.status ?? null
-              const isContained = linkedStatus === 'CONTAINED'
-              const isDismissed = linkedStatus === 'FALSE_POSITIVE'
-              const primaryLabel = !linkedIncident ? 'Create' : linkedStatus === 'OPEN' ? 'Investigate' : 'Open'
-              const baseRow = index % 2 === 0 ? 'bg-[#08140b]' : 'bg-[#0b180f]'
-              const sevTone = evt.sev === 'CRITICAL'
-                ? 'text-rose-200'
-                : evt.sev === 'HIGH'
-                  ? 'text-amber-200'
-                  : evt.sev === 'MEDIUM'
-                    ? 'text-emerald-200'
-                    : 'text-green-200'
-              return (
-                <tr
-                  key={evt.id}
-                  onClick={() => onEventSelect(evt.id)}
-                  className={`cursor-pointer ${isSelected ? 'bg-[#123019]' : `${baseRow} hover:bg-[#11301a]`}`}
-                >
-                  <td className="px-3 py-2 text-[10px] text-slate-400 tabular-nums border-r border-[#183020]">{formatTime(evt.timestamp)}</td>
-                  <td className="px-3 py-2 border-r border-[#183020]">
-                    <span className={`inline-flex min-w-[64px] justify-center rounded-sm border border-[#24402b] px-1.5 py-[2px] text-[8px] font-bold tracking-widest ${sevTone}`}>
-                      {evt.sev}
-                    </span>
-                  </td>
-                  <td className={`px-3 py-2 text-[10px] truncate border-r border-[#183020] ${sevTone}`}>{evt.type}</td>
-                  <td className="px-3 py-2 text-[10px] text-[#a5ffc8]/80 tabular-nums border-r border-[#183020]">{evt.source}</td>
-                  <td className="px-3 py-2 text-[10px] text-slate-300 tabular-nums border-r border-[#183020]">
-                    <span className="text-slate-500 mr-1">[{evt.protocol}]</span>
-                    {evt.node}
-                  </td>
-                  <td className="px-3 py-2 text-[10px] text-slate-300 truncate border-r border-[#183020]">{REGION_LABELS[evt.region] ?? evt.region}</td>
-                  <td className="px-2 py-1.5 border-r border-[#183020]">
-                    {linkedIncident ? (
-                      <div className="flex flex-col items-start gap-0.5">
-                        <span className="text-[8px] font-semibold text-[#b6f3cb]">{linkedIncident.id}</span>
-                        <span
-                          className={`rounded border px-1 py-0.5 text-[7px] font-bold uppercase tracking-widest ${
-                            linkedStatus === 'CONTAINED'
-                              ? 'border-emerald-500/40 bg-emerald-900/25 text-emerald-200'
-                              : linkedStatus === 'FALSE_POSITIVE'
-                                ? 'border-amber-500/40 bg-amber-900/20 text-amber-200'
-                                : linkedStatus === 'INVESTIGATING'
-                                  ? 'border-cyan-500/40 bg-cyan-900/20 text-cyan-200'
-                                  : 'border-[#325338] bg-[#102214] text-[#9fd6ad]'
-                          }`}
-                        >
-                          {linkedStatus}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-[8px] uppercase tracking-widest text-[#6f8f78]">No Case</span>
-                    )}
-                  </td>
-                  <td className="px-2 py-1.5">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          if (!linkedIncident) onPromote(evt)
-                          else if (linkedStatus === 'OPEN') onInvestigate(evt)
-                          else onPromote(evt)
-                        }}
-                        className={`rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest ${
-                          linkedIncident
-                            ? 'border-[#2f5f3c] bg-[#122716] text-[#a9efbc] hover:bg-[#17311d]'
-                            : 'border-[#2e4f33] bg-[#102014] text-[#96d9a7] hover:bg-[#17301c]'
-                        }`}
-                        title={linkedIncident ? `Case: ${linkedIncident.id}` : 'Promote telemetry to incident'}
-                      >
-                        {primaryLabel}
-                      </button>
-                      <button
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          onContain(evt)
-                        }}
-                        disabled={isContained || isDismissed}
-                        className="rounded border border-rose-500/45 bg-rose-900/35 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-rose-100 hover:bg-rose-800/45 disabled:cursor-not-allowed disabled:opacity-35"
-                        title={isContained ? 'Already contained' : isDismissed ? 'Dismissed case cannot be contained' : 'Contain from telemetry'}
-                      >
-                        Contain
-                      </button>
-                      <button
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          onDismiss(evt)
-                        }}
-                        disabled={isDismissed}
-                        className="rounded border border-amber-500/45 bg-amber-900/30 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-amber-100 hover:bg-amber-800/45 disabled:cursor-not-allowed disabled:opacity-35"
-                        title={isDismissed ? 'Already dismissed' : 'Mark as false positive from telemetry'}
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-            {tableRows.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-[10px] uppercase tracking-widest text-slate-500 font-mono">
-                  No telemetry events
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </Frame>
-  )
-})
-LiveTelemetryStream.displayName = 'LiveTelemetryStream'
 
 const TriageQueuePanel = React.memo(({ visibleIncidents, activeIncidentId, mapFilter, onIncidentSelect, onIncidentReportOpen }: { visibleIncidents: Incident[], activeIncidentId: string | null, mapFilter: string | null, onIncidentSelect: (id: string) => void, onIncidentReportOpen: (incident: Incident) => void }) => (
   <Frame title={`Triage Queue ${mapFilter ? `[${mapFilter}]` : ''}`} className="flex-1 min-h-0 border-[#1a2e1a]">
@@ -1626,15 +1416,16 @@ export default function DashboardLayout() {
     // Core Simulator
     const interval = setInterval(() => {
       setContainedNodes(currentContained => {
-         const newEvent = generateEvent(currentContained)
+         const shouldEmitEvent = Math.random() < TELEMETRY_EMISSION_PROBABILITY
+         const newEvent = shouldEmitEvent ? generateEvent(currentContained) : null
          if (newEvent) {
-           setEvents(prev => [newEvent, ...prev].slice(0, 150))
-           
-           const canEscalateToCriticalIncident = Date.now() - simulationStartedAt >= CRITICAL_ALERT_GRACE_PERIOD_MS
-           if (canEscalateToCriticalIncident && newEvent.sev === 'CRITICAL' && Math.random() > 0.94) {
-              setIncidents(prev => {
-                 if (prev.length > 20) return prev
-                 return [{
+           setEvents(prev => [newEvent, ...prev].slice(0, 16))
+            
+            const canEscalateToCriticalIncident = Date.now() - simulationStartedAt >= CRITICAL_ALERT_GRACE_PERIOD_MS
+            if (canEscalateToCriticalIncident && shouldAutoEscalateCriticalIncident(newEvent, incidentsRef.current)) {
+               setIncidents(prev => {
+                 if (prev.length > 4) return prev
+                 const nextIncident: Incident = {
                    id: `INC-${Math.floor(Math.random() * 90000) + 10000}`,
                    sev: 'CRITICAL',
                    time: new Date().toISOString(),
@@ -1649,7 +1440,10 @@ export default function DashboardLayout() {
                      { id: `tla-${Date.now()}-1`, time: new Date().toISOString(), desc: `Telemetry event observed: ${newEvent.type}`, type: 'OBSERVED' },
                      { id: `tla-${Date.now()}-2`, time: new Date().toISOString(), desc: `System auto-escalated to incident`, type: 'ALERT_OPENED' }
                    ]
-                 }, ...prev]
+                 }
+                 const next = [nextIncident, ...prev]
+                 incidentsRef.current = next
+                 return next
               })
            }
          }
@@ -1683,8 +1477,14 @@ export default function DashboardLayout() {
   }, [])
 
   const handleMapClick = useCallback((region: string): void => {
+    setSelectedEventId((currentSelectedEventId) => {
+      if (!currentSelectedEventId) return currentSelectedEventId
+      const selectedEvent = events.find((event) => event.id === currentSelectedEventId)
+      if (!selectedEvent || selectedEvent.region === region) return currentSelectedEventId
+      return null
+    })
     setMapFilter(prev => prev === region ? null : region)
-  }, [])
+  }, [events])
 
   const handleClearMapFocus = useCallback((): void => {
     setMapFilter(null)
@@ -1880,6 +1680,11 @@ export default function DashboardLayout() {
     setReportModalOpen(true)
   }, [])
 
+  const handleTelemetryReport = useCallback((event: ThreatEvent): void => {
+    const incident = ensureIncidentForEvent(event)
+    handleOpenIncidentReport(incident)
+  }, [ensureIncidentForEvent, handleOpenIncidentReport])
+
   const handleOpenCriticalReport = useCallback((queueItem: CriticalAlertQueueItem): void => {
     const incident = criticalQueue.find((item) => item.id === queueItem.id)
     if (!incident) return
@@ -1932,6 +1737,30 @@ export default function DashboardLayout() {
     return linked
   }, [incidents])
 
+  const selectedTelemetrySignal = useMemo<MapFocusSignal | null>(() => {
+    if (!selectedEventId) return null
+    const selectedEvent = events.find((event) => event.id === selectedEventId)
+    if (!selectedEvent || !(REGIONS as readonly string[]).includes(selectedEvent.region)) return null
+
+    const linkedIncident = incidentByEventId.get(selectedEvent.id) ?? null
+    const region = selectedEvent.region as RegionKey
+
+    return {
+      id: selectedEvent.id,
+      sev: selectedEvent.sev,
+      region,
+      source: selectedEvent.source,
+      sourceRegion: deriveSourceRegion(selectedEvent.source, region),
+      node: selectedEvent.node,
+      label: selectedEvent.type,
+      protocol: selectedEvent.protocol,
+      port: selectedEvent.port,
+      timestamp: selectedEvent.timestamp,
+      incidentId: linkedIncident?.id ?? null,
+      caseStatus: linkedIncident?.status ?? 'NO_CASE',
+    }
+  }, [incidentByEventId, selectedEventId, events])
+
   if (!isBootstrapped) {
     return <DashboardSkeleton />
   }
@@ -1962,34 +1791,31 @@ export default function DashboardLayout() {
           <GlobalMapPanel
              mapIncidents={mapIncidents}
              mapFilter={mapFilter}
+             selectedSignal={selectedTelemetrySignal}
              onMapClick={handleMapClick}
              onClearFocus={handleClearMapFocus}
           />
-          <LiveTelemetryStream 
-             visibleEvents={visibleEvents}
-             selectedEventId={selectedEventId}
-             mapFilter={mapFilter}
-             incidentByEventId={incidentByEventId}
-             onEventSelect={handleSelectEvent}
-             onPromote={handleTelemetryPromote}
-             onInvestigate={handleTelemetryInvestigate}
-             onContain={handleTelemetryContain}
-             onDismiss={handleTelemetryDismiss}
-          />
+          <Frame
+             title={`Live Telemetry Stream ${mapFilter ? `[FILTER: ${mapFilter}]` : ''}`}
+             className={`flex-none min-h-0 ${TELEMETRY_PANEL_HEIGHT_CLASS} border-[#1a2e1a]`}
+             headerClass="bg-[#08120b]"
+          >
+            <TelemetryStreamPanel
+              visibleEvents={visibleEvents}
+              selectedEventId={selectedEventId}
+              mapFilter={mapFilter}
+              incidentByEventId={incidentByEventId}
+              onEventSelect={handleSelectEvent}
+              onPromote={handleTelemetryPromote}
+              onReport={handleTelemetryReport}
+              onInvestigate={handleTelemetryInvestigate}
+              onContain={handleTelemetryContain}
+              onDismiss={handleTelemetryDismiss}
+              formatTime={formatTime}
+              regionLabels={REGION_LABELS}
+            />
+          </Frame>
         </main>
-
-        {/* ========================================================= */}
-        {/* RIGHT COLUMN: ACTION STATIONS                             */}
-        {/* ========================================================= */}
-        <aside className="w-[360px] flex-shrink-0 flex flex-col min-h-0 overflow-hidden hidden xl:flex">
-          <TriageQueuePanel 
-             visibleIncidents={visibleIncidents}
-             activeIncidentId={activeIncidentId}
-             mapFilter={mapFilter}
-             onIncidentSelect={handleSelectIncident}
-             onIncidentReportOpen={handleOpenIncidentReport}
-          />
-        </aside>
 
       </div>
     </div>

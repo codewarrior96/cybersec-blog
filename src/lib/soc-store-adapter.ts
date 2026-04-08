@@ -180,14 +180,23 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
 }
 
 export async function listReports(...args: Parameters<StoreModule['listReports']>) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.listReports(...args)
+  }
   return withStore('listReports', (store) => store.listReports(...args))
 }
 
 export async function createReport(...args: Parameters<StoreModule['createReport']>) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.createReport(...args)
+  }
   return withStore('createReport', (store) => store.createReport(...args))
 }
 
 export async function deleteReport(...args: Parameters<StoreModule['deleteReport']>) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.deleteReport(...args)
+  }
   return withStore('deleteReport', (store) => store.deleteReport(...args))
 }
 

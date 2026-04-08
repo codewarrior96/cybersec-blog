@@ -84,6 +84,34 @@ function getInitials(value: string) {
   return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('')
 }
 
+function getProfileTimestamp(value: string | null | undefined) {
+  if (!value) return 0
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function shouldKeepLocalProfile(current: PortfolioProfileRecord, incoming: PortfolioProfileRecord) {
+  if (current.user.id !== incoming.user.id) {
+    return false
+  }
+
+  const currentUpdatedAt = getProfileTimestamp(current.profile.updatedAt)
+  const incomingUpdatedAt = getProfileTimestamp(incoming.profile.updatedAt)
+
+  if (currentUpdatedAt > incomingUpdatedAt) {
+    return true
+  }
+
+  if (
+    currentUpdatedAt === incomingUpdatedAt &&
+    (Boolean(current.profile.avatarPath) || current.profile.specialties.length > incoming.profile.specialties.length || current.profile.tools.length > incoming.profile.tools.length)
+  ) {
+    return !incoming.profile.avatarPath
+  }
+
+  return false
+}
+
 function CertificationPreview({ item }: { item: PortfolioCertificationRecord }) {
   const url = item.assetPath ? `/api/profile/certifications/assets/${item.id}` : ''
   if (item.assetPath && item.assetMimeType?.startsWith('image/')) {
@@ -307,7 +335,9 @@ export default function PortfolioWorkspace({
     [data.education, featuredEdu],
   )
 
-  useEffect(() => setData(initialProfile), [initialProfile])
+  useEffect(() => {
+    setData((current) => (shouldKeepLocalProfile(current, initialProfile) ? current : initialProfile))
+  }, [initialProfile])
   useEffect(() => {
     setCanEdit(editable)
     setAuthSyncing(!editable)

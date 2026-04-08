@@ -67,6 +67,71 @@ function excerpt(content: string, max = 160) {
   return plain.length > max ? plain.slice(0, max) + '…' : plain;
 }
 
+function normalizeReportHeading(value: string) {
+  return value
+    .toLocaleLowerCase('tr-TR')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function parseReportSections(content: string) {
+  const ordered: Array<{ title: string; lines: string[] }> = [];
+  let current: { title: string; lines: string[] } | null = null;
+
+  for (const rawLine of content.split('\n')) {
+    const line = rawLine.trimEnd();
+    const headingMatch = line.match(/^##+\s+(.+)$/);
+    if (headingMatch) {
+      current = { title: headingMatch[1].trim(), lines: [] };
+      ordered.push(current);
+      continue;
+    }
+
+    if (!current) {
+      current = { title: 'Icerik', lines: [] };
+      ordered.push(current);
+    }
+
+    current.lines.push(line);
+  }
+
+  return ordered.map((section) => ({
+    title: section.title,
+    key: normalizeReportHeading(section.title),
+    lines: section.lines.filter((line, index, source) => !(line === '' && source[index - 1] === '')),
+  }));
+}
+
+function getReportPreview(report: ReportRecord, max = 220) {
+  const sections = parseReportSections(report.content);
+  const preferredKeys = [
+    'saldiri baglami',
+    'bulgular',
+    'etki degerlendirmesi',
+    'oneriler',
+    'olay ozeti',
+  ];
+
+  for (const key of preferredKeys) {
+    const match = sections.find((section) => section.key === key);
+    if (!match) continue;
+
+    const plain = match.lines
+      .join(' ')
+      .replace(/\*\*/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (plain) {
+      return plain.length > max ? plain.slice(0, max) + '...' : plain;
+    }
+  }
+
+  return excerpt(report.content, max);
+}
+
 /** Match report tags to relevant historical breaches */
 function matchHistory(report: ReportRecord): BreachEvent[] {
   const tags = report.tags.map(t => t.toLowerCase());
@@ -100,6 +165,7 @@ function matchHistory(report: ReportRecord): BreachEvent[] {
 function ReportModal({ report, onClose }: { report: ReportRecord; onClose: () => void }) {
   const col = SEV_COLOR[report.severity.toUpperCase()] ?? '#8b5cf6';
   const related = matchHistory(report);
+  const parsedSections = parseReportSections(report.content);
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -107,23 +173,36 @@ function ReportModal({ report, onClose }: { report: ReportRecord; onClose: () =>
     return () => window.removeEventListener('keydown', fn);
   }, [onClose]);
 
-  const renderContent = (text: string) =>
-    text.split('\n').map((line, i) => {
-      if (line.startsWith('## '))
-        return <div key={i} className="text-violet-400 font-bold text-xs mt-4 mb-1 tracking-widest uppercase">{line.slice(3)}</div>;
-      if (line.startsWith('# '))
-        return <div key={i} className="text-violet-300 font-bold text-sm mt-3 mb-1">{line.slice(2)}</div>;
-      const parts = line.split(/(\*\*[^*]+\*\*)/g);
+  const renderLine = (line: string, key: string) => {
+    if (!line.trim()) return <div key={key} className="h-2" />;
+    if (line.startsWith('- ')) {
       return (
-        <div key={i} className="text-slate-300 text-xs leading-relaxed">
-          {parts.map((p, j) =>
-            p.startsWith('**') && p.endsWith('**')
-              ? <strong key={j} className="text-slate-200">{p.slice(2, -2)}</strong>
-              : p
-          )}
+        <div key={key} className="text-slate-300 text-xs leading-relaxed flex gap-2">
+          <span className="text-violet-500 shrink-0">?</span>
+          <span>{line.slice(2)}</span>
         </div>
       );
-    });
+    }
+    const kvMatch = line.match(/^\*\*(.+?)\*\*:\s*(.+)$/);
+    if (kvMatch) {
+      return (
+        <div key={key} className="grid grid-cols-[120px_1fr] gap-3 text-xs leading-relaxed">
+          <span className="text-slate-500 font-bold">{kvMatch[1]}</span>
+          <span className="text-slate-200">{kvMatch[2]}</span>
+        </div>
+      );
+    }
+    const parts = line.split(/(\*\*[^*]+\*\*)/g);
+    return (
+      <div key={key} className="text-slate-300 text-xs leading-relaxed">
+        {parts.map((p, j) =>
+          p.startsWith('**') && p.endsWith('**')
+            ? <strong key={j} className="text-slate-200">{p.slice(2, -2)}</strong>
+            : p
+        )}
+      </div>
+    );
+  };
 
   return (
     <div
@@ -171,7 +250,16 @@ function ReportModal({ report, onClose }: { report: ReportRecord; onClose: () =>
 
         {/* Content */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-0.5">
-          {renderContent(report.content)}
+          {parsedSections.map((section) => (
+            <div key={section.key} className="rounded border border-violet-900/25 bg-violet-950/10 px-4 py-3 mb-3">
+              <div className="text-violet-400 font-bold text-[10px] mb-2 tracking-widest uppercase">
+                {section.title}
+              </div>
+              <div className="space-y-1.5">
+                {section.lines.map((line, index) => renderLine(line, `${section.key}-${index}`))}
+              </div>
+            </div>
+          ))}
 
           {/* ── Historical Parallels ── */}
           {related.length > 0 && (
@@ -861,7 +949,7 @@ export default function ZafiyetTaramasiPage() {
                         {r.title}
                       </div>
                       <div className="text-[10px] text-slate-500 leading-relaxed flex-1 mb-3">
-                        {excerpt(r.content)}
+                        {getReportPreview(r)}
                       </div>
 
                       {r.tags.length > 0 && (

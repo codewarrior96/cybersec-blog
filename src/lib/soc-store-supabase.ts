@@ -67,6 +67,16 @@ interface CertificationIndexEntry {
   userId: number
 }
 
+interface StoredReport {
+  id: number
+  title: string
+  content: string
+  severity: string
+  tags: string[]
+  createdByUserId: number | null
+  createdAt: string
+}
+
 function toIsoNow() {
   return new Date().toISOString()
 }
@@ -130,6 +140,14 @@ function educationPrefix(userId: number) {
 
 function educationPath(userId: number, educationId: number) {
   return `${educationPrefix(userId)}/${educationId}.json`
+}
+
+function reportsPrefix() {
+  return 'state/reports'
+}
+
+function reportPath(reportId: number) {
+  return `${reportsPrefix()}/${reportId}.json`
 }
 
 function auditLogPath(action: string) {
@@ -211,24 +229,24 @@ export async function getPortfolioAvatarForUser(userId: number): Promise<{
   assetMimeType: string | null
 } | null> {
   const profile = await readJsonObject<StoredProfile>(profilePath(userId))
+  if (profile?.avatarPath) {
+    return {
+      assetPath: profile.avatarPath,
+      assetName: profile.avatarName ?? (profile.avatarPath.split('/').at(-1) ?? null),
+      assetMimeType: profile.avatarMimeType ?? null,
+    }
+  }
+
   const fallbackAssets = (await listObjectPaths(avatarPrefix(userId)))
     .filter((item) => !item.endsWith('.json'))
     .sort()
-  const preferredAssetPath =
-    profile?.avatarPath && fallbackAssets.includes(profile.avatarPath) ? profile.avatarPath : null
-  const latestAssetPath = preferredAssetPath ?? fallbackAssets.at(-1) ?? null
+  const latestAssetPath = fallbackAssets.at(-1) ?? null
   if (!latestAssetPath) return null
 
   return {
     assetPath: latestAssetPath,
-    assetName:
-      latestAssetPath === profile?.avatarPath
-        ? profile.avatarName
-        : (latestAssetPath.split('/').at(-1) ?? null),
-    assetMimeType:
-      latestAssetPath === profile?.avatarPath
-        ? profile.avatarMimeType
-        : null,
+    assetName: latestAssetPath.split('/').at(-1) ?? null,
+    assetMimeType: null,
   }
 }
 
@@ -750,4 +768,108 @@ export async function deletePortfolioEducation(
   })
 
   return existing
+}
+
+export async function listReports(
+  filters: { limit?: number; cursor?: number } = {},
+): Promise<{ reports: import('@/lib/soc-store-memory').ReportRecord[]; hasNext: boolean; nextCursor: number | null }> {
+  const limit = Math.min(50, Math.max(1, filters.limit ?? 20))
+  const paths = await listObjectPaths(reportsPrefix())
+  const reports = (
+    await Promise.all(
+      paths
+        .filter((item) => item.endsWith('.json'))
+        .map((item) => readJsonObject<StoredReport>(item)),
+    )
+  )
+    .filter((item): item is StoredReport => Boolean(item))
+    .sort((a, b) => {
+      const aTime = new Date(a.createdAt).getTime()
+      const bTime = new Date(b.createdAt).getTime()
+      if (aTime !== bTime) return bTime - aTime
+      return b.id - a.id
+    })
+
+  let startIndex = 0
+  if (filters.cursor != null) {
+    const cursorPos = reports.findIndex((report) => report.id === filters.cursor)
+    startIndex = cursorPos === -1 ? reports.length : cursorPos + 1
+  }
+
+  const slice = reports.slice(startIndex, startIndex + limit + 1)
+  const hasNext = slice.length > limit
+  const page = slice.slice(0, limit).map((report) => ({
+    id: report.id,
+    title: report.title,
+    content: report.content,
+    severity: report.severity,
+    tags: report.tags,
+    createdAt: report.createdAt,
+  }))
+
+  return {
+    reports: page,
+    hasNext,
+    nextCursor: hasNext ? page[page.length - 1].id : null,
+  }
+}
+
+export async function createReport(input: {
+  title: string
+  content: string
+  severity: string
+  tags: string[]
+  actor: SessionUser
+  metadata: RequestMetadata
+}): Promise<import('@/lib/soc-store-memory').ReportRecord> {
+  const report: StoredReport = {
+    id: makeId(),
+    title: input.title,
+    content: input.content,
+    severity: input.severity,
+    tags: [...input.tags],
+    createdByUserId: input.actor.id,
+    createdAt: toIsoNow(),
+  }
+
+  await uploadJsonObject(reportPath(report.id), report)
+
+  await writeAuditLog({
+    actorUserId: input.actor.id,
+    action: 'report.create',
+    entityType: 'report',
+    entityId: report.id,
+    details: { severity: input.severity, tagCount: input.tags.length },
+    metadata: input.metadata,
+  })
+
+  return {
+    id: report.id,
+    title: report.title,
+    content: report.content,
+    severity: report.severity,
+    tags: report.tags,
+    createdAt: report.createdAt,
+  }
+}
+
+export async function deleteReport(
+  id: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<boolean> {
+  const existing = await readJsonObject<StoredReport>(reportPath(id))
+  if (!existing) return false
+
+  await deleteObject(reportPath(id))
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'report.delete',
+    entityType: 'report',
+    entityId: id,
+    metadata,
+  })
+
+  return true
 }
