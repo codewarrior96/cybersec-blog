@@ -685,10 +685,11 @@
   }
 
   /* Scrollbar — matrix green */
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: #0a0a0a; }
-  ::-webkit-scrollbar-thumb { background: #00ff88; border-radius: 2px; }
-  ::-webkit-scrollbar-thumb:hover { background: #00d4ff; box-shadow: 0 0 6px #00ff88; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #0a0a0a; }
+::-webkit-scrollbar-thumb { background: #00ff88; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #00d4ff; box-shadow: 0 0 6px #00ff88; }
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 
   /* Firefox scrollbar */
   html { scrollbar-color: #00ff88 #0a0a0a; }
@@ -2305,6 +2306,7 @@
 
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
+  height: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: rgba(4, 13, 23, 0.5);
@@ -2316,6 +2318,31 @@
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(34, 211, 238, 0.6);
+}
+.custom-scrollbar::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+@media (max-width: 960px) {
+  html,
+  body {
+    scrollbar-width: none;
+  }
+
+  ::-webkit-scrollbar,
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
+
+  .custom-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @keyframes arcFlow {

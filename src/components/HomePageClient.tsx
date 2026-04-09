@@ -1,9 +1,15 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import EmbeddedLogin from '@/components/EmbeddedLogin'
-import DashboardLayout from '@/components/dashboard/DashboardLayout'
+import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton'
 import { useAuthStatus } from '@/lib/auth-client'
+
+const DashboardLayout = dynamic(() => import('@/components/dashboard/DashboardLayout'), {
+  ssr: false,
+  loading: () => <DashboardSkeleton />,
+})
 
 interface EBProps {
   children: React.ReactNode
@@ -40,6 +46,47 @@ interface HomePageClientProps {
 
 export default function HomePageClient({ initialAuth }: HomePageClientProps) {
   const authStatus = useAuthStatus(initialAuth)
+  const [dashboardReady, setDashboardReady] = useState(false)
+
+  useEffect(() => {
+    if (!authStatus) {
+      setDashboardReady(false)
+      return
+    }
+
+    const idleWindow = typeof window !== 'undefined'
+      ? (window as Window & {
+          requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+          cancelIdleCallback?: (handle: number) => void
+        })
+      : null
+
+    let cancelled = false
+    let timeoutId: number | null = null
+    let idleId: number | null = null
+
+    const markReady = () => {
+      if (!cancelled) {
+        setDashboardReady(true)
+      }
+    }
+
+    if (idleWindow?.requestIdleCallback) {
+      idleId = idleWindow.requestIdleCallback(markReady, { timeout: 180 })
+    } else {
+      timeoutId = window.setTimeout(markReady, 80)
+    }
+
+    return () => {
+      cancelled = true
+      if (idleId !== null && idleWindow?.cancelIdleCallback) {
+        idleWindow.cancelIdleCallback(idleId)
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+    }
+  }, [authStatus])
 
   if (authStatus === null) {
     return (
@@ -61,7 +108,7 @@ export default function HomePageClient({ initialAuth }: HomePageClientProps) {
           </div>
         }
       >
-        <DashboardLayout />
+        {dashboardReady ? <DashboardLayout /> : <DashboardSkeleton />}
       </ErrorBoundary>
     )
   }

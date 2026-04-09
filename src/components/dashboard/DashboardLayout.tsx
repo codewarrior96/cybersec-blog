@@ -1,6 +1,6 @@
 'use client'
 
-import React, { ReactNode, useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import React, { ReactNode, startTransition, useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { geoDistance, geoGraticule10, geoInterpolate, geoOrthographic, geoPath, type GeoProjection, type GeoPermissibleObjects } from 'd3-geo'
 import { feature as topoFeature, mesh as topoMesh } from 'topojson-client'
 import worldTopologyData from '../../../public/world-110m.json'
@@ -8,6 +8,7 @@ import AttackReportModal from '@/components/dashboard/AttackReportModal'
 import CriticalAlertPanel from '@/components/dashboard/CriticalAlertPanel'
 import CriticalOverlayFx from '@/components/dashboard/CriticalOverlayFx'
 import type { CriticalAlertQueueItem } from '@/components/dashboard/CriticalAlertPanel'
+import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton'
 import TelemetryStreamPanel from '@/components/dashboard/TelemetryStreamPanel'
 
 // ============================================================================
@@ -194,7 +195,9 @@ const CRITICAL_INCIDENT_COOLDOWN_MS = 180000
 const TELEMETRY_EMISSION_PROBABILITY = 0.35
 
 /** Live Telemetry Stream: ekranın geri kalanını sınırsız doldurmasın; içeride kaydır */
-const TELEMETRY_PANEL_HEIGHT_CLASS = 'h-[min(420px,36vh)]'
+const TELEMETRY_PANEL_HEIGHT_CLASS = 'h-[min(74vh,840px)] md:h-[min(60vh,700px)] xl:h-[min(560px,48vh)]'
+const GLOBE_TARGET_FPS = 24
+const GLOBE_FRAME_MS = 1000 / GLOBE_TARGET_FPS
 
 
 const REGION_LABELS: Record<string, string> = {
@@ -466,6 +469,7 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
   const spinOffsetRef = useRef(0)
   const animationFrameRef = useRef<number | null>(null)
   const lastFrameRef = useRef<number | null>(null)
+  const frameBudgetRef = useRef(0)
 
   const normalizeDegrees = useCallback((angle: number) => {
     let next = angle
@@ -748,25 +752,37 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
 
   useEffect(() => {
     lastFrameRef.current = null
+    frameBudgetRef.current = 0
 
     const animate = (timestamp: number) => {
       const previousTimestamp = lastFrameRef.current ?? timestamp
-      const delta = Math.min(32, timestamp - previousTimestamp)
+      const delta = Math.min(48, timestamp - previousTimestamp)
       lastFrameRef.current = timestamp
+      frameBudgetRef.current += delta
+
+      if (frameBudgetRef.current < GLOBE_FRAME_MS) {
+        animationFrameRef.current = window.requestAnimationFrame(animate)
+        return
+      }
+
+      const renderDelta = frameBudgetRef.current
+      frameBudgetRef.current = 0
 
       const spinVelocity = focusSignal ? -0.01 : focusRegion ? -0.012 : -0.018
-      spinOffsetRef.current = normalizeDegrees(spinOffsetRef.current + spinVelocity * delta)
+      spinOffsetRef.current = normalizeDegrees(spinOffsetRef.current + spinVelocity * renderDelta)
 
-      setGlobeAngles((current) => {
-        const target = targetAnglesRef.current
-        const driftedTargetLon = normalizeDegrees(target.lon + spinOffsetRef.current)
-        const lonBlend = 1 - Math.pow(focusSignal ? 0.76 : focusRegion ? 0.78 : 0.86, delta / 16.67)
-        const latBlend = 1 - Math.pow(0.84, delta / 16.67)
+      startTransition(() => {
+        setGlobeAngles((current) => {
+          const target = targetAnglesRef.current
+          const driftedTargetLon = normalizeDegrees(target.lon + spinOffsetRef.current)
+          const lonBlend = 1 - Math.pow(focusSignal ? 0.76 : focusRegion ? 0.78 : 0.86, renderDelta / 16.67)
+          const latBlend = 1 - Math.pow(0.84, renderDelta / 16.67)
 
-        return {
-          lon: normalizeDegrees(current.lon + shortestDegreeDelta(current.lon, driftedTargetLon) * lonBlend),
-          lat: current.lat + (target.lat - current.lat) * latBlend,
-        }
+          return {
+            lon: normalizeDegrees(current.lon + shortestDegreeDelta(current.lon, driftedTargetLon) * lonBlend),
+            lat: current.lat + (target.lat - current.lat) * latBlend,
+          }
+        })
       })
 
       animationFrameRef.current = window.requestAnimationFrame(animate)
@@ -778,11 +794,12 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
       if (animationFrameRef.current) window.cancelAnimationFrame(animationFrameRef.current)
       animationFrameRef.current = null
       lastFrameRef.current = null
+      frameBudgetRef.current = 0
     }
   }, [focusRegion, focusSignal, normalizeDegrees, shortestDegreeDelta])
 
   return (
-    <section className="flex-none h-[clamp(320px,52vh,620px)] border border-[#1a2e1a] bg-transparent overflow-hidden shadow-2xl">
+    <section className="flex-none h-[clamp(280px,42vh,620px)] sm:h-[clamp(320px,48vh,620px)] xl:h-[clamp(320px,52vh,620px)] border border-[#1a2e1a] bg-transparent overflow-hidden shadow-2xl">
       <div ref={containerRef} className="relative h-full overflow-hidden bg-[#03110d]">
         <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-2 px-3 py-2 bg-gradient-to-b from-[#091409]/96 to-transparent border-b border-[#1c3a22]/55 pointer-events-none">
           <span className="w-1.5 h-1.5 rounded-full bg-[#00e640] shadow-[0_0_7px_rgba(0,230,64,0.85)]" />
@@ -995,7 +1012,7 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
         </div>
 
         {focusRegion && (
-          <div className="absolute right-3 top-14 z-20 w-[min(260px,calc(100%-24px))] rounded-xl border border-[#2d5e42] bg-[linear-gradient(180deg,rgba(6,24,18,0.94),rgba(3,12,10,0.92))] p-3 shadow-[0_0_36px_rgba(24,255,159,0.12)] backdrop-blur-md md:right-4 md:top-16">
+          <div className="absolute right-2 top-12 z-20 w-[min(210px,calc(100%-16px))] rounded-xl border border-[#2d5e42] bg-[linear-gradient(180deg,rgba(6,24,18,0.94),rgba(3,12,10,0.92))] p-3 shadow-[0_0_36px_rgba(24,255,159,0.12)] backdrop-blur-md sm:right-3 sm:top-14 sm:w-[min(240px,calc(100%-24px))] md:right-4 md:top-16 md:w-[min(260px,calc(100%-32px))]">
             <div className="mb-2 flex items-start justify-between border-b border-[#214634] pb-2">
               <div className="min-w-0">
                 <p className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#97ffd1]">Threat Focus</p>
@@ -1088,7 +1105,7 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
           </div>
         )}
 
-        <div className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-24px)] flex-wrap items-center gap-2 rounded-full border border-[#204028] bg-[#08130b]/92 px-3 py-1.5 text-[8px] font-mono shadow-[0_0_18px_rgba(36,255,170,0.08)]">
+        <div className="absolute bottom-2 left-2 z-20 flex max-w-[calc(100%-16px)] flex-wrap items-center gap-1.5 rounded-full border border-[#204028] bg-[#08130b]/92 px-2.5 py-1.5 text-[8px] font-mono shadow-[0_0_18px_rgba(36,255,170,0.08)] sm:bottom-3 sm:left-3 sm:max-w-[calc(100%-24px)] sm:gap-2 sm:px-3">
           <span className="rounded-full border border-[#2a4b31] bg-[#09190d] px-2 py-0.5 text-[#9dc5a9]">
             {focusRegion ? 'FOCUS MIX' : 'GLOBAL MIX'}
           </span>
@@ -1306,61 +1323,6 @@ const TriageQueuePanel = React.memo(({ visibleIncidents, activeIncidentId, mapFi
   </Frame>
 ))
 TriageQueuePanel.displayName = 'TriageQueuePanel'
-
-// ============================================================================
-// SKELETON SCREEN (shown before client-side mount to prevent blank flash)
-// ============================================================================
-
-function SkeletonBox({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse bg-[#040d18]/80 border border-[#0a1929] ${className}`} />
-}
-
-function DashboardSkeleton() {
-  return (
-    <div className="relative min-h-[calc(100vh-64px)] bg-[#000102] flex flex-col">
-      <div className="mx-auto flex w-full max-w-[2400px] flex-1 gap-2 p-2 items-stretch">
-        {/* Center */}
-        <main className="flex-1 flex flex-col gap-2 min-w-0">
-          {/* Map placeholder */}
-          <div className="h-[45vh] border border-[#1a2e1a] bg-[#00020a] flex flex-col relative overflow-hidden animate-pulse">
-            <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3 py-1.5 border-b border-[#17331f]/40">
-              <div className="w-1.5 h-1.5 bg-[#2b5e37] flex-none" />
-              <div className="h-2 w-40 bg-[#0a180e] rounded-sm" />
-              <div className="ml-auto h-2 w-24 bg-[#0a180e] rounded-sm" />
-            </div>
-            <div className="flex-1 flex items-center justify-center">
-              <div className="w-[85%] h-[75%] bg-[#091309]/60 border border-[#17301b]/45" />
-            </div>
-          </div>
-
-          {/* Telemetry table placeholder */}
-          <div className={`flex-none ${TELEMETRY_PANEL_HEIGHT_CLASS} border border-[#1a2e1a] bg-[#07110a]/80 flex flex-col min-h-0 overflow-hidden`}>
-            <div className="flex items-center px-3 py-1.5 border-b border-[#1a2e1a] bg-[#050905]">
-              <div className="h-2 w-36 bg-[#0a180e] rounded-sm animate-pulse" />
-            </div>
-            <div className="flex-1 p-3 flex flex-col gap-2">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="flex gap-3 animate-pulse" style={{ opacity: 1 - i * 0.09 }}>
-                  <div className="h-2 w-14 bg-[#0a180e] rounded-sm" />
-                  <div className="h-2 w-3 bg-[#123020] rounded-sm" />
-                  <div className="h-2 w-28 bg-[#0a180e] rounded-sm" />
-                  <div className="h-2 w-24 bg-[#071009] rounded-sm" />
-                  <div className="h-2 w-20 bg-[#071009] rounded-sm" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </main>
-
-        {/* Right sidebar */}
-        <aside className="w-[360px] flex-shrink-0 hidden xl:flex flex-col gap-2">
-          <SkeletonBox className="flex-1" />
-          <SkeletonBox className="flex-[1.5]" />
-        </aside>
-      </div>
-    </div>
-  )
-}
 
 // ============================================================================
 // MAIN LAYOUT COMPONENT

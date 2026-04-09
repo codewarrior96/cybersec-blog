@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 
 interface NavigationBarProps {
   threatCount?: number
@@ -250,16 +251,6 @@ export default function NavigationBar({
     return () => window.clearInterval(timer)
   }, [])
 
-  const navigateTo = (href: string) => {
-    setDrawerOpen(false)
-    setProfileOpen(false)
-    if (currentPath === href) {
-      window.location.reload()
-      return
-    }
-    window.location.assign(href)
-  }
-
   return (
     <>
       <header className="nb2-root">
@@ -277,24 +268,15 @@ export default function NavigationBar({
           {NAV_LINKS.map((link) => {
             const active = isActivePath(currentPath, link.href)
             return (
-              <button
-                type="button"
+              <Link
                 key={link.href}
+                href={link.href}
+                prefetch
                 className={`nb2-link ${active ? 'is-active' : ''}`}
                 aria-current={active ? 'page' : undefined}
-                onMouseDown={(event) => {
-                  if (event.button !== 0) return
-                  event.preventDefault()
-                  navigateTo(link.href)
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter' && event.key !== ' ') return
-                  event.preventDefault()
-                  navigateTo(link.href)
-                }}
               >
                 {active ? `[${link.label}]` : link.label}
-              </button>
+              </Link>
             )
           })}
         </nav>
@@ -352,27 +334,18 @@ export default function NavigationBar({
               {NAV_LINKS.map((link) => {
                 const active = isActivePath(currentPath, link.href)
                 return (
-                  <button
-                    type="button"
+                  <Link
                     key={link.href}
+                    href={link.href}
+                    prefetch
                     className={`nb2-drawer-link ${active ? 'is-active' : ''}`}
                     aria-current={active ? 'page' : undefined}
-                    onMouseDown={(event) => {
-                      if (event.button !== 0) return
-                      event.preventDefault()
-                      navigateTo(link.href)
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key !== 'Enter' && event.key !== ' ') return
-                      event.preventDefault()
-                      navigateTo(link.href)
-                    }}
                   >
                     <svg className="nb2-caret" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
                       <polyline points="2,1 8,5 2,9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     {link.label}
-                  </button>
+                  </Link>
                 )
               })}
             </nav>

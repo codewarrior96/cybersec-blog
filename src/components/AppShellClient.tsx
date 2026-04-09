@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback } from 'react'
+import React, { useCallback, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuthSession, logoutAuth } from '@/lib/auth-client'
 import OperatorSidebar from '@/components/OperatorSidebar'
@@ -32,6 +32,15 @@ export default function AppShellClient({
   const isAuthGatewayRoute = isLoginRoute || isRegisterRoute || (!isAuthed && isRootRoute)
   const showOperatorShell = isAuthed && !isLoginRoute && !isRegisterRoute
   const showGlobalTools = !isAuthGatewayRoute && !showOperatorShell
+
+  useEffect(() => {
+    if (!showOperatorShell) return
+    const routes = ['/home', '/blog', '/community', '/zafiyet-taramasi', '/portfolio']
+    for (const route of routes) {
+      if (route === pathname) continue
+      void router.prefetch(route)
+    }
+  }, [pathname, router, showOperatorShell])
 
   const handleLogout = useCallback(async () => {
     await logoutAuth()

@@ -153,8 +153,28 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
         .el-blink { animation: statusBlink 1.5s ease-in-out infinite; }
         .el-shake { animation: shake 0.4s ease-in-out; }
 
+        .el-input {
+          -webkit-appearance: none;
+          appearance: none;
+          background: transparent !important;
+          border: 0;
+          border-radius: 0;
+          box-shadow: none;
+          color: #00ff41;
+          caret-color: #00ff41;
+        }
         .el-input::placeholder { color: rgba(0,255,65,0.2); }
         .el-input:focus { outline: none; }
+        .el-input:-webkit-autofill,
+        .el-input:-webkit-autofill:hover,
+        .el-input:-webkit-autofill:focus,
+        .el-input:-webkit-autofill:active {
+          -webkit-text-fill-color: #00ff41 !important;
+          -webkit-box-shadow: 0 0 0 1000px rgba(0,0,0,0.7) inset !important;
+          box-shadow: 0 0 0 1000px rgba(0,0,0,0.7) inset !important;
+          transition: background-color 9999s ease-in-out 0s;
+          border: 0;
+        }
 
         .el-checkbox {
           -webkit-appearance: none;
@@ -199,46 +219,192 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
           0%,100% { opacity: 0.15; box-shadow: 0 0 40px rgba(0,255,65,0.2); }
           50% { opacity: 0.4; box-shadow: 0 0 80px rgba(0,255,65,0.5); }
         }
-        @media (max-width: 768px) {
+        .login-root {
+          min-height: 100dvh;
+        }
+        .hero-image {
+          position: absolute;
+          bottom: 0;
+          left: 50%;
+          width: 100%;
+          max-width: 950px;
+          height: 100vh;
+          object-fit: cover;
+          object-position: top center;
+          z-index: 1;
+          opacity: 0.65;
+          mix-blend-mode: lighten;
+        }
+        .aurora-field {
+          position: absolute;
+          top: 25%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 45vw;
+          height: 45vw;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(0,255,65,0.3) 0%, transparent 60%);
+          z-index: 2;
+          pointer-events: none;
+          animation: slowGlow 5s ease-in-out infinite;
+          mix-blend-mode: screen;
+        }
+        .mobile-container {
+          position: absolute;
+          inset: 0;
+          z-index: 10;
+          pointer-events: none;
+        }
+        .skull-group {
+          pointer-events: auto;
+          position: absolute;
+          top: 25%;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 10;
+          text-align: center;
+          width: 100%;
+        }
+        .skull-frame {
+          margin: 0 auto;
+          position: relative;
+          width: 9.7rem;
+          height: 9.7rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .skull-ring {
+          position: absolute;
+          inset: 0;
+          border-radius: 9999px;
+          border: 2px solid #00ff41;
+        }
+        .skull-image {
+          width: 6.5rem;
+          height: 6.5rem;
+          border-radius: 9999px;
+          object-fit: cover;
+          animation: skullFloat 3s ease-in-out infinite;
+        }
+        .hero-eyes {
+          position: absolute;
+          bottom: 38%;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 6;
+          display: flex;
+          gap: 4.4rem;
+          pointer-events: none;
+        }
+        @media (max-width: 960px) {
           .mobile-container {
-            position: absolute !important;
-            inset: 0 !important;
             display: flex !important;
             flex-direction: column !important;
             align-items: center !important;
             justify-content: flex-start !important;
-            padding: 2rem 0 4rem 0 !important;
-            gap: 2rem !important;
+            padding: calc(env(safe-area-inset-top, 0px) + 1.1rem) 1rem calc(env(safe-area-inset-bottom, 0px) + 1.8rem) !important;
+            gap: 1.1rem !important;
             overflow-y: auto !important;
-            z-index: 20 !important;
             pointer-events: auto !important;
+          }
+          .mobile-container {
+            scrollbar-width: none !important;
+          }
+          .mobile-container::-webkit-scrollbar {
+            display: none !important;
           }
           .skull-group {
             position: static !important;
             transform: none !important;
-            margin-top: 2rem !important;
+            width: min(100%, 22rem) !important;
+            margin-top: 0 !important;
+            padding: 0.25rem 0 0.35rem !important;
+          }
+          .skull-frame {
+            width: 6.6rem !important;
+            height: 6.6rem !important;
+          }
+          .skull-ring {
+            border-width: 1.5px !important;
+          }
+          .skull-image {
+            width: 4.8rem !important;
+            height: 4.8rem !important;
           }
           .quote-panel {
-            position: static !important;
-            transform: none !important;
-            text-align: center !important;
-            width: 90% !important;
-            max-width: 100% !important;
-            border-left: none !important;
-            box-shadow: none !important;
-            padding-left: 0 !important;
+            display: none !important;
           }
           .login-form-panel {
             position: static !important;
             transform: none !important;
-            width: 90% !important;
-            margin-bottom: 4rem !important;
+            width: min(100%, 22rem) !important;
+            max-width: min(100%, 22rem) !important;
+            margin-bottom: 0 !important;
+            padding: 1rem 1rem 0.9rem !important;
+            background: linear-gradient(180deg, rgba(0, 12, 6, 0.84), rgba(0, 8, 4, 0.72)) !important;
+            backdrop-filter: blur(12px) !important;
+            box-shadow: 0 0 0 1px rgba(0, 255, 65, 0.12), 0 18px 42px rgba(0, 0, 0, 0.55), inset 0 0 28px rgba(0, 0, 0, 0.72) !important;
+          }
+          .hero-image {
+            left: 50% !important;
+            width: 130% !important;
+            max-width: none !important;
+            height: 100dvh !important;
+            opacity: 0.28 !important;
+            transform: translateX(-50%) scale(1.05) !important;
+            object-position: center top !important;
+          }
+          .aurora-field {
+            top: 18% !important;
+            width: 82vw !important;
+            height: 82vw !important;
+            opacity: 0.72 !important;
+            filter: blur(4px) !important;
+          }
+          .hero-eyes {
+            bottom: 18% !important;
+            gap: 2.7rem !important;
+            opacity: 0.18 !important;
+            transform: translateX(-50%) scale(0.62) !important;
+          }
+        }
+        @media (max-width: 560px) {
+          .login-root {
+            min-height: 100svh !important;
+          }
+          .mobile-container {
+            padding-top: calc(env(safe-area-inset-top, 0px) + 0.9rem) !important;
+            gap: 0.9rem !important;
+          }
+          .skull-group p:first-of-type {
+            margin-top: 0.55rem !important;
+            font-size: 0.68rem !important;
+            letter-spacing: 0.25em !important;
+          }
+          .skull-group p:last-of-type {
+            font-size: 8px !important;
+          }
+          .login-form-panel {
+            border-radius: 6px !important;
+          }
+        }
+        @media (max-width: 400px) {
+          .mobile-container {
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+          }
+          .login-form-panel {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding-left: 0.9rem !important;
+            padding-right: 0.9rem !important;
           }
         }
   `;
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden', backgroundColor: '#000' }}>
+    <div className="login-root" style={{ position: 'relative', minHeight: '100vh', overflow: 'hidden', backgroundColor: '#000' }}>
       <style dangerouslySetInnerHTML={{ __html: loginStyles }} />
 
       {/* 1. Deep space/void backdrop */}
@@ -260,23 +426,14 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
 
       {/* 3. Original Hacker Image with cinematic entrance and blend */}
       <img
+        className="hero-image"
         src="/hacker.jpg"
         alt=""
         style={{
-          position: 'absolute',
           bottom: 0,
-          left: '50%',
           transform: visible ? 'translateX(-50%) translateY(0) scale(1.03)' : 'translateX(-50%) translateY(40%) scale(0.95)',
           transition: 'transform 1.8s cubic-bezier(0.16, 1, 0.3, 1), filter 1.8s',
           filter: visible ? 'contrast(1.15) brightness(0.8) drop-shadow(0 -10px 40px rgba(0,255,65,0.15))' : 'brightness(0)',
-          width: '100%',
-          maxWidth: 950,
-          height: '100vh',
-          objectFit: 'cover',
-          objectPosition: 'top center',
-          zIndex: 1,
-          opacity: 0.65,
-          mixBlendMode: 'lighten'
         }}
       />
 
@@ -293,13 +450,9 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
 
       {/* 5. Central glowing aurora radiating from behind the skull */}
       <div 
+        className="aurora-field"
         style={{
-          position: 'absolute', top: '25%', left: '50%', transform: 'translate(-50%, -50%)',
-          width: '45vw', height: '45vw', borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(0,255,65,0.3) 0%, transparent 60%)',
-          zIndex: 2, pointerEvents: 'none',
-          animation: 'slowGlow 5s ease-in-out infinite',
-          mixBlendMode: 'screen'
+          top: '25%', left: '50%', transform: 'translate(-50%, -50%)',
         }}
       />
 
@@ -320,18 +473,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
         }}
       />
 
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '38%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 6,
-          display: 'flex',
-          gap: '4.4rem',
-          pointerEvents: 'none',
-        }}
-      >
+      <div className="hero-eyes">
         {[0, 1].map((idx) => (
           <div
             key={idx}
@@ -348,49 +490,30 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
         ))}
       </div>
 
-      <div className="mobile-container" style={{ position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none' }}>
+      <div className="mobile-container">
         <div
           className="skull-group"
           style={{
-            pointerEvents: 'auto',
-            position: 'absolute',
             top: '25%',
             left: '50%',
             transform: 'translateX(-50%)',
-            zIndex: 10,
-            textAlign: 'center',
-            width: '100%',
           }}
         >
         <div
+          className="skull-frame"
           style={{
-            margin: '0 auto',
-            position: 'relative',
-            width: '9.7rem',
-            height: '9.7rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
           }}
         >
           <div
-            className="el-ring"
+            className="el-ring skull-ring"
             style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: '9999px',
-              border: '2px solid #00ff41',
             }}
           />
           <img
+            className="skull-image"
             src="/skull.jpg"
             alt="skull"
             style={{
-              width: '6.5rem',
-              height: '6.5rem',
-              borderRadius: '9999px',
-              objectFit: 'cover',
-              animation: 'skullFloat 3s ease-in-out infinite',
             }}
           />
         </div>
@@ -575,6 +698,11 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               onKeyDown={(event) => event.key === 'Enter' && void handleLogin()}
+              autoComplete="username"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              enterKeyHint="go"
               placeholder="enter username..."
               className="el-input"
               style={fieldInputStyle}
@@ -605,6 +733,11 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               onKeyDown={(event) => event.key === 'Enter' && void handleLogin()}
+              autoComplete="current-password"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              enterKeyHint="go"
               placeholder="enter password..."
               className="el-input"
               style={{ ...fieldInputStyle, paddingRight: '2.5rem' }}
@@ -744,7 +877,10 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
 
 const fieldInputStyle = {
   width: '100%',
-  background: 'rgba(0,0,0,0.7)',
+  background: 'transparent',
+  appearance: 'none' as const,
+  WebkitAppearance: 'none' as const,
+  border: 'none',
   paddingLeft: '1.75rem',
   paddingRight: '1rem',
   paddingTop: '0.625rem',
@@ -752,5 +888,7 @@ const fieldInputStyle = {
   fontFamily: 'monospace',
   fontSize: '0.75rem',
   color: '#00ff41',
+  caretColor: '#00ff41',
+  colorScheme: 'dark' as const,
   boxSizing: 'border-box' as const,
 }

@@ -139,6 +139,11 @@ export default function EmbeddedRegister({
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
                   onKeyDown={(event) => event.key === 'Enter' && void handleRegister()}
+                  autoComplete="username"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  enterKeyHint="next"
                   placeholder="ornek: breach.analyst"
                   className="w-full rounded-2xl border border-emerald-400/20 bg-black/55 px-4 py-3 text-sm text-emerald-100 outline-none transition focus:border-emerald-300/60 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
                 />
@@ -167,6 +172,11 @@ export default function EmbeddedRegister({
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     onKeyDown={(event) => event.key === 'Enter' && void handleRegister()}
+                    autoComplete="new-password"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    enterKeyHint="next"
                     placeholder="En az 8 karakter"
                     className="w-full rounded-2xl border border-emerald-400/20 bg-black/55 px-4 py-3 pr-20 text-sm text-emerald-100 outline-none transition focus:border-emerald-300/60 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
                   />
@@ -190,6 +200,11 @@ export default function EmbeddedRegister({
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     onKeyDown={(event) => event.key === 'Enter' && void handleRegister()}
+                    autoComplete="new-password"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    enterKeyHint="done"
                     placeholder="Sifreni tekrar gir"
                     className="w-full rounded-2xl border border-emerald-400/20 bg-black/55 px-4 py-3 pr-20 text-sm text-emerald-100 outline-none transition focus:border-emerald-300/60 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
                   />
