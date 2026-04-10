@@ -1,4 +1,4 @@
-import * as memoryStore from '@/lib/soc-store-memory'
+﻿import * as memoryStore from '@/lib/soc-store-memory'
 import * as supabaseStore from '@/lib/soc-store-supabase'
 import { isSupabaseAppStateEnabled } from '@/lib/supabase-app-state'
 import { getSupabaseAttackMetrics, isSupabaseAttackStoreEnabled, recordAttackEventToSupabase } from '@/lib/supabase-attack-metrics'
@@ -200,12 +200,6 @@ export async function archiveReport(...args: Parameters<StoreModule['archiveRepo
   return withStore('archiveReport', (store) => store.archiveReport(...args))
 }
 
-export async function deleteReport(...args: Parameters<StoreModule['deleteReport']>) {
-  if (useSupabaseIdentityStore) {
-    return supabaseStore.deleteReport(...args)
-  }
-  return withStore('deleteReport', (store) => store.deleteReport(...args))
-}
 
 export async function createUser(...args: Parameters<StoreModule['createUser']>) {
   if (useSupabaseIdentityStore) {
@@ -362,3 +356,4 @@ export type {
   PortfolioCertificationInput,
   PortfolioEducationInput,
 } from '@/lib/soc-store-memory'
+

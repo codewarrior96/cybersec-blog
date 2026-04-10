@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
+﻿import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
 import { isReservedUsername } from '@/lib/identity-rules'
 import { hashPassword, verifyPassword } from '@/lib/security'
 import { dedupeStringList, getPortfolioSeedForUser } from '@/lib/portfolio-profile'
@@ -1097,7 +1097,7 @@ export async function listReports(
     return b.id - a.id
     })
 
-  // Cursor: id of the last item from the previous page — skip until past it
+  // Cursor: id of the last item from the previous page â€” skip until past it
   let startIndex = 0
   if (filters.cursor != null) {
     const cursorPos = sorted.findIndex((r) => r.id === filters.cursor)
@@ -1206,22 +1206,6 @@ export async function archiveReport(id: number, actor: SessionUser, metadata: Re
   }
 }
 
-export async function deleteReport(id: number, actor: SessionUser, metadata: RequestMetadata): Promise<boolean> {
-  const store = getStore()
-  const index = store.reports.findIndex((report) => report.id === id)
-  if (index < 0) return false
-  store.reports.splice(index, 1)
-
-  await writeAuditLog({
-    actorUserId: actor.id,
-    action: 'report.delete',
-    entityType: 'report',
-    entityId: id,
-    metadata,
-  })
-
-  return true
-}
 
 export async function registerUser(input: {
   username: string
@@ -1608,3 +1592,4 @@ export async function createUser(input: {
     metadata: input.metadata,
   })
 }
+

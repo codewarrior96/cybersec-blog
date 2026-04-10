@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto'
+﻿import { randomUUID } from 'crypto'
 import { isReservedUsername } from '@/lib/identity-rules'
 import { hashPassword, verifyPassword } from '@/lib/security'
 import { dedupeStringList, getPortfolioSeedForUser } from '@/lib/portfolio-profile'
@@ -899,23 +899,4 @@ export async function archiveReport(
   }
 }
 
-export async function deleteReport(
-  id: number,
-  actor: SessionUser,
-  metadata: RequestMetadata,
-): Promise<boolean> {
-  const existing = await readJsonObject<StoredReport>(reportPath(id))
-  if (!existing) return false
 
-  await deleteObject(reportPath(id))
-
-  await writeAuditLog({
-    actorUserId: actor.id,
-    action: 'report.delete',
-    entityType: 'report',
-    entityId: id,
-    metadata,
-  })
-
-  return true
-}

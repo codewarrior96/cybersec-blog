@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Tag, X, ChevronRight, Filter, FileText, Clock, Shield, Zap } from 'lucide-react';
 import { breachData, type BreachEvent, type BreachCategory } from '@/lib/breachData';
@@ -10,9 +10,9 @@ import {
 } from 'recharts';
 import { REPORTS_UPDATED_EVENT } from '@/lib/reports-events';
 
-/* ══════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    TYPES
-══════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 interface ReportRecord {
   id: number;
   title: string;
@@ -27,9 +27,9 @@ interface ReportRecord {
 
 type ReportStatusFilter = 'active' | 'archived' | 'all';
 
-/* ══════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    CONSTANTS
-══════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 const SEV_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const SEV_COLOR: Record<string, string> = {
   CRITICAL: '#ef4444', HIGH: '#f97316', MEDIUM: '#eab308', LOW: '#8b5cf6',
@@ -51,13 +51,13 @@ const BREACH_SEV_COLOR: Record<string, string> = {
 };
 
 const NATION_FLAGS: Record<string, string> = {
-  Russia: '🇷🇺', China: '🇨🇳', 'North Korea': '🇰🇵',
-  Iran: '🇮🇷', 'USA/Israel': '🇺🇸🇮🇱',
+  Russia: 'ğŸ‡·ğŸ‡º', China: 'ğŸ‡¨ğŸ‡³', 'North Korea': 'ğŸ‡°ğŸ‡µ',
+  Iran: 'ğŸ‡®ğŸ‡·', 'USA/Israel': 'ğŸ‡ºğŸ‡¸ğŸ‡®ğŸ‡±',
 };
 
-/* ══════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    HELPERS
-══════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function timeStr(iso: string) {
   try {
     return new Date(iso).toLocaleDateString('tr-TR', {
@@ -69,7 +69,7 @@ function timeStr(iso: string) {
 
 function excerpt(content: string, max = 160) {
   const plain = content.replace(/^#+\s+/gm, '').replace(/\*\*/g, '').trim();
-  return plain.length > max ? plain.slice(0, max) + '…' : plain;
+  return plain.length > max ? plain.slice(0, max) + 'â€¦' : plain;
 }
 
 function normalizeReportHeading(value: string) {
@@ -164,9 +164,9 @@ function matchHistory(report: ReportRecord): BreachEvent[] {
   }).slice(0, 3);
 }
 
-/* ══════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    REPORT MODAL
-══════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function ReportModal({
   report,
   onClose,
@@ -294,7 +294,7 @@ function ReportModal({
             </div>
           ))}
 
-          {/* ── Historical Parallels ── */}
+          {/* â”€â”€ Historical Parallels â”€â”€ */}
           {related.length > 0 && (
             <div className="mt-6 pt-4 border-t border-violet-900/30">
               <div className="flex items-center gap-2 mb-3">
@@ -313,7 +313,7 @@ function ReportModal({
                         <div className="flex items-center gap-2">
                           <span className="text-[9px] font-bold" style={{ color: cat.color }}>{cat.label}</span>
                           <span className="text-[9px] text-slate-600">{e.year}</span>
-                          {e.nation && <span className="text-xs">{NATION_FLAGS[e.nation] ?? '🏴'}</span>}
+                          {e.nation && <span className="text-xs">{NATION_FLAGS[e.nation] ?? 'ğŸ´'}</span>}
                         </div>
                         <span className="text-[9px]" style={{ color: BREACH_SEV_COLOR[e.severity] ?? '#eab308' }}>
                           {e.severity.toUpperCase()}
@@ -333,9 +333,9 @@ function ReportModal({
   );
 }
 
-/* ══════════════════════════════════════════════
-   HISTORY TAB — Compact breach cards
-══════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   HISTORY TAB â€” Compact breach cards
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 type BreachCatFilter = 'ALL' | BreachCategory;
 
 function AptModal({ apt, onClose }: { apt: AptProfile; onClose: () => void }) {
@@ -533,7 +533,7 @@ function HistoryTab() {
         </div>
       </div>
 
-      {/* ── Charts Row ── */}
+      {/* â”€â”€ Charts Row â”€â”€ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {/* Bar chart: attacks by year */}
         <div className="rounded-lg border border-violet-500/15 bg-[#0a000f] p-4">
@@ -605,7 +605,7 @@ function HistoryTab() {
         </div>
       </div>
 
-      {/* ── APT Profile Cards ── */}
+      {/* â”€â”€ APT Profile Cards â”€â”€ */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-[9px] text-slate-600 tracking-widest uppercase">▸ Tehdit Aktörü Profilleri</span>
@@ -697,7 +697,7 @@ function HistoryTab() {
                         style={{ color: BREACH_SEV_COLOR[e.severity] ?? '#eab308' }}>
                         {e.severity.toUpperCase()}
                       </span>
-                      {e.nation && <span className="text-xs">{NATION_FLAGS[e.nation] ?? '🏴'}</span>}
+                      {e.nation && <span className="text-xs">{NATION_FLAGS[e.nation] ?? 'ğŸ´'}</span>}
                     </div>
                     <span className="text-[9px] text-slate-700 border border-white/5 px-1.5 py-0.5 rounded">
                       {e.attackVector}
@@ -713,7 +713,7 @@ function HistoryTab() {
                   {/* Records */}
                   {e.records !== undefined && (
                     <div className="text-[9px] text-red-400/70 mb-1">
-                      ⚠ {e.records >= 1000 ? `${(e.records / 1000).toFixed(1)}B` : `${e.records}M`} kişi etkilendi
+                      âš  {e.records >= 1000 ? `${(e.records / 1000).toFixed(1)}B` : `${e.records}M`} kişi etkilendi
                     </div>
                   )}
 
@@ -731,7 +731,7 @@ function HistoryTab() {
                   )}
 
                   <div className="mt-1 text-[9px]" style={{ color: cat.color, opacity: 0.6 }}>
-                    {isEx ? '▲ KAPAT' : '▼ DETAY'}
+                    {isEx ? 'â–² KAPAT' : 'â–¼ DETAY'}
                   </div>
                 </div>
               </div>
@@ -749,7 +749,7 @@ function HistoryTab() {
       {/* End marker */}
       <div className="flex justify-center mt-6">
         <div className="text-[9px] text-slate-700 border border-white/5 px-4 py-1.5 rounded tracking-widest">
-          — 2000 → 2024 — {breachData.length} OLAY KAYITLI —
+          â€” 2000 â†’ 2024 â€” {breachData.length} OLAY KAYITLI â€”
         </div>
       </div>
 
@@ -759,9 +759,9 @@ function HistoryTab() {
   );
 }
 
-/* ══════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    MAIN PAGE
-══════════════════════════════════════════════ */
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 type Tab = 'reports' | 'history' | 'cve';
 
 export default function ZafiyetTaramasiPage() {
@@ -1090,3 +1090,6 @@ export default function ZafiyetTaramasiPage() {
     </div>
   );
 }
+
+
+

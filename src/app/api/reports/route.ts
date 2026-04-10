@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { requireRole, requireSession } from '@/lib/api-auth'
+﻿import { NextRequest, NextResponse } from 'next/server'
+import { requireSession } from '@/lib/api-auth'
 import { getRequestMetadata } from '@/lib/auth-server'
-import { archiveReport, createReport, deleteReport, listReports } from '@/lib/soc-store-adapter'
+import { archiveReport, createReport, listReports } from '@/lib/soc-store-adapter'
 import type { ReportStatus } from '@/lib/soc-types'
 
 interface PostBody {
@@ -11,17 +11,13 @@ interface PostBody {
   tags?: unknown
 }
 
-interface DeleteBody {
-  id?: unknown
-}
-
 interface PatchBody {
   id?: unknown
   action?: unknown
 }
 
 function hasBrokenEncoding(value: string) {
-  return value.includes('\uFFFD')
+  return value.includes('uFFFD')
 }
 
 function parseReportStatus(value: string | null): ReportStatus | 'all' {
@@ -115,26 +111,4 @@ export async function PATCH(request: NextRequest) {
 
     throw error
   }
-}
-
-export async function DELETE(request: NextRequest) {
-  const guard = await requireRole(request, 'analyst')
-  if (guard.response) return guard.response
-  if (!guard.session) {
-    return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 })
-  }
-
-  const body = (await request.json().catch(() => ({}))) as DeleteBody
-  const id = typeof body.id === 'number' ? body.id : Number(body.id)
-
-  if (!Number.isFinite(id)) {
-    return NextResponse.json({ error: 'invalid id' }, { status: 400 })
-  }
-
-  const deleted = await deleteReport(id, guard.session.user, getRequestMetadata(request))
-  if (!deleted) {
-    return NextResponse.json({ error: 'not found' }, { status: 404 })
-  }
-
-  return NextResponse.json({ ok: true })
 }
