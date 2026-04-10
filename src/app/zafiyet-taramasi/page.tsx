@@ -20,7 +20,12 @@ interface ReportRecord {
   severity: string;
   tags: string[];
   createdAt: string;
+  status: 'active' | 'archived';
+  updatedAt: string;
+  archivedAt: string | null;
 }
+
+type ReportStatusFilter = 'active' | 'archived' | 'all';
 
 /* ══════════════════════════════════════════════
    CONSTANTS
@@ -162,7 +167,17 @@ function matchHistory(report: ReportRecord): BreachEvent[] {
 /* ══════════════════════════════════════════════
    REPORT MODAL
 ══════════════════════════════════════════════ */
-function ReportModal({ report, onClose }: { report: ReportRecord; onClose: () => void }) {
+function ReportModal({
+  report,
+  onClose,
+  onArchive,
+  archiving,
+}: {
+  report: ReportRecord;
+  onClose: () => void;
+  onArchive?: (report: ReportRecord) => Promise<void> | void;
+  archiving?: boolean;
+}) {
   const col = SEV_COLOR[report.severity.toUpperCase()] ?? '#8b5cf6';
   const related = matchHistory(report);
   const parsedSections = parseReportSections(report.content);
@@ -228,13 +243,31 @@ function ReportModal({ report, onClose }: { report: ReportRecord; onClose: () =>
                 style={{ color: col, borderColor: `${col}50`, background: `${col}15` }}>
                 {SEV_LABEL[report.severity.toUpperCase()] ?? report.severity}
               </span>
+              <span className="text-[9px] font-bold px-2 py-0.5 rounded border border-white/10 text-slate-400">
+                {report.status === 'archived' ? 'ARSIV' : 'AKTIF'}
+              </span>
               <span className="text-[9px] text-slate-600">{timeStr(report.createdAt)}</span>
             </div>
             <div className="text-sm font-bold text-slate-200 leading-snug">{report.title}</div>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors shrink-0">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {report.status !== 'archived' && onArchive && (
+              <button
+                onClick={() => void onArchive(report)}
+                disabled={archiving}
+                className="rounded border px-3 py-1 text-[10px] font-bold tracking-[0.18em] text-slate-300 transition-all disabled:opacity-50"
+                style={{
+                  borderColor: 'rgba(148,163,184,0.25)',
+                  background: 'rgba(15,23,42,0.4)',
+                }}
+              >
+                {archiving ? 'ARSIVLENIYOR' : 'ARSIVLE'}
+              </button>
+            )}
+            <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors shrink-0">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Tags */}
@@ -732,24 +765,29 @@ function HistoryTab() {
 type Tab = 'reports' | 'history' | 'cve';
 
 export default function ZafiyetTaramasiPage() {
-  const [activeTab, setActiveTab]   = useState<Tab>('reports');
-  const [reports, setReports]       = useState<ReportRecord[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [sevFilter, setSevFilter]   = useState<Set<string>>(new Set(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']));
-  const [tagFilter, setTagFilter]   = useState('');
-  const [selected, setSelected]     = useState<ReportRecord | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>('reports');
+  const [reports, setReports] = useState<ReportRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reportStatus, setReportStatus] = useState<ReportStatusFilter>('active');
+  const [sevFilter, setSevFilter] = useState<Set<string>>(new Set(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']));
+  const [tagFilter, setTagFilter] = useState('');
+  const [selected, setSelected] = useState<ReportRecord | null>(null);
+  const [archivingId, setArchivingId] = useState<number | null>(null);
 
   const fetchReports = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/reports?limit=50', { cache: 'no-store' });
+      const res = await fetch(`/api/reports?limit=50&status=${reportStatus}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json() as { reports: ReportRecord[] };
         setReports(data.reports ?? []);
       }
-    } catch { /* ignore */ } finally {
+    } catch {
+      /* ignore */
+    } finally {
       setLoading(false);
     }
-  }, []);
+  }, [reportStatus]);
 
   useEffect(() => {
     void fetchReports();
@@ -767,6 +805,35 @@ export default function ZafiyetTaramasiPage() {
       window.removeEventListener('focus', onReportsUpdated);
     };
   }, [fetchReports]);
+
+  const archiveSelectedReport = useCallback(async (report: ReportRecord) => {
+    setArchivingId(report.id);
+    try {
+      const res = await fetch('/api/reports', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: report.id, action: 'archive' }),
+      });
+
+      if (!res.ok) {
+        return;
+      }
+
+      const data = await res.json() as { report?: ReportRecord };
+      if (reportStatus === 'active') {
+        setSelected(null);
+      } else if (data.report) {
+        setSelected(data.report);
+      }
+
+      window.dispatchEvent(new CustomEvent(REPORTS_UPDATED_EVENT));
+      await fetchReports();
+    } catch {
+      /* ignore */
+    } finally {
+      setArchivingId(null);
+    }
+  }, [fetchReports, reportStatus]);
 
   const toggleSev = (s: string) =>
     setSevFilter(prev => {
@@ -789,23 +856,18 @@ export default function ZafiyetTaramasiPage() {
 
   return (
     <div className="route-page-frame py-6 font-mono text-slate-200">
-
-      {/* ── Page Header ── */}
       <div className="route-hero px-6 py-5">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div className="flex items-start gap-3">
             <Shield className="mt-0.5 h-5 w-5" style={{ color: 'rgb(var(--route-accent-rgb))' }} />
             <div>
-              <h1 className="route-kicker">
-                ⬡ Threat Intelligence Hub
-              </h1>
+              <h1 className="route-kicker">Threat Intelligence Hub</h1>
               <p className="route-copy mt-3 text-sm">
-                Aktif saldırı raporları, CVE takibi & siber tarih veritabanı
+                Aktif saldiri raporlari, CVE takibi ve siber tarih veritabani.
               </p>
             </div>
           </div>
 
-          {/* Tab switcher */}
           <div className="route-tabs">
             <button
               onClick={() => setActiveTab('reports')}
@@ -814,9 +876,7 @@ export default function ZafiyetTaramasiPage() {
             >
               <FileText className="w-3 h-3" />
               RAPORLAR
-              <span className="route-tab-count">
-                {reports.length}
-              </span>
+              <span className="route-tab-count">{reports.length}</span>
             </button>
             <button
               onClick={() => setActiveTab('history')}
@@ -824,10 +884,8 @@ export default function ZafiyetTaramasiPage() {
               data-active={activeTab === 'history'}
             >
               <Clock className="w-3 h-3" />
-              TARİHSEL VERİTABANI
-              <span className="route-tab-count">
-                {breachData.length}
-              </span>
+              TARIHSEL VERITABANI
+              <span className="route-tab-count">{breachData.length}</span>
             </button>
             <button
               onClick={() => setActiveTab('cve')}
@@ -841,39 +899,63 @@ export default function ZafiyetTaramasiPage() {
         </div>
       </div>
 
-      {/* ── Body ── */}
       <div className="mx-auto max-w-6xl px-4 py-6">
-
-        {/* REPORTS TAB */}
         {activeTab === 'reports' && (
-          <div className="flex gap-5">
-
-            {/* Sidebar */}
-            <aside className="w-48 shrink-0 space-y-4">
+          <div className="flex gap-5 max-lg:flex-col">
+            <aside className="w-48 shrink-0 space-y-4 max-lg:w-full">
               <div>
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Filter className="w-3 h-3 text-slate-600" />
-                  <span className="text-[9px] text-slate-600 tracking-widest uppercase">Önem Seviyesi</span>
+                <div className="mb-2 flex items-center gap-1.5">
+                  <Filter className="h-3 w-3 text-slate-600" />
+                  <span className="text-[9px] uppercase tracking-widest text-slate-600">Onem Seviyesi</span>
                 </div>
                 <div className="space-y-1">
-                  {SEV_ORDER.map(s => {
-                    const col    = SEV_COLOR[s];
+                  {SEV_ORDER.map((s) => {
+                    const col = SEV_COLOR[s];
                     const active = sevFilter.has(s);
                     return (
-                      <button key={s} onClick={() => toggleSev(s)}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-[10px] transition-all"
+                      <button
+                        key={s}
+                        onClick={() => toggleSev(s)}
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-[10px] transition-all"
                         style={{
-                          border:     `1px solid ${active ? col + '50' : 'transparent'}`,
+                          border: `1px solid ${active ? col + '50' : 'transparent'}`,
                           background: active ? col + '12' : 'transparent',
-                          color:      active ? col : '#475569',
+                          color: active ? col : '#475569',
                         }}
                       >
-                        <span className="w-2 h-2 rounded-full shrink-0"
-                          style={{ background: active ? col : '#334155' }} />
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: active ? col : '#334155' }} />
                         {SEV_LABEL[s]}
                         <span className="ml-auto text-[9px] opacity-60">
-                          {reports.filter(r => r.severity.toUpperCase() === s).length}
+                          {reports.filter((r) => r.severity.toUpperCase() === s).length}
                         </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 text-[9px] uppercase tracking-widest text-slate-600">Rapor Durumu</div>
+                <div className="space-y-1">
+                  {([
+                    ['active', 'Aktif'],
+                    ['archived', 'Arsiv'],
+                    ['all', 'Tumu'],
+                  ] as Array<[ReportStatusFilter, string]>).map(([value, label]) => {
+                    const active = reportStatus === value;
+                    return (
+                      <button
+                        key={value}
+                        onClick={() => setReportStatus(value)}
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-[10px] transition-all"
+                        style={{
+                          border: active ? '1px solid rgba(34,197,94,0.35)' : '1px solid transparent',
+                          background: active ? 'rgba(34,197,94,0.08)' : 'transparent',
+                          color: active ? '#86efac' : '#475569',
+                        }}
+                      >
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: active ? '#22c55e' : '#334155' }} />
+                        {label}
                       </button>
                     );
                   })}
@@ -882,17 +964,20 @@ export default function ZafiyetTaramasiPage() {
 
               {allTags.length > 0 && (
                 <div>
-                  <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-2">Etiket Ara</div>
+                  <div className="mb-2 text-[9px] uppercase tracking-widest text-slate-600">Etiket Ara</div>
                   <input
                     value={tagFilter}
-                    onChange={e => setTagFilter(e.target.value)}
+                    onChange={(e) => setTagFilter(e.target.value)}
                     placeholder="rce, sqli..."
-                    className="w-full bg-[#0a0015] border border-violet-900/40 rounded px-2 py-1.5 text-[10px] text-slate-300 focus:outline-none focus:border-violet-500/50 transition-colors placeholder-slate-700"
+                    className="w-full rounded border border-violet-900/40 bg-[#0a0015] px-2 py-1.5 text-[10px] text-slate-300 transition-colors placeholder-slate-700 focus:border-violet-500/50 focus:outline-none"
                   />
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {allTags.slice(0, 10).map(t => (
-                      <button key={t} onClick={() => setTagFilter(t)}
-                        className="text-[9px] px-1.5 py-0.5 rounded border border-violet-900/30 text-slate-600 hover:text-violet-400 hover:border-violet-500/40 transition-colors">
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {allTags.slice(0, 10).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setTagFilter(t)}
+                        className="rounded border border-violet-900/30 px-1.5 py-0.5 text-[9px] text-slate-600 transition-colors hover:border-violet-500/40 hover:text-violet-400"
+                      >
                         {t}
                       </button>
                     ))}
@@ -900,82 +985,87 @@ export default function ZafiyetTaramasiPage() {
                 </div>
               )}
 
-              {/* Quick link to history */}
               <button
                 onClick={() => setActiveTab('history')}
-                className="w-full text-left text-[9px] text-slate-700 hover:text-orange-400 transition-colors border border-white/5 rounded px-2 py-1.5 hover:border-orange-500/20"
+                className="w-full rounded border border-white/5 px-2 py-1.5 text-left text-[9px] text-slate-700 transition-colors hover:border-orange-500/20 hover:text-orange-400"
               >
-                📚 Tarihsel veritabanını gör →
+                Tarihsel veritabanini gor {'->'}
               </button>
             </aside>
 
-            {/* Report grid */}
-            <main className="flex-1 min-w-0">
+            <main className="min-w-0 flex-1">
               {loading && (
-                <div className="text-slate-600 text-xs text-center py-16">
-                  <span className="animate-pulse">Raporlar yükleniyor...</span>
+                <div className="py-16 text-center text-xs text-slate-600">
+                  <span className="animate-pulse">Raporlar yukleniyor...</span>
                 </div>
               )}
 
               {!loading && filtered.length === 0 && (
-                <div className="text-slate-600 text-xs text-center py-16 space-y-2">
-                  <FileText className="w-8 h-8 mx-auto opacity-30" />
-                  <div>Henüz rapor yok.</div>
-                  <div className="text-[10px]">Dashboard'daki kritik saldırılardan rapor oluşturun.</div>
+                <div className="space-y-2 py-16 text-center text-xs text-slate-600">
+                  <FileText className="mx-auto h-8 w-8 opacity-30" />
+                  <div>
+                    {reportStatus === 'archived' ? 'Henuz arsivlenmis rapor yok.' : 'Henuz rapor yok.'}
+                  </div>
+                  <div className="text-[10px]">
+                    {reportStatus === 'archived'
+                      ? 'Aktif raporlardan arsivledigin kayitlar burada gorunecek.'
+                      : "Dashboard'daki kritik saldirilardan rapor olusturun."}
+                  </div>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {filtered.map(r => {
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {filtered.map((r) => {
                   const sev = r.severity.toUpperCase();
                   const col = SEV_COLOR[sev] ?? '#8b5cf6';
                   return (
-                    <div key={r.id}
-                      className="flex flex-col rounded-lg border p-4 cursor-pointer transition-all hover:scale-[1.01]"
+                    <div
+                      key={r.id}
+                      className="flex cursor-pointer flex-col rounded-lg border p-4 transition-all hover:scale-[1.01]"
                       style={{ borderColor: `${col}25`, background: `${col}06` }}
-                      onMouseEnter={e => (e.currentTarget.style.borderColor = `${col}55`)}
-                      onMouseLeave={e => (e.currentTarget.style.borderColor = `${col}25`)}
+                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${col}55`)}
+                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = `${col}25`)}
                       onClick={() => setSelected(r)}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border"
-                          style={{ color: col, borderColor: `${col}45`, background: `${col}18` }}>
-                          {SEV_LABEL[sev] ?? sev}
-                        </span>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="rounded border px-1.5 py-0.5 text-[9px] font-bold"
+                            style={{ color: col, borderColor: `${col}45`, background: `${col}18` }}
+                          >
+                            {SEV_LABEL[sev] ?? sev}
+                          </span>
+                          <span className="rounded border border-white/10 px-1.5 py-0.5 text-[9px] text-slate-500">
+                            {r.status === 'archived' ? 'ARSIV' : 'AKTIF'}
+                          </span>
+                        </div>
                         <span className="text-[9px] text-slate-600">{timeStr(r.createdAt)}</span>
                       </div>
 
-                      <div className="text-xs font-bold text-slate-200 leading-snug mb-2 line-clamp-2">
-                        {r.title}
-                      </div>
-                      <div className="text-[10px] text-slate-500 leading-relaxed flex-1 mb-3">
-                        {getReportPreview(r)}
-                      </div>
+                      <div className="mb-2 line-clamp-2 text-xs font-bold leading-snug text-slate-200">{r.title}</div>
+                      <div className="mb-3 flex-1 text-[10px] leading-relaxed text-slate-500">{getReportPreview(r)}</div>
 
                       {r.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {r.tags.slice(0, 4).map(t => (
-                            <span key={t} className="text-[9px] px-1.5 py-0.5 rounded border border-violet-900/30 text-violet-500">
+                        <div className="mb-3 flex flex-wrap gap-1">
+                          {r.tags.slice(0, 4).map((t) => (
+                            <span key={t} className="rounded border border-violet-900/30 px-1.5 py-0.5 text-[9px] text-violet-500">
                               {t}
                             </span>
                           ))}
-                          {r.tags.length > 4 && (
-                            <span className="text-[9px] text-slate-600">+{r.tags.length - 4}</span>
-                          )}
+                          {r.tags.length > 4 && <span className="text-[9px] text-slate-600">+{r.tags.length - 4}</span>}
                         </div>
                       )}
 
-                      {/* Historical match hint */}
                       {matchHistory(r).length > 0 && (
-                        <div className="flex items-center gap-1 text-[9px] text-orange-500/60 mb-2">
-                          <Clock className="w-2.5 h-2.5" />
+                        <div className="mb-2 flex items-center gap-1 text-[9px] text-orange-500/60">
+                          <Clock className="h-2.5 w-2.5" />
                           {matchHistory(r).length} tarihsel benzer olay
                         </div>
                       )}
 
-                      <div className="flex items-center gap-1 text-[10px] mt-auto" style={{ color: col }}>
+                      <div className="mt-auto flex items-center gap-1 text-[10px]" style={{ color: col }}>
                         <span>Raporu Oku</span>
-                        <ChevronRight className="w-3 h-3" />
+                        <ChevronRight className="h-3 w-3" />
                       </div>
                     </div>
                   );
@@ -985,19 +1075,17 @@ export default function ZafiyetTaramasiPage() {
           </div>
         )}
 
-        {/* HISTORY TAB */}
         {activeTab === 'history' && <HistoryTab />}
-
-        {/* CVE RADAR TAB */}
-        {activeTab === 'cve' && (
-          <CveRadarTab />
-        )}
-
+        {activeTab === 'cve' && <CveRadarTab />}
       </div>
 
-      {/* Report Detail Modal */}
       {selected && (
-        <ReportModal report={selected} onClose={() => setSelected(null)} />
+        <ReportModal
+          report={selected}
+          onClose={() => setSelected(null)}
+          onArchive={archiveSelectedReport}
+          archiving={archivingId === selected.id}
+        />
       )}
     </div>
   );

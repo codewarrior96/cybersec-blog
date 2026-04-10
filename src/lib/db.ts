@@ -139,8 +139,11 @@ async function initializeSchema(db: SqliteDb) {
       content TEXT NOT NULL,
       severity TEXT NOT NULL,
       tags_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
       created_by_user_id INTEGER,
       created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT '',
+      archived_at TEXT,
       FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
@@ -213,6 +216,19 @@ async function initializeSchema(db: SqliteDb) {
   await ensureColumn(db, 'user_profiles', 'avatar_path', 'TEXT')
   await ensureColumn(db, 'user_profiles', 'avatar_name', 'TEXT')
   await ensureColumn(db, 'user_profiles', 'avatar_mime_type', 'TEXT')
+  await ensureColumn(db, 'reports', 'status', "TEXT NOT NULL DEFAULT 'active'")
+  await ensureColumn(db, 'reports', 'updated_at', "TEXT NOT NULL DEFAULT ''")
+  await ensureColumn(db, 'reports', 'archived_at', 'TEXT')
+  await db.run(
+    `
+      UPDATE reports
+      SET status = COALESCE(NULLIF(status, ''), 'active'),
+          updated_at = CASE
+            WHEN updated_at IS NULL OR updated_at = '' THEN created_at
+            ELSE updated_at
+          END
+    `,
+  )
 }
 
 async function seedUsers(db: SqliteDb) {

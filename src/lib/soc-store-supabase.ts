@@ -15,7 +15,7 @@ import type {
   PortfolioCertificationInput,
   PortfolioEducationInput,
 } from '@/lib/soc-store-memory'
-import type { SessionUser, UserRole } from '@/lib/soc-types'
+import type { ReportStatus, SessionUser, UserRole } from '@/lib/soc-types'
 import type {
   CertificationStatus,
   EducationStatus,
@@ -73,8 +73,11 @@ interface StoredReport {
   content: string
   severity: string
   tags: string[]
+  status: ReportStatus
   createdByUserId: number | null
   createdAt: string
+  updatedAt: string
+  archivedAt: string | null
 }
 
 function toIsoNow() {
@@ -771,9 +774,10 @@ export async function deletePortfolioEducation(
 }
 
 export async function listReports(
-  filters: { limit?: number; cursor?: number } = {},
+  filters: { limit?: number; cursor?: number; status?: ReportStatus | 'all' } = {},
 ): Promise<{ reports: import('@/lib/soc-store-memory').ReportRecord[]; hasNext: boolean; nextCursor: number | null }> {
   const limit = Math.min(50, Math.max(1, filters.limit ?? 20))
+  const statusFilter = filters.status ?? 'active'
   const paths = await listObjectPaths(reportsPrefix())
   const reports = (
     await Promise.all(
@@ -783,6 +787,7 @@ export async function listReports(
     )
   )
     .filter((item): item is StoredReport => Boolean(item))
+    .filter((item) => statusFilter === 'all' || item.status === statusFilter || (!item.status && statusFilter === 'active'))
     .sort((a, b) => {
       const aTime = new Date(a.createdAt).getTime()
       const bTime = new Date(b.createdAt).getTime()
@@ -804,7 +809,10 @@ export async function listReports(
     content: report.content,
     severity: report.severity,
     tags: report.tags,
+    status: report.status ?? 'active',
     createdAt: report.createdAt,
+    updatedAt: report.updatedAt ?? report.createdAt,
+    archivedAt: report.archivedAt ?? null,
   }))
 
   return {
@@ -828,8 +836,11 @@ export async function createReport(input: {
     content: input.content,
     severity: input.severity,
     tags: [...input.tags],
+    status: 'active',
     createdByUserId: input.actor.id,
     createdAt: toIsoNow(),
+    updatedAt: toIsoNow(),
+    archivedAt: null,
   }
 
   await uploadJsonObject(reportPath(report.id), report)
@@ -849,7 +860,50 @@ export async function createReport(input: {
     content: report.content,
     severity: report.severity,
     tags: report.tags,
+    status: report.status,
     createdAt: report.createdAt,
+    updatedAt: report.updatedAt,
+    archivedAt: report.archivedAt,
+  }
+}
+
+export async function archiveReport(
+  id: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<import('@/lib/soc-store-memory').ReportRecord | null> {
+  const existing = await readJsonObject<StoredReport>(reportPath(id))
+  if (!existing) return null
+
+  if (actor.role === 'viewer' && existing.createdByUserId !== actor.id) {
+    throw new Error('FORBIDDEN')
+  }
+
+  if (existing.status !== 'archived') {
+    existing.status = 'archived'
+    existing.archivedAt = toIsoNow()
+    existing.updatedAt = existing.archivedAt
+    await uploadJsonObject(reportPath(id), existing)
+
+    await writeAuditLog({
+      actorUserId: actor.id,
+      action: 'report.archive',
+      entityType: 'report',
+      entityId: id,
+      metadata,
+    })
+  }
+
+  return {
+    id: existing.id,
+    title: existing.title,
+    content: existing.content,
+    severity: existing.severity,
+    tags: existing.tags,
+    status: existing.status,
+    createdAt: existing.createdAt,
+    updatedAt: existing.updatedAt,
+    archivedAt: existing.archivedAt,
   }
 }
 

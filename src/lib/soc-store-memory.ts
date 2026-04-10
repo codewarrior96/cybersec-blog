@@ -2,7 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
 import { isReservedUsername } from '@/lib/identity-rules'
 import { hashPassword, verifyPassword } from '@/lib/security'
 import { dedupeStringList, getPortfolioSeedForUser } from '@/lib/portfolio-profile'
-import type { AlertPriority, AlertStatus, AttackSeverity, SessionUser, UserRole } from '@/lib/soc-types'
+import type { AlertPriority, AlertStatus, AttackSeverity, ReportStatus, SessionUser, UserRole } from '@/lib/soc-types'
 import { mapAttackTypeToTag, priorityWeight, severityToPriority } from '@/lib/soc-attack-utils'
 import type {
   CertificationStatus,
@@ -135,8 +135,11 @@ interface InternalReport {
   content: string
   severity: string
   tags: string[]
+  status: ReportStatus
   createdByUserId: number | null
   createdAt: string
+  updatedAt: string
+  archivedAt: string | null
 }
 
 interface InternalAuditLog {
@@ -614,7 +617,10 @@ export interface ReportRecord {
   content: string
   severity: string
   tags: string[]
+  status: ReportStatus
   createdAt: string
+  updatedAt: string
+  archivedAt: string | null
 }
 
 export interface PortfolioProfilePatchInput extends PortfolioProfileFields {}
@@ -1077,16 +1083,19 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
 }
 
 export async function listReports(
-  filters: { limit?: number; cursor?: number } = {},
+  filters: { limit?: number; cursor?: number; status?: ReportStatus | 'all' } = {},
 ): Promise<{ reports: ReportRecord[]; hasNext: boolean; nextCursor: number | null }> {
   const limit = Math.min(50, Math.max(1, filters.limit ?? 20))
   const store = getStore()
-  const sorted = [...store.reports].sort((a, b) => {
+  const statusFilter = filters.status ?? 'active'
+  const sorted = [...store.reports]
+    .filter((report) => statusFilter === 'all' || report.status === statusFilter)
+    .sort((a, b) => {
     const aTime = new Date(a.createdAt).getTime()
     const bTime = new Date(b.createdAt).getTime()
     if (aTime !== bTime) return bTime - aTime
     return b.id - a.id
-  })
+    })
 
   // Cursor: id of the last item from the previous page — skip until past it
   let startIndex = 0
@@ -1103,7 +1112,10 @@ export async function listReports(
     content: report.content,
     severity: report.severity,
     tags: report.tags,
+    status: report.status,
     createdAt: report.createdAt,
+    updatedAt: report.updatedAt,
+    archivedAt: report.archivedAt,
   }))
 
   return {
@@ -1128,8 +1140,11 @@ export async function createReport(input: {
     content: input.content,
     severity: input.severity,
     tags: input.tags,
+    status: 'active',
     createdByUserId: input.actor.id,
     createdAt: toIsoNow(),
+    updatedAt: toIsoNow(),
+    archivedAt: null,
   }
   store.reports.push(report)
 
@@ -1148,7 +1163,46 @@ export async function createReport(input: {
     content: report.content,
     severity: report.severity,
     tags: report.tags,
+    status: report.status,
     createdAt: report.createdAt,
+    updatedAt: report.updatedAt,
+    archivedAt: report.archivedAt,
+  }
+}
+
+export async function archiveReport(id: number, actor: SessionUser, metadata: RequestMetadata): Promise<ReportRecord | null> {
+  const store = getStore()
+  const report = store.reports.find((item) => item.id === id)
+  if (!report) return null
+
+  if (actor.role === 'viewer' && report.createdByUserId !== actor.id) {
+    throw new Error('FORBIDDEN')
+  }
+
+  if (report.status !== 'archived') {
+    report.status = 'archived'
+    report.archivedAt = toIsoNow()
+    report.updatedAt = report.archivedAt
+
+    await writeAuditLog({
+      actorUserId: actor.id,
+      action: 'report.archive',
+      entityType: 'report',
+      entityId: id,
+      metadata,
+    })
+  }
+
+  return {
+    id: report.id,
+    title: report.title,
+    content: report.content,
+    severity: report.severity,
+    tags: report.tags,
+    status: report.status,
+    createdAt: report.createdAt,
+    updatedAt: report.updatedAt,
+    archivedAt: report.archivedAt,
   }
 }
 

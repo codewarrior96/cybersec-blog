@@ -193,6 +193,13 @@ export async function createReport(...args: Parameters<StoreModule['createReport
   return withStore('createReport', (store) => store.createReport(...args))
 }
 
+export async function archiveReport(...args: Parameters<StoreModule['archiveReport']>) {
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.archiveReport(...args)
+  }
+  return withStore('archiveReport', (store) => store.archiveReport(...args))
+}
+
 export async function deleteReport(...args: Parameters<StoreModule['deleteReport']>) {
   if (useSupabaseIdentityStore) {
     return supabaseStore.deleteReport(...args)

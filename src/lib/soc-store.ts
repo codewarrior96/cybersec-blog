@@ -8,6 +8,7 @@ import type {
   AlertPriority,
   AlertStatus,
   AttackSeverity,
+  ReportStatus,
   SessionUser,
   UserRole,
 } from '@/lib/soc-types'
@@ -143,7 +144,10 @@ export interface ReportRecord {
   content: string
   severity: string
   tags: string[]
+  status: ReportStatus
   createdAt: string
+  updatedAt: string
+  archivedAt: string | null
 }
 
 export interface PortfolioProfilePatchInput extends PortfolioProfileFields {}
@@ -1551,13 +1555,19 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
 }
 
 export async function listReports(
-  filters: { limit?: number; cursor?: number } = {},
+  filters: { limit?: number; cursor?: number; status?: ReportStatus | 'all' } = {},
 ): Promise<{ reports: ReportRecord[]; hasNext: boolean; nextCursor: number | null }> {
   const limit = Math.min(50, Math.max(1, filters.limit ?? 20))
   const db = await getDb()
+  const statusFilter = filters.status ?? 'active'
 
   const whereClauses: string[] = []
   const params: unknown[] = []
+
+  if (statusFilter !== 'all') {
+    whereClauses.push('status = ?')
+    params.push(statusFilter)
+  }
 
   if (filters.cursor != null) {
     whereClauses.push('id < ?')
@@ -1573,9 +1583,12 @@ export async function listReports(
     severity: string
     tags_json: string
     created_at: string
+    status: ReportStatus
+    updated_at: string
+    archived_at: string | null
   }[]>(
     `
-      SELECT id, title, content, severity, tags_json, created_at
+      SELECT id, title, content, severity, tags_json, created_at, status, updated_at, archived_at
       FROM reports
       ${where}
       ORDER BY id DESC
@@ -1592,7 +1605,10 @@ export async function listReports(
     content: row.content,
     severity: row.severity,
     tags: parseTags(row.tags_json),
+    status: row.status,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    archivedAt: row.archived_at,
   }))
 
   return {
@@ -1614,15 +1630,18 @@ export async function createReport(input: {
   const now = toIsoNow()
   const result = await db.run(
     `
-      INSERT INTO reports (title, content, severity, tags_json, created_by_user_id, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO reports (title, content, severity, tags_json, status, created_by_user_id, created_at, updated_at, archived_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     input.title,
     input.content,
     input.severity,
     JSON.stringify(input.tags),
+    'active',
     input.actor.id,
     now,
+    now,
+    null,
   )
 
   const id = Number(result.lastID)
@@ -1642,7 +1661,80 @@ export async function createReport(input: {
     content: input.content,
     severity: input.severity,
     tags: input.tags,
+    status: 'active',
     createdAt: now,
+    updatedAt: now,
+    archivedAt: null,
+  }
+}
+
+export async function archiveReport(id: number, actor: SessionUser, metadata: RequestMetadata): Promise<ReportRecord | null> {
+  const db = await getDb()
+  const existing = await db.get<{
+    id: number
+    title: string
+    content: string
+    severity: string
+    tags_json: string
+    status: ReportStatus
+    created_by_user_id: number | null
+    created_at: string
+    updated_at: string
+    archived_at: string | null
+  }>(
+    `
+      SELECT id, title, content, severity, tags_json, status, created_by_user_id, created_at, updated_at, archived_at
+      FROM reports
+      WHERE id = ?
+      LIMIT 1
+    `,
+    id,
+  )
+
+  if (!existing) return null
+
+  if (actor.role === 'viewer' && existing.created_by_user_id !== actor.id) {
+    throw new Error('FORBIDDEN')
+  }
+
+  if (existing.status !== 'archived') {
+    const now = toIsoNow()
+    await db.run(
+      `
+        UPDATE reports
+        SET status = 'archived',
+            archived_at = ?,
+            updated_at = ?
+        WHERE id = ?
+      `,
+      now,
+      now,
+      id,
+    )
+
+    existing.status = 'archived'
+    existing.archived_at = now
+    existing.updated_at = now
+
+    await writeAuditLog({
+      actorUserId: actor.id,
+      action: 'report.archive',
+      entityType: 'report',
+      entityId: id,
+      metadata,
+    })
+  }
+
+  return {
+    id: existing.id,
+    title: existing.title,
+    content: existing.content,
+    severity: existing.severity,
+    tags: parseTags(existing.tags_json),
+    status: existing.status,
+    createdAt: existing.created_at,
+    updatedAt: existing.updated_at,
+    archivedAt: existing.archived_at,
   }
 }
 
