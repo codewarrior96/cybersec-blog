@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
   if (hasBrokenEncoding(title) || hasBrokenEncoding(content) || tags.some(hasBrokenEncoding)) {
     return NextResponse.json(
-      { error: 'Rapor metninde bozuk karakter algilandi. Lutfen icerigi yeniden olusturun.' },
+      { error: 'Rapor metninde bozuk karakter algılandı. Lütfen içeriği yeniden oluşturun.' },
       { status: 400 },
     )
   }
@@ -110,7 +110,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ report })
   } catch (error) {
     if (error instanceof Error && error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'Bu raporu arsivleme yetkiniz yok.' }, { status: 403 })
+      return NextResponse.json({ error: 'Bu raporu arşivleme yetkiniz yok.' }, { status: 403 })
     }
 
     throw error

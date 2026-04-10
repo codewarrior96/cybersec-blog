@@ -1298,14 +1298,6 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
   }
 }
 
-export async function repairPortfolioStarterData(
-  userId: number,
-  _actor: SessionUser,
-  _metadata: RequestMetadata,
-): Promise<PortfolioProfileRecord | null> {
-  return getPortfolioProfile(userId)
-}
-
 export async function getPortfolioCertificationById(
   certificationId: number,
 ): Promise<PortfolioCertificationRecord | null> {

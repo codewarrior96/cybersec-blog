@@ -1591,7 +1591,7 @@ function ToolDetail({ tool, onSendCommand }: { tool: ToolCard; onSendCommand: (c
         {/* Versiyon & OS */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <span style={{ color: 'rgb(var(--route-muted-rgb) / 0.8)', fontSize: 11 }}>v{tool.version}</span>
-          <span style={{ color: 'rgb(var(--route-muted-rgb) / 0.52)' }}>Â·</span>
+          <span style={{ color: 'rgb(var(--route-muted-rgb) / 0.52)' }}>·</span>
           <div style={{ display: 'flex', gap: 4 }}>
             {tool.os.map(os => (
               <span key={os} style={{ padding: '1px 7px', borderRadius: 4, fontSize: 10,

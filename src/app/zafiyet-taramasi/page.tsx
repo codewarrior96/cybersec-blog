@@ -244,7 +244,7 @@ function ReportModal({
                 {SEV_LABEL[report.severity.toUpperCase()] ?? report.severity}
               </span>
               <span className="text-[9px] font-bold px-2 py-0.5 rounded border border-white/10 text-slate-400">
-                {report.status === 'archived' ? 'ARSIV' : 'AKTIF'}
+                {report.status === 'archived' ? 'ARŞİV' : 'AKTİF'}
               </span>
               <span className="text-[9px] text-slate-600">{timeStr(report.createdAt)}</span>
             </div>
@@ -261,7 +261,7 @@ function ReportModal({
                   background: 'rgba(15,23,42,0.4)',
                 }}
               >
-                {archiving ? 'ARSIVLENIYOR' : 'ARSIVLE'}
+                {archiving ? 'ARŞİVLENİYOR' : 'ARŞİVLE'}
               </button>
             )}
             <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors shrink-0">
@@ -863,7 +863,7 @@ export default function ZafiyetTaramasiPage() {
             <div>
               <h1 className="route-kicker">Threat Intelligence Hub</h1>
               <p className="route-copy mt-3 text-sm">
-                Aktif saldiri raporlari, CVE takibi ve siber tarih veritabani.
+                Aktif saldırı raporları, CVE takibi ve siber tarih veritabanı.
               </p>
             </div>
           </div>
@@ -884,7 +884,7 @@ export default function ZafiyetTaramasiPage() {
               data-active={activeTab === 'history'}
             >
               <Clock className="w-3 h-3" />
-              TARIHSEL VERITABANI
+              TARİHSEL VERİTABANI
               <span className="route-tab-count">{breachData.length}</span>
             </button>
             <button
@@ -939,8 +939,8 @@ export default function ZafiyetTaramasiPage() {
                 <div className="space-y-1">
                   {([
                     ['active', 'Aktif'],
-                    ['archived', 'Arsiv'],
-                    ['all', 'Tumu'],
+                    ['archived', 'Arşiv'],
+                    ['all', 'Tümü'],
                   ] as Array<[ReportStatusFilter, string]>).map(([value, label]) => {
                     const active = reportStatus === value;
                     return (
@@ -989,14 +989,14 @@ export default function ZafiyetTaramasiPage() {
                 onClick={() => setActiveTab('history')}
                 className="w-full rounded border border-white/5 px-2 py-1.5 text-left text-[9px] text-slate-700 transition-colors hover:border-orange-500/20 hover:text-orange-400"
               >
-                Tarihsel veritabanini gor {'->'}
+                Tarihsel veritabanını gör {'->'}
               </button>
             </aside>
 
             <main className="min-w-0 flex-1">
               {loading && (
                 <div className="py-16 text-center text-xs text-slate-600">
-                  <span className="animate-pulse">Raporlar yukleniyor...</span>
+                  <span className="animate-pulse">Raporlar yükleniyor...</span>
                 </div>
               )}
 
@@ -1004,12 +1004,12 @@ export default function ZafiyetTaramasiPage() {
                 <div className="space-y-2 py-16 text-center text-xs text-slate-600">
                   <FileText className="mx-auto h-8 w-8 opacity-30" />
                   <div>
-                    {reportStatus === 'archived' ? 'Henuz arsivlenmis rapor yok.' : 'Henuz rapor yok.'}
+                    {reportStatus === 'archived' ? 'Henüz arşivlenmiş rapor yok.' : 'Henüz rapor yok.'}
                   </div>
                   <div className="text-[10px]">
                     {reportStatus === 'archived'
-                      ? 'Aktif raporlardan arsivledigin kayitlar burada gorunecek.'
-                      : "Dashboard'daki kritik saldirilardan rapor olusturun."}
+                      ? 'Aktif raporlardan arşivlediğin kayıtlar burada görünecek.'
+                      : "Dashboard'daki kritik saldırılardan rapor oluşturun."}
                   </div>
                 </div>
               )}
@@ -1036,7 +1036,7 @@ export default function ZafiyetTaramasiPage() {
                             {SEV_LABEL[sev] ?? sev}
                           </span>
                           <span className="rounded border border-white/10 px-1.5 py-0.5 text-[9px] text-slate-500">
-                            {r.status === 'archived' ? 'ARSIV' : 'AKTIF'}
+                            {r.status === 'archived' ? 'ARŞİV' : 'AKTİF'}
                           </span>
                         </div>
                         <span className="text-[9px] text-slate-600">{timeStr(r.createdAt)}</span>
