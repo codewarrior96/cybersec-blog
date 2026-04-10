@@ -233,6 +233,10 @@ Recommended schema groups:
 - `operations`
 - `content`
 
+The first concrete schema draft now lives here:
+
+- `C:\Users\salim\Desktop\GİTHUB PROJE\cybersec-blog\supabase\platform-backbone-v1.sql`
+
 ### 6.1 identity schema
 
 Tables:
@@ -830,3 +834,20 @@ The next real implementation step should be:
 5. map current screens into future domains
 
 That gives us a strong enough backbone to start implementation without guessing.
+
+## 13. Phase 1 Migration Order
+
+To keep runtime risk low, the first production migration should happen in this order:
+
+1. `identity.users`
+2. `identity.sessions`
+3. `content.portfolio_profiles`
+4. `content.profile_specialties`
+5. `content.profile_tools`
+6. `content.portfolio_certifications`
+7. `content.portfolio_education`
+8. `operations.reports`
+9. `operations.report_actions`
+
+This deliberately avoids moving live telemetry and incidents first.
+We stabilize the identity/profile/report backbone before touching the heavier operational stream.
