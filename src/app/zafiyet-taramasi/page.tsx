@@ -51,8 +51,11 @@ const BREACH_SEV_COLOR: Record<string, string> = {
 };
 
 const NATION_FLAGS: Record<string, string> = {
-  Russia: 'ğŸ‡·ğŸ‡º', China: 'ğŸ‡¨ğŸ‡³', 'North Korea': 'ğŸ‡°ğŸ‡µ',
-  Iran: 'ğŸ‡®ğŸ‡·', 'USA/Israel': 'ğŸ‡ºğŸ‡¸ğŸ‡®ğŸ‡±',
+  Russia: 'RU',
+  China: 'CN',
+  'North Korea': 'KP',
+  Iran: 'IR',
+  'USA/Israel': 'US / IL',
 };
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -69,7 +72,7 @@ function timeStr(iso: string) {
 
 function excerpt(content: string, max = 160) {
   const plain = content.replace(/^#+\s+/gm, '').replace(/\*\*/g, '').trim();
-  return plain.length > max ? plain.slice(0, max) + 'â€¦' : plain;
+  return plain.length > max ? plain.slice(0, max) + '...' : plain;
 }
 
 function normalizeReportHeading(value: string) {
@@ -294,7 +297,7 @@ function ReportModal({
             </div>
           ))}
 
-          {/* â”€â”€ Historical Parallels â”€â”€ */}
+          {/* Historical Parallels */}
           {related.length > 0 && (
             <div className="mt-6 pt-4 border-t border-violet-900/30">
               <div className="flex items-center gap-2 mb-3">
@@ -313,7 +316,11 @@ function ReportModal({
                         <div className="flex items-center gap-2">
                           <span className="text-[9px] font-bold" style={{ color: cat.color }}>{cat.label}</span>
                           <span className="text-[9px] text-slate-600">{e.year}</span>
-                          {e.nation && <span className="text-xs">{NATION_FLAGS[e.nation] ?? 'ğŸ´'}</span>}
+                          {e.nation && (
+                            <span className="rounded border border-slate-700/50 px-1.5 py-0.5 text-[8px] font-bold tracking-[0.18em] text-slate-400">
+                              {NATION_FLAGS[e.nation] ?? 'N/A'}
+                            </span>
+                          )}
                         </div>
                         <span className="text-[9px]" style={{ color: BREACH_SEV_COLOR[e.severity] ?? '#eab308' }}>
                           {e.severity.toUpperCase()}
@@ -533,7 +540,7 @@ function HistoryTab() {
         </div>
       </div>
 
-      {/* â”€â”€ Charts Row â”€â”€ */}
+      {/* Charts Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {/* Bar chart: attacks by year */}
         <div className="rounded-lg border border-violet-500/15 bg-[#0a000f] p-4">
@@ -605,7 +612,7 @@ function HistoryTab() {
         </div>
       </div>
 
-      {/* â”€â”€ APT Profile Cards â”€â”€ */}
+      {/* APT Profile Cards */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-[9px] text-slate-600 tracking-widest uppercase">▸ Tehdit Aktörü Profilleri</span>
@@ -697,7 +704,11 @@ function HistoryTab() {
                         style={{ color: BREACH_SEV_COLOR[e.severity] ?? '#eab308' }}>
                         {e.severity.toUpperCase()}
                       </span>
-                      {e.nation && <span className="text-xs">{NATION_FLAGS[e.nation] ?? 'ğŸ´'}</span>}
+                      {e.nation && (
+                        <span className="rounded border border-slate-700/50 px-1.5 py-0.5 text-[8px] font-bold tracking-[0.18em] text-slate-400">
+                          {NATION_FLAGS[e.nation] ?? 'N/A'}
+                        </span>
+                      )}
                     </div>
                     <span className="text-[9px] text-slate-700 border border-white/5 px-1.5 py-0.5 rounded">
                       {e.attackVector}
@@ -713,7 +724,7 @@ function HistoryTab() {
                   {/* Records */}
                   {e.records !== undefined && (
                     <div className="text-[9px] text-red-400/70 mb-1">
-                      âš  {e.records >= 1000 ? `${(e.records / 1000).toFixed(1)}B` : `${e.records}M`} kişi etkilendi
+                      Etki {e.records >= 1000 ? `${(e.records / 1000).toFixed(1)}B` : `${e.records}M`} kişi
                     </div>
                   )}
 
@@ -731,7 +742,7 @@ function HistoryTab() {
                   )}
 
                   <div className="mt-1 text-[9px]" style={{ color: cat.color, opacity: 0.6 }}>
-                    {isEx ? 'â–² KAPAT' : 'â–¼ DETAY'}
+                    {isEx ? 'KAPAT' : 'DETAY'}
                   </div>
                 </div>
               </div>
@@ -749,7 +760,7 @@ function HistoryTab() {
       {/* End marker */}
       <div className="flex justify-center mt-6">
         <div className="text-[9px] text-slate-700 border border-white/5 px-4 py-1.5 rounded tracking-widest">
-          â€” 2000 â†’ 2024 â€” {breachData.length} OLAY KAYITLI â€”
+          2000 {'->'} 2024 · {breachData.length} olay kayıtlı
         </div>
       </div>
 

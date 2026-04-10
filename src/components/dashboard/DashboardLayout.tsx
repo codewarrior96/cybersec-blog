@@ -10,14 +10,15 @@ import CriticalOverlayFx from '@/components/dashboard/CriticalOverlayFx'
 import type { CriticalAlertQueueItem } from '@/components/dashboard/CriticalAlertPanel'
 import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton'
 import TelemetryStreamPanel from '@/components/dashboard/TelemetryStreamPanel'
+import { THREAT_PROFILES, getThreatFamily, getThreatProfile } from '@/lib/telemetry-rules'
 
 // ============================================================================
 // TYPES & CONSTANTS 
 // ============================================================================
 type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
-type IncidentStatus = 'OPEN' | 'INVESTIGATING' | 'CONTAINED' | 'RESOLVED' | 'FALSE_POSITIVE'
+type IncidentStatus = 'OPEN' | 'INVESTIGATING' | 'CONTAINED' | 'RESOLVED'
 type Protocol = 'TCP' | 'UDP' | 'ICMP' | 'HTTP' | 'DNS'
-type TimelineType = 'OBSERVED' | 'CORRELATED' | 'DETECTED' | 'ALERT_OPENED' | 'INVESTIGATING' | 'CONTAINED' | 'DISMISSED'
+type TimelineType = 'OBSERVED' | 'CORRELATED' | 'DETECTED' | 'ALERT_OPENED' | 'INVESTIGATING' | 'CONTAINED' | 'RESOLVED'
 
 export interface TimelineEntry {
   id: string
@@ -52,7 +53,7 @@ export interface ThreatEvent {
   port: number
 }
 
-type TelemetryCaseFilter = 'ALL' | 'NO_CASE' | 'OPEN' | 'INVESTIGATING' | 'CONTAINED' | 'FALSE_POSITIVE'
+type TelemetryCaseFilter = 'ALL' | 'NO_CASE' | 'OPEN' | 'INVESTIGATING' | 'CONTAINED' | 'RESOLVED'
 
 const THEME = {
   border: 'border-[#1a2e1a]',
@@ -103,24 +104,114 @@ const formatSLA = (seconds: number): string => {
   return `${h}:${m}:${s}`
 }
 
-const generateEvent = (containedNodes: string[], forceMalicious?: boolean, fixedValues?: Partial<ThreatEvent>): ThreatEvent | null => {
+const pickWeightedIndex = (weights: number[]): number => {
+  const total = weights.reduce((sum, weight) => sum + weight, 0)
+  if (total <= 0) return Math.floor(Math.random() * weights.length)
+
+  let cursor = Math.random() * total
+  for (let index = 0; index < weights.length; index += 1) {
+    cursor -= weights[index]
+    if (cursor <= 0) return index
+  }
+  return weights.length - 1
+}
+
+const pickRegion = (recentEvents: ThreatEvent[], fallbackRegion?: string): RegionKey => {
+  if (fallbackRegion && (REGIONS as readonly string[]).includes(fallbackRegion)) return fallbackRegion as RegionKey
+
+  const recent = recentEvents.slice(0, 6)
+  const lastRegion = recent[0]?.region ?? null
+  const weights = REGIONS.map((region) => {
+    const repeated = recent.filter((event) => event.region === region).length
+    let score = 10 - repeated * 2
+    if (region === lastRegion) score -= 4
+    return Math.max(1, score)
+  })
+
+  return REGIONS[pickWeightedIndex(weights)]
+}
+
+const pickThreatProfile = (recentEvents: ThreatEvent[], fixedType?: string) => {
+  if (fixedType) return getThreatProfile(fixedType)
+
+  const recent = recentEvents.slice(0, 8)
+  const lastType = recent[0]?.type ?? null
+  const typeCounts = new Map<string, number>()
+  const familyCounts = new Map<string, number>()
+
+  recent.forEach((event) => {
+    typeCounts.set(event.type, (typeCounts.get(event.type) ?? 0) + 1)
+    const family = getThreatFamily(event.type)
+    familyCounts.set(family, (familyCounts.get(family) ?? 0) + 1)
+  })
+
+  const weights = THREAT_PROFILES.map((profile) => {
+    const typeCount = typeCounts.get(profile.type) ?? 0
+    const familyCount = familyCounts.get(profile.family) ?? 0
+    let score = 100
+
+    if (profile.type === lastType) score -= 60
+    score -= typeCount * 26
+    score -= familyCount * 14
+
+    if (recent.slice(0, 3).some((event) => event.type === profile.type)) score -= 28
+    if (recent.slice(0, 2).every((event) => getThreatFamily(event.type) === profile.family)) score -= 18
+
+    return Math.max(6, score)
+  })
+
+  return THREAT_PROFILES[pickWeightedIndex(weights)]
+}
+
+const createUniqueSignalSurface = (recentEvents: ThreatEvent[], region: string) => {
+  const recentSignatures = new Set(
+    recentEvents
+      .slice(0, 12)
+      .map((event) => `${event.source}|${event.node}|${event.region}`),
+  )
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const source = `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`
+    const nodePrefix = region === 'US-EAST' ? 'FIN' : region === 'UK-LON' ? 'OPS' : region === 'JP-TYO' ? 'EDGE' : region === 'SG-SIN' ? 'APAC' : region === 'BR-SAO' ? 'LAT' : region === 'RU-MOW' ? 'CORE' : 'CN'
+    const node = `${nodePrefix}-NODE-${Math.floor(Math.random() * 999)}`
+    const signature = `${source}|${node}|${region}`
+    if (!recentSignatures.has(signature)) return { source, node }
+  }
+
+  return {
+    source: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+    node: `NODE-${Math.floor(Math.random() * 999)}`,
+  }
+}
+
+const generateEvent = (
+  containedNodes: string[],
+  recentEvents: ThreatEvent[],
+  forceMalicious?: boolean,
+  fixedValues?: Partial<ThreatEvent>,
+): ThreatEvent | null => {
+  const profile = pickThreatProfile(recentEvents, fixedValues?.type)
   const isMalicious = forceMalicious !== undefined ? forceMalicious : Math.random() < MALICIOUS_EVENT_PROBABILITY
-  const region = fixedValues?.region || REGIONS[Math.floor(Math.random() * REGIONS.length)]
-  const source = fixedValues?.source || `192.168.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`
-  const node = fixedValues?.node || `NODE-${Math.floor(Math.random()*999)}`
-  
-  if (containedNodes.includes(source) || containedNodes.includes(node)) return null;
+  const region = pickRegion(recentEvents, fixedValues?.region)
+  const signalSurface = fixedValues?.source && fixedValues?.node
+    ? { source: fixedValues.source, node: fixedValues.node }
+    : createUniqueSignalSurface(recentEvents, region)
+
+  if (containedNodes.includes(signalSurface.source) || containedNodes.includes(signalSurface.node)) return null
+
+  const protocol = fixedValues?.protocol || profile.protocols[Math.floor(Math.random() * profile.protocols.length)]
+  const port = fixedValues?.port || profile.ports[Math.floor(Math.random() * profile.ports.length)]
 
   return {
     id: `EVT-${Date.now()}-${Math.floor(Math.random() * 99999)}`,
     timestamp: fixedValues?.timestamp || new Date().toISOString(),
     sev: fixedValues?.sev || (isMalicious ? (Math.random() < CRITICAL_EVENT_PROBABILITY ? 'CRITICAL' : 'HIGH') : (Math.random() > 0.5 ? 'MEDIUM' : 'LOW')),
-    type: fixedValues?.type || ['SYN Flood', 'SQL Injection Payload', 'C2 Beaconing', 'Auth Bypass', 'Large Data Exfil'][Math.floor(Math.random()*5)],
-    source,
-    node,
+    type: fixedValues?.type || profile.type,
+    source: signalSurface.source,
+    node: signalSurface.node,
     region,
-    protocol: fixedValues?.protocol || ['TCP', 'UDP', 'HTTP', 'DNS'][Math.floor(Math.random()*4)] as Protocol,
-    port: fixedValues?.port || [443, 53, 80, 22, 3389][Math.floor(Math.random()*5)],
+    protocol: protocol as Protocol,
+    port,
   }
 }
 
@@ -130,7 +221,6 @@ const shouldAutoEscalateCriticalIncident = (event: ThreatEvent, pool: Incident[]
   const latestCriticalOpenedAt = pool.reduce((latest, incident) => {
     if (
       incident.sev !== 'CRITICAL' ||
-      incident.status === 'FALSE_POSITIVE' ||
       incident.status === 'RESOLVED'
     ) {
       return latest
@@ -151,7 +241,6 @@ const shouldAutoEscalateCriticalIncident = (event: ThreatEvent, pool: Incident[]
       incident.source === event.source &&
       incident.node === event.node &&
       incident.region === event.region &&
-      incident.status !== 'FALSE_POSITIVE' &&
       incident.status !== 'RESOLVED',
   )
 }
@@ -289,13 +378,19 @@ const createSimulationBootstrap = (): SimulationBootstrap => {
   const t2 = new Date(startedAt - 6 * 60 * 1000).toISOString()
 
   const seedEventsRaw = [
-    generateEvent([], true, { timestamp: t0, sev: 'HIGH', type: 'Auth Bypass Attempt', source: '10.0.4.15', node: 'FIN-DB-01', region: 'US-EAST' }),
-    generateEvent([], true, { timestamp: t1, sev: 'HIGH', type: 'SQL Injection Payload', source: '10.0.4.15', node: 'FIN-DB-01', region: 'US-EAST' }),
-    generateEvent([], true, { timestamp: t2, sev: 'HIGH', type: 'Large Data Exfil', source: '10.0.4.15', node: 'FIN-DB-01', region: 'US-EAST' }),
+    generateEvent([], [], true, { timestamp: t2, sev: 'HIGH', type: 'Large Data Exfil', source: '10.0.4.15', node: 'FIN-DB-01', region: 'US-EAST' }),
   ]
   const seedEvents = seedEventsRaw.filter((event): event is ThreatEvent => event !== null)
 
-  const backgroundEventsRaw = Array.from({ length: INITIAL_BACKGROUND_EVENT_COUNT }, () => generateEvent([]))
+  const curatedBackgroundSeedRaw = [
+    generateEvent([], seedEvents, true, { timestamp: t1, sev: 'MEDIUM', type: 'DNS Tunneling Activity', region: 'UK-LON' }),
+    generateEvent([], seedEvents, false, { timestamp: t0, sev: 'LOW', type: 'Credential Stuffing Wave', region: 'JP-TYO' }),
+  ]
+  const curatedBackgroundSeed = curatedBackgroundSeedRaw.filter((event): event is ThreatEvent => event !== null)
+
+  const backgroundEventsRaw = Array.from({ length: INITIAL_BACKGROUND_EVENT_COUNT }, (_, index) =>
+    generateEvent([], [...seedEvents, ...curatedBackgroundSeed.slice(0, index)], false),
+  )
   const backgroundEvents = backgroundEventsRaw.filter((event): event is ThreatEvent => event !== null)
 
   const initialIncident: Incident = {
@@ -310,8 +405,8 @@ const createSimulationBootstrap = (): SimulationBootstrap => {
     sla: 862,
     events: seedEvents.map((event) => event.id),
     timeline: [
-      { id: 't-1', time: t0, desc: 'Initial authentication bypass attempt observed', type: 'OBSERVED' },
-      { id: 't-2', time: t1, desc: 'Correlated SQL injection activity detected', type: 'CORRELATED' },
+      { id: 't-1', time: t0, desc: 'Sensitive finance node entered elevated watch mode after suspicious identity activity', type: 'OBSERVED' },
+      { id: 't-2', time: t1, desc: 'Outbound staging behavior correlated with prior access anomaly', type: 'CORRELATED' },
       { id: 't-3', time: t2, desc: 'Large outbound data movement confirmed', type: 'DETECTED' },
       { id: 't-4', time: t2, desc: 'Automatic incident elevated', type: 'ALERT_OPENED' },
     ],
@@ -319,7 +414,7 @@ const createSimulationBootstrap = (): SimulationBootstrap => {
 
   return {
     startedAt,
-    events: [...seedEvents, ...backgroundEvents].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
+    events: [...seedEvents, ...curatedBackgroundSeed, ...backgroundEvents].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
     incidents: [initialIncident],
   }
 }
@@ -887,10 +982,8 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
                 stroke="#6bffd5"
                 strokeOpacity={focusRegion ? 0.05 : 0.14}
                 strokeWidth="0.95"
-                strokeDasharray="4 14"
+                strokeDasharray="6 18"
                 strokeLinecap="round"
-                className="ambient-globe-arc"
-                style={{ animationDelay: `${index * 0.24}s` }}
               />
             ))}
 
@@ -914,10 +1007,8 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
                     stroke={routeColor}
                     strokeOpacity={route.selected ? 1 : focusRegion ? (route.focused ? 0.94 : 0.22) : 0.7}
                     strokeWidth={route.selected ? (route.sev === 'CRITICAL' ? 2.9 : 2.2) : route.sev === 'CRITICAL' ? 2.1 : 1.45}
-                    strokeDasharray={route.selected ? '12 11' : route.sev === 'CRITICAL' ? '10 12' : '7 13'}
+                    strokeDasharray={route.selected ? undefined : route.sev === 'CRITICAL' ? '14 18' : '10 16'}
                     strokeLinecap="round"
-                    className="active-globe-arc"
-                    style={{ animationDelay: `${index * 0.35}s` }}
                   />
                 </g>
               )
@@ -943,10 +1034,7 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
                     stroke={routeColor}
                     strokeOpacity={0.98}
                     strokeWidth={route.sev === 'CRITICAL' ? 3.2 : 2.6}
-                    strokeDasharray={route.sev === 'CRITICAL' ? '14 10' : '12 11'}
                     strokeLinecap="round"
-                    className="selected-globe-arc"
-                    style={{ animationDelay: `${index * 0.22}s` }}
                   />
                 </g>
               )
@@ -1146,18 +1234,6 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
             animation: map-node-pulse 3.4s ease-in-out infinite;
           }
 
-          .ambient-globe-arc {
-            animation: ambient-globe-dash 18s linear infinite;
-          }
-
-          .active-globe-arc {
-            animation: active-globe-dash 9s linear infinite;
-          }
-
-          .selected-globe-arc {
-            animation: selected-globe-dash 5.2s linear infinite;
-          }
-
           @keyframes orbit-ring-spin {
             from { transform: rotate(0deg); opacity: 0.34; }
             50% { opacity: 0.58; }
@@ -1186,20 +1262,6 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
             50% { transform: translate(-50%, -50%) scale(1.08); opacity: 0.72; }
           }
 
-          @keyframes ambient-globe-dash {
-            from { stroke-dashoffset: 0; }
-            to { stroke-dashoffset: -120; }
-          }
-
-          @keyframes active-globe-dash {
-            from { stroke-dashoffset: 0; }
-            to { stroke-dashoffset: -180; }
-          }
-
-          @keyframes selected-globe-dash {
-            from { stroke-dashoffset: 0; }
-            to { stroke-dashoffset: -120; }
-          }
         `}</style>
       </div>
     </section>
@@ -1334,6 +1396,7 @@ export default function DashboardLayout() {
   const [events, setEvents] = useState<ThreatEvent[]>([])
   const [containedNodes, setContainedNodes] = useState<string[]>([])
   const incidentsRef = useRef<Incident[]>([])
+  const eventsRef = useRef<ThreatEvent[]>([])
   const [isBootstrapped, setIsBootstrapped] = useState(false)
 
   // View State
@@ -1352,6 +1415,10 @@ export default function DashboardLayout() {
   useEffect(() => {
     incidentsRef.current = incidents
   }, [incidents])
+
+  useEffect(() => {
+    eventsRef.current = events
+  }, [events])
 
   useEffect(() => {
     return () => {
@@ -1373,15 +1440,20 @@ export default function DashboardLayout() {
 
     setEvents([...INITIAL_SIMULATION_BOOTSTRAP.events])
     setIncidents(INITIAL_SIMULATION_BOOTSTRAP.incidents.map(cloneIncident))
+    eventsRef.current = [...INITIAL_SIMULATION_BOOTSTRAP.events]
     setIsBootstrapped(true)
     
     // Core Simulator
     const interval = setInterval(() => {
       setContainedNodes(currentContained => {
          const shouldEmitEvent = Math.random() < TELEMETRY_EMISSION_PROBABILITY
-         const newEvent = shouldEmitEvent ? generateEvent(currentContained) : null
+         const newEvent = shouldEmitEvent ? generateEvent(currentContained, eventsRef.current) : null
          if (newEvent) {
-           setEvents(prev => [newEvent, ...prev].slice(0, 16))
+           setEvents(prev => {
+             const next = [newEvent, ...prev].slice(0, 16)
+             eventsRef.current = next
+             return next
+           })
             
             const canEscalateToCriticalIncident = Date.now() - simulationStartedAt >= CRITICAL_ALERT_GRACE_PERIOD_MS
             if (canEscalateToCriticalIncident && shouldAutoEscalateCriticalIncident(newEvent, incidentsRef.current)) {
@@ -1454,21 +1526,23 @@ export default function DashboardLayout() {
     setActiveIncidentId(null)
   }, [])
 
-  const buildIncidentFromEvent = useCallback((event: ThreatEvent): Incident => ({
+  const buildIncidentFromEvent = useCallback((event: ThreatEvent, initialStatus: IncidentStatus = 'OPEN'): Incident => ({
     id: `INC-${Math.floor(Math.random() * 90000) + 10000}`,
     sev: event.sev,
     time: new Date().toISOString(),
-    label: `Promoted: ${event.type}`,
+    label: event.type,
     source: event.source,
     node: event.node,
     region: event.region,
-    status: 'INVESTIGATING',
+    status: initialStatus,
     sla: 3600,
     events: [event.id],
     timeline: [
-      { id: `tp-1-${Date.now()}`, time: event.timestamp, desc: 'Original threat telemetry observed', type: 'OBSERVED' },
-      { id: `tp-2-${Date.now()}`, time: new Date().toISOString(), desc: 'Analyst promoted telemetry to full incident', type: 'ALERT_OPENED' },
-      { id: `tp-3-${Date.now()}`, time: new Date().toISOString(), desc: 'Investigation started immediately', type: 'INVESTIGATING' },
+      { id: `tp-1-${Date.now()}`, time: event.timestamp, desc: `Threat telemetry observed: ${event.type}`, type: 'OBSERVED' },
+      { id: `tp-2-${Date.now()}`, time: new Date().toISOString(), desc: 'Signal promoted into an analyst-owned case', type: 'ALERT_OPENED' },
+      ...(initialStatus === 'INVESTIGATING'
+        ? [{ id: `tp-3-${Date.now()}`, time: new Date().toISOString(), desc: 'Investigation started immediately', type: 'INVESTIGATING' as TimelineType }]
+        : []),
     ],
   }), [])
 
@@ -1480,15 +1554,14 @@ export default function DashboardLayout() {
         incident.source === event.source &&
         incident.node === event.node &&
         incident.region === event.region &&
-        incident.status !== 'FALSE_POSITIVE' &&
         incident.status !== 'RESOLVED',
     )
   }, [])
 
-  const ensureIncidentForEvent = useCallback((event: ThreatEvent): Incident => {
+  const ensureIncidentForEvent = useCallback((event: ThreatEvent, initialStatus: IncidentStatus = 'OPEN'): Incident => {
     const existing = findIncidentForEvent(event, incidentsRef.current)
     if (existing) return existing
-    const created = buildIncidentFromEvent(event)
+    const created = buildIncidentFromEvent(event, initialStatus)
     incidentsRef.current = [created, ...incidentsRef.current]
     setIncidents((prev) => [created, ...prev])
     return created
@@ -1500,7 +1573,7 @@ export default function DashboardLayout() {
   
   const handleInvestigate = useCallback((id: string): void => {
     setIncidents(prev => prev.map(inc => {
-      if (inc.id === id && inc.status === 'OPEN') {
+      if (inc.id === id && inc.status !== 'INVESTIGATING' && inc.status !== 'RESOLVED') {
         return { 
           ...inc, 
           status: 'INVESTIGATING',
@@ -1514,17 +1587,22 @@ export default function DashboardLayout() {
   const handleIsolate = useCallback((id: string, node: string, source: string): void => {
     setContainedNodes(prev => Array.from(new Set([...prev, node, source])))
     
-    setEvents(prev => [{
-      id: `EVT-SYS-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      sev: 'CRITICAL',
-      type: 'ISOLATION PROTOCOL ENGAGED',
-      source: 'SYSTEM',
-      node: node,
-      region: 'GLOBAL',
-      protocol: 'TCP',
-      port: 0
-    }, ...prev])
+    setEvents(prev => {
+      const systemEvent: ThreatEvent = {
+        id: `EVT-SYS-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        sev: 'CRITICAL',
+        type: 'ISOLATION PROTOCOL ENGAGED',
+        source: 'SYSTEM',
+        node: node,
+        region: 'GLOBAL',
+        protocol: 'TCP',
+        port: 0
+      }
+      const next: ThreatEvent[] = [systemEvent, ...prev].slice(0, 16)
+      eventsRef.current = next
+      return next
+    })
 
     setIncidents(prev => prev.map(inc => inc.id === id ? { 
       ...inc, 
@@ -1533,24 +1611,42 @@ export default function DashboardLayout() {
     } : inc))
   }, [])
 
-  const handleDismiss = useCallback((id: string): void => {
-    setIncidents(prev => prev.map(inc => inc.id === id ? { 
-      ...inc, 
-      status: 'FALSE_POSITIVE',
-      timeline: [...inc.timeline, { id: `tl-dis-${Date.now()}`, time: new Date().toISOString(), desc: 'Incident dismissed as false positive', type: 'DISMISSED' }]
-    } : inc))
-    
-    setActiveIncidentId(prev => prev === id ? null : prev)
+  const handleResolve = useCallback((id: string): void => {
+    const incident = incidentsRef.current.find((candidate) => candidate.id === id)
+    if (!incident || incident.status === 'RESOLVED') return
+
+    const nextIncidents = incidentsRef.current.map((candidate) =>
+      candidate.id === id
+        ? {
+            ...candidate,
+            status: 'RESOLVED' as IncidentStatus,
+            timeline: [
+              ...candidate.timeline,
+              { id: `tl-res-${Date.now()}`, time: new Date().toISOString(), desc: 'Incident closed after analyst review and action validation', type: 'RESOLVED' as TimelineType },
+            ],
+          }
+        : candidate,
+    )
+
+    incidentsRef.current = nextIncidents
+    setIncidents(nextIncidents)
+    setEvents((prev) => {
+      const next = prev.filter((event) => !incident.events.includes(event.id))
+      eventsRef.current = next
+      return next
+    })
+    setActiveIncidentId((prev) => (prev === id ? null : prev))
+    setSelectedEventId((prev) => (incident.events.includes(prev ?? '') ? null : prev))
   }, [])
 
   const handleTelemetryPromote = useCallback((event: ThreatEvent): void => {
-    const incident = ensureIncidentForEvent(event)
+    const incident = ensureIncidentForEvent(event, 'OPEN')
     setSelectedEventId(null)
     setActiveIncidentId(incident.id)
   }, [ensureIncidentForEvent])
 
   const handleTelemetryInvestigate = useCallback((event: ThreatEvent): void => {
-    const incident = ensureIncidentForEvent(event)
+    const incident = ensureIncidentForEvent(event, 'INVESTIGATING')
     if (incident.status === 'OPEN') {
       handleInvestigate(incident.id)
     }
@@ -1559,28 +1655,28 @@ export default function DashboardLayout() {
   }, [ensureIncidentForEvent, handleInvestigate])
 
   const handleTelemetryContain = useCallback((event: ThreatEvent): void => {
-    const incident = ensureIncidentForEvent(event)
-    if (incident.status !== 'CONTAINED' && incident.status !== 'FALSE_POSITIVE') {
+    const incident = ensureIncidentForEvent(event, 'INVESTIGATING')
+    if (incident.status !== 'CONTAINED' && incident.status !== 'RESOLVED') {
       handleIsolate(incident.id, incident.node, incident.source)
     }
     setSelectedEventId(null)
     setActiveIncidentId(incident.id)
   }, [ensureIncidentForEvent, handleIsolate])
 
-  const handleTelemetryDismiss = useCallback((event: ThreatEvent): void => {
-    const incident = ensureIncidentForEvent(event)
-    if (incident.status !== 'FALSE_POSITIVE') {
-      handleDismiss(incident.id)
+  const handleTelemetryResolve = useCallback((event: ThreatEvent): void => {
+    const incident = ensureIncidentForEvent(event, 'INVESTIGATING')
+    if (incident.status !== 'RESOLVED') {
+      handleResolve(incident.id)
     }
     setSelectedEventId(null)
-  }, [ensureIncidentForEvent, handleDismiss])
+  }, [ensureIncidentForEvent, handleResolve])
 
   // ==========================================================================
   // DERIVED STATE
   // ==========================================================================
   
   const activeIncidents = useMemo(() => {
-    return incidents.filter(i => i.status !== 'FALSE_POSITIVE' && i.status !== 'RESOLVED')
+    return incidents.filter(i => i.status !== 'RESOLVED')
   }, [incidents])
 
   const criticalQueue = useMemo(() => {
@@ -1772,7 +1868,7 @@ export default function DashboardLayout() {
               onReport={handleTelemetryReport}
               onInvestigate={handleTelemetryInvestigate}
               onContain={handleTelemetryContain}
-              onDismiss={handleTelemetryDismiss}
+              onResolve={handleTelemetryResolve}
               formatTime={formatTime}
               regionLabels={REGION_LABELS}
             />

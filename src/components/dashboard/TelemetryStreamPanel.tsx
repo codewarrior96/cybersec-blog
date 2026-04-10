@@ -1,10 +1,11 @@
 ﻿'use client'
 
 import React, { useEffect, useMemo, useRef, useState, type MouseEventHandler } from 'react'
+import { countRelatedTelemetrySignals, getThreatFamily } from '@/lib/telemetry-rules'
 
 type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
-type IncidentStatus = 'OPEN' | 'INVESTIGATING' | 'CONTAINED' | 'RESOLVED' | 'FALSE_POSITIVE'
-type TelemetryCaseFilter = 'ALL' | 'NO_CASE' | 'OPEN' | 'INVESTIGATING' | 'CONTAINED' | 'FALSE_POSITIVE'
+type IncidentStatus = 'OPEN' | 'INVESTIGATING' | 'CONTAINED' | 'RESOLVED'
+type TelemetryCaseFilter = 'ALL' | 'NO_CASE' | 'OPEN' | 'INVESTIGATING' | 'CONTAINED' | 'RESOLVED'
 type Protocol = 'TCP' | 'UDP' | 'ICMP' | 'HTTP' | 'DNS'
 
 interface TimelineEntry {
@@ -57,7 +58,7 @@ interface TelemetryStreamPanelProps {
   onReport: (event: TelemetryThreatEvent) => void
   onInvestigate: (event: TelemetryThreatEvent) => void
   onContain: (event: TelemetryThreatEvent) => void
-  onDismiss: (event: TelemetryThreatEvent) => void
+  onResolve: (event: TelemetryThreatEvent) => void
   formatTime: (iso: string) => string
   regionLabels: Record<string, string>
 }
@@ -104,7 +105,6 @@ const caseTone: Record<TelemetryCaseFilter | IncidentStatus, string> = {
   INVESTIGATING: 'border-cyan-500/40 bg-cyan-900/20 text-cyan-200',
   CONTAINED: 'border-emerald-500/40 bg-emerald-900/25 text-emerald-200',
   RESOLVED: 'border-[#406b4e] bg-[#13261a] text-[#b1e7c0]',
-  FALSE_POSITIVE: 'border-amber-500/40 bg-amber-900/20 text-amber-200',
 }
 
 const severityDisplay: Record<'ALL' | Severity, string> = {
@@ -122,7 +122,6 @@ const caseStateDisplay: Record<TelemetryCaseFilter | IncidentStatus, string> = {
   INVESTIGATING: 'İnceleniyor',
   CONTAINED: 'İzole',
   RESOLVED: 'Çözüldü',
-  FALSE_POSITIVE: 'Yanlış Pozitif',
 }
 
 function HeaderMetric({ label, value, tone }: { label: string; value: string | number; tone?: string }) {
@@ -185,15 +184,15 @@ function TelemetryActionButton({
 
 function getRecommendedAction(row: TelemetryRow) {
   if (!row.linkedIncident) {
-    if (row.event.sev === 'CRITICAL') return 'Servis etkisi yayılmadan önce izole et, ardından resmi vaka akışını başlat.'
-    if (row.event.sev === 'HIGH') return 'Vaka aç ve odaklı analist incelemesini başlat.'
-    return 'Yalnızca komşu telemetri paterni doğruluyorsa vakaya dönüştür.'
+    if (row.event.sev === 'CRITICAL') return 'Önce vaka aç, ardından izolasyon hazırlığını gecikmeden doğrula.'
+    if (row.event.sev === 'HIGH') return 'Vakayı aç ve sinyali analist inceleme akışına taşı.'
+    return 'Ek korelasyon sinyali varsa vakaya çevir; yoksa bağlam için görünür tut.'
   }
 
   if (row.linkedIncident.status === 'OPEN') return 'Vakayı inceleme akışına taşı ve IOC bağlamıyla zenginleştir.'
   if (row.linkedIncident.status === 'INVESTIGATING') return 'Komşu telemetri ile korele et ve izolasyon hazır mı karar ver.'
   if (row.linkedIncident.status === 'CONTAINED') return 'İzolasyon kalitesini doğrularken bu kaydı izleme için bağlı tut.'
-  if (row.linkedIncident.status === 'FALSE_POSITIVE') return 'Yeni bir korelasyon sinyali çıkmadıkça reddedilmiş durumda bırak.'
+  if (row.linkedIncident.status === 'RESOLVED') return 'Kapanan vakayı sadece rapor ve geçmiş doğrulaması için gözden geçir.'
   return 'Yeni bir aksiyon uygulamadan önce mevcut vaka durumunu değerlendir.'
 }
 
@@ -209,6 +208,154 @@ function getTimelinePreview(incident: TelemetryIncident | null) {
   return [...incident.timeline].slice(-3).reverse()
 }
 
+type TelemetryActionTone = 'primary' | 'report' | 'investigate' | 'contain' | 'dismiss'
+type TelemetryActionDescriptor = {
+  key: 'promote' | 'report' | 'investigate' | 'contain' | 'resolve'
+  label: string
+  tone: TelemetryActionTone
+  title: string
+  disabled?: boolean
+}
+
+type TelemetryActionMeaning = {
+  label: string
+  detail: string
+}
+
+type InvestigationStep = {
+  title: string
+  detail: string
+}
+
+function getActionDescriptors(row: TelemetryRow): TelemetryActionDescriptor[] {
+  const linkedIncident = row.linkedIncident
+
+  if (!linkedIncident) {
+    return [
+      { key: 'promote', label: 'Vaka Aç', tone: 'primary', title: 'Bu telemetri sinyalini ayrı bir vaka olarak oluştur' },
+      { key: 'report', label: 'Rapor Oluştur', tone: 'report', title: 'Sinyali rapor taslağına dönüştür' },
+      { key: 'investigate', label: 'İncele', tone: 'investigate', title: 'Vaka açıp analist incelemesini başlat' },
+      { key: 'contain', label: 'İzole Et', tone: 'contain', title: 'Kaynak ve düğüm için containment başlat' },
+    ]
+  }
+
+  if (linkedIncident.status === 'OPEN') {
+    return [
+      { key: 'investigate', label: 'İncele', tone: 'investigate', title: `${linkedIncident.id} için aktif incelemeyi başlat` },
+      { key: 'report', label: 'Rapor Oluştur', tone: 'report', title: `${linkedIncident.id} için rapor akışını aç` },
+      { key: 'contain', label: 'İzole Et', tone: 'contain', title: `${linkedIncident.id} için containment uygula` },
+    ]
+  }
+
+  if (linkedIncident.status === 'INVESTIGATING') {
+    return [
+      { key: 'report', label: 'Raporu Güncelle', tone: 'report', title: `${linkedIncident.id} için rapor içeriğini zenginleştir` },
+      { key: 'contain', label: 'İzole Et', tone: 'contain', title: `${linkedIncident.id} için containment uygula` },
+      { key: 'resolve', label: 'Vakayı Kapat', tone: 'dismiss', title: `${linkedIncident.id} incelemesini kapat ve akıştan düşür` },
+    ]
+  }
+
+  if (linkedIncident.status === 'CONTAINED') {
+    return [
+      { key: 'report', label: 'Raporu Güncelle', tone: 'report', title: `${linkedIncident.id} containment notlarını rapora işle` },
+      { key: 'investigate', label: 'İzlemeyi Sürdür', tone: 'investigate', title: `${linkedIncident.id} için doğrulama ve çevresel incelemeyi sürdür` },
+      { key: 'resolve', label: 'Vakayı Kapat', tone: 'dismiss', title: `${linkedIncident.id} izolasyon sonrası kapat` },
+    ]
+  }
+
+  return [
+    { key: 'report', label: 'Raporu Gör', tone: 'report', title: `${linkedIncident.id} geçmişini rapor üzerinden görüntüle` },
+  ]
+}
+
+function getInvestigationSteps(event: TelemetryThreatEvent): InvestigationStep[] {
+  switch (getThreatFamily(event.type)) {
+    case 'identity':
+      return [
+        { title: 'Kimlik izi doğrulama', detail: 'Oturum, token ve yetki değişimlerini zaman çizelgesinde karşılaştır.' },
+        { title: 'Kaynak güvenilirliği', detail: 'IP, cihaz ve coğrafi bağlamın kullanıcı davranışıyla uyumlu olup olmadığını kontrol et.' },
+        { title: 'Yetki zinciri', detail: 'Bu sinyalin başka hesaplara veya yönetici işlemlerine sıçrayıp sıçramadığını doğrula.' },
+      ]
+    case 'web':
+      return [
+        { title: 'İstek paterni analizi', detail: 'Payload dizisini, endpoint tekrarını ve cevap kodu anomalisini incele.' },
+        { title: 'Uygulama izi', detail: 'WAF, ters vekil ve uygulama loglarını aynı zaman penceresinde eşleştir.' },
+        { title: 'Veri etkisi', detail: 'Veritabanı erişimi, içerik sızıntısı veya yetkisiz işlem olup olmadığını doğrula.' },
+      ]
+    case 'c2':
+      return [
+        { title: 'Beacon periyodu', detail: 'Bağlantı ritmini ve tekrar aralıklarını çıkar; düşük hacimli düzenliliği yakala.' },
+        { title: 'Kalıcılık izi', detail: 'Host üzerinde başlangıç girdileri, görevler ve yeni servis davranışlarını kontrol et.' },
+        { title: 'Komuta kapsamı', detail: 'Bu trafik yalnız mı kalıyor, yoksa veri çıkarma veya ikinci aşama yük indirimi ile birleşiyor mu bak.' },
+      ]
+    case 'exfil':
+      return [
+        { title: 'Çıkış kanalı', detail: 'Hangi protokol ve hedef üzerinden veri taşındığını netleştir.' },
+        { title: 'Veri sınıfı', detail: 'DLP, proxy ve endpoint loglarıyla hangi veri tipinin etkilendiğini sınırla.' },
+        { title: 'Hazırlık evresi', detail: 'Transfer öncesi staging, sıkıştırma veya toplu erişim davranışı var mı kontrol et.' },
+      ]
+    case 'availability':
+      return [
+        { title: 'Trafik karakteri', detail: 'Yoğunluğun ağ katmanı mı yoksa uygulama katmanı mı olduğunu ayır.' },
+        { title: 'Kapasite baskısı', detail: 'Rate limit, havuz doygunluğu ve upstream darboğazlarını gözden geçir.' },
+        { title: 'Savunma eşiği', detail: 'Koruma katmanının devreye ne zaman girmesi gerektiğini netleştir.' },
+      ]
+    case 'lateral':
+      return [
+        { title: 'Sıçrama yönü', detail: 'Kaynak hosttan hangi paylaşımlara, servislere veya oturumlara gidildiğini çıkar.' },
+        { title: 'Kimlik bağı', detail: 'Aynı anda kullanılan hesap, hash veya uzak yönetim kimliklerini doğrula.' },
+        { title: 'Yayılım riski', detail: 'Bu hareketin başka düğümlerde benzer iz bırakıp bırakmadığını tara.' },
+      ]
+    default:
+      return [
+        { title: 'Sinyal doğrulama', detail: 'Telemetri kaydının tekrar edip etmediğini ve komşu sinyallerle bağını kontrol et.' },
+        { title: 'Varlık bağlamı', detail: 'Kaynak, düğüm ve bölgenin iş etkisini ve kritikliğini netleştir.' },
+        { title: 'Aksiyon kararı', detail: 'İnceleme, raporlama veya izolasyon için en küçük etkili adımı seç.' },
+      ]
+  }
+}
+
+function getActionMeanings(row: TelemetryRow): TelemetryActionMeaning[] {
+  const linkedIncident = row.linkedIncident
+
+  if (!linkedIncident) {
+    return [
+      { label: 'Vaka Aç', detail: 'Bu telemetri kaydını bağımsız bir vaka kimliğiyle analist kuyruğuna taşır.' },
+      { label: 'Rapor Oluştur', detail: 'Mevcut sinyalden rapor taslağı açar; bağlamı Sentinel tarafında kalıcı hale getirir.' },
+      { label: 'İncele', detail: 'Vakayı açar ve statüyü doğrudan “İnceleniyor” akışına geçirir.' },
+      { label: 'İzole Et', detail: 'Kaynak IP ve düğüm için containment uygular; olay izini containment akışına bağlar.' },
+    ]
+  }
+
+  if (linkedIncident.status === 'OPEN') {
+    return [
+      { label: 'İncele', detail: `${linkedIncident.id} statüsünü “İnceleniyor” yapar ve zaman çizelgesine analist adımı ekler.` },
+      { label: 'Rapor Oluştur', detail: `${linkedIncident.id} için mevcut bulguları rapor taslağına aktarır.` },
+      { label: 'İzole Et', detail: `${linkedIncident.id} için kaynak ve düğümü containment listesine alır.` },
+    ]
+  }
+
+  if (linkedIncident.status === 'INVESTIGATING') {
+    return [
+      { label: 'Raporu Güncelle', detail: `${linkedIncident.id} inceleme bulgularını Sentinel rapor akışına taşır.` },
+      { label: 'İzole Et', detail: 'Containment uygulayıp vakayı izole edilmiş duruma geçirir.' },
+      { label: 'Vakayı Kapat', detail: 'İnceleme tamamlandı kabul eder, ilişik telemetri satırlarını aktif akıştan düşürür.' },
+    ]
+  }
+
+  if (linkedIncident.status === 'CONTAINED') {
+    return [
+      { label: 'Raporu Güncelle', detail: 'Containment sonrası öğrenilenleri ve aksiyon zincirini rapora işler.' },
+      { label: 'İzlemeyi Sürdür', detail: 'Containment sonrası yan etki, tekrar sıçrama ve kalıntı izlerini doğrular.' },
+      { label: 'Vakayı Kapat', detail: 'İzolasyon sonrası ek risk kalmadığında vakayı sonlandırır.' },
+    ]
+  }
+
+  return [
+    { label: 'Raporu Gör', detail: 'Kapanmış olayın bütün zaman çizelgesini ve çıktılarını rapor üzerinden açar.' },
+  ]
+}
+
 function TelemetryRowCard({
   row,
   selected,
@@ -218,7 +365,7 @@ function TelemetryRowCard({
   onReport,
   onInvestigate,
   onContain,
-  onDismiss,
+  onResolve,
   formatTime,
   regionLabels,
 }: {
@@ -230,7 +377,7 @@ function TelemetryRowCard({
   onReport: () => void
   onInvestigate: () => void
   onContain: () => void
-  onDismiss: () => void
+  onResolve: () => void
   formatTime: (iso: string) => string
   regionLabels: Record<string, string>
 }) {
@@ -238,13 +385,23 @@ function TelemetryRowCard({
   const linkedIncident = row.linkedIncident
   const linkedStatus = linkedIncident?.status ?? null
   const isContained = linkedStatus === 'CONTAINED'
-  const isDismissed = linkedStatus === 'FALSE_POSITIVE'
+  const isResolved = linkedStatus === 'RESOLVED'
   const rail = severityRail[evt.sev]
-  const showPromoteAction = !linkedIncident
   const caseLabel: TelemetryCaseFilter | IncidentStatus = linkedIncident ? linkedStatus ?? 'OPEN' : 'NO_CASE'
   const recommendedAction = getRecommendedAction(row)
   const timelinePreview = getTimelinePreview(linkedIncident)
   const regionLabel = regionLabels[evt.region] ?? evt.region
+  const actionDescriptors = getActionDescriptors(row)
+  const investigationSteps = getInvestigationSteps(evt)
+  const actionMeanings = getActionMeanings(row)
+  const relationBadge =
+    row.relatedCount > 1
+      ? linkedIncident
+        ? `${row.relatedCount} Bağlı Olay`
+        : `${row.relatedCount} Benzer Sinyal`
+      : linkedIncident
+        ? linkedIncident.id
+        : 'Tek Sinyal'
 
   return (
     <div
@@ -313,12 +470,12 @@ function TelemetryRowCard({
           <div className="flex items-center justify-between gap-3">
             <div className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#8eb99a]">Operasyon Bağlamı</div>
             <div className="rounded-full border border-[#284538] bg-[#102116] px-2 py-1 text-[7px] font-bold uppercase tracking-[0.22em] text-[#b4f4c8]">
-              {row.relatedCount > 1 ? `${row.relatedCount} İlişkili` : linkedIncident ? linkedIncident.id : 'Tek Sinyal'}
+              {relationBadge}
             </div>
           </div>
           <div className="mt-2 text-[10px] leading-relaxed text-slate-300">
             {linkedIncident
-              ? `Bu telemetri kaydı aktif bir vakaya bağlı. Durum: ${caseStateDisplay[linkedIncident.status]}. Rapor ve aksiyon zinciri ${linkedIncident.id} üzerinden izleniyor.`
+              ? `Bu telemetri kaydı ${linkedIncident.id} vakasına bağlı. Durum: ${caseStateDisplay[linkedIncident.status]}. Müdahale akışı bu vaka üzerinden ilerliyor.`
               : 'Bu kayıt henüz vakaya dönüştürülmedi. İlk adım olarak vaka açabilir, rapora dönüştürebilir veya izolasyon kararı verebilirsin.'}
           </div>
           <div className="mt-3 grid gap-2 text-[9px] md:grid-cols-2">
@@ -338,60 +495,34 @@ function TelemetryRowCard({
             <div className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#8eb99a]">Müdahale Aksiyonları</div>
             <div className="mt-2 text-[10px] leading-relaxed text-slate-400">
               {linkedIncident
-                ? 'Mevcut vakayı derinleştir, izole et veya yanlış pozitif kararı ver.'
-                : 'Olayı vakaya dönüştür, incelemeye al veya izolasyon başlat.'}
+                ? linkedIncident.status === 'OPEN'
+                  ? 'Vaka açık durumda. Şimdi inceleme başlat, raporla destekle veya doğrudan containment kararı ver.'
+                  : linkedIncident.status === 'INVESTIGATING'
+                    ? 'Aktif inceleme sürüyor. Bulguları rapora işle, gerekirse izolasyon uygula ve tamamlandığında vakayı kapat.'
+                    : linkedIncident.status === 'CONTAINED'
+                      ? 'Containment uygulandı. Kalan doğrulamayı tamamla, raporu güncelle ve vaka kapanışını kontrollü yap.'
+                      : 'Bu vaka kapatılmış durumda. Operasyon izi artık rapor üzerinden takip ediliyor.'
+                : 'Önce vaka aç, hızlı inceleme başlat veya doğrudan containment kararı ver.'}
             </div>
           </div>
-          <div className={`mt-4 grid gap-2 ${showPromoteAction ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-4 xl:grid-cols-2'}`}>
-            {showPromoteAction && (
+          <div className={`mt-4 grid gap-2 ${actionDescriptors.length <= 2 ? 'grid-cols-2' : actionDescriptors.length === 3 ? 'grid-cols-2 xl:grid-cols-1' : 'grid-cols-2 md:grid-cols-4 xl:grid-cols-2'}`}>
+            {actionDescriptors.map((action) => (
               <TelemetryActionButton
-                label="Vaka Aç"
-                tone="primary"
+                key={action.key}
+                label={action.label}
+                tone={action.tone}
+                disabled={action.key === 'contain' ? isContained || isResolved : action.disabled}
                 onClick={(event) => {
                   event?.stopPropagation?.()
-                  onPromote()
+                  if (action.key === 'promote') onPromote()
+                  if (action.key === 'report') onReport()
+                  if (action.key === 'investigate') onInvestigate()
+                  if (action.key === 'contain') onContain()
+                  if (action.key === 'resolve') onResolve()
                 }}
-                title="Telemetriyi vakaya dönüştür"
+                title={action.key === 'contain' && isContained ? 'Bu vaka için containment zaten uygulandı' : action.title}
               />
-            )}
-            <TelemetryActionButton
-              label="Rapor Oluştur"
-              tone="report"
-              onClick={(event) => {
-                event?.stopPropagation?.()
-                onReport()
-              }}
-              title={linkedIncident ? `${linkedIncident.id} için raporu aç` : 'Telemetriden doğrudan rapor oluştur'}
-            />
-            <TelemetryActionButton
-              label="İncele"
-              tone="investigate"
-              onClick={(event) => {
-                event?.stopPropagation?.()
-                onInvestigate()
-              }}
-              title="Analist incelemesine geçir"
-            />
-            <TelemetryActionButton
-              label="İzole Et"
-              tone="contain"
-              onClick={(event) => {
-                event?.stopPropagation?.()
-                onContain()
-              }}
-              disabled={isContained || isDismissed}
-              title={isContained ? 'Zaten izole edildi' : isDismissed ? 'Reddedilen vaka izole edilemez' : 'Telemetriden izolasyon başlat'}
-            />
-            <TelemetryActionButton
-              label="Kapat"
-              tone="dismiss"
-              onClick={(event) => {
-                event?.stopPropagation?.()
-                onDismiss()
-              }}
-              disabled={isDismissed}
-              title={isDismissed ? 'Zaten kapatıldı' : 'Telemetriden yanlış pozitif olarak işaretle'}
-            />
+            ))}
           </div>
         </div>
       </div>
@@ -425,6 +556,23 @@ function TelemetryRowCard({
                   <div className="mt-1 font-mono text-[10px] text-[#baffd8]">{evt.source}</div>
                 </div>
               </div>
+
+              <div className="mt-3 rounded-lg border border-[#1b3225] bg-[#08130d] px-3 py-3">
+                <div className="text-[7px] uppercase tracking-[0.22em] text-[#688873]">İnceleme Adımları</div>
+                <div className="mt-2 space-y-2">
+                  {investigationSteps.map((step, index) => (
+                    <div key={`${step.title}-${index}`} className="flex gap-2">
+                      <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#294835] bg-[#0b1811] text-[8px] font-bold text-[#9fe3b3]">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-semibold text-slate-200">{step.title}</div>
+                        <div className="mt-0.5 text-[9px] leading-relaxed text-slate-400">{step.detail}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="rounded-xl border border-[#1a3526] bg-[#07120d] p-3">
@@ -452,6 +600,18 @@ function TelemetryRowCard({
                   Bu telemetri kaydı için henüz timeline zenginleşmesi yok. Olay rapora veya vakaya dönüştüğünde burası otomatik olarak daha güçlü bağlamla dolacak.
                 </div>
               )}
+
+              <div className="mt-3 rounded-lg border border-[#1b3225] bg-[#08130d] px-3 py-3">
+                <div className="text-[7px] uppercase tracking-[0.22em] text-[#688873]">Müdahale Akışı</div>
+                <div className="mt-2 grid gap-2 md:grid-cols-2">
+                  {actionMeanings.map((item) => (
+                    <div key={item.label} className="rounded-lg border border-[#1c3628] bg-[#09140f] px-2.5 py-2">
+                      <div className="text-[9px] font-semibold text-slate-200">{item.label}</div>
+                      <div className="mt-1 text-[9px] leading-relaxed text-slate-400">{item.detail}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -470,7 +630,7 @@ export default function TelemetryStreamPanel({
   onReport,
   onInvestigate,
   onContain,
-  onDismiss,
+  onResolve,
   formatTime,
   regionLabels,
 }: TelemetryStreamPanelProps) {
@@ -484,7 +644,7 @@ export default function TelemetryStreamPanel({
     return visibleEvents.map((event) => {
       const linkedIncident = incidentByEventId.get(event.id) ?? null
       const caseStatus = (linkedIncident?.status ?? 'NO_CASE') as TelemetryCaseFilter | IncidentStatus
-      const relatedCount = visibleEvents.filter((candidate) => candidate.id !== event.id && candidate.type === event.type && candidate.region === event.region).length + 1
+      const relatedCount = countRelatedTelemetrySignals(event, visibleEvents, linkedIncident?.events)
       return { event, linkedIncident, caseStatus, relatedCount }
     })
   }, [incidentByEventId, visibleEvents])
@@ -582,7 +742,7 @@ export default function TelemetryStreamPanel({
 
           <div className="flex items-center gap-1.5 whitespace-nowrap">
             <span className="text-[7px] uppercase tracking-[0.24em] text-[#6f8f78]">Vaka Durumu</span>
-            {(['ALL', 'NO_CASE', 'OPEN', 'INVESTIGATING', 'CONTAINED', 'FALSE_POSITIVE'] as const).map((item) => (
+            {(['ALL', 'NO_CASE', 'OPEN', 'INVESTIGATING', 'CONTAINED', 'RESOLVED'] as const).map((item) => (
               <FilterChip key={`case-${item}`} active={caseFilter === item} onClick={() => setCaseFilter(item)}>
                 {caseStateDisplay[item]}
               </FilterChip>
@@ -613,7 +773,7 @@ export default function TelemetryStreamPanel({
             onReport={() => onReport(row.event)}
             onInvestigate={() => onInvestigate(row.event)}
             onContain={() => onContain(row.event)}
-            onDismiss={() => onDismiss(row.event)}
+            onResolve={() => onResolve(row.event)}
             formatTime={formatTime}
             regionLabels={regionLabels}
           />
