@@ -1100,11 +1100,11 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
         </div>
 
         {focusRegion && (
-          <div className="absolute right-2 top-12 z-20 w-[min(210px,calc(100%-16px))] rounded-xl border border-[#2d5e42] bg-[linear-gradient(180deg,rgba(6,24,18,0.94),rgba(3,12,10,0.92))] p-3 shadow-[0_0_36px_rgba(24,255,159,0.12)] backdrop-blur-md sm:right-3 sm:top-14 sm:w-[min(240px,calc(100%-24px))] md:right-4 md:top-16 md:w-[min(260px,calc(100%-32px))]">
+          <div className="absolute right-2 top-12 z-20 w-[min(168px,calc(100%-16px))] rounded-xl border border-[#2d5e42] bg-[linear-gradient(180deg,rgba(6,24,18,0.94),rgba(3,12,10,0.92))] p-2.5 shadow-[0_0_36px_rgba(24,255,159,0.12)] backdrop-blur-md sm:right-3 sm:top-14 sm:w-[min(240px,calc(100%-24px))] sm:p-3 md:right-4 md:top-16 md:w-[min(260px,calc(100%-32px))]">
             <div className="mb-2 flex items-start justify-between border-b border-[#214634] pb-2">
               <div className="min-w-0">
                 <p className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#97ffd1]">Threat Focus</p>
-                <p className="truncate pt-1 text-sm font-semibold text-slate-100">{REGION_LABELS[focusRegion] ?? focusRegion}</p>
+                <p className="truncate pt-1 text-[13px] font-semibold text-slate-100 sm:text-sm">{REGION_LABELS[focusRegion] ?? focusRegion}</p>
               </div>
               <span
                 className="rounded-full border px-2 py-1 text-[8px] font-bold uppercase tracking-[0.22em]"
@@ -1117,7 +1117,7 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
                 {focusRegionStats?.sev ?? 'LOW'}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+            <div className="grid grid-cols-2 gap-2 text-[9px] font-mono sm:text-[10px]">
               <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-2 py-2">
                 <p className="uppercase text-slate-500">Incidents</p>
                 <p className="pt-1 text-lg font-semibold text-[#a7ffd1]">{focusIncidentSet.length}</p>

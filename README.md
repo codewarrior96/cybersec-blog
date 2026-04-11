@@ -143,15 +143,8 @@ cybersec-blog/
 │   ├── components/
 │   │   ├── dashboard/         # Yeni Sentinel Dashboard Dosyaları
 │   │   │   ├── DashboardLayout.tsx
-│   │   │   ├── CveFeedWidget.tsx
-│   │   │   ├── ThreatMapWidget.tsx
-│   │   │   ├── TerminalLogWidget.tsx
-│   │   │   └── SystemMonitorWidget.tsx
-│   │   ├── ThreatGlobe.tsx    # Ekstra 3D saldırı haritası
-│   │   ├── ThreatFeed.tsx     # Tehdit akışı
 │   │   ├── OperatorSidebar.tsx
 │   │   ├── MatrixRain.tsx     # Matrix animasyonu
-│   │   └── InteractiveTerminal.tsx
 │   ├── content/
 │   │   └── posts/             # MDX blog yazıları
 │   └── lib/

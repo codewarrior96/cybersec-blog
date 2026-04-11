@@ -474,22 +474,22 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[60] flex items-end justify-center p-2 sm:items-center sm:p-4"
       style={{ background: 'rgba(6,0,15,0.85)', backdropFilter: 'blur(6px)' }}
     >
       <div
-        className="w-full max-w-2xl flex flex-col rounded-lg border overflow-hidden font-mono"
+        className="flex max-h-[96dvh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border font-mono sm:max-h-[92vh] sm:rounded-lg"
         style={{
           background: '#0d0018',
           borderColor: 'rgba(139,92,246,0.3)',
           boxShadow: '0 0 60px rgba(139,92,246,0.12)',
-          maxHeight: '92vh',
+          maxHeight: 'min(96dvh, 92vh)',
         }}
       >
-        <div className="flex items-center justify-between px-5 py-3 border-b border-violet-500/20 shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-violet-500/20 px-3 py-3 sm:items-center sm:px-5">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <FileText className="w-4 h-4 text-violet-400" />
-            <span className="text-violet-400 font-bold tracking-widest text-xs uppercase">
+            <span className="text-[11px] font-bold uppercase tracking-[0.24em] text-violet-400 sm:text-xs">
               Saldırı İnceleme Raporu
             </span>
             <div
@@ -508,13 +508,13 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
               </span>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors">
+          <button onClick={onClose} className="shrink-0 text-slate-500 transition-colors hover:text-slate-300">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {status === 'success' ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 py-12 px-8">
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-10 sm:px-8 sm:py-12">
             <CheckCircle className="w-12 h-12 text-green-400" />
             <p className="text-green-400 font-bold text-lg">Rapor oluşturuldu!</p>
             <p className="text-slate-500 text-sm text-center">Rapor başarıyla kaydedildi.</p>
@@ -526,10 +526,10 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
             </Link>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 sm:p-5">
             {explanation && (
               <div
-                className="rounded border p-4 space-y-2"
+                className="space-y-2 rounded border p-3 sm:p-4"
                 style={{ background: 'rgba(139,92,246,0.04)', borderColor: 'rgba(139,92,246,0.2)' }}
               >
                 <div className="flex items-center gap-2 mb-1">
@@ -540,7 +540,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
                 </div>
                 <p className="text-xs text-slate-400 leading-relaxed">{explanation.description}</p>
                 <p className="text-[10px] text-slate-600 italic">{explanation.mitre}</p>
-                <div className="pt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px] text-slate-500">
+                <div className="grid grid-cols-1 gap-x-4 gap-y-0.5 pt-1 text-[10px] text-slate-500 sm:grid-cols-2">
                   <span><span className="text-slate-600">IP:</span> {incident.source}</span>
                   <span><span className="text-slate-600">BÖLGE:</span> {getRegionLabel(incident.region)}</span>
                   <span><span className="text-slate-600">DÜĞÜM:</span> {incident.node}</span>
@@ -559,8 +559,8 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
               />
             </div>
 
-            <div className="flex gap-3">
-              <div className="space-y-1.5 w-36 shrink-0">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="w-full shrink-0 space-y-1.5 sm:w-36">
                 <label className="text-[9px] text-slate-500 tracking-widest uppercase">Önem</label>
                 <select
                   value={severity}
@@ -649,24 +649,31 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
         )}
 
         {status !== 'success' && (
-          <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-violet-500/15">
-            <button onClick={onClose} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-              İptal
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={status === 'loading'}
-              className="flex items-center gap-2 px-5 py-2 rounded font-bold text-xs transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-              style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.45)', color: '#c084fc' }}
-            >
-              {status === 'loading'
-                ? <><span className="animate-spin w-3.5 h-3.5 border border-t-transparent border-violet-400 rounded-full" /> Kaydediliyor...</>
-                : <><Send className="w-3.5 h-3.5" /> Raporu Kaydet</>
-              }
-            </button>
+          <div className="shrink-0 border-t border-violet-500/15 px-3 py-3 sm:px-5">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                onClick={onClose}
+                className="min-h-[42px] rounded-lg border border-violet-900/30 px-3 text-xs text-slate-400 transition-colors hover:text-slate-200 sm:min-h-0 sm:border-0 sm:px-0"
+              >
+                İptal
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={status === 'loading'}
+                className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-50 sm:min-h-0 sm:w-auto sm:px-5"
+                style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.45)', color: '#c084fc' }}
+              >
+                {status === 'loading'
+                  ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border border-violet-400 border-t-transparent" /> Kaydediliyor...</>
+                  : <><Send className="w-3.5 h-3.5" /> Raporu Kaydet</>
+                }
+              </button>
+            </div>
           </div>
         )}
       </div>
     </div>
   )
 }
+
+

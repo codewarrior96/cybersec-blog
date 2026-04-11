@@ -27,3 +27,4 @@ data/profile-assets/
 .env.local.backup.*
 tmp/
 test-results/
+*.tsbuildinfo

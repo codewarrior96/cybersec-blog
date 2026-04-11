@@ -45,17 +45,11 @@
 | `ThreatIntelWidget.tsx` | GreyNoise IP istihbaratı — ülke/etiket dağılımı + IP sorgula |
 | `CriticalAlertPanel.tsx` | Kritik alert popup + rapor oluşturma butonu |
 | `AttackReportModal.tsx` | Saldırı raporu oluşturma (Claude API kaldırıldı → statik açıklamalar) |
-| `SocTriageWidget.tsx` | SOC triage panosu, SLA metrikleri (P1=15dk, P2=60dk, P3=240dk) |
-| `CveFeedWidget.tsx` | CVSS 9+ CVE listesi (NIST NVD API) |
 
 **DashboardLayout Grid Yapısı:**
 ```
-ROW 1: [Aktif Alertler] [CVSS 9+ CVE] [Gözlemlenen IP] [Son Güncelleme]
-ROW 2: [AlertManagementWidget 7/12] | [CyberNewsWidget 5/12]
-ROW 3: [ThreatIntelWidget tam genişlik]
 ```
 
-> ⚠️ `SocTriageWidget` ve `CveFeedWidget` dosyaları mevcut ama dashboard'a henüz entegre edilmedi.
 
 ---
 
@@ -171,7 +165,6 @@ cce8fff  feat: Community lab büyük yenileme — CTF, 35 araç, 12 modül
 
 ## 🚧 YAPILACAKLAR / EKSİKLER
 
-- [ ] `SocTriageWidget` ve `CveFeedWidget`'ı DashboardLayout'a entegre et
 - [ ] Claude API'yi yeniden aktif et (attakReportModal'da — şu an statik açıklamalar var)
 - [ ] `GROQ_API_KEY` güncellenmeli
 - [ ] Kullanıcı kayıt akışı ("KAYIT OL" butonu var ama disabled)

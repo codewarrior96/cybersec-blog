@@ -124,9 +124,9 @@ const caseStateDisplay: Record<TelemetryCaseFilter | IncidentStatus, string> = {
   RESOLVED: 'Çözüldü',
 }
 
-function HeaderMetric({ label, value, tone }: { label: string; value: string | number; tone?: string }) {
+function HeaderMetric({ label, value, tone, className = '' }: { label: string; value: string | number; tone?: string; className?: string }) {
   return (
-    <div className="min-w-[74px] rounded-lg border border-[#21402a] bg-[linear-gradient(180deg,#0e1d14,#08110d)] px-2 py-2 sm:min-w-[92px] sm:px-2.5">
+    <div className={`min-w-[74px] rounded-lg border border-[#21402a] bg-[linear-gradient(180deg,#0e1d14,#08110d)] px-2 py-2 sm:min-w-[92px] sm:px-2.5 ${className}`}>
       <div className="text-[7px] uppercase tracking-[0.22em] text-[#6f8f78]">{label}</div>
       <div className={`pt-1 text-[11px] font-semibold tracking-wide ${tone ?? 'text-slate-100'}`}>{value}</div>
     </div>
@@ -175,7 +175,7 @@ function TelemetryActionButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`min-h-[40px] rounded-lg border px-2.5 py-1.5 text-[8px] font-bold uppercase tracking-[0.2em] transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${classes[tone]}`}
+      className={`min-h-[38px] rounded-lg border px-2.5 py-1.5 text-[8px] font-bold uppercase tracking-[0.18em] transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${classes[tone]}`}
     >
       {label}
     </button>
@@ -505,7 +505,7 @@ function TelemetryRowCard({
                 : 'Önce vaka aç, hızlı inceleme başlat veya doğrudan containment kararı ver.'}
             </div>
           </div>
-          <div className={`mt-4 grid gap-2 ${actionDescriptors.length <= 2 ? 'grid-cols-1 sm:grid-cols-2' : actionDescriptors.length === 3 ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-2'}`}>
+          <div className={`mt-4 grid gap-2 ${actionDescriptors.length <= 2 ? 'grid-cols-2' : actionDescriptors.length === 3 ? 'grid-cols-2 xl:grid-cols-1' : 'grid-cols-2 md:grid-cols-4 xl:grid-cols-2'}`}>
             {actionDescriptors.map((action) => (
               <TelemetryActionButton
                 key={action.key}
@@ -637,6 +637,7 @@ export default function TelemetryStreamPanel({
   const [severityFilter, setSeverityFilter] = useState<'ALL' | Severity>('ALL')
   const [caseFilter, setCaseFilter] = useState<TelemetryCaseFilter>('ALL')
   const [freshIds, setFreshIds] = useState<Set<string>>(new Set())
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
   const hasBootstrappedRef = useRef(false)
   const seenIdsRef = useRef<Set<string>>(new Set())
 
@@ -648,6 +649,13 @@ export default function TelemetryStreamPanel({
       return { event, linkedIncident, caseStatus, relatedCount }
     })
   }, [incidentByEventId, visibleEvents])
+
+  useEffect(() => {
+    const syncViewport = () => setIsMobileViewport(window.innerWidth < 640)
+    syncViewport()
+    window.addEventListener('resize', syncViewport)
+    return () => window.removeEventListener('resize', syncViewport)
+  }, [])
 
   useEffect(() => {
     const currentIds = visibleEvents.map((event) => event.id)
@@ -687,7 +695,7 @@ export default function TelemetryStreamPanel({
     })
   }, [caseFilter, severityFilter, telemetryRows])
 
-  const visibleRows = filteredRows.slice(0, 5)
+  const visibleRows = filteredRows.slice(0, isMobileViewport ? 3 : 5)
   const selectedTelemetryRow = selectedEventId
     ? telemetryRows.find((row) => row.event.id === selectedEventId) ?? null
     : null
@@ -706,27 +714,28 @@ export default function TelemetryStreamPanel({
   return (
     <div className="mt-0 flex-1 overflow-visible lg:min-h-0 lg:overflow-x-hidden lg:overflow-y-auto lg:custom-scrollbar lg:-mx-3 lg:-mb-3 lg:mt-0 lg:sm:-m-3">
       <div className="border-b border-[#1d3323] bg-[linear-gradient(180deg,rgba(10,24,13,0.98),rgba(8,19,11,0.96))] backdrop-blur-sm lg:sticky lg:top-0 lg:z-20">
-        <div className="flex flex-wrap items-stretch gap-2 border-b border-[#163122] px-3 py-2 md:flex-nowrap md:overflow-x-auto md:custom-scrollbar">
-          <div className="mr-1 flex min-w-[120px] items-center gap-2">
+        <div className="border-b border-[#163122] px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-[#38ff9c] shadow-[0_0_10px_rgba(56,255,156,0.8)]" />
             <span className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#b5ffd4]">Telemetri Kontrol</span>
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-[#2a4a31] bg-[#0e1e12] px-2.5 py-1 text-[8px] font-mono uppercase tracking-[0.22em] text-[#8db09a]">
+                {mapFilter ? `Odak ${mapFilter}` : 'Genel Akış'}
+              </span>
+            </div>
           </div>
 
-          <HeaderMetric label="Seçili" value={selectedTelemetryEvent ? formatTime(selectedTelemetryEvent.timestamp) : 'YOK'} />
-          <HeaderMetric label="Açık" value={counts.open} tone="text-[#b7ffd0]" />
-          <HeaderMetric label="İncelenen" value={counts.investigating} tone="text-cyan-200" />
-          <HeaderMetric label="İzole" value={counts.contained} tone="text-emerald-200" />
-          <HeaderMetric label="Vakaya Bağlı Değil" value={counts.noCase} tone="text-[#99c9a8]" />
-
-          <div className="flex flex-wrap items-center gap-2 md:ml-auto md:flex-nowrap">
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:flex-nowrap">
+            <HeaderMetric label="Seçili" value={selectedTelemetryEvent ? formatTime(selectedTelemetryEvent.timestamp) : 'YOK'} className="min-w-0" />
+            <HeaderMetric label="Açık" value={counts.open} tone="text-[#b7ffd0]" className="min-w-0" />
+            <HeaderMetric label="İncelenen" value={counts.investigating} tone="text-cyan-200" className="min-w-0" />
+            <HeaderMetric label="İzole" value={counts.contained} tone="text-emerald-200" className="min-w-0" />
+            <HeaderMetric label="Bekleyen" value={counts.noCase} tone="text-[#99c9a8]" className="min-w-0" />
             {selectedTelemetryIncident && (
-              <span className="rounded-full border border-[#2a4a31] bg-[#0e1e12] px-2.5 py-1 text-[8px] font-mono uppercase tracking-[0.22em] text-[#9fe3b3]">
+              <span className="inline-flex min-h-[58px] items-center rounded-lg border border-[#2a4a31] bg-[#0e1e12] px-2.5 py-1 text-[8px] font-mono uppercase tracking-[0.22em] text-[#9fe3b3]">
                 Vaka {selectedTelemetryIncident.id}
               </span>
             )}
-            <span className="rounded-full border border-[#2a4a31] bg-[#0e1e12] px-2.5 py-1 text-[8px] font-mono uppercase tracking-[0.22em] text-[#8db09a]">
-              {mapFilter ? `Odak ${mapFilter}` : 'Genel Akış'}
-            </span>
           </div>
         </div>
 
