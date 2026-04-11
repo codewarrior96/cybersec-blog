@@ -126,7 +126,7 @@ const caseStateDisplay: Record<TelemetryCaseFilter | IncidentStatus, string> = {
 
 function HeaderMetric({ label, value, tone }: { label: string; value: string | number; tone?: string }) {
   return (
-    <div className="min-w-[84px] rounded-lg border border-[#21402a] bg-[linear-gradient(180deg,#0e1d14,#08110d)] px-2 py-2 sm:min-w-[92px] sm:px-2.5">
+    <div className="min-w-[74px] rounded-lg border border-[#21402a] bg-[linear-gradient(180deg,#0e1d14,#08110d)] px-2 py-2 sm:min-w-[92px] sm:px-2.5">
       <div className="text-[7px] uppercase tracking-[0.22em] text-[#6f8f78]">{label}</div>
       <div className={`pt-1 text-[11px] font-semibold tracking-wide ${tone ?? 'text-slate-100'}`}>{value}</div>
     </div>
@@ -137,7 +137,7 @@ function FilterChip({ active, children, onClick }: { active: boolean; children: 
   return (
     <button
       onClick={onClick}
-      className={`rounded-full border px-2 py-1 text-[8px] font-bold uppercase tracking-[0.22em] transition-colors ${
+      className={`rounded-full border px-2 py-1 text-[8px] font-bold uppercase tracking-[0.18em] transition-colors ${
         active
           ? 'border-[#4b8c62] bg-[#183322] text-[#c4ffd8] shadow-[0_0_16px_rgba(91,255,160,0.08)]'
           : 'border-[#2a4a31] bg-[#0f1f13] text-[#89aa94] hover:bg-[#162a1b]'
@@ -175,7 +175,7 @@ function TelemetryActionButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`rounded-lg border px-2.5 py-1.5 text-[8px] font-bold uppercase tracking-[0.22em] transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${classes[tone]}`}
+      className={`min-h-[40px] rounded-lg border px-2.5 py-1.5 text-[8px] font-bold uppercase tracking-[0.2em] transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${classes[tone]}`}
     >
       {label}
     </button>
@@ -505,7 +505,7 @@ function TelemetryRowCard({
                 : 'Önce vaka aç, hızlı inceleme başlat veya doğrudan containment kararı ver.'}
             </div>
           </div>
-          <div className={`mt-4 grid gap-2 ${actionDescriptors.length <= 2 ? 'grid-cols-2' : actionDescriptors.length === 3 ? 'grid-cols-2 xl:grid-cols-1' : 'grid-cols-2 md:grid-cols-4 xl:grid-cols-2'}`}>
+          <div className={`mt-4 grid gap-2 ${actionDescriptors.length <= 2 ? 'grid-cols-1 sm:grid-cols-2' : actionDescriptors.length === 3 ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-2'}`}>
             {actionDescriptors.map((action) => (
               <TelemetryActionButton
                 key={action.key}
@@ -704,10 +704,10 @@ export default function TelemetryStreamPanel({
   }), [filteredRows])
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar -mx-3 -mb-3 mt-0 sm:-m-3 sm:mt-0">
-      <div className="sticky top-0 z-20 border-b border-[#1d3323] bg-[linear-gradient(180deg,rgba(10,24,13,0.98),rgba(8,19,11,0.96))] backdrop-blur-sm">
-        <div className="flex items-center gap-2 overflow-x-auto border-b border-[#163122] px-3 py-2 custom-scrollbar">
-          <div className="mr-1 flex items-center gap-2">
+    <div className="mt-0 flex-1 overflow-visible lg:min-h-0 lg:overflow-x-hidden lg:overflow-y-auto lg:custom-scrollbar lg:-mx-3 lg:-mb-3 lg:mt-0 lg:sm:-m-3">
+      <div className="border-b border-[#1d3323] bg-[linear-gradient(180deg,rgba(10,24,13,0.98),rgba(8,19,11,0.96))] backdrop-blur-sm lg:sticky lg:top-0 lg:z-20">
+        <div className="flex flex-wrap items-stretch gap-2 border-b border-[#163122] px-3 py-2 md:flex-nowrap md:overflow-x-auto md:custom-scrollbar">
+          <div className="mr-1 flex min-w-[120px] items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-[#38ff9c] shadow-[0_0_10px_rgba(56,255,156,0.8)]" />
             <span className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#b5ffd4]">Telemetri Kontrol</span>
           </div>
@@ -718,7 +718,7 @@ export default function TelemetryStreamPanel({
           <HeaderMetric label="İzole" value={counts.contained} tone="text-emerald-200" />
           <HeaderMetric label="Vakaya Bağlı Değil" value={counts.noCase} tone="text-[#99c9a8]" />
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 md:ml-auto md:flex-nowrap">
             {selectedTelemetryIncident && (
               <span className="rounded-full border border-[#2a4a31] bg-[#0e1e12] px-2.5 py-1 text-[8px] font-mono uppercase tracking-[0.22em] text-[#9fe3b3]">
                 Vaka {selectedTelemetryIncident.id}
@@ -730,8 +730,8 @@ export default function TelemetryStreamPanel({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 overflow-x-auto px-3 py-2 custom-scrollbar">
-          <div className="flex items-center gap-1.5 whitespace-nowrap">
+        <div className="flex flex-col gap-3 px-3 py-2 md:flex-row md:items-center md:gap-3 md:overflow-x-auto md:custom-scrollbar">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[7px] uppercase tracking-[0.24em] text-[#6f8f78]">Önem</span>
             {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((sev) => (
               <FilterChip key={`sev-${sev}`} active={severityFilter === sev} onClick={() => setSeverityFilter(sev)}>
@@ -740,7 +740,7 @@ export default function TelemetryStreamPanel({
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5 whitespace-nowrap">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[7px] uppercase tracking-[0.24em] text-[#6f8f78]">Vaka Durumu</span>
             {(['ALL', 'NO_CASE', 'OPEN', 'INVESTIGATING', 'CONTAINED', 'RESOLVED'] as const).map((item) => (
               <FilterChip key={`case-${item}`} active={caseFilter === item} onClick={() => setCaseFilter(item)}>
@@ -749,7 +749,7 @@ export default function TelemetryStreamPanel({
             ))}
           </div>
 
-          <div className="ml-auto flex items-center gap-2 whitespace-nowrap text-[8px] font-mono uppercase tracking-[0.2em]">
+          <div className="flex flex-wrap items-center gap-2 text-[8px] font-mono uppercase tracking-[0.2em] md:ml-auto md:flex-nowrap">
             <span className="text-rose-300">Kritik {counts.crit}</span>
             <span className="text-amber-300">Yüksek {counts.high}</span>
             <span className="text-[#7aa989]">Satır {visibleRows.length}/{filteredRows.length}</span>
@@ -757,7 +757,7 @@ export default function TelemetryStreamPanel({
         </div>
       </div>
 
-      <div className="space-y-2 px-3 py-3">
+      <div className="space-y-2 px-0 py-3 sm:px-3 lg:px-3">
         {visibleRows.map((row) => (
           <TelemetryRowCard
             key={row.event.id}

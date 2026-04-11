@@ -264,7 +264,7 @@ const Frame = ({ title, children, rightAction, dim = false, className = '', head
       <h2 className={`font-bold uppercase tracking-[0.2em] text-[9px] ${dim ? 'text-[#5f7d68]' : 'text-[#66ff9f]/90'}`}>{title}</h2>
       {rightAction && <div className="flex items-center gap-2">{rightAction}</div>}
     </header>
-    <div className="flex-1 overflow-hidden p-3 flex flex-col relative">
+    <div className="relative flex flex-1 flex-col overflow-visible p-3 lg:overflow-hidden">
       {children}
     </div>
   </section>
@@ -284,7 +284,7 @@ const CRITICAL_INCIDENT_COOLDOWN_MS = 180000
 const TELEMETRY_EMISSION_PROBABILITY = 0.35
 
 /** Live Telemetry Stream: ekranın geri kalanını sınırsız doldurmasın; içeride kaydır */
-const TELEMETRY_PANEL_HEIGHT_CLASS = 'h-[min(74vh,840px)] md:h-[min(60vh,700px)] xl:h-[min(560px,48vh)]'
+const TELEMETRY_PANEL_HEIGHT_CLASS = 'h-auto min-h-[520px] lg:h-[min(60vh,700px)] xl:h-[min(560px,48vh)]'
 const GLOBE_TARGET_FPS = 24
 const GLOBE_FRAME_MS = 1000 / GLOBE_TARGET_FPS
 
@@ -894,7 +894,7 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
   }, [focusRegion, focusSignal, normalizeDegrees, shortestDegreeDelta])
 
   return (
-    <section className="flex-none h-[clamp(280px,42vh,620px)] sm:h-[clamp(320px,48vh,620px)] xl:h-[clamp(320px,52vh,620px)] border border-[#1a2e1a] bg-transparent overflow-hidden shadow-2xl">
+    <section className="flex-none h-[clamp(250px,34dvh,420px)] sm:h-[clamp(300px,42vh,620px)] xl:h-[clamp(320px,52vh,620px)] border border-[#1a2e1a] bg-transparent overflow-hidden shadow-2xl">
       <div ref={containerRef} className="relative h-full overflow-hidden bg-[#03110d]">
         <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-2 px-3 py-2 bg-gradient-to-b from-[#091409]/96 to-transparent border-b border-[#1c3a22]/55 pointer-events-none">
           <span className="w-1.5 h-1.5 rounded-full bg-[#00e640] shadow-[0_0_7px_rgba(0,230,64,0.85)]" />
@@ -1824,7 +1824,7 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="relative min-h-[calc(100vh-64px)] bg-[#000102] text-slate-300 font-sans selection:bg-emerald-900/60 selection:text-emerald-50 flex flex-col">
+    <div className="relative flex min-h-[calc(100dvh-64px)] flex-col bg-[#000102] font-sans text-slate-300 selection:bg-emerald-900/60 selection:text-emerald-50 md:min-h-[calc(100vh-64px)]">
       {criticalOverlayActive && (
         <CriticalOverlayFx cycle={criticalOverlayCycle} />
       )}
@@ -1840,12 +1840,12 @@ export default function DashboardLayout() {
         open={reportModalOpen}
         onClose={handleCloseReportModal}
       />
-      <div className="mx-auto flex w-full max-w-[2400px] flex-1 gap-2 p-2 overflow-hidden items-stretch">
+      <div className="mx-auto flex w-full max-w-[2400px] flex-1 items-start gap-2 overflow-visible p-2 lg:items-stretch lg:overflow-hidden">
 
         {/* ========================================================= */}
         {/* CENTER COLUMN: HIGH-FREQUENCY DOMAINS                     */}
         {/* ========================================================= */}
-        <main className="flex-1 flex flex-col gap-2 min-w-0 h-full">
+        <main className="flex min-w-0 flex-1 flex-col gap-2 lg:h-full">
           <GlobalMapPanel
              mapIncidents={mapIncidents}
              mapFilter={mapFilter}
