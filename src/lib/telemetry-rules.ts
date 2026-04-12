@@ -62,7 +62,7 @@ export function countRelatedTelemetrySignals(
   candidates: readonly TelemetryLike[],
   linkedEventIds?: readonly string[],
 ): number {
-  if (linkedEventIds?.length) return linkedEventIds.length
+  if (linkedEventIds?.length) return Math.max(linkedEventIds.length - 1, 0)
 
   const pivotFamily = getThreatFamily(pivot.type)
   const related = candidates.filter((candidate) => {
@@ -72,5 +72,5 @@ export function countRelatedTelemetrySignals(
     return candidate.region === pivot.region && getThreatFamily(candidate.type) === pivotFamily
   })
 
-  return related.length + 1
+  return related.length
 }

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React, { ReactNode, startTransition, useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { geoDistance, geoGraticule10, geoInterpolate, geoOrthographic, geoPath, type GeoProjection, type GeoPermissibleObjects } from 'd3-geo'
@@ -314,7 +314,16 @@ const REGION_HEAT_COLOR: Record<Severity, { glow: string; core: string }> = {
 }
 
 
-type MapIncident = { id: string; region: RegionKey; sev: Severity; source: string }
+type MapIncident = {
+  id: string
+  region: RegionKey
+  sev: Severity
+  source: string
+  node: string
+  label: string
+  time: string
+  status: IncidentStatus
+}
 type SampledRoutePoint = { lat: number; lng: number; t: number }
 type SampledRoute = {
   id: string
@@ -451,6 +460,19 @@ const deriveSourceRegion = (source: string, targetRegion: RegionKey): RegionKey 
   return candidates[hash % candidates.length]
 }
 
+const formatRelativeSignalTime = (iso: string): string => {
+  const deltaMs = Date.now() - new Date(iso).getTime()
+  if (!Number.isFinite(deltaMs) || deltaMs <= 0) return 'şimdi'
+  const seconds = Math.floor(deltaMs / 1000)
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}dk`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}sa`
+  const days = Math.floor(hours / 24)
+  return `${days}g`
+}
+
 const buildGreatCircleSamples = (
   from: { lat: number; lng: number },
   to: { lat: number; lng: number },
@@ -473,10 +495,10 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
   onClearFocus: () => void
 }) => {
   const fallbackIncidents: MapIncident[] = useMemo(() => ([
-    { id: 'demo-1', sev: 'HIGH', region: 'US-EAST', source: 'RU-MOW' },
-    { id: 'demo-2', sev: 'CRITICAL', region: 'CN-PEK', source: 'US-EAST' },
-    { id: 'demo-3', sev: 'HIGH', region: 'RU-MOW', source: 'UK-LON' },
-    { id: 'demo-4', sev: 'MEDIUM', region: 'BR-SAO', source: 'US-EAST' },
+    { id: 'demo-1', sev: 'HIGH', region: 'US-EAST', source: 'RU-MOW', node: 'EDGE-NODE-201', label: 'C2 Beaconing', time: new Date().toISOString(), status: 'OPEN' },
+    { id: 'demo-2', sev: 'CRITICAL', region: 'CN-PEK', source: 'US-EAST', node: 'CORE-NODE-188', label: 'Auth Bypass', time: new Date().toISOString(), status: 'INVESTIGATING' },
+    { id: 'demo-3', sev: 'HIGH', region: 'RU-MOW', source: 'UK-LON', node: 'OPS-NODE-455', label: 'Large Data Exfil', time: new Date().toISOString(), status: 'OPEN' },
+    { id: 'demo-4', sev: 'MEDIUM', region: 'BR-SAO', source: 'US-EAST', node: 'LAT-NODE-312', label: 'DNS Tunneling Activity', time: new Date().toISOString(), status: 'OPEN' },
   ]), [])
 
   const incidentsForRender = useMemo(() => {
@@ -546,12 +568,6 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
     return base
   }, [focusIncidentSet])
 
-  const focusActivityRatio = useMemo(() => {
-    if (!focusRegion) return 100
-    if (focusIncidentSet.length === 0 || totalIncidents === 0) return 0
-    return Math.round((focusIncidentSet.length / totalIncidents) * 100)
-  }, [focusIncidentSet.length, focusRegion, totalIncidents])
-
   const legendSeverityMix = useMemo(
     () => (focusRegion ? focusSeverityMix : severityMix),
     [focusRegion, focusSeverityMix, severityMix],
@@ -565,6 +581,8 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
   const animationFrameRef = useRef<number | null>(null)
   const lastFrameRef = useRef<number | null>(null)
   const frameBudgetRef = useRef(0)
+  const compactFocusLayout = Boolean(focusRegion) && globeSize.width < 520
+  const compactFocusCardWidth = compactFocusLayout ? Math.min(150, globeSize.width * 0.36) : null
 
   const normalizeDegrees = useCallback((angle: number) => {
     let next = angle
@@ -602,11 +620,17 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
   const globeGeometry = useMemo(() => {
     const width = globeSize.width
     const height = globeSize.height
-    const radius = Math.min(width * 0.23, height * 0.4)
-    const cx = width * 0.5
+    const reservedRight = compactFocusLayout ? (compactFocusCardWidth ?? 0) + 18 : 0
+    const availableWidth = width - reservedRight
+    const radius = compactFocusLayout
+      ? Math.min(availableWidth * 0.34, height * 0.29)
+      : Math.min(width * 0.23, height * 0.4)
+    const cx = compactFocusLayout
+      ? Math.max(radius + 12, availableWidth * 0.56)
+      : width * 0.5
     const cy = height * 0.52
     return { width, height, radius, cx, cy }
-  }, [globeSize.height, globeSize.width])
+  }, [compactFocusCardWidth, compactFocusLayout, globeSize.height, globeSize.width])
 
   const projection = useMemo<GeoProjection>(() => {
     return geoOrthographic()
@@ -811,10 +835,129 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
     [nodeData],
   )
 
-  const focusNode = useMemo(
-    () => visibleNodes.find((node) => node.region === focusRegion || node.selectedTarget) ?? null,
-    [focusRegion, visibleNodes],
-  )
+  const focusLatestIncident = useMemo<MapIncident | null>(() => {
+    if (focusIncidentSet.length === 0) return null
+    return focusIncidentSet.reduce<MapIncident | null>((latest, incident) => {
+      if (!latest) return incident
+      return new Date(incident.time).getTime() > new Date(latest.time).getTime() ? incident : latest
+    }, null)
+  }, [focusIncidentSet])
+
+  const focusDominantThreat = useMemo(() => {
+    if (focusSignal) {
+      return {
+        label: focusSignal.label,
+        count: 1,
+        protocol: focusSignal.protocol,
+        port: focusSignal.port,
+      }
+    }
+
+    const counts = new Map<string, { count: number; latestTime: number }>()
+    focusIncidentSet.forEach((incident) => {
+      const current = counts.get(incident.label)
+      const nextTime = new Date(incident.time).getTime()
+      counts.set(incident.label, {
+        count: (current?.count ?? 0) + 1,
+        latestTime: Math.max(current?.latestTime ?? 0, nextTime),
+      })
+    })
+
+    const [label, meta] =
+      Array.from(counts.entries()).sort((a, b) => {
+        if (b[1].count !== a[1].count) return b[1].count - a[1].count
+        return b[1].latestTime - a[1].latestTime
+      })[0] ?? []
+
+    if (!label || !meta) return null
+    return {
+      label,
+      count: meta.count,
+      protocol: null,
+      port: null,
+    }
+  }, [focusIncidentSet, focusSignal])
+
+  const focusLastSignalTime = useMemo(() => {
+    if (focusSignal) return focusSignal.timestamp
+    return focusLatestIncident?.time ?? null
+  }, [focusLatestIncident?.time, focusSignal])
+
+  const focusSourceRegion = useMemo<RegionKey | null>(() => {
+    if (focusSignal) return focusSignal.sourceRegion
+    if (focusLatestIncident) return deriveSourceRegion(focusLatestIncident.source, focusLatestIncident.region)
+    return null
+  }, [focusLatestIncident, focusSignal])
+
+  const focusCaseLabel = useMemo(() => {
+    const status = focusSignal?.caseStatus ?? focusLatestIncident?.status ?? null
+    if (!status) return 'Vaka Yok'
+    if (status === 'NO_CASE') return 'Vaka Yok'
+    if (status === 'OPEN') return 'Açık'
+    if (status === 'INVESTIGATING') return 'İnceleniyor'
+    if (status === 'CONTAINED') return 'İzole'
+    return 'Çözüldü'
+  }, [focusLatestIncident?.status, focusSignal])
+
+  const focusOperationalSummary = useMemo(() => {
+    if (!focusRegion) return ''
+    if (focusSignal) {
+      return `${focusSignal.label} sinyali ${REGION_LABELS[focusSignal.sourceRegion] ?? focusSignal.sourceRegion} kaynağından ${REGION_LABELS[focusSignal.region] ?? focusSignal.region} bölgesine uzanıyor.`
+    }
+    if (focusDominantThreat && focusDominantThreat.count > 1) {
+      return `${focusDominantThreat.label} şu anda bölgedeki baskın tehdit profili; benzer sinyaller kümelenmeye başladı.`
+    }
+    if (focusLatestIncident) {
+      return `${focusLatestIncident.label} şu anda bu bölgedeki en güncel operasyon sinyali olarak öne çıkıyor.`
+    }
+    return 'Bu bölgede şu anda aktif olay görünmüyor.'
+  }, [focusDominantThreat, focusLatestIncident, focusRegion, focusSignal])
+
+  const focusRecommendedAction = useMemo(() => {
+    if (focusCriticalCount > 0) {
+      return 'Kritik sinyali önce incelemeye al, ardından ilişkili kaynak ve düğüm zincirini doğrula.'
+    }
+    if (focusSignal?.caseStatus === 'OPEN') {
+      return 'Açık vakayı incelemeye taşı ve rapor akışını aynı zincirde ilerlet.'
+    }
+    if (focusSignal?.caseStatus === 'INVESTIGATING') {
+      return 'İncelemeyi derinleştir, IOC bağlamını genişlet ve containment gereksinimini doğrula.'
+    }
+    if (focusSignal?.caseStatus === 'CONTAINED') {
+      return 'İzolasyon sonrası doğrulamayı tamamla ve kapanış öncesi kalan riskleri gözden geçir.'
+    }
+    if (focusIncidentSet.length > 1) {
+      return 'Benzer sinyalleri tek akışta değerlendir; önce baskın tehdidin node zincirini doğrula.'
+    }
+    if (focusIncidentSet.length === 1) {
+      return 'Bu tekil sinyali vakaya dönüştürmeden önce kaynak, port ve düğüm korelasyonunu doğrula.'
+    }
+    return 'Yeni telemetriyi bekle ve bölgesel karışımda yükselen sinyal olup olmadığını izle.'
+  }, [focusCriticalCount, focusIncidentSet.length, focusSignal])
+
+  const focusRecommendedActionBrief = useMemo(() => {
+    if (focusCriticalCount > 0) {
+      return 'Önce inceleme, sonra kaynak ve düğüm doğrulaması.'
+    }
+    if (focusSignal?.caseStatus === 'OPEN') {
+      return 'Vakayı incelemeye taşı ve aynı zincirde ilerlet.'
+    }
+    if (focusSignal?.caseStatus === 'INVESTIGATING') {
+      return 'IOC bağlamını genişlet ve containment gereksinimini doğrula.'
+    }
+    if (focusSignal?.caseStatus === 'CONTAINED') {
+      return 'İzolasyon doğrulamasını tamamla, kalan riski kapat.'
+    }
+    if (focusIncidentSet.length > 1) {
+      return 'Baskın tehdidin node zincirini doğrula.'
+    }
+    if (focusIncidentSet.length === 1) {
+      return 'Kaynak, port ve düğüm korelasyonunu doğrula.'
+    }
+    return 'Yeni telemetriyi izle.'
+  }, [focusCriticalCount, focusIncidentSet.length, focusSignal])
+
+  const hasRegionalActivity = focusIncidentSet.length > 0 || Boolean(focusSignal)
 
   useEffect(() => {
     const element = containerRef.current
@@ -1100,96 +1243,203 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
         </div>
 
         {focusRegion && (
-          <div className="absolute right-2 top-12 z-20 w-[min(168px,calc(100%-16px))] rounded-xl border border-[#2d5e42] bg-[linear-gradient(180deg,rgba(6,24,18,0.94),rgba(3,12,10,0.92))] p-2.5 shadow-[0_0_36px_rgba(24,255,159,0.12)] backdrop-blur-md sm:right-3 sm:top-14 sm:w-[min(240px,calc(100%-24px))] sm:p-3 md:right-4 md:top-16 md:w-[min(260px,calc(100%-32px))]">
-            <div className="mb-2 flex items-start justify-between border-b border-[#214634] pb-2">
-              <div className="min-w-0">
-                <p className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#97ffd1]">Threat Focus</p>
-                <p className="truncate pt-1 text-[13px] font-semibold text-slate-100 sm:text-sm">{REGION_LABELS[focusRegion] ?? focusRegion}</p>
-              </div>
-              <span
-                className="rounded-full border px-2 py-1 text-[8px] font-bold uppercase tracking-[0.22em]"
-                style={{
-                  color: focusRegionStats ? REGION_HEAT_COLOR[focusRegionStats.sev].core : '#ddfff1',
-                  borderColor: focusRegionStats ? `${REGION_HEAT_COLOR[focusRegionStats.sev].glow}88` : '#2f6046',
-                  backgroundColor: focusRegionStats ? `${REGION_HEAT_COLOR[focusRegionStats.sev].glow}18` : '#0a1813',
-                }}
-              >
-                {focusRegionStats?.sev ?? 'LOW'}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-[9px] font-mono sm:text-[10px]">
-              <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-2 py-2">
-                <p className="uppercase text-slate-500">Incidents</p>
-                <p className="pt-1 text-lg font-semibold text-[#a7ffd1]">{focusIncidentSet.length}</p>
-              </div>
-              <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-2 py-2">
-                <p className="uppercase text-slate-500">Critical</p>
-                <p className="pt-1 text-lg font-semibold text-rose-300">{focusCriticalCount}</p>
-              </div>
-              <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-2 py-2">
-                <p className="uppercase text-slate-500">Coverage</p>
-                <p className="pt-1 text-lg font-semibold text-[#98ffe0]">{focusActivityRatio}%</p>
-              </div>
-              <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-2 py-2">
-                <p className="uppercase text-slate-500">Marker</p>
-                <p className="pt-1 text-lg font-semibold text-[#dfffee]">{focusNode ? 'LOCK' : 'SCAN'}</p>
-              </div>
-            </div>
-            <div className="mt-3 space-y-1.5 text-[9px] font-mono">
-              {focusSignal && (
-                <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-2 py-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[7px] font-bold uppercase tracking-[0.22em] text-[#8eb99a]">Selected Signal</p>
+          <div
+            className="absolute right-2 top-12 z-20 w-[min(172px,calc(100%-16px))] rounded-xl border border-[#2d5e42] bg-[linear-gradient(180deg,rgba(6,24,18,0.94),rgba(3,12,10,0.92))] p-2 shadow-[0_0_36px_rgba(24,255,159,0.12)] backdrop-blur-md sm:right-3 sm:top-14 sm:w-[min(240px,calc(100%-24px))] sm:p-3 md:right-4 md:top-16 md:w-[min(260px,calc(100%-32px))]"
+            style={
+              compactFocusLayout && compactFocusCardWidth
+                ? { width: `${compactFocusCardWidth}px`, top: '36px' }
+                : undefined
+            }
+          >
+            {compactFocusLayout ? (
+              <>
+                <div className="mb-2 border-b border-[#214634] pb-2">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <p className="text-[6px] font-bold uppercase tracking-[0.24em] text-[#97ffd1]">Regional Brief</p>
+                    <button
+                      onClick={onClearFocus}
+                      className="rounded-full border border-[#2e6a4a] bg-[#0b2017] px-1.5 py-0.5 text-[6px] font-bold uppercase tracking-[0.18em] text-[#a8ffd4] transition-colors duration-200 hover:bg-[#103022]"
+                      aria-label="Focus temizle"
+                    >
+                      Temizle
+                    </button>
+                  </div>
+                  <div className="mt-1 flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-semibold leading-tight text-slate-100">{REGION_LABELS[focusRegion] ?? focusRegion}</p>
+                      <p className="mt-1 text-[6px] uppercase tracking-[0.18em] text-[#7ea88f]">
+                        {hasRegionalActivity ? 'Canli bolgesel odak' : 'Pasif izleme'}
+                      </p>
+                    </div>
                     <span
-                      className="rounded-full border px-2 py-0.5 text-[7px] font-bold uppercase tracking-[0.2em]"
+                      className="shrink-0 rounded-full border px-1.5 py-0.5 text-[6px] font-bold uppercase tracking-[0.18em]"
                       style={{
-                        color: REGION_HEAT_COLOR[focusSignal.sev].core,
-                        borderColor: `${REGION_HEAT_COLOR[focusSignal.sev].glow}88`,
-                        backgroundColor: `${REGION_HEAT_COLOR[focusSignal.sev].glow}18`,
+                        color: focusRegionStats ? REGION_HEAT_COLOR[focusRegionStats.sev].core : '#ddfff1',
+                        borderColor: focusRegionStats ? `${REGION_HEAT_COLOR[focusRegionStats.sev].glow}88` : '#2f6046',
+                        backgroundColor: focusRegionStats ? `${REGION_HEAT_COLOR[focusRegionStats.sev].glow}18` : '#0a1813',
                       }}
                     >
-                      {focusSignal.caseStatus === 'NO_CASE' ? 'NO CASE' : focusSignal.caseStatus}
+                      {focusRegionStats?.sev ?? 'LOW'}
                     </span>
                   </div>
-                  <div className="mt-2 text-[10px] text-slate-200">
-                    <div className="font-semibold text-[#effff8]">{focusSignal.label}</div>
-                    <div className="mt-1 text-slate-400">{formatTime(focusSignal.timestamp)} | {focusSignal.protocol}/{focusSignal.port}</div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1">
+                  <div className="rounded-lg border border-[#224531] bg-[#071511]/88 px-1.5 py-1.5">
+                    <p className="text-[6px] uppercase tracking-[0.16em] text-slate-500">Aktif</p>
+                    <p className="pt-1 text-[13px] font-semibold text-[#a7ffd1]">{focusIncidentSet.length}</p>
                   </div>
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-[9px] text-slate-300">
-                    <div className="rounded-md border border-[#1b3428] bg-[#08120e] px-2 py-1.5">
-                      <div className="uppercase tracking-[0.2em] text-[#62806f]">Source</div>
-                      <div className="mt-1 font-mono text-[#b9ffd4]">{focusSignal.source}</div>
-                    </div>
-                    <div className="rounded-md border border-[#1b3428] bg-[#08120e] px-2 py-1.5">
-                      <div className="uppercase tracking-[0.2em] text-[#62806f]">Node</div>
-                      <div className="mt-1 font-mono text-slate-200">{focusSignal.node}</div>
-                    </div>
+                  <div className="rounded-lg border border-[#224531] bg-[#071511]/88 px-1.5 py-1.5">
+                    <p className="text-[6px] uppercase tracking-[0.16em] text-slate-500">Kritik</p>
+                    <p className="pt-1 text-[13px] font-semibold text-rose-300">{focusCriticalCount}</p>
+                  </div>
+                  <div className="rounded-lg border border-[#224531] bg-[#071511]/88 px-1.5 py-1.5">
+                    <p className="text-[6px] uppercase tracking-[0.16em] text-slate-500">Son</p>
+                    <p className="pt-1 text-[13px] font-semibold text-[#dfffee]">
+                      {focusLastSignalTime ? formatRelativeSignalTime(focusLastSignalTime) : '--'}
+                    </p>
                   </div>
                 </div>
-              )}
-              {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as Severity[]).map((sev) => {
-                const count = focusSeverityMix[sev]
-                const ratio = focusIncidentSet.length > 0 ? Math.round((count / focusIncidentSet.length) * 100) : 0
-                const barColor = sev === 'CRITICAL' ? '#f43f5e' : sev === 'HIGH' ? '#f59e0b' : sev === 'MEDIUM' ? '#22c55e' : '#86efac'
-                return (
-                  <div key={sev}>
-                    <div className="flex items-center justify-between text-slate-300">
-                      <span className="tracking-widest">{sev}</span>
-                      <span className="tabular-nums text-slate-500">{count}</span>
+
+              </>
+            ) : (
+              <>
+                <div className="mb-2 flex flex-col gap-1.5 border-b border-[#214634] pb-2 sm:gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[8px] font-bold uppercase tracking-[0.24em] text-[#97ffd1]">Regional Threat Brief</p>
+                      <p className="break-words pt-0.5 text-[12px] font-semibold leading-tight text-slate-100 sm:truncate sm:pt-1 sm:text-sm">{REGION_LABELS[focusRegion] ?? focusRegion}</p>
                     </div>
-                    <div className="mt-1 h-[4px] overflow-hidden rounded-full border border-[#173124] bg-[#04100b]">
-                      <div className="h-full rounded-full" style={{ width: `${count > 0 ? Math.max(8, ratio) : 0}%`, backgroundColor: barColor }} />
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span
+                        className="rounded-full border px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-[0.2em] sm:px-2 sm:py-1 sm:text-[8px] sm:tracking-[0.22em]"
+                        style={{
+                          color: focusRegionStats ? REGION_HEAT_COLOR[focusRegionStats.sev].core : '#ddfff1',
+                          borderColor: focusRegionStats ? `${REGION_HEAT_COLOR[focusRegionStats.sev].glow}88` : '#2f6046',
+                          backgroundColor: focusRegionStats ? `${REGION_HEAT_COLOR[focusRegionStats.sev].glow}18` : '#0a1813',
+                        }}
+                      >
+                        {focusRegionStats?.sev ?? 'LOW'}
+                      </span>
+                      <button
+                        onClick={onClearFocus}
+                        className="rounded-full border border-[#2e6a4a] bg-[#0b2017] px-2 py-1 text-[7px] font-bold uppercase tracking-[0.2em] text-[#a8ffd4] transition-colors duration-200 hover:bg-[#103022]"
+                        aria-label="Focus temizle"
+                      >
+                        Temizle
+                      </button>
                     </div>
                   </div>
-                )
-              })}
-            </div>
-            <button
-              onClick={onClearFocus}
-              className="mt-3 w-full rounded-lg border border-[#2e6a4a] bg-[#0b2017] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.24em] text-[#a8ffd4] transition-colors duration-200 hover:bg-[#103022]"
-            >
-              Focus Temizle
-            </button>
+                  <div className="min-w-0">
+                    <p className="text-[7px] uppercase tracking-[0.22em] text-[#7ea88f]">Operasyon Özeti</p>
+                    <p className="mt-1 text-[9px] leading-relaxed text-slate-300 sm:text-[10px]">
+                      {focusOperationalSummary}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5 text-[8px] font-mono sm:gap-2 sm:text-[10px]">
+                  <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-1.5 py-1.5 sm:px-2 sm:py-2">
+                    <p className="uppercase text-slate-500">Aktif</p>
+                    <p className="pt-1 text-base font-semibold text-[#a7ffd1] sm:text-lg">{focusIncidentSet.length}</p>
+                  </div>
+                  <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-1.5 py-1.5 sm:px-2 sm:py-2">
+                    <p className="uppercase text-slate-500">Kritik</p>
+                    <p className="pt-1 text-base font-semibold text-rose-300 sm:text-lg">{focusCriticalCount}</p>
+                  </div>
+                  <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-1.5 py-1.5 sm:px-2 sm:py-2">
+                    <p className="uppercase text-slate-500">Son Sinyal</p>
+                    <p className="pt-1 text-base font-semibold text-[#dfffee] sm:text-lg">
+                      {focusLastSignalTime ? formatRelativeSignalTime(focusLastSignalTime) : '--'}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-2 space-y-1.5 text-[8px] font-mono sm:mt-3 sm:text-[9px]">
+                  {hasRegionalActivity ? (
+                    <>
+                      <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-1.5 py-1.5 sm:px-2 sm:py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[7px] font-bold uppercase tracking-[0.22em] text-[#8eb99a]">Baskın Tehdit</p>
+                          <span className="rounded-full border border-[#284538] bg-[#102116] px-2 py-0.5 text-[7px] font-bold uppercase tracking-[0.2em] text-[#b4f4c8]">
+                            {focusCaseLabel}
+                          </span>
+                        </div>
+                        <div className="mt-1.5 text-[9px] text-slate-200 sm:text-[10px]">
+                          <div className="font-semibold text-[#effff8]">{focusDominantThreat?.label ?? 'Aktif sinyal yok'}</div>
+                          <div className="mt-1 text-slate-400">
+                            {focusDominantThreat?.protocol && focusDominantThreat?.port
+                              ? `${focusDominantThreat.protocol}/${focusDominantThreat.port}`
+                              : focusDominantThreat?.count && focusDominantThreat.count > 1
+                                ? `${focusDominantThreat.count} benzer olay`
+                                : 'Tekil bölgesel sinyal'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                        <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-1.5 py-1.5 sm:px-2 sm:py-2">
+                          <div className="text-[7px] font-bold uppercase tracking-[0.22em] text-[#8eb99a]">Kaynak</div>
+                          <div className="mt-1 text-[9px] text-[#b9ffd4] sm:text-[10px]">
+                            {focusSourceRegion ? (REGION_LABELS[focusSourceRegion] ?? focusSourceRegion) : 'Bilinmiyor'}
+                          </div>
+                          <div className="mt-1 font-mono text-[8px] text-slate-400 sm:text-[9px]">
+                            {focusSignal?.source ?? focusLatestIncident?.source ?? 'SYSTEM'}
+                          </div>
+                        </div>
+                        <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-1.5 py-1.5 sm:px-2 sm:py-2">
+                          <div className="text-[7px] font-bold uppercase tracking-[0.22em] text-[#8eb99a]">Düğüm</div>
+                          <div className="mt-1 text-[9px] text-slate-200 sm:text-[10px]">
+                            {focusSignal?.node ?? focusLatestIncident?.node ?? 'Bekleniyor'}
+                          </div>
+                          <div className="mt-1 text-[8px] text-slate-400 sm:text-[9px]">
+                            {focusSignal ? formatTime(focusSignal.timestamp) : focusLatestIncident ? formatTime(focusLatestIncident.time) : 'Canlı veri yok'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-1.5 py-1.5 sm:px-2 sm:py-2">
+                        <div className="text-[7px] font-bold uppercase tracking-[0.22em] text-[#8eb99a]">Önerilen Adım</div>
+                        <div className="mt-1 text-[9px] leading-relaxed text-slate-300 sm:text-[10px]">
+                          {focusRecommendedActionBrief}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as Severity[]).map((sev) => {
+                          const count = focusSeverityMix[sev]
+                          const tone = sev === 'CRITICAL' ? '#f43f5e' : sev === 'HIGH' ? '#f59e0b' : sev === 'MEDIUM' ? '#22c55e' : '#86efac'
+                          const label = sev === 'CRITICAL' ? 'Kritik' : sev === 'HIGH' ? 'Yüksek' : sev === 'MEDIUM' ? 'Orta' : 'Düşük'
+                          return (
+                            <span
+                              key={sev}
+                              className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[7px] font-bold uppercase tracking-[0.16em]"
+                              style={{
+                                color: tone,
+                                borderColor: `${tone}30`,
+                                background: `${tone}10`,
+                              }}
+                            >
+                              <span
+                                className="inline-flex h-1.5 w-1.5 rounded-full"
+                                style={{ backgroundColor: tone, boxShadow: `0 0 10px ${tone}55` }}
+                              />
+                              <span>{label}</span>
+                              <span className="text-[#effff8]">{count}</span>
+                            </span>
+                          )
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-lg border border-[#224531] bg-[#071511]/85 px-2 py-2">
+                      <div className="text-[7px] font-bold uppercase tracking-[0.22em] text-[#8eb99a]">Pasif Izleme</div>
+                      <div className="mt-1 text-[9px] leading-relaxed text-slate-300 sm:text-[10px]">
+                        Bu bölgede şu anda aktif olay görünmüyor. Yeni telemetri oluştuğunda kart otomatik olarak baskın tehdit, kaynak ve önerilen aksiyonla zenginleşecek.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -1767,11 +2017,29 @@ export default function DashboardLayout() {
   const mapIncidents = useMemo(() => {
     const next = activeIncidents
       .filter((incident) => (REGIONS as readonly string[]).includes(incident.region))
-      .map(({ id, sev, region, source }) => ({ id, sev, region: region as RegionKey, source }))
+      .map(({ id, sev, region, source, node, label, time, status }) => ({
+        id,
+        sev,
+        region: region as RegionKey,
+        source,
+        node,
+        label,
+        time,
+        status,
+      }))
     const prev = mapIncidentsRef.current
     if (
       prev.length === next.length &&
-      next.every((n, i) => n.id === prev[i]?.id && n.sev === prev[i]?.sev && n.region === prev[i]?.region)
+      next.every(
+        (n, i) =>
+          n.id === prev[i]?.id &&
+          n.sev === prev[i]?.sev &&
+          n.region === prev[i]?.region &&
+          n.label === prev[i]?.label &&
+          n.node === prev[i]?.node &&
+          n.time === prev[i]?.time &&
+          n.status === prev[i]?.status,
+      )
     ) {
       return prev
     }
@@ -1879,5 +2147,6 @@ export default function DashboardLayout() {
     </div>
   )
 }
+
 
 

@@ -395,12 +395,12 @@ function TelemetryRowCard({
   const investigationSteps = getInvestigationSteps(evt)
   const actionMeanings = getActionMeanings(row)
   const relationBadge =
-    row.relatedCount > 1
+    row.relatedCount > 0
       ? linkedIncident
         ? `${row.relatedCount} Bağlı Olay`
         : `${row.relatedCount} Benzer Sinyal`
       : linkedIncident
-        ? linkedIncident.id
+        ? 'Tekil Vaka'
         : 'Tek Sinyal'
 
   return (

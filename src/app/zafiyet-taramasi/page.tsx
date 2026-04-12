@@ -195,8 +195,8 @@ function ReportModal({
     if (!line.trim()) return <div key={key} className="h-2" />;
     if (line.startsWith('- ')) {
       return (
-        <div key={key} className="text-slate-300 text-xs leading-relaxed flex gap-2">
-          <span className="text-violet-500 shrink-0">?</span>
+        <div key={key} className="flex gap-2 break-words text-slate-300 text-xs leading-relaxed [overflow-wrap:anywhere]">
+          <span className="text-violet-500 shrink-0">•</span>
           <span>{line.slice(2)}</span>
         </div>
       );
@@ -204,15 +204,15 @@ function ReportModal({
     const kvMatch = line.match(/^\*\*(.+?)\*\*:\s*(.+)$/);
     if (kvMatch) {
       return (
-        <div key={key} className="grid grid-cols-[120px_1fr] gap-3 text-xs leading-relaxed">
+        <div key={key} className="grid grid-cols-1 gap-1.5 text-xs leading-relaxed sm:grid-cols-[120px_1fr] sm:gap-3">
           <span className="text-slate-500 font-bold">{kvMatch[1]}</span>
-          <span className="text-slate-200">{kvMatch[2]}</span>
+          <span className="break-words text-slate-200 [overflow-wrap:anywhere]">{kvMatch[2]}</span>
         </div>
       );
     }
     const parts = line.split(/(\*\*[^*]+\*\*)/g);
     return (
-      <div key={key} className="text-slate-300 text-xs leading-relaxed">
+      <div key={key} className="break-words text-slate-300 text-xs leading-relaxed [overflow-wrap:anywhere]">
         {parts.map((p, j) =>
           p.startsWith('**') && p.endsWith('**')
             ? <strong key={j} className="text-slate-200">{p.slice(2, -2)}</strong>
@@ -224,24 +224,23 @@ function ReportModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
       style={{ background: 'rgba(6,0,15,0.9)', backdropFilter: 'blur(8px)' }}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl flex flex-col rounded-lg border overflow-hidden font-mono"
+        className="flex max-h-[96dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border font-mono sm:max-h-[90vh] sm:rounded-lg"
         style={{
           background: '#0d0018',
           borderColor: `${col}40`,
           boxShadow: `0 0 80px ${col}15`,
-          maxHeight: '90vh',
         }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between px-5 py-3 border-b shrink-0" style={{ borderColor: `${col}20` }}>
-          <div className="flex-1 min-w-0 pr-3">
-            <div className="flex items-center gap-2 mb-1">
+        <div className="flex shrink-0 flex-col gap-2 border-b px-3 py-3 sm:flex-row sm:items-start sm:justify-between sm:px-5" style={{ borderColor: `${col}20` }}>
+          <div className="min-w-0 flex-1 sm:pr-3">
+            <div className="mb-1 flex flex-wrap items-center gap-2">
               <span className="text-[9px] font-bold px-2 py-0.5 rounded border"
                 style={{ color: col, borderColor: `${col}50`, background: `${col}15` }}>
                 {SEV_LABEL[report.severity.toUpperCase()] ?? report.severity}
@@ -251,14 +250,14 @@ function ReportModal({
               </span>
               <span className="text-[9px] text-slate-600">{timeStr(report.createdAt)}</span>
             </div>
-            <div className="text-sm font-bold text-slate-200 leading-snug">{report.title}</div>
+            <div className="break-words text-sm font-bold leading-snug text-slate-200 [overflow-wrap:anywhere]">{report.title}</div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
             {report.status !== 'archived' && onArchive && (
               <button
                 onClick={() => void onArchive(report)}
                 disabled={archiving}
-                className="rounded border px-3 py-1 text-[10px] font-bold tracking-[0.18em] text-slate-300 transition-all disabled:opacity-50"
+                className="rounded border px-2.5 py-1 text-[9px] font-bold tracking-[0.18em] text-slate-300 transition-all disabled:opacity-50 sm:px-3 sm:text-[10px]"
                 style={{
                   borderColor: 'rgba(148,163,184,0.25)',
                   background: 'rgba(15,23,42,0.4)',
@@ -275,9 +274,9 @@ function ReportModal({
 
         {/* Tags */}
         {report.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 px-5 py-2 border-b shrink-0" style={{ borderColor: `${col}15` }}>
+          <div className="flex shrink-0 flex-wrap gap-1.5 border-b px-3 py-2 sm:px-5" style={{ borderColor: `${col}15` }}>
             {report.tags.map(t => (
-              <span key={t} className="flex items-center gap-1 bg-violet-900/25 border border-violet-700/35 px-1.5 py-0.5 rounded text-[9px] text-violet-300">
+              <span key={t} className="flex max-w-full items-center gap-1 break-all rounded border border-violet-700/35 bg-violet-900/25 px-1.5 py-0.5 text-[9px] text-violet-300">
                 <Tag className="w-2.5 h-2.5" />{t}
               </span>
             ))}
@@ -285,9 +284,9 @@ function ReportModal({
         )}
 
         {/* Content */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-0.5">
+        <div className="flex-1 min-h-0 space-y-0.5 overflow-x-hidden overflow-y-auto px-3 py-3 sm:px-5 sm:py-4">
           {parsedSections.map((section) => (
-            <div key={section.key} className="rounded border border-violet-900/25 bg-violet-950/10 px-4 py-3 mb-3">
+            <div key={section.key} className="mb-3 rounded border border-violet-900/25 bg-violet-950/10 px-3 py-3 sm:px-4">
               <div className="text-violet-400 font-bold text-[10px] mb-2 tracking-widest uppercase">
                 {section.title}
               </div>
@@ -312,8 +311,8 @@ function ReportModal({
                       className="rounded border px-3 py-2"
                       style={{ borderColor: `${cat.color}25`, background: cat.bg }}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
+                      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
                           <span className="text-[9px] font-bold" style={{ color: cat.color }}>{cat.label}</span>
                           <span className="text-[9px] text-slate-600">{e.year}</span>
                           {e.nation && (
@@ -326,8 +325,8 @@ function ReportModal({
                           {e.severity.toUpperCase()}
                         </span>
                       </div>
-                      <div className="text-[10px] font-bold text-slate-300 mb-0.5">{e.title}</div>
-                      <div className="text-[9px] text-slate-500 leading-relaxed line-clamp-2">{e.description}</div>
+                      <div className="mb-0.5 break-words text-[10px] font-bold text-slate-300 [overflow-wrap:anywhere]">{e.title}</div>
+                      <div className="line-clamp-2 break-words text-[9px] leading-relaxed text-slate-500 [overflow-wrap:anywhere]">{e.description}</div>
                     </div>
                   );
                 })}
@@ -782,6 +781,7 @@ export default function ZafiyetTaramasiPage() {
   const [reportStatus, setReportStatus] = useState<ReportStatusFilter>('active');
   const [sevFilter, setSevFilter] = useState<Set<string>>(new Set(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']));
   const [tagFilter, setTagFilter] = useState('');
+  const [showTagFilters, setShowTagFilters] = useState(false);
   const [selected, setSelected] = useState<ReportRecord | null>(null);
   const [archivingId, setArchivingId] = useState<number | null>(null);
 
@@ -866,20 +866,20 @@ export default function ZafiyetTaramasiPage() {
   const allTags = Array.from(new Set(reports.flatMap(r => r.tags))).slice(0, 20);
 
   return (
-    <div className="route-page-frame py-6 font-mono text-slate-200">
-      <div className="route-hero px-6 py-5">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+    <div className="route-page-frame py-4 font-mono text-slate-200 sm:py-6">
+      <div className="route-hero px-4 py-4 sm:px-6 sm:py-5">
+        <div className="flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="flex items-start gap-3">
-            <Shield className="mt-0.5 h-5 w-5" style={{ color: 'rgb(var(--route-accent-rgb))' }} />
+            <Shield className="mt-0.5 h-4 w-4 sm:h-5 sm:w-5" style={{ color: 'rgb(var(--route-accent-rgb))' }} />
             <div>
               <h1 className="route-kicker">Threat Intelligence Hub</h1>
-              <p className="route-copy mt-3 text-sm">
+              <p className="route-copy mt-2 text-[13px] leading-7 sm:mt-3 sm:text-sm">
                 Aktif saldırı raporları, CVE takibi ve siber tarih veritabanı.
               </p>
             </div>
           </div>
 
-          <div className="route-tabs">
+          <div className="route-tabs gap-2 sm:gap-3">
             <button
               onClick={() => setActiveTab('reports')}
               className="route-tab-btn"
@@ -910,16 +910,16 @@ export default function ZafiyetTaramasiPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 py-6">
+      <div className="mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-6">
         {activeTab === 'reports' && (
-          <div className="flex gap-5 max-lg:flex-col">
-            <aside className="w-48 shrink-0 space-y-4 max-lg:w-full">
-              <div>
+          <div className="flex gap-4 lg:gap-5 max-lg:flex-col">
+            <aside className="w-48 shrink-0 space-y-3 max-lg:w-full">
+              <div className="rounded-xl border border-white/5 bg-[#0b0714]/60 p-3 sm:p-3.5">
                 <div className="mb-2 flex items-center gap-1.5">
                   <Filter className="h-3 w-3 text-slate-600" />
-                  <span className="text-[9px] uppercase tracking-widest text-slate-600">Onem Seviyesi</span>
+                  <span className="text-[9px] uppercase tracking-widest text-slate-600">Önem Seviyesi</span>
                 </div>
-                <div className="space-y-1">
+                <div className="grid grid-cols-2 gap-1.5">
                   {SEV_ORDER.map((s) => {
                     const col = SEV_COLOR[s];
                     const active = sevFilter.has(s);
@@ -927,16 +927,17 @@ export default function ZafiyetTaramasiPage() {
                       <button
                         key={s}
                         onClick={() => toggleSev(s)}
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-[10px] transition-all"
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-[10px] transition-all"
                         style={{
-                          border: `1px solid ${active ? col + '50' : 'transparent'}`,
-                          background: active ? col + '12' : 'transparent',
-                          color: active ? col : '#475569',
+                          border: `1px solid ${active ? col + '70' : 'rgba(30,41,59,0.28)'}`,
+                          background: active ? 'rgba(5,10,18,0.92)' : 'rgba(2,6,23,0.12)',
+                          color: active ? '#f8fafc' : '#64748b',
+                          boxShadow: active ? `inset 3px 0 0 ${col}, inset 0 0 0 1px ${col}22` : 'none',
                         }}
                       >
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: active ? col : '#334155' }} />
                         {SEV_LABEL[s]}
-                        <span className="ml-auto text-[9px] opacity-60">
+                        <span className="ml-auto text-[9px]" style={{ color: active ? '#e2e8f0' : '#64748b', opacity: active ? 0.92 : 0.7 }}>
                           {reports.filter((r) => r.severity.toUpperCase() === s).length}
                         </span>
                       </button>
@@ -945,9 +946,9 @@ export default function ZafiyetTaramasiPage() {
                 </div>
               </div>
 
-              <div>
+              <div className="rounded-xl border border-white/5 bg-[#0b0714]/60 p-3 sm:p-3.5">
                 <div className="mb-2 text-[9px] uppercase tracking-widest text-slate-600">Rapor Durumu</div>
-                <div className="space-y-1">
+                <div className="grid grid-cols-3 gap-1.5">
                   {([
                     ['active', 'Aktif'],
                     ['archived', 'Arşiv'],
@@ -958,14 +959,15 @@ export default function ZafiyetTaramasiPage() {
                       <button
                         key={value}
                         onClick={() => setReportStatus(value)}
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-[10px] transition-all"
+                        className="flex w-full items-center justify-center gap-2 rounded-md px-2 py-2 text-[10px] transition-all"
                         style={{
-                          border: active ? '1px solid rgba(34,197,94,0.35)' : '1px solid transparent',
-                          background: active ? 'rgba(34,197,94,0.08)' : 'transparent',
-                          color: active ? '#86efac' : '#475569',
+                          border: active ? '1px solid rgba(34,197,94,0.45)' : '1px solid rgba(30,41,59,0.28)',
+                          background: active ? 'rgba(4,18,10,0.92)' : 'rgba(2,6,23,0.12)',
+                          color: active ? '#bbf7d0' : '#64748b',
+                          boxShadow: active ? 'inset 3px 0 0 rgba(34,197,94,0.9), inset 0 0 0 1px rgba(34,197,94,0.12)' : 'none',
                         }}
                       >
-                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: active ? '#22c55e' : '#334155' }} />
+                        <span className="hidden h-2 w-2 shrink-0 rounded-full sm:block" style={{ background: active ? '#22c55e' : '#334155' }} />
                         {label}
                       </button>
                     );
@@ -974,31 +976,43 @@ export default function ZafiyetTaramasiPage() {
               </div>
 
               {allTags.length > 0 && (
-                <div>
-                  <div className="mb-2 text-[9px] uppercase tracking-widest text-slate-600">Etiket Ara</div>
-                  <input
-                    value={tagFilter}
-                    onChange={(e) => setTagFilter(e.target.value)}
-                    placeholder="rce, sqli..."
-                    className="w-full rounded border border-violet-900/40 bg-[#0a0015] px-2 py-1.5 text-[10px] text-slate-300 transition-colors placeholder-slate-700 focus:border-violet-500/50 focus:outline-none"
-                  />
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {allTags.slice(0, 10).map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setTagFilter(t)}
-                        className="rounded border border-violet-900/30 px-1.5 py-0.5 text-[9px] text-slate-600 transition-colors hover:border-violet-500/40 hover:text-violet-400"
-                      >
-                        {t}
-                      </button>
-                    ))}
+                <div className="rounded-xl border border-white/5 bg-[#0b0714]/60 p-3 sm:p-3.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowTagFilters((prev) => !prev)}
+                    className="flex w-full items-center justify-between text-left sm:hidden"
+                  >
+                    <span className="text-[9px] uppercase tracking-widest text-slate-600">Etiket Ara</span>
+                    <span className="rounded-full border border-violet-900/30 px-2 py-0.5 text-[9px] text-violet-300">
+                      {showTagFilters ? 'Gizle' : 'Aç'}
+                    </span>
+                  </button>
+                  <div className={`sm:block ${showTagFilters ? 'mt-3 block' : 'hidden'}`}>
+                    <div className="mb-2 hidden text-[9px] uppercase tracking-widest text-slate-600 sm:block">Etiket Ara</div>
+                    <input
+                      value={tagFilter}
+                      onChange={(e) => setTagFilter(e.target.value)}
+                      placeholder="rce, sqli..."
+                      className="w-full rounded border border-violet-900/40 bg-[#0a0015] px-2 py-1.5 text-[10px] text-slate-300 transition-colors placeholder-slate-700 focus:border-violet-500/50 focus:outline-none"
+                    />
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {allTags.slice(0, 10).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setTagFilter(t)}
+                          className="rounded border border-violet-900/30 px-1.5 py-0.5 text-[9px] text-slate-600 transition-colors hover:border-violet-500/40 hover:text-violet-400"
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
 
               <button
                 onClick={() => setActiveTab('history')}
-                className="w-full rounded border border-white/5 px-2 py-1.5 text-left text-[9px] text-slate-700 transition-colors hover:border-orange-500/20 hover:text-orange-400"
+                className="w-full rounded-lg border border-white/5 bg-[#0b0714]/40 px-2.5 py-2 text-left text-[9px] text-slate-700 transition-colors hover:border-orange-500/20 hover:text-orange-400"
               >
                 Tarihsel veritabanını gör {'->'}
               </button>
@@ -1033,9 +1047,20 @@ export default function ZafiyetTaramasiPage() {
                     <div
                       key={r.id}
                       className="flex cursor-pointer flex-col rounded-lg border p-4 transition-all hover:scale-[1.01]"
-                      style={{ borderColor: `${col}25`, background: `${col}06` }}
-                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${col}55`)}
-                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = `${col}25`)}
+                      style={{
+                        borderColor: `${col}30`,
+                        background:
+                          'linear-gradient(180deg, rgba(14,8,24,0.96), rgba(10,6,19,0.94))',
+                        boxShadow: `inset 3px 0 0 ${col}, inset 0 0 0 1px ${col}10`,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = `${col}55`
+                        e.currentTarget.style.boxShadow = `inset 3px 0 0 ${col}, inset 0 0 0 1px ${col}16, 0 10px 26px rgba(0,0,0,0.18)`
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = `${col}30`
+                        e.currentTarget.style.boxShadow = `inset 3px 0 0 ${col}, inset 0 0 0 1px ${col}10`
+                      }}
                       onClick={() => setSelected(r)}
                     >
                       <div className="mb-2 flex items-center justify-between gap-2">
@@ -1101,6 +1126,7 @@ export default function ZafiyetTaramasiPage() {
     </div>
   );
 }
+
 
 
 
