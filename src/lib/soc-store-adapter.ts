@@ -1,7 +1,9 @@
 ﻿import * as memoryStore from '@/lib/soc-store-memory'
+import * as supabasePostgresStore from '@/lib/soc-store-supabase-postgres'
 import * as supabaseStore from '@/lib/soc-store-supabase'
 import { isSupabaseAppStateEnabled } from '@/lib/supabase-app-state'
 import { getSupabaseAttackMetrics, isSupabaseAttackStoreEnabled, recordAttackEventToSupabase } from '@/lib/supabase-attack-metrics'
+import { isSupabaseProductDbEnabled } from '@/lib/supabase-product-db'
 import type { AttackEventInput, LiveMetrics } from '@/lib/soc-store-memory'
 
 type StoreModule = typeof import('@/lib/soc-store-memory')
@@ -15,9 +17,17 @@ let activeStorageMode: StorageMode = requestedStorageMode === 'sqlite' ? 'sqlite
 const allowCriticalMemoryFallback =
   process.env.SOC_ALLOW_CRITICAL_MEMORY_FALLBACK === '1' ||
   process.env.NODE_ENV === 'production'
+const supabaseAppStateEnabled = isSupabaseAppStateEnabled()
+const identityStoreMode = (process.env.SOC_IDENTITY_STORE ?? 'supabase').toLowerCase()
+const useSupabaseJsonDomains =
+  supabaseAppStateEnabled &&
+  identityStoreMode !== 'disabled'
 const useSupabaseIdentityStore =
-  isSupabaseAppStateEnabled() &&
-  (process.env.SOC_IDENTITY_STORE ?? 'supabase').toLowerCase() !== 'disabled'
+  identityStoreMode === 'supabase' &&
+  useSupabaseJsonDomains
+const useSupabasePostgresIdentityStore =
+  identityStoreMode === 'postgres' &&
+  isSupabaseProductDbEnabled()
 
 let sqliteStorePromise: Promise<StoreModule> | null = null
 
@@ -64,7 +74,7 @@ async function withStore<T>(
 }
 
 export async function writeAuditLog(...args: Parameters<StoreModule['writeAuditLog']>) {
-  if (useSupabaseIdentityStore) {
+  if (useSupabaseJsonDomains) {
     return supabaseStore.writeAuditLog(...args)
   }
   return withStore('writeAuditLog', (store) => store.writeAuditLog(...args))
@@ -73,6 +83,9 @@ export async function writeAuditLog(...args: Parameters<StoreModule['writeAuditL
 export async function cleanupExpiredSessions(
   ...args: Parameters<StoreModule['cleanupExpiredSessions']>
 ) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.cleanupExpiredSessions(...args)
+  }
   if (useSupabaseIdentityStore) {
     return supabaseStore.cleanupExpiredSessions(...args)
   }
@@ -82,6 +95,9 @@ export async function cleanupExpiredSessions(
 export async function authenticateUser(
   ...args: Parameters<StoreModule['authenticateUser']>
 ) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.authenticateUser(...args)
+  }
   if (useSupabaseIdentityStore) {
     return supabaseStore.authenticateUser(...args)
   }
@@ -91,6 +107,9 @@ export async function authenticateUser(
 }
 
 export async function createSession(...args: Parameters<StoreModule['createSession']>) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.createSession(...args)
+  }
   if (useSupabaseIdentityStore) {
     return supabaseStore.createSession(...args)
   }
@@ -100,6 +119,9 @@ export async function createSession(...args: Parameters<StoreModule['createSessi
 }
 
 export async function deleteSession(...args: Parameters<StoreModule['deleteSession']>) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.deleteSession(...args)
+  }
   if (useSupabaseIdentityStore) {
     return supabaseStore.deleteSession(...args)
   }
@@ -111,6 +133,9 @@ export async function deleteSession(...args: Parameters<StoreModule['deleteSessi
 export async function getSessionByToken(
   ...args: Parameters<StoreModule['getSessionByToken']>
 ) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.getSessionByToken(...args)
+  }
   if (useSupabaseIdentityStore) {
     return supabaseStore.getSessionByToken(...args)
   }
@@ -122,6 +147,9 @@ export async function getSessionByToken(
 export async function listAssignableUsers(
   ...args: Parameters<StoreModule['listAssignableUsers']>
 ) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.listAssignableUsers(...args)
+  }
   return withStore('listAssignableUsers', (store) => store.listAssignableUsers(...args))
 }
 
@@ -180,21 +208,21 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
 }
 
 export async function listReports(...args: Parameters<StoreModule['listReports']>) {
-  if (useSupabaseIdentityStore) {
+  if (useSupabaseJsonDomains) {
     return supabaseStore.listReports(...args)
   }
   return withStore('listReports', (store) => store.listReports(...args))
 }
 
 export async function createReport(...args: Parameters<StoreModule['createReport']>) {
-  if (useSupabaseIdentityStore) {
+  if (useSupabaseJsonDomains) {
     return supabaseStore.createReport(...args)
   }
   return withStore('createReport', (store) => store.createReport(...args))
 }
 
 export async function archiveReport(...args: Parameters<StoreModule['archiveReport']>) {
-  if (useSupabaseIdentityStore) {
+  if (useSupabaseJsonDomains) {
     return supabaseStore.archiveReport(...args)
   }
   return withStore('archiveReport', (store) => store.archiveReport(...args))
@@ -202,6 +230,9 @@ export async function archiveReport(...args: Parameters<StoreModule['archiveRepo
 
 
 export async function createUser(...args: Parameters<StoreModule['createUser']>) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.createUser(...args)
+  }
   if (useSupabaseIdentityStore) {
     return supabaseStore.createUser(...args)
   }
@@ -211,6 +242,9 @@ export async function createUser(...args: Parameters<StoreModule['createUser']>)
 }
 
 export async function registerUser(...args: Parameters<StoreModule['registerUser']>) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.registerUser(...args)
+  }
   if (useSupabaseIdentityStore) {
     return supabaseStore.registerUser(...args)
   }
@@ -220,7 +254,7 @@ export async function registerUser(...args: Parameters<StoreModule['registerUser
 }
 
 export async function getPortfolioProfile(...args: Parameters<StoreModule['getPortfolioProfile']>) {
-  if (useSupabaseIdentityStore) {
+  if (useSupabaseJsonDomains) {
     return supabaseStore.getPortfolioProfile(...args)
   }
   return withStore('getPortfolioProfile', (store) => store.getPortfolioProfile(...args), {
@@ -231,7 +265,7 @@ export async function getPortfolioProfile(...args: Parameters<StoreModule['getPo
 export async function getPortfolioCertificationById(
   ...args: Parameters<StoreModule['getPortfolioCertificationById']>
 ) {
-  if (useSupabaseIdentityStore) {
+  if (useSupabaseJsonDomains) {
     return supabaseStore.getPortfolioCertificationById(...args)
   }
   return withStore(
@@ -244,7 +278,7 @@ export async function getPortfolioCertificationById(
 export async function updatePortfolioProfile(
   ...args: Parameters<StoreModule['updatePortfolioProfile']>
 ) {
-  if (useSupabaseIdentityStore) {
+  if (useSupabaseJsonDomains) {
     return supabaseStore.updatePortfolioProfile(...args)
   }
   return withStore('updatePortfolioProfile', (store) => store.updatePortfolioProfile(...args), {
@@ -255,7 +289,7 @@ export async function updatePortfolioProfile(
 export async function updatePortfolioAvatar(
   ...args: Parameters<StoreModule['updatePortfolioAvatar']>
 ) {
-  if (useSupabaseIdentityStore) {
+  if (useSupabaseJsonDomains) {
     return supabaseStore.updatePortfolioAvatar(...args)
   }
   return withStore('updatePortfolioAvatar', (store) => store.updatePortfolioAvatar(...args), {
@@ -266,7 +300,7 @@ export async function updatePortfolioAvatar(
 export async function createPortfolioCertification(
   ...args: Parameters<StoreModule['createPortfolioCertification']>
 ) {
-  if (useSupabaseIdentityStore) {
+  if (useSupabaseJsonDomains) {
     return supabaseStore.createPortfolioCertification(...args)
   }
   return withStore(
@@ -279,7 +313,7 @@ export async function createPortfolioCertification(
 export async function updatePortfolioCertification(
   ...args: Parameters<StoreModule['updatePortfolioCertification']>
 ) {
-  if (useSupabaseIdentityStore) {
+  if (useSupabaseJsonDomains) {
     return supabaseStore.updatePortfolioCertification(...args)
   }
   return withStore(
@@ -292,7 +326,7 @@ export async function updatePortfolioCertification(
 export async function deletePortfolioCertification(
   ...args: Parameters<StoreModule['deletePortfolioCertification']>
 ) {
-  if (useSupabaseIdentityStore) {
+  if (useSupabaseJsonDomains) {
     return supabaseStore.deletePortfolioCertification(...args)
   }
   return withStore(
@@ -305,7 +339,7 @@ export async function deletePortfolioCertification(
 export async function createPortfolioEducation(
   ...args: Parameters<StoreModule['createPortfolioEducation']>
 ) {
-  if (useSupabaseIdentityStore) {
+  if (useSupabaseJsonDomains) {
     return supabaseStore.createPortfolioEducation(...args)
   }
   return withStore(
@@ -318,7 +352,7 @@ export async function createPortfolioEducation(
 export async function updatePortfolioEducation(
   ...args: Parameters<StoreModule['updatePortfolioEducation']>
 ) {
-  if (useSupabaseIdentityStore) {
+  if (useSupabaseJsonDomains) {
     return supabaseStore.updatePortfolioEducation(...args)
   }
   return withStore(
@@ -331,7 +365,7 @@ export async function updatePortfolioEducation(
 export async function deletePortfolioEducation(
   ...args: Parameters<StoreModule['deletePortfolioEducation']>
 ) {
-  if (useSupabaseIdentityStore) {
+  if (useSupabaseJsonDomains) {
     return supabaseStore.deletePortfolioEducation(...args)
   }
   return withStore(

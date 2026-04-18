@@ -172,6 +172,35 @@ async function writeUser(user: StoredUser) {
   ])
 }
 
+export async function ensureIdentityShadowUser(input: {
+  id: number
+  username: string
+  displayName: string
+  role: UserRole
+  passwordHash: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}) {
+  const user: StoredUser = {
+    id: input.id,
+    username: input.username,
+    usernameKey: normalizeUsernameKey(input.username),
+    displayName: input.displayName,
+    role: input.role,
+    passwordHash: input.passwordHash,
+    isActive: input.isActive,
+    createdAt: input.createdAt,
+    updatedAt: input.updatedAt,
+  }
+
+  await writeUser(user)
+
+  if (user.isActive) {
+    await ensureProfileSeedDataForUser(user)
+  }
+}
+
 async function ensureSeedUsers() {
   return
 }

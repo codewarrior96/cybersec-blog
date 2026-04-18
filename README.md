@@ -1,227 +1,148 @@
-# CyberSec Blog — SOC Dashboard & Siber Güvenlik Blogu
+﻿# CyberSec Blog
 
-Türkçe içerikli bir siber güvenlik blogu ve tam işlevsel bir **Güvenlik Operasyon Merkezi (SOC) dashboard**'unu birleştiren, eğitim/demo odaklı bir full-stack web uygulaması.
+CyberSec Blog is a Turkish-first cyber security platform built on Next.js. It combines a premium operations dashboard, threat intelligence surfaces, portfolio management, learning flows, and Sentinel reporting into a single product shell.
 
----
+## Product surfaces
 
-## Özellikler
+- `Home`
+  - global threat map
+  - live telemetry stream
+  - response actions and focus cards
+- `Sentinel`
+  - active reports
+  - historical breach database
+  - CVE radar and intelligence views
+- `Community`
+  - learning sets
+  - labs, tools, and CTF surfaces
+- `Portfolio`
+  - operator profile
+  - certifications
+  - education and identity surfaces
 
-### Genel Erişim (Giriş Gerektirmez)
-- Siber güvenlik konularında MDX tabanlı teknik blog yazıları (Türkçe)
-- CVE Radar — NIST NVD API üzerinden güncel zafiyet listesi
-- Breach Timeline — 2003–2024 arası ~40 büyük siber saldırı olayı
-- Portfolio, Roadmap ve Community sayfaları
-- Tam metin blog arama
+## Current architecture
 
-### SOC Dashboard (Anasayfa - Giriş Gerektirir)
-- **Sentinel OS v4.1 Estetiği** — Modern **Bento Grid** mimarisiyle tasarlanmış, karanlık mod (dark theme) ve siber opera estetiği.
-- **Canlı Tehdit Haritası** — Üzerindeki dinamik SVG harita ile dünya genelindeki saldırı akışlarını canlı izleme.
-- **Canlı Saldırı Akışı** — Server-Sent Events (SSE) ile anlık gerçek zamanlı simüle edilen log bildirimleri.
-- **Alert Yönetimi** — Oluşturma, önceliklendirme (P1–P4), atama ve durum takibi.
-- **Sistem İzleme** — Volatile CPU, Network ve Memory yükünü dinamik grafiklerle takip etme.
-- **Gelişmiş Veri Entegrasyonu** — Canlı API'lerden veri çekilerek beslenen dinamik metrik widgetları.
+The app is operational today, but the data layer is still hybrid by design.
 
-### Rol Tabanlı Erişim Kontrolü
-| Rol | Yetkiler |
-|-----|----------|
-| **Admin** | Tam erişim + kullanıcı yönetimi |
-| **Analyst** | Alert oluşturma/güncelleme, rapor yazma |
-| **Viewer** | Yalnızca okuma |
+### Runtime data sources
 
----
+- `Supabase Storage JSON app-state`
+  - users
+  - sessions
+  - profiles
+  - certifications
+  - education
+  - reports
+- `SQLite`
+  - alerts
+  - attack events
+  - legacy operational state
+- `Memory fallback`
+  - local/dev and resilience fallback paths
+- `Supabase attack metrics tables`
+  - selected live attack metric surfaces
 
-## Teknoloji Yığını
+### Strategic direction
 
-| Katman | Teknoloji |
-|--------|-----------|
-| Framework | Next.js 14 (App Router) |
-| Dil | TypeScript 5 |
-| UI | React 18 + Tailwind CSS 3 |
-| Veritabanı | SQLite 3 (dosya tabanlı) |
-| Blog İçeriği | MDX + gray-matter + next-mdx-remote |
-| Kimlik Doğrulama | Session tabanlı (httpOnly cookie) |
-| Parola Güvenliği | scrypt + rastgele salt |
-| Gerçek Zamanlı | Server-Sent Events (SSE) |
-| Dış API'lar | NVD/NIST CVE API, GreyNoise |
-| Deployment | Vercel |
+We are actively moving toward:
 
----
+- `Supabase Postgres` as the single source of truth for product data
+- `Supabase Storage` as file and asset storage only
+- feature-flagged migrations so current behavior stays stable while the database backbone is upgraded
 
-## Veri Tabanı Şeması
+## Phase 1 migration status
 
-```
-users           — Kullanıcı hesapları ve rolleri
-sessions        — Oturum token'ları (30 gün TTL)
-attack_events   — Simüle saldırı olayları (7 gün saklama)
-alerts          — SOC alert kayıtları
-alert_events    — Alert değişiklik geçmişi (event sourcing)
-alert_notes     — Alert yorumları
-audit_logs      — Sistem geneli denetim kaydı
-reports         — Olay/tehdit raporları
-```
+Phase 1 has started.
 
----
+Implemented groundwork:
 
-## Kurulum
+- a documented data flow map and migration master plan
+- a feature-flagged Postgres identity path for:
+  - users
+  - sessions
+- an updated Supabase backbone schema draft that now includes application roles on `identity.users`
+- shadow sync into app-state so profile and report surfaces keep working during the transition
 
-### Gereksinimler
-- Node.js 18+
-- npm veya yarn
+### Current identity store modes
 
-### Adımlar
+The identity layer can now be steered with `SOC_IDENTITY_STORE`:
+
+- `supabase`
+  - current default
+  - uses Supabase Storage JSON app-state for identity-related reads and writes
+- `postgres`
+  - new migration mode
+  - uses Supabase Postgres for users and sessions
+  - keeps profile/report compatibility through shadow sync
+- `disabled`
+  - falls back to sqlite/memory paths
+
+### Identity backfill
+
+Before switching to `SOC_IDENTITY_STORE=postgres`, backfill existing users and sessions:
 
 ```bash
-# 1. Repoyu klonla
-git clone https://github.com/kullanici-adi/cybersec-blog.git
-cd cybersec-blog
+npm run backfill:identity
+npm run backfill:identity -- --apply
+```
 
-# 2. Bağımlılıkları yükle
+The script first runs as a dry-run by default and prints the SQL needed to repair the `identity.users` sequence after apply.
+
+## Core stack
+
+- Next.js 14 App Router
+- React 18
+- TypeScript 5
+- Tailwind CSS 3
+- Supabase (`Storage` today, `Postgres` migration in progress)
+- SQLite (`legacy/hybrid operational persistence`)
+- Vitest
+
+## Environment
+
+Common variables:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_APP_STATE_BUCKET=cybersec-app-state
+SOC_STORAGE=sqlite
+SOC_IDENTITY_STORE=supabase
+SOC_ALLOW_CRITICAL_MEMORY_FALLBACK=0
+GREYNOISE_API_KEY=
+```
+
+## Local development
+
+```bash
 npm install
-
-# 3. Ortam değişkenlerini ayarla
-cp .env.local.example .env.local
-# .env.local dosyasını düzenle (aşağıya bakın)
-
-# 4. Geliştirme sunucusunu başlat
 npm run dev
 ```
 
-Uygulama `http://localhost:3000` adresinde çalışır. İlk çalıştırmada SQLite veritabanı (`data/soc.db`) ve demo kullanıcılar otomatik oluşturulur.
+The app runs on [http://localhost:3000](http://localhost:3000).
 
----
+## Important docs
 
-## Ortam Değişkenleri
+- [Platform backbone plan](./docs/platform-backbone-plan.md)
+- [Data flow map and migration master plan](./docs/data-flow-map-and-migration-plan.md)
+- [Postgres migration execution roadmap](./docs/postgres-migration-execution-roadmap.md)
+- [Supabase backbone schema](./supabase/platform-backbone-v1.sql)
 
-`.env.local` dosyasına aşağıdaki değişkenleri ekleyin:
+## What is intentionally not true anymore
 
-```env
-# GreyNoise tehdit istihbarat API anahtarı (isteğe bağlı)
-GREYNOISE_API_KEY=your_greynoise_api_key_here
+The repository should no longer be described as:
 
-# Vercel deployment (yalnızca production için)
-VERCEL_OIDC_TOKEN=your_vercel_oidc_token
-```
+- SQLite-only
+- demo-user driven
+- "Supabase can be removed"
 
-> NVD CVE API'si anahtar gerektirmez; ücretsiz kullanılabilir.
+Those statements are outdated.
 
----
+## Near-term priorities
 
-## Demo Kullanıcılar
-
-Uygulama ilk çalıştığında aşağıdaki demo hesaplar otomatik oluşturulur:
-
-| Kullanıcı Adı | Şifre | Rol |
-|--------------|-------|-----|
-| `ghost` | `demo_pass` | Admin |
-| `analyst1` | `analyst_pass` | Analyst |
-| `viewer1` | `viewer_pass` | Viewer |
-
-> **Uyarı:** Production ortamında bu şifreleri mutlaka değiştirin.
-
----
-
-## Proje Yapısı
-
-```
-cybersec-blog/
-├── src/
-│   ├── app/
-│   │   ├── api/               # Backend API rotaları
-│   │   │   ├── auth/          # Giriş/çıkış/oturum
-│   │   │   ├── alerts/        # Alert CRUD
-│   │   │   ├── live-attacks/  # SSE saldırı akışı
-│   │   │   ├── metrics/live/  # SOC metrikleri
-│   │   │   ├── cves/          # CVE verileri
-│   │   │   ├── reports/       # Raporlama
-│   │   │   └── users/         # Kullanıcı yönetimi
-│   │   ├── blog/              # Blog sayfaları
-│   │   ├── cve-radar/         # CVE listesi
-│   │   ├── breach-timeline/   # Tarihsel olaylar
-│   │   ├── portfolio/
-│   │   ├── roadmap/
-│   │   └── community/
-│   ├── components/
-│   │   ├── dashboard/         # Yeni Sentinel Dashboard Dosyaları
-│   │   │   ├── DashboardLayout.tsx
-│   │   ├── OperatorSidebar.tsx
-│   │   ├── MatrixRain.tsx     # Matrix animasyonu
-│   ├── content/
-│   │   └── posts/             # MDX blog yazıları
-│   └── lib/
-│       ├── db.ts              # SQLite başlatma ve şema
-│       ├── soc-store-adapter.ts  # Veri erişim katmanı
-│       ├── auth-server.ts     # Sunucu tarafı auth
-│       ├── security.ts        # Parola hash fonksiyonları
-│       ├── breachData.ts      # Tarihsel breach verileri
-│       └── soc-types.ts       # TypeScript tip tanımları
-├── public/
-├── middleware.ts
-├── next.config.mjs
-└── tailwind.config.ts
-```
-
----
-
-## Blog Yazısı Ekleme
-
-`src/content/posts/` dizinine `.mdx` uzantılı dosya oluşturun:
-
-```mdx
----
-title: "Yazı Başlığı"
-date: "2025-01-15"
-excerpt: "Kısa açıklama"
-tags: ["web", "güvenlik"]
----
-
-# İçerik buraya gelir
-
-MDX destekli tam içerik...
-```
-
----
-
-## API Rotaları
-
-| Rota | Method | Auth | Açıklama |
-|------|--------|------|----------|
-| `/api/auth/login` | POST | Hayır | Oturum açma |
-| `/api/auth/logout` | POST | Evet | Oturum kapatma |
-| `/api/auth/session` | GET | Hayır | Oturum kontrolü |
-| `/api/alerts` | GET/POST | Evet | Alert listele/oluştur |
-| `/api/alerts/[id]` | PATCH | Analyst+ | Alert güncelle |
-| `/api/live-attacks` | GET (SSE) | Evet | Canlı saldırı akışı |
-| `/api/metrics/live` | GET | Evet | SOC metrikleri |
-| `/api/cves` | GET | Hayır | CVE listesi (NVD) |
-| `/api/reports` | GET/POST/DELETE | Evet | Rapor yönetimi |
-| `/api/users` | GET/POST | Admin | Kullanıcı yönetimi |
-
----
-
-## Güvenlik
-
-- **Oturum yönetimi**: httpOnly cookie, 30 gün TTL, otomatik temizleme
-- **Parola**: scrypt algoritması + rastgele salt + timing-safe karşılaştırma
-- **Denetim kaydı**: Tüm kritik aksiyonlar IP ve user-agent ile loglanır
-- **RBAC**: Her API rotasında rol kontrolü yapılır
-- **Alert geçmişi**: Her durum değişikliği event sourcing ile saklanır
-
----
-
-## Production'a Geçiş Notları
-
-Bu proje demo/eğitim amaçlıdır. Production ortamı için önerilen adımlar:
-
-- [ ] SQLite → PostgreSQL geçişi (Drizzle ORM veya Prisma ile migration yönetimi)
-- [ ] Demo şifrelerin değiştirilmesi
-- [ ] API rotalarına rate limiting eklenmesi (örn. Upstash Redis)
-- [ ] Sık sorgulanan sütunlara DB index eklenmesi
-- [ ] Supabase paketinin kaldırılması (kullanılmıyor)
-- [ ] HTTPS ve HSTS zorunlu hale getirilmesi
-- [ ] Otomatik DB yedekleme stratejisi belirlenmesi
-
----
-
-## Lisans
-
-Bu proje eğitim ve kişisel portfolyo amaçlıdır.
+1. migrate identity and sessions to Postgres safely
+2. migrate portfolio/profile data to Postgres
+3. migrate reports to Postgres
+4. unify telemetry, incidents, and reports into one operational graph
+5. keep Storage limited to binary assets only
