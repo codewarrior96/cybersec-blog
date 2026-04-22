@@ -20,6 +20,17 @@ function parsePriority(value: string | null): AlertPriority | undefined {
   return (PRIORITIES as string[]).includes(value) ? (value as AlertPriority) : undefined
 }
 
+const DEFAULT_LIMIT = 12
+const MIN_LIMIT = 1
+const MAX_LIMIT = 100
+
+function parsePositiveInt(value: string | null): number | undefined {
+  if (!value) return undefined
+  const n = Number(value)
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return undefined
+  return n
+}
+
 export async function GET(request: NextRequest) {
   const guard = await requireSession(request)
   if (guard.response) return guard.response
@@ -27,23 +38,29 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams
   const status = parseStatus(params.get('status'))
   const priority = parsePriority(params.get('priority'))
-  const limit = Number(params.get('limit') ?? '12')
-  const cursor = params.get('cursor')
-  const assignee = params.get('assignee')
+
+  const rawLimit = Number(params.get('limit') ?? DEFAULT_LIMIT)
+  const limit =
+    Number.isFinite(rawLimit) && rawLimit > 0
+      ? Math.min(MAX_LIMIT, Math.max(MIN_LIMIT, Math.trunc(rawLimit)))
+      : DEFAULT_LIMIT
+
+  const cursor = parsePositiveInt(params.get('cursor'))
+
+  const assigneeParam = params.get('assignee')
+  const assignee =
+    assigneeParam === 'me'
+      ? 'me'
+      : assigneeParam === 'unassigned'
+        ? 'unassigned'
+        : parsePositiveInt(assigneeParam)
 
   const result = await listAlerts({
     status,
     priority,
-    limit: Number.isFinite(limit) ? limit : 12,
-    cursor: cursor && Number.isFinite(Number(cursor)) ? Number(cursor) : undefined,
-    assignee:
-      assignee === 'me'
-        ? 'me'
-        : assignee === 'unassigned'
-          ? 'unassigned'
-          : assignee && Number.isFinite(Number(assignee))
-            ? Number(assignee)
-            : undefined,
+    limit,
+    cursor,
+    assignee,
     meUserId: guard.session?.user.id,
   })
 

@@ -20,7 +20,14 @@ const UNAUTH_STATE: AuthSessionState = {
   user: null,
 }
 
+const AUTH_CACHE_TTL_MS = 60_000
+
 let authCache: AuthSessionState | null = null
+let authCacheAt = 0
+
+function isCacheFresh(): boolean {
+  return authCache !== null && Date.now() - authCacheAt < AUTH_CACHE_TTL_MS
+}
 
 function dispatchAuthChanged() {
   if (typeof document === 'undefined') return
@@ -32,7 +39,7 @@ export function readAuthStatus(): boolean {
 }
 
 export async function getAuthSession(force = false): Promise<AuthSessionState> {
-  if (!force && authCache) return authCache
+  if (!force && isCacheFresh() && authCache) return authCache
 
   try {
     const response = await fetch('/api/auth/session', {
@@ -42,10 +49,8 @@ export async function getAuthSession(force = false): Promise<AuthSessionState> {
     })
 
     if (!response.ok) {
-      if (response.status >= 500 && authCache?.authenticated) {
-        return authCache
-      }
       authCache = UNAUTH_STATE
+      authCacheAt = Date.now()
       return UNAUTH_STATE
     }
 
@@ -60,22 +65,25 @@ export async function getAuthSession(force = false): Promise<AuthSessionState> {
           user: payload.user ?? null,
         }
       : UNAUTH_STATE
+    authCacheAt = Date.now()
   } catch {
-    if (authCache?.authenticated) {
-      return authCache
-    }
     authCache = UNAUTH_STATE
+    authCacheAt = Date.now()
   }
 
   return authCache
 }
 
-export async function loginWithPassword(username: string, password: string): Promise<LoginResult> {
+export async function loginWithPassword(
+  username: string,
+  password: string,
+  options: { remember?: boolean } = {},
+): Promise<LoginResult> {
   const response = await fetch('/api/auth/login', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, password, remember: options.remember !== false }),
   })
 
   if (!response.ok) {

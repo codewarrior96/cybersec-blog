@@ -69,21 +69,47 @@ function extractLink(itemXml: string): string {
   return '';
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp:   '&',
+  lt:    '<',
+  gt:    '>',
+  quot:  '"',
+  apos:  "'",
+  nbsp:  ' ',
+  copy:  '\u00a9',
+  reg:   '\u00ae',
+  trade: '\u2122',
+  hellip:'\u2026',
+  mdash: '\u2014',
+  ndash: '\u2013',
+  lsquo: '\u2018',
+  rsquo: '\u2019',
+  ldquo: '\u201c',
+  rdquo: '\u201d',
+};
+
+function decodeNumericEntity(body: string): string {
+  const isHex = body.startsWith('x') || body.startsWith('X');
+  const codePoint = isHex ? parseInt(body.slice(1), 16) : parseInt(body, 10);
+  if (!Number.isFinite(codePoint) || codePoint < 0 || codePoint > 0x10ffff) return '';
+  try {
+    return String.fromCodePoint(codePoint);
+  } catch {
+    return '';
+  }
+}
+
 /** Strips HTML tags and decodes common entities */
 function cleanText(raw: string): string {
-  return raw
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&amp;/g,   '&')
-    .replace(/&lt;/g,    '<')
-    .replace(/&gt;/g,    '>')
-    .replace(/&quot;/g,  '"')
-    .replace(/&#39;/g,   "'")
-    .replace(/&apos;/g,  "'")
-    .replace(/&nbsp;/g,  ' ')
-    .replace(/&#\d+;/g,  '')
-    .replace(/&[a-z]+;/g,'')
-    .replace(/\s+/g,     ' ')
-    .trim();
+  const withoutTags = raw.replace(/<[^>]*>/g, ' ');
+  const decoded = withoutTags.replace(/&(#?[a-zA-Z0-9]+);/g, (match, entity: string) => {
+    if (entity.startsWith('#')) {
+      return decodeNumericEntity(entity.slice(1));
+    }
+    const key = entity.toLowerCase();
+    return NAMED_ENTITIES[key] ?? match;
+  });
+  return decoded.replace(/\s+/g, ' ').trim();
 }
 
 /** Parses pubDate to ISO string; returns current time on failure */

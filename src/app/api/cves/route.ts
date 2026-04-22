@@ -66,11 +66,27 @@ function formatNVDDate(date: Date): string {
   return date.toISOString().replace(/\.\d{3}Z$/, '.000');
 }
 
+const ALLOWED_SEVERITIES = new Set(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
+const MAX_DAYS = 120;
+const MIN_DAYS = 1;
+const DEFAULT_DAYS = 7;
+const MAX_KEYWORD_LENGTH = 128;
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const severity = searchParams.get('severity');
-  const keyword = searchParams.get('keyword');
-  const days = parseInt(searchParams.get('days') ?? '7', 10);
+  const severityRaw = searchParams.get('severity');
+  const severity =
+    severityRaw && ALLOWED_SEVERITIES.has(severityRaw.toUpperCase())
+      ? severityRaw.toUpperCase()
+      : null;
+
+  const keywordRaw = searchParams.get('keyword')?.trim() ?? '';
+  const keyword = keywordRaw.length > 0 && keywordRaw.length <= MAX_KEYWORD_LENGTH ? keywordRaw : null;
+
+  const parsedDays = parseInt(searchParams.get('days') ?? String(DEFAULT_DAYS), 10);
+  const days = Number.isFinite(parsedDays)
+    ? Math.min(MAX_DAYS, Math.max(MIN_DAYS, parsedDays))
+    : DEFAULT_DAYS;
 
   const endDate = new Date();
   const startDate = new Date();

@@ -112,7 +112,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
     setLoading(true)
     setError(null)
     try {
-      const result = await loginWithPassword(username.trim(), password)
+      const result = await loginWithPassword(username.trim(), password, { remember })
       if (!result.ok) {
         setError(result.error ?? 'ACCESS DENIED - INVALID CREDENTIALS')
         return

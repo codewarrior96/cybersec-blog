@@ -16,8 +16,14 @@ interface PatchBody {
   action?: unknown
 }
 
+const ALLOWED_SEVERITIES = new Set(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
+const MAX_TITLE_LENGTH = 200
+const MAX_CONTENT_LENGTH = 50_000
+const MAX_TAGS = 20
+const MAX_TAG_LENGTH = 40
+
 function hasBrokenEncoding(value: string) {
-  return value.includes('uFFFD')
+  return value.includes('\uFFFD')
 }
 
 function parseReportStatus(value: string | null): ReportStatus | 'all' {
@@ -25,14 +31,26 @@ function parseReportStatus(value: string | null): ReportStatus | 'all' {
   return 'active'
 }
 
+function parseSeverity(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const upper = value.toUpperCase()
+  return ALLOWED_SEVERITIES.has(upper) ? upper : null
+}
+
+function parsePositiveInt(value: unknown): number | null {
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return null
+  return n
+}
+
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit') ?? 20)))
-  const cursorParam = searchParams.get('cursor')
-  const cursor = cursorParam != null ? Number(cursorParam) : undefined
+  const limitRaw = Number(searchParams.get('limit') ?? 20)
+  const limit = Number.isFinite(limitRaw) ? Math.min(50, Math.max(1, Math.trunc(limitRaw))) : 20
+  const cursor = parsePositiveInt(searchParams.get('cursor')) ?? undefined
   const status = parseReportStatus(searchParams.get('status'))
 
   const result = await listReports({ limit, cursor, status })
@@ -50,13 +68,32 @@ export async function POST(request: NextRequest) {
 
   const title = typeof body.title === 'string' ? body.title.trim() : ''
   const content = typeof body.content === 'string' ? body.content.trim() : ''
-  const severity = typeof body.severity === 'string' ? body.severity : 'LOW'
+  const severity = parseSeverity(body.severity) ?? 'LOW'
   const tags = Array.isArray(body.tags)
-    ? (body.tags as unknown[]).filter((item): item is string => typeof item === 'string')
+    ? (body.tags as unknown[])
+        .filter((item): item is string => typeof item === 'string')
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0 && tag.length <= MAX_TAG_LENGTH)
+        .slice(0, MAX_TAGS)
     : []
 
   if (!title || !content) {
     return NextResponse.json({ error: 'title and content required' }, { status: 400 })
+  }
+
+  if (title.length > MAX_TITLE_LENGTH) {
+    return NextResponse.json({ error: `title max ${MAX_TITLE_LENGTH} karakter.` }, { status: 400 })
+  }
+
+  if (content.length > MAX_CONTENT_LENGTH) {
+    return NextResponse.json({ error: `content max ${MAX_CONTENT_LENGTH} karakter.` }, { status: 400 })
+  }
+
+  if (body.severity !== undefined && parseSeverity(body.severity) === null) {
+    return NextResponse.json(
+      { error: 'severity LOW, MEDIUM, HIGH veya CRITICAL olmali.' },
+      { status: 400 },
+    )
   }
 
   if (hasBrokenEncoding(title) || hasBrokenEncoding(content) || tags.some(hasBrokenEncoding)) {
@@ -86,10 +123,10 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = (await request.json().catch(() => ({}))) as PatchBody
-  const id = typeof body.id === 'number' ? body.id : Number(body.id)
+  const id = parsePositiveInt(body.id)
   const action = typeof body.action === 'string' ? body.action : ''
 
-  if (!Number.isFinite(id)) {
+  if (id === null) {
     return NextResponse.json({ error: 'invalid id' }, { status: 400 })
   }
 

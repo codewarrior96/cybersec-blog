@@ -24,6 +24,56 @@ const ALLOWED_AVATAR_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/web
 const MAX_CERTIFICATION_ASSET_BYTES = 10 * 1024 * 1024
 const MAX_AVATAR_ASSET_BYTES = 5 * 1024 * 1024
 
+function detectMagicMimeType(buffer: Buffer): string | null {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'image/jpeg'
+  }
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return 'image/png'
+  }
+  if (
+    buffer.length >= 12 &&
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46 &&
+    buffer[8] === 0x57 &&
+    buffer[9] === 0x45 &&
+    buffer[10] === 0x42 &&
+    buffer[11] === 0x50
+  ) {
+    return 'image/webp'
+  }
+  if (
+    buffer.length >= 5 &&
+    buffer[0] === 0x25 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x44 &&
+    buffer[3] === 0x46 &&
+    buffer[4] === 0x2d
+  ) {
+    return 'application/pdf'
+  }
+  return null
+}
+
+function assertMagicMatches(buffer: Buffer, declaredMime: string, allowed: Set<string>): void {
+  const actualMime = detectMagicMimeType(buffer)
+  if (!actualMime || !allowed.has(actualMime) || actualMime !== declaredMime) {
+    throw new Error('Dosya icerigi beyan edilen turle eslesmiyor.')
+  }
+}
+
 export interface StoredCertificationAsset {
   assetPath: string
   assetName: string
@@ -85,6 +135,7 @@ export async function saveCertificationAsset(
   const extension = getFileExtension(file.name, mimeType)
   const fileName = `${Date.now()}-${randomUUID()}-${safeBaseName}${extension}`
   const buffer = Buffer.from(await file.arrayBuffer())
+  assertMagicMatches(buffer, mimeType, ALLOWED_CERTIFICATION_MIME_TYPES)
   const assetPath = path.posix.join('certifications', userSegment, fileName)
 
   if (isSupabaseAppStateEnabled()) {
@@ -125,6 +176,7 @@ export async function saveAvatarAsset(
   const extension = getFileExtension(file.name, mimeType)
   const fileName = `${Date.now()}-${randomUUID()}-${safeBaseName}${extension}`
   const buffer = Buffer.from(await file.arrayBuffer())
+  assertMagicMatches(buffer, mimeType, ALLOWED_AVATAR_MIME_TYPES)
   const assetPath = path.posix.join('avatars', userSegment, fileName)
 
   if (isSupabaseAppStateEnabled()) {

@@ -115,6 +115,7 @@ interface InternalAlert {
   createdAt: string
   updatedAt: string
   resolvedAt: string | null
+  firstResponseAt: string | null
 }
 
 interface InternalAttackEvent {
@@ -502,6 +503,7 @@ function toAlertRecord(alert: InternalAlert): AlertRecord {
     createdAt: alert.createdAt,
     updatedAt: alert.updatedAt,
     resolvedAt: alert.resolvedAt,
+    firstResponseAt: alert.firstResponseAt,
     noteCount: noteCountByAlertId(alert.id),
     ageMinutes: toAgeMinutes(alert.createdAt),
   }
@@ -533,6 +535,7 @@ export interface AlertRecord {
   createdAt: string
   updatedAt: string
   resolvedAt: string | null
+  firstResponseAt: string | null
   noteCount: number
   ageMinutes: number
 }
@@ -803,21 +806,25 @@ export async function createAlert(input: {
   const now = toIsoNow()
   const id = store.counters.alertId++
 
+  const initialStatus = input.status ?? 'new'
+  const initialAssignee = input.assigneeId ?? null
+  const hasInitialResponse = initialStatus !== 'new' || initialAssignee != null
   const alert: InternalAlert = {
     id,
     title: input.title,
     description: input.description,
-    status: input.status ?? 'new',
+    status: initialStatus,
     priority: input.priority,
     sourceEventId: input.sourceEventId ?? null,
     sourceIp: input.sourceIp ?? null,
     sourceCountry: input.sourceCountry ?? null,
     attackType: input.attackType ?? null,
-    assigneeUserId: input.assigneeId ?? null,
+    assigneeUserId: initialAssignee,
     createdByUserId: input.createdByUserId ?? null,
     createdAt: now,
     updatedAt: now,
-    resolvedAt: input.status === 'resolved' ? now : null,
+    resolvedAt: initialStatus === 'resolved' ? now : null,
+    firstResponseAt: hasInitialResponse ? now : null,
   }
   store.alerts.push(alert)
 
@@ -880,11 +887,18 @@ export async function patchAlert(
     resolvedAt = null
   }
 
+  const statusChanged = nextStatus !== alert.status
+  const assigneeChanged = (nextAssigneeId ?? null) !== alert.assigneeUserId
+  const now = toIsoNow()
+
   alert.status = nextStatus
   alert.priority = nextPriority
   alert.assigneeUserId = nextAssigneeId ?? null
   alert.resolvedAt = resolvedAt
-  alert.updatedAt = toIsoNow()
+  alert.updatedAt = now
+  if (!alert.firstResponseAt && (statusChanged || assigneeChanged)) {
+    alert.firstResponseAt = now
+  }
 
   if (patch.note && patch.note.trim()) {
     store.alertNotes.push({
@@ -925,7 +939,13 @@ export async function purgeOldAttackEvents() {
   store.attackEvents = store.attackEvents.filter((event) => new Date(event.occurredAt).getTime() >= cutoff)
 }
 
+const VALID_ATTACK_SEVERITIES: ReadonlySet<AttackSeverity> = new Set(['critical', 'high', 'low'])
+
 export async function recordAttackEvent(input: AttackEventInput): Promise<void> {
+  if (!VALID_ATTACK_SEVERITIES.has(input.severity)) {
+    throw new Error(`Invalid attack severity: ${String(input.severity)}`)
+  }
+
   const store = getStore()
   const now = toIsoNow()
   const attackId = store.counters.attackId++
@@ -1041,6 +1061,21 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
       ? 0
       : resolvedDurations.reduce((sum, item) => sum + item, 0) / resolvedDurations.length
 
+  const p1FirstResponseDurations = store.alerts
+    .filter((alert) => alert.priority === 'P1' && alert.firstResponseAt)
+    .map((alert) => {
+      const start = new Date(alert.createdAt).getTime()
+      const end = new Date(alert.firstResponseAt as string).getTime()
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null
+      return (end - start) / 60000
+    })
+    .filter((value): value is number => value != null)
+
+  const p1FirstResponseMinutes =
+    p1FirstResponseDurations.length === 0
+      ? 0
+      : p1FirstResponseDurations.reduce((sum, item) => sum + item, 0) / p1FirstResponseDurations.length
+
   let breachCount = 0
   for (const alert of openAlerts) {
     const ageMinutes = toAgeMinutes(alert.createdAt)
@@ -1065,7 +1100,7 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
     },
     triageBoard: triage,
     sla: {
-      p1FirstResponseMinutes: 0,
+      p1FirstResponseMinutes: Number(p1FirstResponseMinutes.toFixed(1)),
       avgResolutionMinutes: Number(avgResolutionMinutes.toFixed(1)),
       breachCount,
     },

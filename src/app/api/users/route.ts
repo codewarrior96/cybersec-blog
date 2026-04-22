@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireRole, requireSession } from '@/lib/api-auth'
 import { getRequestMetadata } from '@/lib/auth-server'
 import { getReservedUsernameError, isReservedUsername } from '@/lib/identity-rules'
+import {
+  getDisplayNameError,
+  getPasswordError,
+  getUsernameFormatError,
+  isAllowedUsername,
+  isValidDisplayName,
+  isValidPassword,
+} from '@/lib/identity-validation'
 import { hashPassword } from '@/lib/security'
 import { createUser, listAssignableUsers } from '@/lib/soc-store-adapter'
 import type { UserRole } from '@/lib/soc-types'
@@ -43,8 +51,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'username, displayName, password ve role zorunlu.' }, { status: 400 })
   }
 
+  if (!isAllowedUsername(username)) {
+    return NextResponse.json({ error: getUsernameFormatError() }, { status: 400 })
+  }
+
   if (isReservedUsername(username)) {
     return NextResponse.json({ error: getReservedUsernameError() }, { status: 400 })
+  }
+
+  if (!isValidDisplayName(displayName)) {
+    return NextResponse.json({ error: getDisplayNameError() }, { status: 400 })
+  }
+
+  if (!isValidPassword(password)) {
+    return NextResponse.json({ error: getPasswordError() }, { status: 400 })
   }
 
   try {

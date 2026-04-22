@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { SESSION_COOKIE_NAME } from '@/lib/auth-shared'
+import { getClientIp } from '@/lib/client-ip'
 import { getSessionByToken } from '@/lib/soc-store-adapter'
 import type { RequestMetadata, SessionRecord } from '@/lib/soc-store-adapter'
 
@@ -29,14 +30,9 @@ export async function getServerSessionFromRequest(request: NextRequest): Promise
 }
 
 export function getRequestMetadata(request: NextRequest): RequestMetadata {
-  const forwardedFor = request.headers.get('x-forwarded-for')
-  const ipAddress =
-    forwardedFor?.split(',')[0]?.trim() ??
-    request.headers.get('x-real-ip') ??
-    null
-
+  const ip = getClientIp(request)
   return {
-    ipAddress,
+    ipAddress: ip === 'unknown' ? null : ip,
     userAgent: request.headers.get('user-agent'),
   }
 }

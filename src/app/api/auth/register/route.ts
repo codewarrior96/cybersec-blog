@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { SESSION_COOKIE_MAX_AGE_SECONDS, SESSION_COOKIE_NAME } from '@/lib/auth-shared'
 import { getRequestMetadata } from '@/lib/auth-server'
 import { getReservedUsernameError, isReservedUsername } from '@/lib/identity-rules'
+import {
+  getDisplayNameError,
+  getPasswordError,
+  getUsernameFormatError,
+  isAllowedUsername,
+  isValidDisplayName,
+  isValidPassword,
+} from '@/lib/identity-validation'
 import { hashPassword } from '@/lib/security'
 import { createSession, registerUser } from '@/lib/soc-store-adapter'
 
@@ -15,10 +23,6 @@ interface RegisterBody {
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-function isAllowedUsername(username: string): boolean {
-  return /^[a-zA-Z0-9_.-]{3,32}$/.test(username)
-}
-
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as RegisterBody
   const username = typeof body.username === 'string' ? body.username.trim() : ''
@@ -31,22 +35,19 @@ export async function POST(request: NextRequest) {
   }
 
   if (!isAllowedUsername(username)) {
-    return NextResponse.json(
-      { error: 'Kullanici adi 3-32 karakter olmali ve sadece harf, rakam, nokta, tire veya alt cizgi icermeli.' },
-      { status: 400 },
-    )
+    return NextResponse.json({ error: getUsernameFormatError() }, { status: 400 })
   }
 
   if (isReservedUsername(username)) {
     return NextResponse.json({ error: getReservedUsernameError() }, { status: 400 })
   }
 
-  if (displayName.length < 2) {
-    return NextResponse.json({ error: 'Gorunen ad en az 2 karakter olmali.' }, { status: 400 })
+  if (!isValidDisplayName(displayName)) {
+    return NextResponse.json({ error: getDisplayNameError() }, { status: 400 })
   }
 
-  if (password.length < 8) {
-    return NextResponse.json({ error: 'Sifre en az 8 karakter olmali.' }, { status: 400 })
+  if (!isValidPassword(password)) {
+    return NextResponse.json({ error: getPasswordError() }, { status: 400 })
   }
 
   if (password !== confirmPassword) {
