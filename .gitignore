@@ -28,3 +28,4 @@ data/profile-assets/
 tmp/
 test-results/
 *.tsbuildinfo
+.claude/
