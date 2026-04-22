@@ -939,7 +939,11 @@ export async function purgeOldAttackEvents() {
   store.attackEvents = store.attackEvents.filter((event) => new Date(event.occurredAt).getTime() >= cutoff)
 }
 
-const VALID_ATTACK_SEVERITIES: ReadonlySet<AttackSeverity> = new Set(['critical', 'high', 'low'])
+const VALID_ATTACK_SEVERITIES: ReadonlySet<AttackSeverity> = new Set<AttackSeverity>([
+  'critical',
+  'high',
+  'low',
+])
 
 export async function recordAttackEvent(input: AttackEventInput): Promise<void> {
   if (!VALID_ATTACK_SEVERITIES.has(input.severity)) {
