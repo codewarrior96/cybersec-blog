@@ -1,194 +1,147 @@
-# 🧠 CLAUDE.md — Proje Hafızası (Her oturumda otomatik okunur)
+# CLAUDE.md — Proje Hafızası
 
-> Bu dosya her Claude oturumunun başında otomatik okunur. Kullanıcıya projeyi baştan anlatmasına gerek yok.
-
----
-
-## 📌 PROJE KİMLİĞİ
-
-**Ad**: CyberSec Blog + SOC Dashboard
-**Dil**: Türkçe UI, TypeScript kod
-**Deployment**: Vercel → `git push origin main` yeterli, Vercel otomatik deploy eder
-**Repo**: `github.com/codewarrior96/cybersec-blog`
-**Local**: `C:\Users\salim\Desktop\GİTHUB PROJE\cybersec-blog`
-**Son commit**: `c852e6e` — `/home` URL fix
+> Her Claude oturumunun başında otomatik okunur. Kullanıcıya projeyi baştan anlatmak gerekmez.
+> **Kanonik doküman `README.md`** ve `docs/` altındaki migration dosyalarıdır. Bu dosya sadece oturum başı özet olarak davranır.
 
 ---
 
-## 🗺️ ROUTING (Sayfalar)
+## Proje Kimliği
 
-| URL | Dosya | Ne Gösteriyor |
-|-----|-------|---------------|
-| `/` | `app/page.tsx` | → `/home`'a redirect |
-| `/home` | `app/home/page.tsx` | **Ana SOC Dashboard** (auth gerekli) |
-| `/login` | `app/login/page.tsx` | Hacker temalı login ekranı |
-| `/blog` | `app/blog/page.tsx` | Blog listesi (arama + filtre) |
-| `/blog/[slug]` | `app/blog/[slug]/page.tsx` | MDX blog yazısı |
-| `/zafiyet-taramasi` | `app/zafiyet-taramasi/page.tsx` | CVE Radar + Breach Timeline + APT |
-| `/community` | `app/community/page.tsx` | Siber güvenlik eğitim laboratuvarı |
-| `/portfolio` | `app/portfolio/page.tsx` | Hakkında / Portfolio |
-| `/roadmap` | `app/roadmap/page.tsx` | Özellik yol haritası |
-| `/cve-radar` | → `/zafiyet-taramasi` | Redirect |
-| `/breach-timeline` | → `/zafiyet-taramasi` | Redirect |
-| `/about` | → `/portfolio` | Redirect |
+- **Ad:** CyberSec Blog + Sentinel (SOC Dashboard)
+- **Stack:** Next.js 14.2 (App Router) · TypeScript 5 · React 18 · Tailwind 3.4 · Supabase (Postgres + Storage) · Vitest
+- **UI dili:** Türkçe · **Kod dili:** İngilizce
+- **Repo:** `github.com/codewarrior96/cybersec-blog`
+- **Local path:** `C:\Users\salim\Desktop\GİTHUB PROJE\cybersec-blog`
+- **Deployment:** `git push origin main` → Vercel otomatik deploy
 
 ---
 
-## 🧩 DASHBOARD BİLEŞENLERİ (`src/components/dashboard/`)
+## Routing
 
-| Dosya | Görev |
-|-------|-------|
-| `DashboardLayout.tsx` | Ana orkestratör — tüm widget'ları düzenler, state yönetir |
-| `ThreatBanner.tsx` | Üst şerit: tehdit seviyesi (DÜŞÜK→KRİTİK), saat, demo modu |
-| `AlertManagementWidget.tsx` | Alert CRUD: listele/yarat/durum güncelle (P1-P4, YENİ→ÇÖZÜLDÜ) |
-| `CyberNewsWidget.tsx` | RSS haber akışı (THN, Krebs, BleepingComputer, SANS, SecurityWeek) |
-| `ThreatIntelWidget.tsx` | GreyNoise IP istihbaratı — ülke/etiket dağılımı + IP sorgula |
-| `CriticalAlertPanel.tsx` | Kritik alert popup + rapor oluşturma butonu |
-| `AttackReportModal.tsx` | Saldırı raporu oluşturma (Claude API kaldırıldı → statik açıklamalar) |
+| URL | Görev | Auth |
+|-----|-------|------|
+| `/` | → `/login` redirect | ✗ |
+| `/login` | Breach Terminal hacker temalı giriş | ✗ |
+| `/register` | Kullanıcı kaydı | ✗ |
+| `/home` | Sentinel Dashboard (3D globe, telemetry, alert cards) | ✓ |
+| `/blog` + `/blog/[slug]` | MDX blog listesi ve yazı detayı | ✗ |
+| `/zafiyet-taramasi` (SENTINEL) | Raporlar · CVE Radar · Tarihsel Veritabanı | karışık |
+| `/community` | Breach Lab (müfredat, xterm.js terminal, CTF) | ✓ |
+| `/portfolio` | Profil + sertifikalar + eğitimler | ✓ |
+| `/roadmap` | Özellik yol haritası | ✗ |
+| `/about` · `/cve-radar` · `/breach-timeline` | Eski URL'ler (redirect) | ✗ |
 
-**DashboardLayout Grid Yapısı:**
-```
-```
-
-
----
-
-## 🔌 API ENDPOINTS (`src/app/api/`)
-
-| Endpoint | Method | Auth | Açıklama |
-|----------|--------|------|----------|
-| `/api/auth/login` | POST | ✗ | Oturum aç (rate-limit: 10 deneme/5dk) |
-| `/api/auth/logout` | POST | ✓ | Oturumu kapat |
-| `/api/auth/session` | GET | ✗ | Oturum durumu kontrol |
-| `/api/alerts` | GET | ✓ | Alert listesi (status/priority filtreli) |
-| `/api/alerts` | POST | Analyst+ | Yeni alert oluştur |
-| `/api/alerts/[id]` | PATCH | Analyst+ | Alert güncelle (status, priority, atama, not) |
-| `/api/live-attacks` | GET | ✓ | Simüle saldırı olayı üretir (demo) |
-| `/api/metrics/live` | GET | ✓ | Dashboard metrikleri anlık görüntü |
-| `/api/cves` | GET | ✗ | NIST NVD'den CVE listesi (5dk cache) |
-| `/api/cybernews` | GET | ✗ | RSS haber toplayıcı (5dk cache) |
-| `/api/greynoise` | GET | ✗ | GreyNoise tehdit istihbaratı (API key gerekli) |
-| `/api/reports` | GET/POST/DELETE | Analyst+ | Olay raporu CRUD |
-| `/api/users` | GET | ✓ | Atanabilir kullanıcı listesi |
-| `/api/users` | POST | Admin | Yeni kullanıcı oluştur |
+Navigation bar menüsü: **HOME · BLOG · COMMUNITY · SENTINEL · PROFIL**
 
 ---
 
-## 🗄️ VERİTABANI (SQLite — `data/soc.db`)
+## API (`src/app/api/**`)
 
-Tablolar: `users`, `sessions`, `attack_events`, `alerts`, `alert_events`, `alert_notes`, `audit_logs`, `reports`
-
-**Demo kullanıcılar** (otomatik oluşturulur):
-| Kullanıcı | Şifre | Rol |
-|-----------|-------|-----|
-| `ghost` | `demo_pass` | Admin |
-| `analyst1` | `analyst_pass` | Analyst |
-| `viewer1` | `viewer_pass` | Viewer |
-
-**Vercel'de**: SQLite yerine `soc-store-memory.ts` (RAM içi) kullanılıyor — veri oturum boyunca tutulur.
-
----
-
-## 🔐 AUTH SİSTEMİ
-
-- **Şifreleme**: scrypt + 16-byte rastgele salt → `salt:hash` formatında saklanır
-- **Oturum**: 30 günlük httpOnly cookie (`soc_session`)
-- **Rate limit**: IP başına 10 başarısız giriş / 5 dakika
-- **RBAC**: Admin > Analyst > Viewer
-- **Dosyalar**: `auth-server.ts`, `auth-client.ts`, `security.ts`, `api-auth.ts`
+| Endpoint | Method | Açıklama |
+|----------|--------|----------|
+| `/api/auth/{login,logout,session,register}` | POST/GET | Cookie-based session (scrypt + salt, rate-limited 10/5dk) |
+| `/api/alerts` | GET · POST (analyst+) | Alert listesi + oluşturma |
+| `/api/alerts/[id]` | PATCH (analyst+) | Status/priority/atama/not güncelleme |
+| `/api/reports` | GET · POST · PATCH (analyst+) | Olay raporu CRUD |
+| `/api/metrics/live` | GET | Dashboard anlık metrikleri |
+| `/api/live-attacks` | GET | Simüle saldırı olayı (demo) |
+| `/api/users` | GET/POST (admin) | Kullanıcı listesi + oluşturma |
+| `/api/profile/me` | GET/PUT | Profil (display name, bio, rol) |
+| `/api/profile/avatar` · `/api/profile/avatar/[userId]` | POST/DELETE · GET | Avatar upload/kaldır/servis |
+| `/api/profile/certifications` + `/[id]` + `/assets/[id]` | CRUD | Sertifika kayıtları + asset |
+| `/api/profile/education` + `/[id]` | CRUD | Eğitim kayıtları |
+| `/api/cves` | GET | NIST NVD CVE (5 dk cache) |
+| `/api/cybernews` | GET | RSS agregatör (THN, Krebs, BleepingComputer, SANS, SecurityWeek) |
+| `/api/greynoise` | GET | GreyNoise IP intel (API key opsiyonel, fallback mock) |
 
 ---
 
-## 🧰 TEKNOLOJİ YIĞINI
+## Veri Katmanı
 
-```
-Next.js 14.2 + TypeScript 5 + React 18
-Tailwind CSS 3.4 (sadece dark mode)
-SQLite (sqlite3 + sqlite paketleri)
-MDX + gray-matter + shiki (blog)
-xterm.js (terminal simülasyonu)
-Recharts (grafikler)
-cobe (3D küre)
-lucide-react (ikonlar)
-@anthropic-ai/sdk 0.80 (kurulu ama şu an aktif kullanılmıyor)
-```
+Hybrid mimari — `SOC_IDENTITY_STORE` bayrağı ile yönetiliyor:
+
+| Mode | Hedef |
+|------|-------|
+| `supabase` (default) | Supabase Storage JSON app-state (users, sessions, profiles, reports) |
+| `postgres` | Supabase Postgres (identity + session migration Phase 1) |
+| `disabled` | SQLite/memory fallback |
+
+Alerts, attack_events ve operational state **hâlâ SQLite** (`data/soc.db`) — Postgres migration Phase 2+'ta taşınacak. Memory store (`soc-store-memory.ts`) Vercel ve resilience fallback için.
+
+Detaylı migration planı: [`docs/postgres-migration-execution-roadmap.md`](docs/postgres-migration-execution-roadmap.md), [`docs/data-flow-map-and-migration-plan.md`](docs/data-flow-map-and-migration-plan.md).
 
 ---
 
-## 🌿 ORTAM DEĞİŞKENLERİ (`.env.local`)
+## Auth / Güvenlik
+
+- **Şifre:** scrypt + 16-byte salt → `salt:hash` formatı
+- **Session:** 30 günlük httpOnly cookie (`soc_session`) · SameSite=Lax · secure (prod)
+- **Rate limit:** IP başına 10 başarısız giriş / 5 dk (globalThis-persisted, `src/lib/rate-limiter.ts`)
+- **RBAC:** admin > analyst > viewer (`src/lib/auth-shared.ts:hasRoleAtLeast`)
+- **Client IP:** Trust-proxy gated (`src/lib/client-ip.ts`) — x-forwarded-for spoofing korunur
+- **Identity validation:** `src/lib/identity-validation.ts` — username/displayName/password ortak kurallar
+- **Upload:** Magic-byte doğrulaması (JPEG/PNG/WEBP/PDF) — `src/lib/portfolio-assets.ts`
+
+---
+
+## Ortam Değişkenleri (`.env.local`)
 
 ```env
-GREYNOISE_API_KEY=59c971f7-a585-4a34-94d1-d191070c369e   # Aktif
-GROQ_API_KEY=BURAYA_YENİ_KEY_YAZ                          # ⚠️ Güncellenmeli
-VERCEL_OIDC_TOKEN=...                                      # Otomatik
+NEXT_PUBLIC_SUPABASE_URL=
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_APP_STATE_BUCKET=cybersec-app-state
+DATABASE_URL=                          # Supabase Postgres (Phase 1+)
+SOC_STORAGE=sqlite                     # sqlite | memory
+SOC_IDENTITY_STORE=supabase            # supabase | postgres | disabled
+SOC_ALLOW_CRITICAL_MEMORY_FALLBACK=0
+GREYNOISE_API_KEY=                     # opsiyonel, yoksa mock data
 ```
 
 ---
 
-## 📝 BLOG İÇERİĞİ (`src/content/posts/`)
+## Tasarım Dili
 
-8 Türkçe MDX yazısı:
-- `active-directory-saldiri-teknikleri`
-- `buffer-overflow-temelleri`
-- `linux-privilege-escalation`
-- `merhaba-dunya`
-- `reverse-shell-teknikleri`
-- `sql-injection-temelleri`
-- `wireshark-network-analiz`
-- `xss-cross-site-scripting`
+- **Tema:** `#000000` bg · `#00ff88` neon yeşil · `#00d4ff` cyan · hacker/breach temalı
+- **Font:** JetBrains Mono / system-mono
+- **Efektler:** Matrix rain · neon glow · scan sweep · kritik alert kırmızı FX
+- **CSS:** `src/styles/globals.css` (CSS variables + Tailwind)
+- **Mobil:** Responsive
 
 ---
 
-## 🎨 TASARIM DİLİ
+## Blog İçeriği
 
-- **Tema**: Tamamen siyah arka plan (`#000000`), yeşil neon vurgu (`#00ff88`), cyan (`#00d4ff`)
-- **Font**: Monospace (JetBrains Mono / system-mono)
-- **Efektler**: Matrix rain, neon glow, scan sweep animasyonları, kritik alert kırmızı FX
-- **CSS**: `src/styles/globals.css` — custom CSS variables + Tailwind
-- **Mobil**: Responsive, son commit'lerde düzeltmeler yapıldı
+`src/content/posts/` altında **8 Türkçe MDX yazısı** (SQL injection, XSS, reverse shell, AD saldırıları, buffer overflow, Linux priv-esc, Wireshark, merhaba-dunya).
 
 ---
 
-## ✅ SON YAPILAN İŞLER (Git geçmişi özeti)
+## Dashboard (`src/components/dashboard/`)
 
-```
-c852e6e  fix: /home URL düzeltmesi — dashboard /home'da, / redirect veriyor
-28427a3  feat: AlertManagement + CyberNews + ThreatIntel widget'ları eklendi (7 eski widget silindi)
-50ed1ad  feat: AttackReportModal — Claude API kaldırıldı, statik açıklamalar
-1d5a03a  feat: Claude AI saldırı analizi + eğitim setleri
-acb99d5  fix: NavigationBar yanlışlıkla silinmişti, geri getirildi
-4080e33  feat: navigation barları kaldırıldı, güvenlik araçları simülasyonu eklendi
-cce8fff  feat: Community lab büyük yenileme — CTF, 35 araç, 12 modül
-```
+- `DashboardLayout.tsx` — orkestratör
+- `TelemetryStreamPanel.tsx` — canlı telemetri + alert cards
+- `CriticalAlertPanel.tsx` + `CriticalOverlayFx.tsx` — P1 kritik alert FX
+- `AttackReportModal.tsx` — saldırı raporu modalı
+- `DashboardSkeleton.tsx` — loading state
+
+Global threat map `cobe` 3D globe ile render ediliyor.
 
 ---
 
-## 🚧 YAPILACAKLAR / EKSİKLER
-
-- [ ] Claude API'yi yeniden aktif et (attakReportModal'da — şu an statik açıklamalar var)
-- [ ] `GROQ_API_KEY` güncellenmeli
-- [ ] Kullanıcı kayıt akışı ("KAYIT OL" butonu var ama disabled)
-- [ ] Blog yazısı sayısı artırılabilir (şu an 8 yazı)
-- [ ] Supabase paketi ya kullanılmalı ya kaldırılmalı
-
----
-
-## 🚀 DEPLOY
-
-```bash
-git add .
-git commit -m "..."
-git push origin main
-# Vercel otomatik deploy başlatır (~1-2 dk)
-```
-
----
-
-## ⚡ HIZLI BAŞLANGIÇ KOMUTU
+## Hızlı Başlangıç
 
 ```bash
 cd "C:\Users\salim\Desktop\GİTHUB PROJE\cybersec-blog"
-npm run dev
-# http://localhost:3000 → /home'a yönlendirir
-# Giriş: ghost / demo_pass
+npm install
+npm run dev           # http://localhost:3000
+npm run test          # vitest (3 test dosyası, 6 test)
+npm run build         # production build
+```
+
+---
+
+## Deploy
+
+```bash
+git push origin main  # Vercel otomatik deploy (~1-2 dk)
 ```
