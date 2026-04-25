@@ -1,4 +1,5 @@
 ﻿import { resolvePath, getNode, basename, colorEntry, ROOT } from './filesystem'
+import { getCommand } from './commands'
 import type { CommandContext, FSNode } from './types'
 
 // ─── Valid CTF Flags ──────────────────────────────────────────────────────────
@@ -47,6 +48,12 @@ function runSingle(raw: string, ctx: CommandContext, stdin: string): string[] {
   const tokens = tokenize(raw)
   const cmd    = tokens[0]?.toLowerCase() ?? ''
   const args   = tokens.slice(1).map(stripQuotes)
+
+  const handler = getCommand(cmd)
+  if (handler) {
+    const result = handler.execute(args, ctx, stdin)
+    return result.output
+  }
 
   switch (cmd) {
     case 'help':         return cmdHelp()
