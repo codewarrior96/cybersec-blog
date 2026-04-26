@@ -4,7 +4,14 @@ import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { TOOLS, CHALLENGES, TOOL_CATEGORIES, TRAINING_SETS } from '@/lib/lab/content'
 import { VALID_FLAGS, isValidFlag } from '@/lib/lab/engine'
-import type { ToolCard, Challenge, Difficulty, PendingCommand, TrainingSet, Lesson, LessonDifficulty, TerminalExecution, LessonMission } from '@/lib/lab/types'
+import { RingEvidenceLog } from '@/lib/lab/evidence'
+import { validateChallengeWithMode } from '@/lib/lab/validation/adapter'
+import { challengeContracts } from '@/lib/lab/validation/contracts'
+import { humanize } from '@/lib/lab/validation/humanize'
+import { challengeModes } from '@/lib/lab/validation/modes'
+import type { EvidenceLog } from '@/lib/lab/evidence'
+import type { ValidationResult } from '@/lib/lab/validation/types'
+import type { ToolCard, Challenge, Difficulty, PendingCommand, TrainingSet, Lesson, LessonDifficulty, TerminalExecution, TerminalLine, LessonMission } from '@/lib/lab/types'
 
 const Terminal = dynamic(() => import('@/components/lab/Terminal'), { ssr: false })
 
@@ -13,6 +20,7 @@ const Terminal = dynamic(() => import('@/components/lab/Terminal'), { ssr: false
 type ContentTab  = 'curriculum' | 'tools' | 'ctf'
 type MobileTab   = ContentTab | 'terminal'
 type ToolCategory = typeof TOOL_CATEGORIES[number]
+type CTFSubmitState = 'valid' | 'invalid' | 'duplicate' | 'blocked'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -36,12 +44,96 @@ const MOBILE_TABS: { id: MobileTab; icon: string; label: string }[] = [
   { id: 'terminal',   icon: '>_', label: 'Terminal' },
 ]
 
+const STORAGE_KEYS = {
+  unlocked: 'breach-unlocked',
+  hints: 'breach-hints',
+  flags: 'breach-flags',
+} as const
+
+const LAB_HOME = '/home/operator'
+const DEFAULT_VISIBLE_SUBMITTED_FLAGS = new Set<string>()
+const DEFAULT_VISIBLE_UNLOCKED_LEVELS = new Set<number>([1])
+const DEFAULT_VISIBLE_REVEALED_HINTS: Record<number, number> = {}
+
+function readStoredNumberSet(key: string, fallback: readonly number[]): Set<number> {
+  if (typeof window === 'undefined') return new Set(fallback)
+
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return new Set(fallback)
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return new Set(fallback)
+
+    const values = parsed.map(value => {
+      if (typeof value === 'number') return value
+      if (typeof value === 'string') return Number(value)
+      return Number.NaN
+    })
+
+    if (values.some(value => Number.isNaN(value))) return new Set(fallback)
+    return new Set(values)
+  } catch {
+    return new Set(fallback)
+  }
+}
+
+function readStoredStringSet(key: string): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return new Set()
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed) || parsed.some(value => typeof value !== 'string')) {
+      return new Set()
+    }
+
+    return new Set(parsed)
+  } catch {
+    return new Set()
+  }
+}
+
+function readStoredHintMap(key: string): Record<number, number> {
+  if (typeof window === 'undefined') return {}
+
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return {}
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+
+    const entries = Object.entries(parsed).map(([level, value]) => {
+      const numericLevel = Number(level)
+      const numericValue = typeof value === 'number' ? value : Number(value)
+      return [numericLevel, numericValue] as const
+    })
+
+    if (entries.some(([level, value]) => Number.isNaN(level) || Number.isNaN(value))) return {}
+
+    return Object.fromEntries(entries)
+  } catch {
+    return {}
+  }
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function LabPage() {
+  const [mounted,        setMounted]        = useState(false)
   const [contentTab,     setContentTab]     = useState<ContentTab>('curriculum')
   const [mobileTab,      setMobileTab]      = useState<MobileTab>('curriculum')
   const [submittedFlags, setSubmittedFlags] = useState<Set<string>>(new Set())
+  const [evidenceLog,    setEvidenceLog]    = useState<EvidenceLog>(new RingEvidenceLog())
+  const [ctfValidationMessages, setCtfValidationMessages] = useState<Record<number, string>>({})
+  const [terminalCwd,     setTerminalCwd]     = useState(LAB_HOME)
+  const [terminalLines,   setTerminalLines]   = useState<TerminalLine[]>([])
+  const [terminalInput,   setTerminalInput]   = useState('')
+  const [terminalHistory, setTerminalHistory] = useState<string[]>([])
+  const [terminalHistIdx, setTerminalHistIdx] = useState(-1)
 
   // ── Çapraz panel komut enjeksiyonu ──────────────────────────────────────
   const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(null)
@@ -67,25 +159,32 @@ export default function LabPage() {
   const [revealedHints,  setRevealedHints]  = useState<Record<number, number>>({})
 
   useEffect(() => {
-    try {
-      const ul = localStorage.getItem('breach-unlocked')
-      if (ul) setUnlockedLevels(new Set(JSON.parse(ul) as number[]))
-      const rh = localStorage.getItem('breach-hints')
-      if (rh) setRevealedHints(JSON.parse(rh) as Record<number, number>)
-    } catch { /* ignore parse errors */ }
+    setSubmittedFlags(readStoredStringSet(STORAGE_KEYS.flags))
+    setUnlockedLevels(readStoredNumberSet(STORAGE_KEYS.unlocked, [1]))
+    setRevealedHints(readStoredHintMap(STORAGE_KEYS.hints))
+    setMounted(true)
   }, [])
 
   useEffect(() => {
+    if (!mounted) return
     try {
-      localStorage.setItem('breach-unlocked', JSON.stringify(Array.from(unlockedLevels)))
+      localStorage.setItem(STORAGE_KEYS.unlocked, JSON.stringify(Array.from(unlockedLevels)))
     } catch { /* ignore */ }
-  }, [unlockedLevels])
+  }, [mounted, unlockedLevels])
 
   useEffect(() => {
+    if (!mounted) return
     try {
-      localStorage.setItem('breach-hints', JSON.stringify(revealedHints))
+      localStorage.setItem(STORAGE_KEYS.hints, JSON.stringify(revealedHints))
     } catch { /* ignore */ }
-  }, [revealedHints])
+  }, [mounted, revealedHints])
+
+  useEffect(() => {
+    if (!mounted) return
+    try {
+      localStorage.setItem(STORAGE_KEYS.flags, JSON.stringify(Array.from(submittedFlags)))
+    } catch { /* ignore */ }
+  }, [mounted, submittedFlags])
 
   // ── Global flag submit ───────────────────────────────────────────────────
   function handleFlagSubmit(flag: string) {
@@ -93,15 +192,47 @@ export default function LabPage() {
   }
 
   // ── CTF flag submit + level unlock ───────────────────────────────────────
-  function handleCTFFlag(flag: string, level: number): 'valid' | 'invalid' | 'duplicate' {
-    if (submittedFlags.has(flag)) return 'duplicate'
+  function validationMessageFromResult(result: ValidationResult): string {
+    if (result.missing[0]) return `Henüz şunu yapmadın: ${humanize(result.missing[0])}.`
+    if (result.forbidden[0]) return `Bu çözüm akışı kabul edilmiyor: ${humanize(result.forbidden[0])}.`
+    if (result.temporalFailures.length > 0) {
+      return 'Önce bu göreve ait terminal kanıtlarını tamamla, sonra flag değerini tekrar gönder.'
+    }
+    return 'Terminal kanıtı eksik: görevi terminalde çöz, flag dosyasını oku ve tekrar gönder.'
+  }
+
+  function handleCTFFlag(flag: string, level: number): CTFSubmitState {
+    const alreadyAccepted = unlockedLevels.has(level + 1) && submittedFlags.has(flag)
+    if (alreadyAccepted || submittedFlags.has(flag)) return 'duplicate'
     if (!isValidFlag(flag)) return 'invalid'
+
+    const mode = challengeModes[level] ?? 'legacy_flag_only'
+    const result = validateChallengeWithMode(mode, flag, challengeContracts[level], evidenceLog)
+
+    if (!result.passed) {
+      setCtfValidationMessages(prev => ({ ...prev, [level]: validationMessageFromResult(result) }))
+      return 'blocked'
+    }
+
+    setCtfValidationMessages(prev => {
+      if (!prev[level]) return prev
+      const next = { ...prev }
+      delete next[level]
+      return next
+    })
+
     setUnlockedLevels(prev => {
       const next = new Set([...Array.from(prev), level + 1])
       return next
     })
     handleFlagSubmit(flag)
     return 'valid'
+  }
+
+  function handleTerminalFlagSubmit(flag: string) {
+    const challenge = CHALLENGES.find(item => item.flagKey === flag)
+    if (!challenge) return
+    handleCTFFlag(flag, challenge.level)
   }
 
   // ── Hint reveal ──────────────────────────────────────────────────────────
@@ -114,8 +245,24 @@ export default function LabPage() {
     })
   }
 
-  const progress = submittedFlags.size
+  const visibleSubmittedFlags = mounted ? submittedFlags : DEFAULT_VISIBLE_SUBMITTED_FLAGS
+  const visibleUnlockedLevels = mounted ? unlockedLevels : DEFAULT_VISIBLE_UNLOCKED_LEVELS
+  const visibleRevealedHints = mounted ? revealedHints : DEFAULT_VISIBLE_REVEALED_HINTS
+  const progress = visibleSubmittedFlags.size
   const total    = VALID_FLAGS.size
+  const terminalSessionProps = {
+    cwd: terminalCwd,
+    setCwd: setTerminalCwd,
+    lines: terminalLines,
+    setLines: setTerminalLines,
+    input: terminalInput,
+    setInput: setTerminalInput,
+    history: terminalHistory,
+    setHistory: setTerminalHistory,
+    histIdx: terminalHistIdx,
+    setHistIdx: setTerminalHistIdx,
+    setEvidenceLog,
+  }
 
   function renderContent(tab: ContentTab, isMobile = false) {
     if (tab === 'curriculum') return (
@@ -138,11 +285,14 @@ export default function LabPage() {
     )
     if (tab === 'ctf') return (
       <CTFTab
-        unlockedLevels={unlockedLevels}
-        revealedHints={revealedHints}
-        submittedFlags={submittedFlags}
+        unlockedLevels={visibleUnlockedLevels}
+        revealedHints={visibleRevealedHints}
+        submittedFlags={visibleSubmittedFlags}
+        validationMessages={ctfValidationMessages}
         onFlagSubmit={handleCTFFlag}
-        onSendCommand={cmd => { sendToTerminal(cmd); setMobileTab('terminal') }}
+        onSendCommand={isMobile
+          ? cmd => { sendToTerminal(cmd); setMobileTab('terminal') }
+          : sendToTerminal}
         onRevealHint={revealNextHint}
       />
     )
@@ -176,10 +326,12 @@ export default function LabPage() {
           <div className="community-terminal-pane" style={{ width: '44%', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
             <TerminalPanelBar />
             <div style={{ flex: 1, minHeight: 0 }}>
-              <Terminal
+            <Terminal
+                {...terminalSessionProps}
+                isActive={mobileTab !== 'terminal'}
                 pendingCommand={pendingCommand}
                 onCommandConsumed={handleCommandConsumed}
-                onFlagSubmit={handleFlagSubmit}
+                onFlagSubmit={handleTerminalFlagSubmit}
                 onCommandExecuted={handleCommandExecuted}
               />
             </div>
@@ -194,7 +346,14 @@ export default function LabPage() {
         <MobileTopBar activeTab={mobileTab} progress={progress} total={total} />
         <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {mobileTab === 'terminal'
-            ? <Terminal pendingCommand={pendingCommand} onCommandConsumed={handleCommandConsumed} onFlagSubmit={handleFlagSubmit} onCommandExecuted={handleCommandExecuted} />
+            ? <Terminal
+                {...terminalSessionProps}
+                isActive={mobileTab === 'terminal'}
+                pendingCommand={pendingCommand}
+                onCommandConsumed={handleCommandConsumed}
+                onFlagSubmit={handleTerminalFlagSubmit}
+                onCommandExecuted={handleCommandExecuted}
+              />
             : renderContent(mobileTab as ContentTab, true)
           }
         </div>
@@ -308,12 +467,13 @@ function MobileBottomNav({ activeTab, onTabChange }: {
 
 function CTFTab({
   unlockedLevels, revealedHints, submittedFlags,
-  onFlagSubmit, onSendCommand, onRevealHint,
+  validationMessages, onFlagSubmit, onSendCommand, onRevealHint,
 }: {
   unlockedLevels: Set<number>
   revealedHints: Record<number, number>
   submittedFlags: Set<string>
-  onFlagSubmit: (flag: string, level: number) => 'valid' | 'invalid' | 'duplicate'
+  validationMessages: Record<number, string>
+  onFlagSubmit: (flag: string, level: number) => CTFSubmitState
   onSendCommand: (cmd: string) => void
   onRevealHint: (level: number) => void
 }) {
@@ -359,6 +519,7 @@ function CTFTab({
               isUnlocked={unlockedLevels.has(ch.level)}
               isCompleted={submittedFlags.has(ch.flagKey)}
               hintsRevealed={revealedHints[ch.level] ?? 0}
+              validationMessage={validationMessages[ch.level]}
               onFlagSubmit={flag => onFlagSubmit(flag, ch.level)}
               onSendCommand={() => onSendCommand(`cd /home/operator/${ch.path}`)}
               onRevealHint={() => onRevealHint(ch.level)}
@@ -370,27 +531,52 @@ function CTFTab({
   )
 }
 
+type HintSegment = { kind: 'text' | 'code'; value: string }
+
+function splitHintSegments(hint: string): HintSegment[] {
+  return hint
+    .split(/(`[^`]+`)/g)
+    .filter(Boolean)
+    .map((segment): HintSegment => segment.startsWith('`') && segment.endsWith('`')
+      ? { kind: 'code', value: segment.slice(1, -1) }
+      : { kind: 'text', value: segment })
+}
+
 function ChallengeCard({
   challenge: ch, isUnlocked, isCompleted, hintsRevealed,
-  onFlagSubmit, onSendCommand, onRevealHint,
+  validationMessage, onFlagSubmit, onSendCommand, onRevealHint,
 }: {
   challenge: Challenge
   isUnlocked: boolean
   isCompleted: boolean
   hintsRevealed: number
-  onFlagSubmit: (flag: string) => 'valid' | 'invalid' | 'duplicate'
+  validationMessage?: string
+  onFlagSubmit: (flag: string) => CTFSubmitState
   onSendCommand: () => void
   onRevealHint: () => void
 }) {
   const [flagInput,  setFlagInput]  = useState('')
-  const [submitState, setSubmitState] = useState<'idle' | 'valid' | 'invalid' | 'duplicate'>('idle')
+  const [submitState, setSubmitState] = useState<'idle' | CTFSubmitState>('idle')
+  const [copiedCommand, setCopiedCommand] = useState<string | null>(null)
 
   function handleSubmit() {
     if (!flagInput.trim()) return
     const result = onFlagSubmit(flagInput.trim())
     setSubmitState(result)
     if (result === 'valid') setFlagInput('')
-    setTimeout(() => setSubmitState('idle'), 2500)
+    setTimeout(() => setSubmitState('idle'), result === 'blocked' ? 4500 : 2500)
+  }
+
+  async function copyCommand(command: string) {
+    try {
+      await navigator.clipboard.writeText(command)
+      setCopiedCommand(command)
+      setTimeout(() => {
+        setCopiedCommand(current => current === command ? null : current)
+      }, 1000)
+    } catch {
+      // Clipboard support is best-effort; avoid showing false success feedback.
+    }
   }
 
   const borderColor = isCompleted ? '#00ff41'
@@ -484,7 +670,40 @@ function ChallengeCard({
                     display: 'flex', gap: 6,
                   }}>
                     <span style={{ color: '#f59e0b', flexShrink: 0 }}>{i + 1}.</span>
-                    {hint}
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      {splitHintSegments(hint).map((segment, segmentIndex) => {
+                        if (segment.kind === 'text') {
+                          return <span key={`${i}-text-${segmentIndex}`}>{segment.value}</span>
+                        }
+
+                        const copied = copiedCommand === segment.value
+                        return (
+                          <button
+                            key={`${i}-code-${segmentIndex}`}
+                            type="button"
+                            title="Komutu kopyala"
+                            onClick={() => { void copyCommand(segment.value) }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              margin: '0 3px',
+                              padding: '1px 5px',
+                              borderRadius: 4,
+                              border: `1px solid ${copied ? 'rgba(0,255,65,0.72)' : 'rgba(0,255,65,0.24)'}`,
+                              background: copied ? 'rgba(0,255,65,0.16)' : 'rgba(0,255,65,0.08)',
+                              color: copied ? '#bbf7d0' : 'rgb(var(--route-accent-rgb))',
+                              fontFamily: 'inherit',
+                              fontSize: 10,
+                              cursor: 'copy',
+                              boxShadow: copied ? '0 0 12px rgba(0,255,65,0.28)' : 'none',
+                              transition: 'border-color 0.18s, background 0.18s, box-shadow 0.18s',
+                            }}
+                          >
+                            {segment.value}
+                          </button>
+                        )
+                      })}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -504,6 +723,7 @@ function ChallengeCard({
                   border: `1px solid ${
                     submitState === 'valid'   ? '#00ff41' :
                     submitState === 'invalid' ? '#ef4444' :
+                    submitState === 'blocked' ? '#f59e0b' :
                     'rgba(255,255,255,0.1)'
                   }`,
                   borderRadius: 5, padding: '6px 10px',
@@ -525,6 +745,11 @@ function ChallengeCard({
             )}
             {submitState === 'duplicate' && (
               <p style={{ color: '#f59e0b', fontSize: 10, margin: '4px 0 0' }}>⚠ Bu flag zaten gönderildi.</p>
+            )}
+            {submitState === 'blocked' && (
+              <p style={{ color: '#f59e0b', fontSize: 10, lineHeight: 1.5, margin: '4px 0 0' }}>
+                {validationMessage ?? 'Once terminal kanitini tamamla, sonra tekrar dene.'}
+              </p>
             )}
             {submitState === 'valid' && (
               <p style={{ color: 'rgb(var(--route-accent-rgb))', fontSize: 10, margin: '4px 0 0' }}>✓ Doğru! Sonraki görev açıldı.</p>

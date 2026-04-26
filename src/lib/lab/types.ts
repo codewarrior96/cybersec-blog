@@ -93,6 +93,7 @@ export interface Challenge {
   description: string
   flagKey: string
   hints: string[]
+  commands?: string[]
 }
 
 // Training Sets
