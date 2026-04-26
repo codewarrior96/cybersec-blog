@@ -7,7 +7,9 @@ export const historyHandler: CommandHandler = {
   execute(_args, ctx) {
     return {
       output: ctx.history.map((h, i) => `  ${String(i + 1).padStart(4)}  ${h}`),
-      evidence: [],
+      evidence: [
+        { type: 'command_executed', command: 'history' },
+      ],
       exitCode: 0,
     }
   },

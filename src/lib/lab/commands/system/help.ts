@@ -26,7 +26,9 @@ export const helpHandler: CommandHandler = {
         '\x1b[1;32m└──────────────────────────────────────────────────────────────┘\x1b[0m',
         '\x1b[90mPipe desteği: cat log.txt | grep "ERROR" | wc -l\x1b[0m',
       ],
-      evidence: [],
+      evidence: [
+        { type: 'command_executed', command: 'help' },
+      ],
       exitCode: 0,
     }
   },

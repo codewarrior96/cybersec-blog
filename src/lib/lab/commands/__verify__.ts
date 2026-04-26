@@ -21,4 +21,18 @@ export function verifyRegistry(): void {
   if (!clearResult || clearResult.output[0] !== '__CLEAR__') {
     throw new Error('Command registry verification failed: clear sentinel changed')
   }
+
+  const pwdResult = getCommand('pwd')?.execute([], ctx, '')
+
+  if (!pwdResult?.evidence || pwdResult.evidence.length !== 2) {
+    throw new Error('Command registry verification failed: pwd evidence length changed')
+  }
+
+  if (pwdResult.evidence[0]?.type !== 'command_executed') {
+    throw new Error('Command registry verification failed: pwd first evidence primitive changed')
+  }
+
+  if (pwdResult.evidence[1]?.type !== 'cwd_reached') {
+    throw new Error('Command registry verification failed: pwd second evidence primitive changed')
+  }
 }

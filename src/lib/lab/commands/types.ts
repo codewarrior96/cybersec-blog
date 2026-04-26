@@ -1,4 +1,5 @@
 import type { CommandContext } from '../types'
+import type { EvidencePrimitive } from '../evidence'
 
 export type CommandCategory = 'fs' | 'text' | 'system' | 'net' | 'security-sim' | 'ctf'
 
@@ -12,7 +13,7 @@ export type SideEffect =
 export interface CommandResult {
   output: string[]
   sideEffects?: SideEffect[]
-  evidence?: unknown[]
+  evidence?: EvidencePrimitive[]
   exitCode: number
 }
 
@@ -21,8 +22,8 @@ export interface CommandResult {
  *
  * Day 1 keeps this intentionally small: handlers return terminal output and
  * optional future side effects while the legacy engine switch remains as
- * fallback. The `evidence` field is a placeholder for Day 2, where it will be
- * narrowed from `unknown[]` to the EvidencePrimitive model.
+ * fallback. The `evidence` field records deterministic command activity for
+ * the validation layer that will be wired in later phases.
  */
 export interface CommandHandler {
   name: string

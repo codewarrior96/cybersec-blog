@@ -5,6 +5,13 @@ export const pwdHandler: CommandHandler = {
   description: 'Print current working directory',
   category: 'system',
   execute(_args, ctx) {
-    return { output: [ctx.cwd], evidence: [], exitCode: 0 }
+    return {
+      output: [ctx.cwd],
+      evidence: [
+        { type: 'command_executed', command: 'pwd' },
+        { type: 'cwd_reached', path: ctx.cwd },
+      ],
+      exitCode: 0,
+    }
   },
 }
