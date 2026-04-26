@@ -1,5 +1,5 @@
 import type { EvidenceLog } from '../evidence'
-import { pathMatches } from '../evidence'
+import { matchPrimitive, pathMatches } from '../evidence'
 import type { RequiresBeforeReadingClause, ValidationContract, ValidationResult } from './types'
 
 function groupSatisfied(group: readonly Parameters<EvidenceLog['has']>[0][], log: EvidenceLog): boolean {
@@ -19,10 +19,16 @@ function temporalClauseSatisfiedBefore(
   log: EvidenceLog,
   readEventId: number,
 ): boolean {
-  const allOk = (clause.all ?? []).every(primitive => log.hasBefore(primitive, readEventId))
+  const hasBeforeOrAt = (primitive: Parameters<EvidenceLog['has']>[0]) =>
+    log.hasBefore(primitive, readEventId)
+    || log.events
+      .filter(event => event.id === readEventId)
+      .some(event => event.primitives.some(actual => matchPrimitive(primitive, actual)))
+
+  const allOk = (clause.all ?? []).every(primitive => hasBeforeOrAt(primitive))
   const anyOf = clause.anyOf ?? []
   const anyOfOk = anyOf.length === 0 || anyOf.some(group =>
-    group.every(primitive => log.hasBefore(primitive, readEventId)),
+    group.every(primitive => hasBeforeOrAt(primitive)),
   )
 
   return allOk && anyOfOk

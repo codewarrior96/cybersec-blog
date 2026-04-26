@@ -1,4 +1,4 @@
-import type { FSNode, DirNode } from './types'
+﻿import type { FSNode, DirNode } from './types'
 
 // ─── Virtual Filesystem Tree ──────────────────────────────────────────────────
 
@@ -40,8 +40,9 @@ export const ROOT: DirNode = {
                     '  05-privesc/ Yetki yükseltme           [ZOR]',
                     '  06-network/ Ağ analizi                [ZOR]',
                     '',
-                    'Her klasörde: mission.txt + flag.txt',
-                    'Bayrağı bulduktan sonra: submit FLAG{...}',
+                    'Her gorev klasorunde mission.txt gorev tanimini icerir.',
+                    'Bayrak (FLAG) bazen flag.txt dosyasinda, bazen script/log/gizli dosya ciktisinda bulunur.',
+                    'Bayragi bulduktan sonra: submit FLAG{...}',
                   ].join('\n'),
                 },
                 '01-recon': {
@@ -122,11 +123,10 @@ export const ROOT: DirNode = {
                         '[LEVEL 4] METİN ANALİZİ — ORTA',
                         '────────────────────────────────',
                         '',
-                        'Görev: access.log içindeki bayrağı bul',
+                        'Görev: Bu klasördeki access.log dosyasında bir FLAG saklı.',
+                        'grep komutu ile FLAG kelimesini içeren satırı bul.',
                         '',
-                        'İpucu 1: cat access.log',
-                        'İpucu 2: grep "FLAG" access.log',
-                        'İpucu 3: grep -n "FLAG" access.log (satır no ile)',
+                        'İpucu: grep "FLAG" access.log',
                       ].join('\n'),
                     },
                     'access.log': {
@@ -153,14 +153,13 @@ export const ROOT: DirNode = {
                         '',
                         'Görev: Sistemdeki privilege escalation vektörlerini bul',
                         '',
-                        'İpucu 1: sudo -l',
-                        'İpucu 2: find / -perm -4000 2>/dev/null',
-                        'İpucu 3: env | grep -i path',
-                        'İpucu 4: crontab -l',
+                        'İpucu 1: sudo -l ile izin verilen root komutlarını gör',
+                        'İpucu 2: find neden NOPASSWD çalışıyor, bunu analiz et',
+                        'İpucu 3: sudo find . -exec cat flag.txt \\; ile root okuma simülasyonunu uygula',
                       ].join('\n'),
                     },
                     'flag.txt': {
-                      type: 'file', perms: '-r--------',
+                      type: 'file', perms: '-rw-------',
                       content: 'FLAG{pr1v3sc_r00t_0wn3d}\n',
                     },
                   },
@@ -174,16 +173,16 @@ export const ROOT: DirNode = {
                         '[LEVEL 6] AĞ ANALİZİ — ZOR',
                         '─────────────────────────────',
                         '',
-                        'Görev: Sistemde hangi portlar açık? Hangisi alışılmadık?',
+                        'Görev: Açık portları listele ve alışılmadık servisi bul.',
+                        'Şüpheli portu sistem loglarında doğrula.',
                         '',
-                        'İpucu 1: netstat -tulpn',
-                        'İpucu 2: ss -tulpn',
-                        'İpucu 3: ifconfig',
-                        'İpucu 4: cat /var/log/syslog | grep "BLOCK"',
+                        'İpucu 1: ss -tulpn veya netstat -tulpn',
+                        'İpucu 2: Alışılmadık port 4444 olabilir mi?',
+                        'İpucu 3: grep 4444 /var/log/syslog',
                       ].join('\n'),
                     },
                     'flag.txt': {
-                      type: 'file', perms: '-r--------',
+                      type: 'file', perms: '-rw-------',
                       content: 'FLAG{n3tw0rk_m4st3r_2024}\n',
                     },
                   },
@@ -251,6 +250,28 @@ export const ROOT: DirNode = {
         crontab:  { type: 'file', perms: '-rw-r--r--', content: '*/5 * * * * root /usr/bin/backup.sh\n0 3 * * 0 root /usr/bin/cleanup.sh\n' },
       },
     },
+    usr: {
+      type: 'dir', perms: 'drwxr-xr-x',
+      children: {
+        bin: {
+          type: 'dir', perms: 'drwxr-xr-x',
+          children: {
+            find: {
+              type: 'file', perms: '-rwsr-xr-x',
+              content: 'ELF binary: GNU find with SUID bit enabled for lab simulation\n',
+            },
+            passwd: {
+              type: 'file', perms: '-rwsr-xr-x',
+              content: 'ELF binary: passwd with standard SUID permissions\n',
+            },
+            sudo: {
+              type: 'file', perms: '-rwsr-xr-x',
+              content: 'ELF binary: sudo with standard SUID permissions\n',
+            },
+          },
+        },
+      },
+    },
     var: {
       type: 'dir', perms: 'drwxrwxr-x',
       children: {
@@ -259,7 +280,7 @@ export const ROOT: DirNode = {
           children: {
             syslog: {
               type: 'file', perms: '-rw-r-----',
-              content: 'Jan 15 08:00 breach-lab sshd: Accepted publickey for operator\nJan 15 08:01 breach-lab sudo: operator ran /bin/bash\nJan 15 08:12 breach-lab kernel: [UFW BLOCK] IN=eth0 SRC=45.33.32.156\nJan 15 08:15 breach-lab sshd: Failed password for root from 45.33.32.156\nJan 15 08:16 breach-lab sshd: Failed password for root from 45.33.32.156\nJan 15 08:17 breach-lab sshd: Failed password for root from 45.33.32.156\n',
+              content: 'Jan 15 08:00 breach-lab sshd: Accepted publickey for operator\nJan 15 08:01 breach-lab sudo: operator ran /bin/bash\nJan 15 08:12 breach-lab kernel: [UFW BLOCK] IN=eth0 SRC=45.33.32.156\nJan 15 08:15 breach-lab sshd: Failed password for root from 45.33.32.156\nJan 15 08:16 breach-lab sshd: Failed password for root from 45.33.32.156\nJan 15 08:17 breach-lab sshd: Failed password for root from 45.33.32.156\nJan 15 08:24 breach-lab backdoor-agent: BACKDOOR detected on port 4444 token=FLAG{n3tw0rk_m4st3r_2024}\n',
             },
           },
         },
@@ -314,3 +335,4 @@ export function colorEntry(name: string, node: FSNode): string {
   if (name.startsWith('.'))             return `\x1b[90m${name}\x1b[0m`
   return name
 }
+

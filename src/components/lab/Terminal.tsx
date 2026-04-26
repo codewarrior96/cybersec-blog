@@ -1,9 +1,10 @@
 ﻿'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import AnsiText from './AnsiText'
 import { runCommand, VALID_FLAGS } from '@/lib/lab/engine'
-import { RingEvidenceLog, deserializeEvidenceLog, evidenceStorageKey, serializeEvidenceLog } from '@/lib/lab/evidence'
+import { deserializeEvidenceLog, evidenceStorageKey, serializeEvidenceLog } from '@/lib/lab/evidence'
 import { resolvePath, getNode } from '@/lib/lab/filesystem'
 import type { EvidenceEvent, EvidenceLog } from '@/lib/lab/evidence'
 import type { CommandContext, PendingCommand, TerminalExecution, TerminalLine, TerminalCommandSource } from '@/lib/lab/types'
@@ -50,21 +51,44 @@ function tabComplete(input: string, cwd: string): string | null {
 interface Props {
   wsUrl?: string
   onFlagSubmit?: (flag: string) => void
-  onEvidenceLogUpdate?: (log: EvidenceLog) => void
   pendingCommand?: PendingCommand | null
   onCommandConsumed?: () => void
   onCommandExecuted?: (execution: TerminalExecution) => void
+  isActive?: boolean
+  cwd: string
+  setCwd: Dispatch<SetStateAction<string>>
+  lines: TerminalLine[]
+  setLines: Dispatch<SetStateAction<TerminalLine[]>>
+  input: string
+  setInput: Dispatch<SetStateAction<string>>
+  history: string[]
+  setHistory: Dispatch<SetStateAction<string[]>>
+  histIdx: number
+  setHistIdx: Dispatch<SetStateAction<number>>
+  setEvidenceLog: Dispatch<SetStateAction<EvidenceLog>>
 }
 
-export default function Terminal({ wsUrl, onFlagSubmit, onEvidenceLogUpdate, pendingCommand, onCommandConsumed, onCommandExecuted }: Props) {
+export default function Terminal({
+  wsUrl,
+  onFlagSubmit,
+  pendingCommand,
+  onCommandConsumed,
+  onCommandExecuted,
+  isActive = true,
+  cwd,
+  setCwd,
+  lines,
+  setLines,
+  input,
+  setInput,
+  history,
+  setHistory,
+  histIdx,
+  setHistIdx,
+  setEvidenceLog,
+}: Props) {
   const resolvedWsUrl = wsUrl ?? process.env.NEXT_PUBLIC_TERMINAL_WS
-  const [cwd, setCwd] = useState(HOME)
-  const [lines, setLines] = useState<TerminalLine[]>([])
-  const [input, setInput] = useState('')
-  const [history, setHistory] = useState<string[]>([])
-  const [histIdx, setHistIdx] = useState(-1)
   const [wsStatus, setWsStatus] = useState<WsStatus>('simulated')
-  const [evidenceLog, setEvidenceLog] = useState<EvidenceLog>(new RingEvidenceLog())
 
   const cwdRef = useRef(cwd)
   const wsRef = useRef<WebSocket | null>(null)
@@ -74,21 +98,17 @@ export default function Terminal({ wsUrl, onFlagSubmit, onEvidenceLogUpdate, pen
   cwdRef.current = cwd
 
   useEffect(() => {
-    if (!pendingCommand) return
+    if (!pendingCommand || !isActive) return
     execute(pendingCommand.cmd, 'assisted')
     onCommandConsumed?.()
-  }, [pendingCommand?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pendingCommand?.id, isActive]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (typeof window === 'undefined') return
 
     const key = evidenceStorageKey(EVIDENCE_SCENARIO_ID)
     setEvidenceLog(deserializeEvidenceLog(window.localStorage.getItem(key)))
-  }, [])
-
-  useEffect(() => {
-    onEvidenceLogUpdate?.(evidenceLog)
-  }, [evidenceLog, onEvidenceLogUpdate])
+  }, [setEvidenceLog])
 
   useEffect(() => {
     if (!resolvedWsUrl) {
@@ -139,7 +159,7 @@ export default function Terminal({ wsUrl, onFlagSubmit, onEvidenceLogUpdate, pen
 
       return next
     })
-  }, [])
+  }, [setEvidenceLog])
 
   const execute = useCallback((raw: string, source: TerminalCommandSource = 'manual') => {
     const cwdBefore = cwdRef.current
@@ -203,7 +223,7 @@ export default function Terminal({ wsUrl, onFlagSubmit, onEvidenceLogUpdate, pen
       output,
       timestamp: Date.now(),
     })
-  }, [handleEvidenceEvent, history, onCommandExecuted, onFlagSubmit])
+  }, [handleEvidenceEvent, history, onCommandExecuted, onFlagSubmit, setCwd, setHistory, setInput, setLines])
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     switch (event.key) {

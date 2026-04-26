@@ -4,6 +4,9 @@ import type { EvidenceEvent, EvidencePrimitive } from './evidence'
 import type { CommandContext, FSNode } from './types'
 
 let nextEvidenceEventId = 0
+const PRIVESC_FLAG_PATH = '/home/operator/challenges/05-privesc/flag.txt'
+const NETWORK_FLAG_PATH = '/home/operator/challenges/06-network/flag.txt'
+const SYSLOG_PATH = '/var/log/syslog'
 
 // ─── Valid CTF Flags ──────────────────────────────────────────────────────────
 
@@ -28,8 +31,9 @@ export function runCommand(raw: string, ctx: CommandContext, onEvent?: (event: E
   const trimmed = raw.trim()
   if (!trimmed) return []
 
-  if (trimmed.includes(' | ')) {
-    return runPipeline(trimmed, ctx, onEvent)
+  const pipelineSegments = splitPipeline(trimmed)
+  if (pipelineSegments) {
+    return runPipeline(trimmed, pipelineSegments, ctx, onEvent)
   }
 
   return runSingle(trimmed, ctx, '', onEvent).output
@@ -37,10 +41,9 @@ export function runCommand(raw: string, ctx: CommandContext, onEvent?: (event: E
 
 // ─── Pipeline ─────────────────────────────────────────────────────────────────
 
-function runPipeline(raw: string, ctx: CommandContext, onEvent?: (event: EvidenceEvent) => void): string[] {
+function runPipeline(raw: string, segments: string[], ctx: CommandContext, onEvent?: (event: EvidenceEvent) => void): string[] {
   let stdin = ''
   const cwdBefore = ctx.cwd
-  const segments = raw.split(' | ').map(cmd => cmd.trim())
   const segmentPrimitives: EvidencePrimitive[] = []
   let exitCode = 0
 
@@ -169,7 +172,7 @@ function runSingle(
     case 'netstat': case 'ss': return cmdNetstat()
     case 'ping':         return cmdPing(args)
     case 'curl': case 'wget': return cmdCurl(args)
-    case 'sudo':         return cmdSudo(args)
+    case 'sudo':         return cmdSudo(args, ctx)
     case 'man':          return cmdMan(args)
     case 'which':        return cmdWhich(args)
     case 'crontab':      return args.includes('-l') ? ['*/5 * * * * root /usr/bin/backup.sh', '0 3 * * 0 root /usr/bin/cleanup.sh'] : ['kullanım: crontab -l']
@@ -262,6 +265,34 @@ function tokenize(raw: string): string[] {
   return raw.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? []
 }
 
+function splitPipeline(raw: string): string[] | null {
+  const segments: string[] = []
+  let current = ''
+  let quote: '"' | "'" | null = null
+
+  for (const char of raw) {
+    if ((char === '"' || char === "'")) {
+      quote = quote === char ? null : quote ?? char
+      current += char
+      continue
+    }
+
+    if (char === '|' && quote === null) {
+      segments.push(current.trim())
+      current = ''
+      continue
+    }
+
+    current += char
+  }
+
+  segments.push(current.trim())
+
+  const cleanedSegments = segments.filter(Boolean)
+  if (cleanedSegments.length <= 1) return null
+  return cleanedSegments
+}
+
 function stripQuotes(t: string): string {
   return t.replace(/^['"]|['"]$/g, '')
 }
@@ -285,6 +316,13 @@ function existingFilePath(cwd: string, target: string | undefined): string | nul
   return node?.type === 'file' ? path : null
 }
 
+function isSudoFindFlagRead(args: string[], cwd: string): boolean {
+  if (args[0] !== 'find') return false
+  if (!args.includes('-exec') || !args.includes('cat')) return false
+
+  return args.some(arg => resolvePath(cwd, arg) === PRIVESC_FLAG_PATH)
+}
+
 function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string): EvidencePrimitive[] {
   const primitives: EvidencePrimitive[] = [{ type: 'command_executed', command: cmd }]
 
@@ -299,7 +337,36 @@ function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string): Ev
   if (cmd === 'cat') {
     for (const target of nonFlags(args)) {
       const path = existingFilePath(cwdBefore, target)
-      if (path) primitives.push({ type: 'file_read', path, via: 'cat' })
+      if (path && path !== PRIVESC_FLAG_PATH && path !== NETWORK_FLAG_PATH) {
+        primitives.push({ type: 'file_read', path, via: 'cat' })
+      }
+    }
+  }
+
+  if (cmd === 'chmod') {
+    const [perms, target] = args
+    const path = existingFilePath(cwdBefore, target)
+    if (perms && path) {
+      primitives.push({ type: 'file_modified_perms', path, perms })
+    }
+  }
+
+  if (cmd === 'sudo') {
+    primitives.push({ type: 'security_tool_used', tool: 'sudo' })
+
+    if (isSudoFindFlagRead(args, cwdBefore)) {
+      primitives.push(
+        { type: 'security_tool_used', tool: 'find', target: PRIVESC_FLAG_PATH },
+        { type: 'file_read', path: PRIVESC_FLAG_PATH, via: 'cat' },
+        { type: 'fact_derived', fact: 'privesc_via_sudo_find', method: 'sudo-find-exec' },
+      )
+    }
+  }
+
+  if (cmd === 'find') {
+    const permIdx = args.indexOf('-perm')
+    if (permIdx >= 0 && args[permIdx + 1] === '-4000') {
+      primitives.push({ type: 'fact_derived', fact: 'suid_discovered', method: 'find-perm-4000' })
     }
   }
 
@@ -316,12 +383,20 @@ function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string): Ev
   if (cmd === 'grep') {
     const fl = flags(args)
     const nf = nonFlags(args)
+    const pattern = nf[0] ?? ''
     const target = nf[1]
     const path = existingFilePath(cwdBefore, target)
     if (path) primitives.push({ type: 'file_read', path, via: 'grep' })
     if (fl.includes('c') && path === '/etc/passwd') {
       primitives.push({ type: 'fact_derived', fact: 'passwd_line_count', method: 'grep' })
     }
+    if (path === SYSLOG_PATH && /4444|BACKDOOR/i.test(pattern)) {
+      primitives.push({ type: 'fact_derived', fact: 'backdoor_investigated', method: 'grep-syslog' })
+    }
+  }
+
+  if (cmd === 'netstat' || cmd === 'ss') {
+    primitives.push({ type: 'fact_derived', fact: 'suspicious_port_4444', method: cmd })
   }
 
   if (cmd === 'awk') {
@@ -429,9 +504,13 @@ function cmdCat(args: string[], ctx: CommandContext): string[] {
   if (!targets.length) return ['\x1b[90m(stdin bekliyor — Ctrl+C)\x1b[0m']
 
   return targets.flatMap(target => {
+    const path = resolvePath(ctx.cwd, target)
     const node = resolve(ctx.cwd, target)
     if (!node)              return [`\x1b[31mcat: ${target}: yok\x1b[0m`]
     if (node.type === 'dir') return [`\x1b[31mcat: ${target}: bir dizin\x1b[0m`]
+    if (path === PRIVESC_FLAG_PATH || path === NETWORK_FLAG_PATH) {
+      return [`\x1b[31mcat: ${target}: izin reddedildi (root gerekli)\x1b[0m`]
+    }
     return node.content.split('\n')
   })
 }
@@ -720,6 +799,7 @@ function cmdNetstat(): string[] {
     'tcp    0.0.0.0:22             LISTEN',
     'tcp    0.0.0.0:80             LISTEN',
     'tcp    0.0.0.0:443            LISTEN',
+    'tcp    0.0.0.0:4444           LISTEN   backdoor-agent',
     'tcp    127.0.0.1:3306         LISTEN',
     'tcp    10.0.2.15:22           ESTABLISHED',
   ]
@@ -747,14 +827,22 @@ function cmdCurl(args: string[]): string[] {
   ]
 }
 
-function cmdSudo(args: string[]): string[] {
+function cmdSudo(args: string[], ctx: CommandContext): string[] {
   if (args[0] === '-l') {
     return [
       'User operator may run the following commands on breach-lab:',
-      '    (ALL : ALL) NOPASSWD: /usr/bin/vim',
-      '    (root) /usr/bin/find',
+      '    (root) NOPASSWD: /usr/bin/find',
     ]
   }
+
+  if (isSudoFindFlagRead(args, ctx.cwd)) {
+    return [
+      '\x1b[90m[sudo find]\x1b[0m root context acquired via /usr/bin/find',
+      '\x1b[32m[root-read]\x1b[0m /home/operator/challenges/05-privesc/flag.txt',
+      'FLAG{pr1v3sc_r00t_0wn3d}',
+    ]
+  }
+
   return [
     `\x1b[33m[sudo] password for operator: ****\x1b[0m`,
     `\x1b[32m✓ Komut çalıştırıldı: ${args.join(' ')}\x1b[0m`,

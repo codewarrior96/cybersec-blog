@@ -6,16 +6,21 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 let supabaseClient: SupabaseClient | null = null
 
 async function noStoreSupabaseFetch(input: RequestInfo | URL, init?: RequestInit) {
-  const nextConfig = {
-    ...((init as RequestInit & { next?: Record<string, unknown> } | undefined)?.next ?? {}),
-    revalidate: 0,
+  const typedInit = (init ?? {}) as RequestInit & { next?: Record<string, unknown> }
+  const { next, ...requestInit } = typedInit
+  const nextConfig: Record<string, unknown> = { ...(next ?? {}) }
+  delete nextConfig.revalidate
+
+  const fetchInit: RequestInit & { next?: Record<string, unknown> } = {
+    ...requestInit,
+    cache: 'no-store',
   }
 
-  return fetch(input, {
-    ...init,
-    cache: 'no-store',
-    next: nextConfig,
-  } as RequestInit)
+  if (Object.keys(nextConfig).length > 0) {
+    fetchInit.next = nextConfig
+  }
+
+  return fetch(input, fetchInit as RequestInit)
 }
 
 export function isSupabaseProductDbEnabled() {
