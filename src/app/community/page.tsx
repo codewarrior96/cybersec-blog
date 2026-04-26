@@ -4,6 +4,13 @@ import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { TOOLS, CHALLENGES, TOOL_CATEGORIES, TRAINING_SETS } from '@/lib/lab/content'
 import { VALID_FLAGS, isValidFlag } from '@/lib/lab/engine'
+import { RingEvidenceLog } from '@/lib/lab/evidence'
+import { validateChallengeWithMode } from '@/lib/lab/validation/adapter'
+import { challengeContracts } from '@/lib/lab/validation/contracts'
+import { humanize } from '@/lib/lab/validation/humanize'
+import { challengeModes } from '@/lib/lab/validation/modes'
+import type { EvidenceLog } from '@/lib/lab/evidence'
+import type { ValidationResult } from '@/lib/lab/validation/types'
 import type { ToolCard, Challenge, Difficulty, PendingCommand, TrainingSet, Lesson, LessonDifficulty, TerminalExecution, LessonMission } from '@/lib/lab/types'
 
 const Terminal = dynamic(() => import('@/components/lab/Terminal'), { ssr: false })
@@ -13,6 +20,7 @@ const Terminal = dynamic(() => import('@/components/lab/Terminal'), { ssr: false
 type ContentTab  = 'curriculum' | 'tools' | 'ctf'
 type MobileTab   = ContentTab | 'terminal'
 type ToolCategory = typeof TOOL_CATEGORIES[number]
+type CTFSubmitState = 'valid' | 'invalid' | 'duplicate' | 'blocked'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -36,12 +44,85 @@ const MOBILE_TABS: { id: MobileTab; icon: string; label: string }[] = [
   { id: 'terminal',   icon: '>_', label: 'Terminal' },
 ]
 
+const STORAGE_KEYS = {
+  unlocked: 'breach-unlocked',
+  hints: 'breach-hints',
+  flags: 'breach-flags',
+} as const
+
+function readStoredNumberSet(key: string, fallback: readonly number[]): Set<number> {
+  if (typeof window === 'undefined') return new Set(fallback)
+
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return new Set(fallback)
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return new Set(fallback)
+
+    const values = parsed.map(value => {
+      if (typeof value === 'number') return value
+      if (typeof value === 'string') return Number(value)
+      return Number.NaN
+    })
+
+    if (values.some(value => Number.isNaN(value))) return new Set(fallback)
+    return new Set(values)
+  } catch {
+    return new Set(fallback)
+  }
+}
+
+function readStoredStringSet(key: string): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return new Set()
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed) || parsed.some(value => typeof value !== 'string')) {
+      return new Set()
+    }
+
+    return new Set(parsed)
+  } catch {
+    return new Set()
+  }
+}
+
+function readStoredHintMap(key: string): Record<number, number> {
+  if (typeof window === 'undefined') return {}
+
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return {}
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+
+    const entries = Object.entries(parsed).map(([level, value]) => {
+      const numericLevel = Number(level)
+      const numericValue = typeof value === 'number' ? value : Number(value)
+      return [numericLevel, numericValue] as const
+    })
+
+    if (entries.some(([level, value]) => Number.isNaN(level) || Number.isNaN(value))) return {}
+
+    return Object.fromEntries(entries)
+  } catch {
+    return {}
+  }
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function LabPage() {
   const [contentTab,     setContentTab]     = useState<ContentTab>('curriculum')
   const [mobileTab,      setMobileTab]      = useState<MobileTab>('curriculum')
-  const [submittedFlags, setSubmittedFlags] = useState<Set<string>>(new Set())
+  const [submittedFlags, setSubmittedFlags] = useState<Set<string>>(() => readStoredStringSet(STORAGE_KEYS.flags))
+  const [evidenceLog,    setEvidenceLog]    = useState<EvidenceLog>(new RingEvidenceLog())
+  const [ctfValidationMessages, setCtfValidationMessages] = useState<Record<number, string>>({})
 
   // ── Çapraz panel komut enjeksiyonu ──────────────────────────────────────
   const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(null)
@@ -63,29 +144,26 @@ export default function LabPage() {
   }, [])
 
   // ── CTF ilerleme (localStorage kalıcı) ───────────────────────────────────
-  const [unlockedLevels, setUnlockedLevels] = useState<Set<number>>(new Set([1]))
-  const [revealedHints,  setRevealedHints]  = useState<Record<number, number>>({})
+  const [unlockedLevels, setUnlockedLevels] = useState<Set<number>>(() => readStoredNumberSet(STORAGE_KEYS.unlocked, [1]))
+  const [revealedHints,  setRevealedHints]  = useState<Record<number, number>>(() => readStoredHintMap(STORAGE_KEYS.hints))
 
   useEffect(() => {
     try {
-      const ul = localStorage.getItem('breach-unlocked')
-      if (ul) setUnlockedLevels(new Set(JSON.parse(ul) as number[]))
-      const rh = localStorage.getItem('breach-hints')
-      if (rh) setRevealedHints(JSON.parse(rh) as Record<number, number>)
-    } catch { /* ignore parse errors */ }
-  }, [])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('breach-unlocked', JSON.stringify(Array.from(unlockedLevels)))
+      localStorage.setItem(STORAGE_KEYS.unlocked, JSON.stringify(Array.from(unlockedLevels)))
     } catch { /* ignore */ }
   }, [unlockedLevels])
 
   useEffect(() => {
     try {
-      localStorage.setItem('breach-hints', JSON.stringify(revealedHints))
+      localStorage.setItem(STORAGE_KEYS.hints, JSON.stringify(revealedHints))
     } catch { /* ignore */ }
   }, [revealedHints])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.flags, JSON.stringify(Array.from(submittedFlags)))
+    } catch { /* ignore */ }
+  }, [submittedFlags])
 
   // ── Global flag submit ───────────────────────────────────────────────────
   function handleFlagSubmit(flag: string) {
@@ -93,15 +171,47 @@ export default function LabPage() {
   }
 
   // ── CTF flag submit + level unlock ───────────────────────────────────────
-  function handleCTFFlag(flag: string, level: number): 'valid' | 'invalid' | 'duplicate' {
-    if (submittedFlags.has(flag)) return 'duplicate'
+  function validationMessageFromResult(result: ValidationResult): string {
+    if (result.missing[0]) return `Henüz şunu yapmadın: ${humanize(result.missing[0])}.`
+    if (result.forbidden[0]) return `Bu çözüm akışı kabul edilmiyor: ${humanize(result.forbidden[0])}.`
+    if (result.temporalFailures.length > 0) {
+      return 'Önce terminalde /etc/passwd satır sayısını kanıtla, sonra flag dosyasını oku.'
+    }
+    return 'Terminal kanıtı eksik: görevi terminalde çöz, flag dosyasını oku ve tekrar gönder.'
+  }
+
+  function handleCTFFlag(flag: string, level: number): CTFSubmitState {
+    const alreadyAccepted = unlockedLevels.has(level + 1) && submittedFlags.has(flag)
+    if (alreadyAccepted || submittedFlags.has(flag)) return 'duplicate'
     if (!isValidFlag(flag)) return 'invalid'
+
+    const mode = challengeModes[level] ?? 'legacy_flag_only'
+    const result = validateChallengeWithMode(mode, flag, challengeContracts[level], evidenceLog)
+
+    if (!result.passed) {
+      setCtfValidationMessages(prev => ({ ...prev, [level]: validationMessageFromResult(result) }))
+      return 'blocked'
+    }
+
+    setCtfValidationMessages(prev => {
+      if (!prev[level]) return prev
+      const next = { ...prev }
+      delete next[level]
+      return next
+    })
+
     setUnlockedLevels(prev => {
       const next = new Set([...Array.from(prev), level + 1])
       return next
     })
     handleFlagSubmit(flag)
     return 'valid'
+  }
+
+  function handleTerminalFlagSubmit(flag: string) {
+    const challenge = CHALLENGES.find(item => item.flagKey === flag)
+    if (!challenge) return
+    handleCTFFlag(flag, challenge.level)
   }
 
   // ── Hint reveal ──────────────────────────────────────────────────────────
@@ -141,6 +251,7 @@ export default function LabPage() {
         unlockedLevels={unlockedLevels}
         revealedHints={revealedHints}
         submittedFlags={submittedFlags}
+        validationMessages={ctfValidationMessages}
         onFlagSubmit={handleCTFFlag}
         onSendCommand={cmd => { sendToTerminal(cmd); setMobileTab('terminal') }}
         onRevealHint={revealNextHint}
@@ -179,7 +290,8 @@ export default function LabPage() {
               <Terminal
                 pendingCommand={pendingCommand}
                 onCommandConsumed={handleCommandConsumed}
-                onFlagSubmit={handleFlagSubmit}
+                onFlagSubmit={handleTerminalFlagSubmit}
+                onEvidenceLogUpdate={setEvidenceLog}
                 onCommandExecuted={handleCommandExecuted}
               />
             </div>
@@ -194,7 +306,7 @@ export default function LabPage() {
         <MobileTopBar activeTab={mobileTab} progress={progress} total={total} />
         <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {mobileTab === 'terminal'
-            ? <Terminal pendingCommand={pendingCommand} onCommandConsumed={handleCommandConsumed} onFlagSubmit={handleFlagSubmit} onCommandExecuted={handleCommandExecuted} />
+            ? <Terminal pendingCommand={pendingCommand} onCommandConsumed={handleCommandConsumed} onFlagSubmit={handleTerminalFlagSubmit} onEvidenceLogUpdate={setEvidenceLog} onCommandExecuted={handleCommandExecuted} />
             : renderContent(mobileTab as ContentTab, true)
           }
         </div>
@@ -308,12 +420,13 @@ function MobileBottomNav({ activeTab, onTabChange }: {
 
 function CTFTab({
   unlockedLevels, revealedHints, submittedFlags,
-  onFlagSubmit, onSendCommand, onRevealHint,
+  validationMessages, onFlagSubmit, onSendCommand, onRevealHint,
 }: {
   unlockedLevels: Set<number>
   revealedHints: Record<number, number>
   submittedFlags: Set<string>
-  onFlagSubmit: (flag: string, level: number) => 'valid' | 'invalid' | 'duplicate'
+  validationMessages: Record<number, string>
+  onFlagSubmit: (flag: string, level: number) => CTFSubmitState
   onSendCommand: (cmd: string) => void
   onRevealHint: (level: number) => void
 }) {
@@ -359,6 +472,7 @@ function CTFTab({
               isUnlocked={unlockedLevels.has(ch.level)}
               isCompleted={submittedFlags.has(ch.flagKey)}
               hintsRevealed={revealedHints[ch.level] ?? 0}
+              validationMessage={validationMessages[ch.level]}
               onFlagSubmit={flag => onFlagSubmit(flag, ch.level)}
               onSendCommand={() => onSendCommand(`cd /home/operator/${ch.path}`)}
               onRevealHint={() => onRevealHint(ch.level)}
@@ -372,25 +486,26 @@ function CTFTab({
 
 function ChallengeCard({
   challenge: ch, isUnlocked, isCompleted, hintsRevealed,
-  onFlagSubmit, onSendCommand, onRevealHint,
+  validationMessage, onFlagSubmit, onSendCommand, onRevealHint,
 }: {
   challenge: Challenge
   isUnlocked: boolean
   isCompleted: boolean
   hintsRevealed: number
-  onFlagSubmit: (flag: string) => 'valid' | 'invalid' | 'duplicate'
+  validationMessage?: string
+  onFlagSubmit: (flag: string) => CTFSubmitState
   onSendCommand: () => void
   onRevealHint: () => void
 }) {
   const [flagInput,  setFlagInput]  = useState('')
-  const [submitState, setSubmitState] = useState<'idle' | 'valid' | 'invalid' | 'duplicate'>('idle')
+  const [submitState, setSubmitState] = useState<'idle' | CTFSubmitState>('idle')
 
   function handleSubmit() {
     if (!flagInput.trim()) return
     const result = onFlagSubmit(flagInput.trim())
     setSubmitState(result)
     if (result === 'valid') setFlagInput('')
-    setTimeout(() => setSubmitState('idle'), 2500)
+    setTimeout(() => setSubmitState('idle'), result === 'blocked' ? 4500 : 2500)
   }
 
   const borderColor = isCompleted ? '#00ff41'
@@ -504,6 +619,7 @@ function ChallengeCard({
                   border: `1px solid ${
                     submitState === 'valid'   ? '#00ff41' :
                     submitState === 'invalid' ? '#ef4444' :
+                    submitState === 'blocked' ? '#f59e0b' :
                     'rgba(255,255,255,0.1)'
                   }`,
                   borderRadius: 5, padding: '6px 10px',
@@ -525,6 +641,11 @@ function ChallengeCard({
             )}
             {submitState === 'duplicate' && (
               <p style={{ color: '#f59e0b', fontSize: 10, margin: '4px 0 0' }}>⚠ Bu flag zaten gönderildi.</p>
+            )}
+            {submitState === 'blocked' && (
+              <p style={{ color: '#f59e0b', fontSize: 10, lineHeight: 1.5, margin: '4px 0 0' }}>
+                {validationMessage ?? 'Once terminal kanitini tamamla, sonra tekrar dene.'}
+              </p>
             )}
             {submitState === 'valid' && (
               <p style={{ color: 'rgb(var(--route-accent-rgb))', fontSize: 10, margin: '4px 0 0' }}>✓ Doğru! Sonraki görev açıldı.</p>

@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import AnsiText from './AnsiText'
 import { runCommand, VALID_FLAGS } from '@/lib/lab/engine'
+import { RingEvidenceLog, deserializeEvidenceLog, evidenceStorageKey, serializeEvidenceLog } from '@/lib/lab/evidence'
 import { resolvePath, getNode } from '@/lib/lab/filesystem'
+import type { EvidenceEvent, EvidenceLog } from '@/lib/lab/evidence'
 import type { CommandContext, PendingCommand, TerminalExecution, TerminalLine, TerminalCommandSource } from '@/lib/lab/types'
 
 const HOME = '/home/operator'
+const EVIDENCE_SCENARIO_ID = 'breach-lab-default'
 
 type WsStatus = 'simulated' | 'connecting' | 'connected' | 'disconnected'
 
@@ -47,12 +50,13 @@ function tabComplete(input: string, cwd: string): string | null {
 interface Props {
   wsUrl?: string
   onFlagSubmit?: (flag: string) => void
+  onEvidenceLogUpdate?: (log: EvidenceLog) => void
   pendingCommand?: PendingCommand | null
   onCommandConsumed?: () => void
   onCommandExecuted?: (execution: TerminalExecution) => void
 }
 
-export default function Terminal({ wsUrl, onFlagSubmit, pendingCommand, onCommandConsumed, onCommandExecuted }: Props) {
+export default function Terminal({ wsUrl, onFlagSubmit, onEvidenceLogUpdate, pendingCommand, onCommandConsumed, onCommandExecuted }: Props) {
   const resolvedWsUrl = wsUrl ?? process.env.NEXT_PUBLIC_TERMINAL_WS
   const [cwd, setCwd] = useState(HOME)
   const [lines, setLines] = useState<TerminalLine[]>([])
@@ -60,6 +64,7 @@ export default function Terminal({ wsUrl, onFlagSubmit, pendingCommand, onComman
   const [history, setHistory] = useState<string[]>([])
   const [histIdx, setHistIdx] = useState(-1)
   const [wsStatus, setWsStatus] = useState<WsStatus>('simulated')
+  const [evidenceLog, setEvidenceLog] = useState<EvidenceLog>(new RingEvidenceLog())
 
   const cwdRef = useRef(cwd)
   const wsRef = useRef<WebSocket | null>(null)
@@ -73,6 +78,17 @@ export default function Terminal({ wsUrl, onFlagSubmit, pendingCommand, onComman
     execute(pendingCommand.cmd, 'assisted')
     onCommandConsumed?.()
   }, [pendingCommand?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const key = evidenceStorageKey(EVIDENCE_SCENARIO_ID)
+    setEvidenceLog(deserializeEvidenceLog(window.localStorage.getItem(key)))
+  }, [])
+
+  useEffect(() => {
+    onEvidenceLogUpdate?.(evidenceLog)
+  }, [evidenceLog, onEvidenceLogUpdate])
 
   useEffect(() => {
     if (!resolvedWsUrl) {
@@ -109,6 +125,22 @@ export default function Terminal({ wsUrl, onFlagSubmit, pendingCommand, onComman
     }
   }, [lines])
 
+  const handleEvidenceEvent = useCallback((event: EvidenceEvent) => {
+    setEvidenceLog(prev => {
+      const next = prev.append(event)
+
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem(evidenceStorageKey(EVIDENCE_SCENARIO_ID), serializeEvidenceLog(next))
+        } catch (err) {
+          console.warn('[BREACH LAB] Evidence persist failed:', err)
+        }
+      }
+
+      return next
+    })
+  }, [])
+
   const execute = useCallback((raw: string, source: TerminalCommandSource = 'manual') => {
     const cwdBefore = cwdRef.current
     const prompt = buildPrompt(cwdBefore)
@@ -139,7 +171,8 @@ export default function Terminal({ wsUrl, onFlagSubmit, pendingCommand, onComman
       history,
     }
 
-    const output = runCommand(raw, ctx)
+    // Evidence currently emitted only in simulated mode. Future: capture from WebSocket protocol.
+    const output = runCommand(raw, ctx, handleEvidenceEvent)
 
     if (output[0] === '__CLEAR__') {
       setLines([])
@@ -170,7 +203,7 @@ export default function Terminal({ wsUrl, onFlagSubmit, pendingCommand, onComman
       output,
       timestamp: Date.now(),
     })
-  }, [history, onCommandExecuted, onFlagSubmit])
+  }, [handleEvidenceEvent, history, onCommandExecuted, onFlagSubmit])
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     switch (event.key) {

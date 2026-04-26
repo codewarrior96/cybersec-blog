@@ -1144,9 +1144,9 @@ export const CHALLENGES: Challenge[] = [
     description: 'cat, wc -l ve /etc/passwd ile sistem keşfi yap. Gizli bayrak dosyasını bul.',
     flagKey: 'FLAG{r3con_master_l1nux}',
     hints: [
-      'ls -la komutu ile tüm dosyaları (gizliler dahil) listele',
-      'Gizli dosyalar nokta (.) ile başlar — örneğin .hidden_flag',
-      'cat .hidden_flag komutu ile dosya içeriğini oku',
+      'Once cat /etc/passwd ile sistem kullanicilarini gor.',
+      'Satir sayisini ogrenmek icin cat /etc/passwd | wc -l kullan, pipe (|) ile iki komutu zincirle.',
+      'Satir sayisini dogruladiktan sonra gorev dizinindeki flag.txt dosyasini oku.',
     ],
   },
   {
@@ -1158,9 +1158,9 @@ export const CHALLENGES: Challenge[] = [
     description: 'chmod ile izin yönetimi. Kısıtlı dosyaya erişim sağla ve bash script çalıştır.',
     flagKey: 'FLAG{ch4mod_p3rm1ss10ns}',
     hints: [
-      'ls -la ile dosya izinlerini incele — hangi dosya okunamıyor?',
-      'chmod +r <dosya> ile okuma izni ekleyebilirsin',
-      'Dosyayı okunduktan sonra içindeki komutu çalıştır: bash script.sh',
+      'ls -la ile secret.sh dosyasinin izinlerini kontrol et.',
+      'Calistirma izni vermek icin chmod +x secret.sh kullan.',
+      'Izin verdikten sonra bash secret.sh ile scripti calistir.',
     ],
   },
   {
@@ -1172,9 +1172,9 @@ export const CHALLENGES: Challenge[] = [
     description: 'Derinlemesine dizin taraması. Bayrak birçok iç içe gizli dizinde saklanmış.',
     flagKey: 'FLAG{h1dden_1n_pl41n_s1ght}',
     hints: [
-      'find komutu ile arama yap: find . -name "*.txt" 2>/dev/null',
-      'Gizli dizinler de nokta ile başlar — find . -type d -name ".*"',
-      'find /home/operator -name "flag*" 2>/dev/null tüm dizini tarar',
+      'ls -la ile gizli dosyalari gorunur yap.',
+      'Nokta ile baslayan .vault dosyasini fark et.',
+      'cat .vault ile dosya icerigini oku.',
     ],
   },
   {
@@ -1186,9 +1186,9 @@ export const CHALLENGES: Challenge[] = [
     description: 'access.log içinde kalıp arama. Binlerce log satırından bayrağı filtrele.',
     flagKey: 'FLAG{gr3p_1s_p0w3r}',
     hints: [
-      'grep komutu ile metin ara: grep "FLAG" access.log',
-      'grep -r ile tüm dizini tara: grep -r "FLAG" .',
-      'grep -r "FLAG{" . --include="*.log" sadece log dosyalarını tarar',
+      'Log dosyalari binlerce satir olabilir - grep ile FLAG kelimesini iceren satiri filtrele.',
+      'Tam komut: grep "FLAG" access.log (-n ile satir numarasi ekleyebilirsin).',
+      'Buyuk loglarda once hedef dosyayi sec, sonra sadece aradigin kalibi filtrele.',
     ],
   },
   {
@@ -1200,9 +1200,9 @@ export const CHALLENGES: Challenge[] = [
     description: 'SUID, sudo -l ve crontab ile privesc vektörlerini bul. Root\'a yüksel.',
     flagKey: 'FLAG{pr1v3sc_r00t_0wn3d}',
     hints: [
-      'sudo -l komutu ile hangi komutları yetkisiz çalıştırabileceğini gör',
-      'SUID bit\'li dosyaları bul: find / -perm -4000 2>/dev/null',
-      '/etc/crontab ve /var/spool/cron/crontabs kontrol et — hangi job çalışıyor?',
+      'sudo -l komutu ile hangi komutlari yetkisiz calistirabilecegini gor.',
+      'SUID bitli dosyalari bul: find / -perm -4000 2>/dev/null.',
+      'Buldugun yetkili komutun root shell veya hassas dosya okuma yoluna nasil donebilecegini dusun.',
     ],
   },
   {
@@ -1214,9 +1214,9 @@ export const CHALLENGES: Challenge[] = [
     description: 'netstat/ss ile açık portlar, ağ servisleri ve log analizi ile bayrak bul.',
     flagKey: 'FLAG{n3tw0rk_m4st3r_2024}',
     hints: [
-      'ss -tuln veya netstat -tuln ile tüm açık portları listele',
-      'İlginç bir port bulursan nc ile bağlan: nc localhost <port>',
-      'cat /var/log/syslog | grep -i "flag" ile log dosyalarında ara',
+      'ss -tuln veya netstat -tuln ile tum acik portlari listele.',
+      'Acik portlarin hangi servisleri gosterdigini karsilastir.',
+      'ss -tulpn veya netstat -tulpn ciktisinda supheli servisi belirle.',
     ],
   },
 ]

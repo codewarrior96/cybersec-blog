@@ -1,6 +1,9 @@
 ﻿import { resolvePath, getNode, basename, colorEntry, ROOT } from './filesystem'
 import { getCommand } from './commands'
+import type { EvidenceEvent, EvidencePrimitive } from './evidence'
 import type { CommandContext, FSNode } from './types'
+
+let nextEvidenceEventId = 0
 
 // ─── Valid CTF Flags ──────────────────────────────────────────────────────────
 
@@ -21,30 +24,82 @@ export function isValidFlag(flag: string): boolean {
 }
 
 /** Runs a raw command string (supports pipes). Returns output lines. */
-export function runCommand(raw: string, ctx: CommandContext): string[] {
+export function runCommand(raw: string, ctx: CommandContext, onEvent?: (event: EvidenceEvent) => void): string[] {
   const trimmed = raw.trim()
   if (!trimmed) return []
 
   if (trimmed.includes(' | ')) {
-    return runPipeline(trimmed.split(' | '), ctx)
+    return runPipeline(trimmed, ctx, onEvent)
   }
 
-  return runSingle(trimmed, ctx, '')
+  return runSingle(trimmed, ctx, '', onEvent).output
 }
 
 // ─── Pipeline ─────────────────────────────────────────────────────────────────
 
-function runPipeline(cmds: string[], ctx: CommandContext): string[] {
+function runPipeline(raw: string, ctx: CommandContext, onEvent?: (event: EvidenceEvent) => void): string[] {
   let stdin = ''
-  for (const cmd of cmds) {
-    stdin = runSingle(cmd.trim(), ctx, stdin).join('\n')
+  const cwdBefore = ctx.cwd
+  const segments = raw.split(' | ').map(cmd => cmd.trim())
+  const segmentPrimitives: EvidencePrimitive[] = []
+  let exitCode = 0
+
+  for (const segment of segments) {
+    const result = runSingle(segment, ctx, stdin, undefined, false)
+    stdin = result.output.join('\n')
+    exitCode = result.exitCode
+    segmentPrimitives.push(...result.primitives)
   }
-  return stdin.split('\n')
+
+  const firstTokens = tokenize(segments[0] ?? '')
+  const output = stdin.split('\n')
+
+  emitEvidenceEvent({
+    id: nextEvidenceEventId++,
+    timestamp: Date.now(),
+    raw,
+    command: firstTokens[0]?.toLowerCase() ?? '',
+    args: firstTokens.slice(1).map(stripQuotes),
+    cwdBefore,
+    cwdAfter: ctx.cwd,
+    output,
+    exitCode,
+    primitives: [
+      ...segmentPrimitives,
+      { type: 'pipeline_used', commands: segments.map(segment => tokenize(segment)[0]?.toLowerCase() ?? '') },
+    ],
+    source: 'user',
+  }, onEvent)
+
+  return output
 }
 
 // ─── Single Command ───────────────────────────────────────────────────────────
 
-function runSingle(raw: string, ctx: CommandContext, stdin: string): string[] {
+interface SingleCommandResult {
+  output: string[]
+  primitives: EvidencePrimitive[]
+  exitCode: number
+}
+
+function emitEvidenceEvent(event: EvidenceEvent, onEvent?: (event: EvidenceEvent) => void): void {
+  if (!onEvent) return
+
+  try {
+    onEvent(event)
+  } catch (err) {
+    console.error('[BREACH LAB] Evidence event handler failed:', err)
+  }
+}
+
+function runSingle(
+  raw: string,
+  ctx: CommandContext,
+  stdin: string,
+  onEvent?: (event: EvidenceEvent) => void,
+  emitEvent = true,
+): SingleCommandResult {
+  const cwdBefore = ctx.cwd
   const tokens = tokenize(raw)
   const cmd    = tokens[0]?.toLowerCase() ?? ''
   const args   = tokens.slice(1).map(stripQuotes)
@@ -52,9 +107,29 @@ function runSingle(raw: string, ctx: CommandContext, stdin: string): string[] {
   const handler = getCommand(cmd)
   if (handler) {
     const result = handler.execute(args, ctx, stdin)
-    return result.output
+    const output = result.output
+    const primitives = result.evidence ?? []
+
+    if (emitEvent) {
+      emitEvidenceEvent({
+        id: nextEvidenceEventId++,
+        timestamp: Date.now(),
+        raw,
+        command: cmd,
+        args,
+        cwdBefore,
+        cwdAfter: ctx.cwd,
+        output,
+        exitCode: result.exitCode,
+        primitives,
+        source: 'user',
+      }, onEvent)
+    }
+
+    return { output, primitives, exitCode: result.exitCode }
   }
 
+  const output = (() => {
   switch (cmd) {
     case 'help':         return cmdHelp()
     case 'clear':        return ['__CLEAR__']
@@ -78,7 +153,7 @@ function runSingle(raw: string, ctx: CommandContext, stdin: string): string[] {
     case 'tail':         return cmdSlice(args, ctx, stdin, 'tail')
     case 'sort':         return cmdSort(args, stdin)
     case 'uniq':         return stdin.split('\n').filter((l, i, a) => l !== a[i - 1])
-    case 'awk':          return cmdAwk(args, stdin)
+    case 'awk':          return cmdAwk(args, ctx, stdin)
     case 'sed':          return cmdSed(args, stdin)
     case 'strings':      return cmdStrings(args, ctx)
     case 'xxd':          return cmdXxd(args, ctx)
@@ -140,6 +215,45 @@ function runSingle(raw: string, ctx: CommandContext, stdin: string): string[] {
       return [`\x1b[31mbash: ${cmd}: komut bulunamadı\x1b[0m`]
     }
   }
+  })()
+
+  // ============================================================
+  // GEÇİCİ: 01-recon hybrid mode köprüsü (Gün 3, 2026-04-26)
+  // ============================================================
+  // Aşağıdaki 5 komut (cat, wc, grep, awk, submit) henüz registry'ye
+  // migrate edilmemiş ama 01-recon hybrid validation'ı için evidence
+  // üretmek zorundalar. Bu inference, "switch-case fallback primitives
+  // boş döner" kuralının BİLİNÇLİ bir istisnasıdır.
+  //
+  // GÜN 7 CLEANUP CHECKLIST:
+  //   - cat, wc, grep, awk, submit registry handler'larına taşındığında
+  //   - Bu inference bloğu SİLİNECEK (dead code)
+  //   - Handler'ların kendi evidence emission'ı yeterli olacak
+  //   - Test: 01-recon hala hybrid mode'da geçer mi?
+  //
+  // Bu istisnanın gerekçesi: contract 'pipeline_used', 'file_read',
+  // 'fact_derived: passwd_line_count' primitive'lerini bekliyor. Switch'te
+  // primitive üretilmezse 01-recon evidence_only branch'i asla pass etmez.
+  // ============================================================
+  const primitives = inferSwitchEvidence(cmd, args, cwdBefore)
+
+  if (emitEvent) {
+    emitEvidenceEvent({
+      id: nextEvidenceEventId++,
+      timestamp: Date.now(),
+      raw,
+      command: cmd,
+      args,
+      cwdBefore,
+      cwdAfter: ctx.cwd,
+      output,
+      exitCode: 0,
+      primitives,
+      source: 'user',
+    }, onEvent)
+  }
+
+  return { output, primitives, exitCode: 0 }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -162,6 +276,66 @@ function nonFlags(args: string[]): string[] {
 
 function resolve(cwd: string, target = '.'): FSNode | null {
   return getNode(resolvePath(cwd, target))
+}
+
+function existingFilePath(cwd: string, target: string | undefined): string | null {
+  if (!target) return null
+  const path = resolvePath(cwd, target)
+  const node = getNode(path)
+  return node?.type === 'file' ? path : null
+}
+
+function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string): EvidencePrimitive[] {
+  const primitives: EvidencePrimitive[] = [{ type: 'command_executed', command: cmd }]
+
+  if (args.length > 0) {
+    primitives.push({ type: 'command_executed_with_args', command: cmd, args })
+  }
+
+  if (cmd === 'submit' && args[0]) {
+    primitives.push({ type: 'flag_submitted', flag: args[0] })
+  }
+
+  if (cmd === 'cat') {
+    for (const target of nonFlags(args)) {
+      const path = existingFilePath(cwdBefore, target)
+      if (path) primitives.push({ type: 'file_read', path, via: 'cat' })
+    }
+  }
+
+  if (cmd === 'wc') {
+    const fl = flags(args)
+    const target = nonFlags(args)[0]
+    const path = existingFilePath(cwdBefore, target)
+    if (path) primitives.push({ type: 'file_read', path, via: 'wc' })
+    if (fl.includes('l') && path === '/etc/passwd') {
+      primitives.push({ type: 'fact_derived', fact: 'passwd_line_count', method: 'wc' })
+    }
+  }
+
+  if (cmd === 'grep') {
+    const fl = flags(args)
+    const nf = nonFlags(args)
+    const target = nf[1]
+    const path = existingFilePath(cwdBefore, target)
+    if (path) primitives.push({ type: 'file_read', path, via: 'grep' })
+    if (fl.includes('c') && path === '/etc/passwd') {
+      primitives.push({ type: 'fact_derived', fact: 'passwd_line_count', method: 'grep' })
+    }
+  }
+
+  if (cmd === 'awk') {
+    const nf = nonFlags(args)
+    const program = nf[0] ?? ''
+    const target = nf[1]
+    const path = existingFilePath(cwdBefore, target)
+    if (path) primitives.push({ type: 'file_read', path, via: 'awk' })
+    if (program.includes('END') && program.includes('NR') && path === '/etc/passwd') {
+      primitives.push({ type: 'fact_derived', fact: 'passwd_line_count', method: 'awk' })
+    }
+  }
+
+  return primitives
 }
 
 // ─── Command Implementations ──────────────────────────────────────────────────
@@ -279,10 +453,13 @@ function cmdGrep(args: string[], ctx: CommandContext, stdin: string): string[] {
     lines = stdin.split('\n')
   }
 
-  return lines
+  const matches = lines
     .map((line, idx) => ({ line, idx: idx + 1 }))
     .filter(({ line }) => fl.includes('v') ? !re.test(line) : re.test(line))
-    .map(({ line, idx }) => {
+
+  if (fl.includes('c')) return [String(matches.length)]
+
+  return matches.map(({ line, idx }) => {
       const highlighted = line.replace(re, m => `\x1b[1;31m${m}\x1b[0m`)
       return fl.includes('n') ? `\x1b[32m${idx}\x1b[0m:${highlighted}` : highlighted
     })
@@ -395,9 +572,23 @@ function cmdSort(args: string[], stdin: string): string[] {
   )
 }
 
-function cmdAwk(args: string[], stdin: string): string[] {
-  const program = nonFlags(args)[0] ?? ''
-  const lines   = stdin.split('\n').filter(Boolean)
+function cmdAwk(args: string[], ctx: CommandContext, stdin: string): string[] {
+  const nf = nonFlags(args)
+  const program = nf[0] ?? ''
+  const file = nf[1]
+  let input = stdin
+
+  if (file) {
+    const node = resolve(ctx.cwd, file)
+    if (!node || node.type !== 'file') return [`\x1b[31mawk: ${file}: yok\x1b[0m`]
+    input = node.content
+  }
+
+  const lines = input.split('\n').filter(Boolean)
+
+  if (program.includes('END') && program.includes('NR')) {
+    return [String(lines.length)]
+  }
 
   if (program.includes('sum') && program.includes('END')) {
     const sum = lines.reduce((acc, l) => acc + (parseFloat(l.trim().split(/\s+/)[0]) || 0), 0)
