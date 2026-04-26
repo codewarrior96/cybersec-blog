@@ -2,6 +2,7 @@ import { getCommand } from './registry'
 import { RingEvidenceLog } from '../evidence'
 import { validateContract } from '../validation/contract'
 import { challengeContracts } from '../validation/contracts'
+import { challengeModes } from '../validation/modes'
 import { humanize } from '../validation/humanize'
 import type { CommandContext } from '../types'
 
@@ -46,8 +47,16 @@ export function verifyRegistry(): void {
     throw new Error('Validation verification failed: challenge 1 contract is missing')
   }
 
-  if (challengeContracts[2]) {
-    throw new Error('Validation verification failed: challenge 2 must remain legacy-only')
+  const hybridLevels = [1, 2, 3, 4, 5, 6] as const
+
+  for (const level of hybridLevels) {
+    if (!challengeContracts[level]) {
+      throw new Error(`Validation verification failed: challenge ${level} contract is missing`)
+    }
+
+    if (challengeModes[level] !== 'hybrid') {
+      throw new Error(`Validation verification failed: challenge ${level} must be hybrid`)
+    }
   }
 
   const humanized = humanize({ type: 'command_executed', command: 'pwd' })

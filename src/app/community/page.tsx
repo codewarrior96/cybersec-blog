@@ -196,7 +196,7 @@ export default function LabPage() {
     if (result.missing[0]) return `Henüz şunu yapmadın: ${humanize(result.missing[0])}.`
     if (result.forbidden[0]) return `Bu çözüm akışı kabul edilmiyor: ${humanize(result.forbidden[0])}.`
     if (result.temporalFailures.length > 0) {
-      return 'Önce terminalde /etc/passwd satır sayısını kanıtla, sonra flag dosyasını oku.'
+      return 'Önce bu göreve ait terminal kanıtlarını tamamla, sonra flag değerini tekrar gönder.'
     }
     return 'Terminal kanıtı eksik: görevi terminalde çöz, flag dosyasını oku ve tekrar gönder.'
   }

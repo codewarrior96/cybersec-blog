@@ -24,7 +24,21 @@ export function validateChallengeWithMode(
     return emptyResult
   }
 
-  const evidenceResult = validateContract(contract, log)
+  const augmentedLog = log.append({
+    id: Number.MAX_SAFE_INTEGER,
+    timestamp: Date.now(),
+    raw: `submit ${flag}`,
+    command: 'submit',
+    args: [flag],
+    cwdBefore: '/ctf-panel',
+    cwdAfter: '/ctf-panel',
+    output: [],
+    exitCode: 0,
+    primitives: [{ type: 'flag_submitted', flag }],
+    source: 'panel',
+  })
+
+  const evidenceResult = validateContract(contract, augmentedLog)
 
   if (mode === 'evidence_only') {
     return evidenceResult
