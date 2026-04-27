@@ -26,12 +26,7 @@
                       "mission.txt": {
                         "type": "file",
                         "perms": "-rw-r--r--",
-                        "content": "[LEVEL 1] KEŞİF — KOLAY\n─────────────────────────\n\nGörev: /etc/passwd kaç satır içeriyor?\n\nİpucu 1: cat /etc/passwd\nİpucu 2: cat /etc/passwd | wc -l\nİpucu 3: Sonra flag.txt oku"
-                      },
-                      "flag.txt": {
-                        "type": "file",
-                        "perms": "-r--------",
-                        "content": "FLAG{r3con_master_l1nux}\n"
+                        "content": "[LEVEL 1] RECONNAISSANCE — EASY\n────────────────────────────────\n\nObjective: How many lines does /etc/passwd contain?\n\nHint 1: cat /etc/passwd\nHint 2: cat /etc/passwd | wc -l\nHint 3: When you derive the line count, the flag will appear in the terminal."
                       }
                     }
                   }

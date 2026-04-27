@@ -1,11 +1,18 @@
-﻿import { resolvePath, getNode, basename, colorEntry, ROOT } from './filesystem'
+import { resolvePath, getNode, basename, colorEntry } from './filesystem'
 import { getCommand } from './commands'
-import type { EvidenceEvent, EvidencePrimitive } from './evidence'
+import type { EvidenceEvent, EvidenceLog, EvidencePrimitive } from './evidence'
+import { applyMutation, getMutableNode } from './mutation'
+import { detectRevealEvent, formatBanner } from './reveal'
+import { challengeContracts } from './validation/contracts'
 import type { CommandContext, FSNode } from './types'
 
+export interface RevealHooks {
+  evidenceLog: EvidenceLog
+  unlockedLevels: ReadonlySet<number>
+  alreadyRevealed: ReadonlySet<number>
+}
+
 let nextEvidenceEventId = 0
-const PRIVESC_FLAG_PATH = '/home/operator/challenges/05-privesc/flag.txt'
-const NETWORK_FLAG_PATH = '/home/operator/challenges/06-network/flag.txt'
 const SYSLOG_PATH = '/var/log/syslog'
 
 // ─── Valid CTF Flags ──────────────────────────────────────────────────────────
@@ -21,27 +28,38 @@ export const VALID_FLAGS: ReadonlySet<string> = new Set([
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-/** Flag doğrulama helper — CTFTab bağımsız kullanabilsin */
+/** Flag verification helper — usable independently of CTFTab. */
 export function isValidFlag(flag: string): boolean {
   return VALID_FLAGS.has(flag.trim())
 }
 
 /** Runs a raw command string (supports pipes). Returns output lines. */
-export function runCommand(raw: string, ctx: CommandContext, onEvent?: (event: EvidenceEvent) => void): string[] {
+export function runCommand(
+  raw: string,
+  ctx: CommandContext,
+  onEvent?: (event: EvidenceEvent) => void,
+  reveal?: RevealHooks,
+): string[] {
   const trimmed = raw.trim()
   if (!trimmed) return []
 
   const pipelineSegments = splitPipeline(trimmed)
   if (pipelineSegments) {
-    return runPipeline(trimmed, pipelineSegments, ctx, onEvent)
+    return runPipeline(trimmed, pipelineSegments, ctx, onEvent, reveal)
   }
 
-  return runSingle(trimmed, ctx, '', onEvent).output
+  return runSingle(trimmed, ctx, '', onEvent, true, reveal).output
 }
 
 // ─── Pipeline ─────────────────────────────────────────────────────────────────
 
-function runPipeline(raw: string, segments: string[], ctx: CommandContext, onEvent?: (event: EvidenceEvent) => void): string[] {
+function runPipeline(
+  raw: string,
+  segments: string[],
+  ctx: CommandContext,
+  onEvent?: (event: EvidenceEvent) => void,
+  reveal?: RevealHooks,
+): string[] {
   let stdin = ''
   const cwdBefore = ctx.cwd
   const segmentPrimitives: EvidencePrimitive[] = []
@@ -57,7 +75,7 @@ function runPipeline(raw: string, segments: string[], ctx: CommandContext, onEve
   const firstTokens = tokenize(segments[0] ?? '')
   const output = stdin.split('\n')
 
-  emitEvidenceEvent({
+  const pipelineEvent: EvidenceEvent = {
     id: nextEvidenceEventId++,
     timestamp: Date.now(),
     raw,
@@ -72,9 +90,12 @@ function runPipeline(raw: string, segments: string[], ctx: CommandContext, onEve
       { type: 'pipeline_used', commands: segments.map(segment => tokenize(segment)[0]?.toLowerCase() ?? '') },
     ],
     source: 'user',
-  }, onEvent)
+  }
 
-  return output
+  emitEvidenceEvent(pipelineEvent, onEvent)
+
+  const revealOutput = runRevealCheck(reveal, pipelineEvent, onEvent)
+  return revealOutput.length > 0 ? [...output, ...revealOutput] : output
 }
 
 // ─── Single Command ───────────────────────────────────────────────────────────
@@ -101,6 +122,7 @@ function runSingle(
   stdin: string,
   onEvent?: (event: EvidenceEvent) => void,
   emitEvent = true,
+  reveal?: RevealHooks,
 ): SingleCommandResult {
   const cwdBefore = ctx.cwd
   const tokens = tokenize(raw)
@@ -110,11 +132,12 @@ function runSingle(
   const handler = getCommand(cmd)
   if (handler) {
     const result = handler.execute(args, ctx, stdin)
-    const output = result.output
+    const baseOutput = result.output
     const primitives = result.evidence ?? []
 
+    let output = baseOutput
     if (emitEvent) {
-      emitEvidenceEvent({
+      const event: EvidenceEvent = {
         id: nextEvidenceEventId++,
         timestamp: Date.now(),
         raw,
@@ -122,11 +145,16 @@ function runSingle(
         args,
         cwdBefore,
         cwdAfter: ctx.cwd,
-        output,
+        output: baseOutput,
         exitCode: result.exitCode,
         primitives,
         source: 'user',
-      }, onEvent)
+      }
+      emitEvidenceEvent(event, onEvent)
+      const revealOutput = runRevealCheck(reveal, event, onEvent)
+      if (revealOutput.length > 0) {
+        output = [...baseOutput, ...revealOutput]
+      }
     }
 
     return { output, primitives, exitCode: result.exitCode }
@@ -163,9 +191,12 @@ function runSingle(
     case 'base64':       return cmdBase64(args, stdin)
     case 'file':         return cmdFile(args, ctx)
     case 'stat':         return cmdStat(args, ctx)
-    case 'chmod':        return args.length >= 2 ? [`\x1b[32m✓ chmod ${args.join(' ')} \x1b[90m(simüle)\x1b[0m`] : ['\x1b[31mchmod: eksik argüman\x1b[0m']
-    case 'mkdir':        return args.length ? [`\x1b[90m(simüle: mkdir ${args.join(' ')})\x1b[0m`] : ['\x1b[31mmkdir: eksik operand\x1b[0m']
-    case 'touch':        return args.length ? [`\x1b[90m(simüle: touch ${args.join(' ')})\x1b[0m`] : ['\x1b[31mtouch: eksik operand\x1b[0m']
+    case 'echo':         return cmdEcho(args, ctx)
+    case 'chmod':        return cmdChmod(args, ctx)
+    case 'mkdir':        return cmdMkdir(args, ctx)
+    case 'touch':        return cmdTouch(args, ctx)
+    case 'rm':           return cmdRm(args, ctx)
+    case 'mv':           return cmdMv(args, ctx)
     case 'ps':           return cmdPs(args)
     case 'top': case 'htop': return cmdTop()
     case 'ifconfig': case 'ip': return cmdIfconfig()
@@ -175,13 +206,13 @@ function runSingle(
     case 'sudo':         return cmdSudo(args, ctx)
     case 'man':          return cmdMan(args)
     case 'which':        return cmdWhich(args)
-    case 'crontab':      return args.includes('-l') ? ['*/5 * * * * root /usr/bin/backup.sh', '0 3 * * 0 root /usr/bin/cleanup.sh'] : ['kullanım: crontab -l']
+    case 'crontab':      return args.includes('-l') ? ['*/5 * * * * root /usr/bin/backup.sh', '0 3 * * 0 root /usr/bin/cleanup.sh'] : ['usage: crontab -l']
     case 'bash':         return cmdBash(args, ctx)
     case 'python3': case 'python': return cmdPython(args, ctx)
     case 'submit':       return cmdSubmit(args)
     case 'exit': case 'logout': return ['\x1b[90mGoodbye, Operator.\x1b[0m']
     case '':             return []
-    // ── Güvenlik Araçları (Simüle) ─────────────────────────────────────────
+    // ── Security Tools (Simulated) ─────────────────────────────────────────
     case 'nmap':         return cmdNmap(args)
     case 'wpscan':       return cmdWpscan(args)
     case 'nikto':        return cmdNikto(args)
@@ -198,50 +229,42 @@ function runSingle(
     case 'wireshark': case 'tcpdump': return cmdTcpdump(cmd, args)
     case 'netcat': case 'nc':   return cmdNetcat(args)
     case 'ssh': case 'ftp': case 'telnet': return cmdSsh(cmd, args)
-    case 'burpsuite': case 'burp': return [`\x1b[33m[*] Burp Suite GUI uygulamasıdır, terminal üzerinden başlatılamaz.\x1b[0m`, `\x1b[90m    Gerçek ortamda: java -jar burpsuite.jar\x1b[0m`]
-    case 'ghidra': case 'radare2': case 'r2': return [`\x1b[33m[*] ${cmd} GUI/TUI uygulamasıdır.\x1b[0m`, `\x1b[90m    Gerçek ortamda: ${cmd === 'ghidra' ? 'ghidraRun' : 'r2 <binary>'}\x1b[0m`]
+    case 'burpsuite': case 'burp': return [`\x1b[33m[*] Burp Suite is a GUI application; it cannot be launched from the terminal.\x1b[0m`, `\x1b[90m    Real-world: java -jar burpsuite.jar\x1b[0m`]
+    case 'ghidra': case 'radare2': case 'r2': return [`\x1b[33m[*] ${cmd} is a GUI/TUI application.\x1b[0m`, `\x1b[90m    Real-world: ${cmd === 'ghidra' ? 'ghidraRun' : 'r2 <binary>'}\x1b[0m`]
     default: {
       const maybePath = stripQuotes(cmd)
       if (maybePath.startsWith('/') || maybePath.startsWith('~') || maybePath.startsWith('.')) {
         const candidate = resolvePath(ctx.cwd, maybePath)
-        const node = getNode(candidate)
+        const node = getCtxNode(ctx, candidate)
 
         if (node?.type === 'dir') {
-          return [`\x1b[33m[?] ${maybePath} bir dizin yolu. Geciş için cd ${maybePath} kullan.\x1b[0m`]
+          return [`\x1b[33m[?] ${maybePath} is a directory. Use cd ${maybePath} to enter it.\x1b[0m`]
         }
 
         if (node?.type === 'file') {
-          return [`\x1b[33m[?] ${maybePath} bir dosya. Görüntülemek için cat ${maybePath} kullan.\x1b[0m`]
+          return [`\x1b[33m[?] ${maybePath} is a file. Use cat ${maybePath} to view it.\x1b[0m`]
         }
       }
 
-      return [`\x1b[31mbash: ${cmd}: komut bulunamadı\x1b[0m`]
+      return [`\x1b[31mbash: ${cmd}: command not found\x1b[0m`]
     }
   }
   })()
 
   // ============================================================
-  // GEÇİCİ: 01-recon hybrid mode köprüsü (Gün 3, 2026-04-26)
+  // TEMPORARY: 01-recon hybrid mode bridge
   // ============================================================
-  // Aşağıdaki 5 komut (cat, wc, grep, awk, submit) henüz registry'ye
-  // migrate edilmemiş ama 01-recon hybrid validation'ı için evidence
-  // üretmek zorundalar. Bu inference, "switch-case fallback primitives
-  // boş döner" kuralının BİLİNÇLİ bir istisnasıdır.
-  //
-  // GÜN 7 CLEANUP CHECKLIST:
-  //   - cat, wc, grep, awk, submit registry handler'larına taşındığında
-  //   - Bu inference bloğu SİLİNECEK (dead code)
-  //   - Handler'ların kendi evidence emission'ı yeterli olacak
-  //   - Test: 01-recon hala hybrid mode'da geçer mi?
-  //
-  // Bu istisnanın gerekçesi: contract 'pipeline_used', 'file_read',
-  // 'fact_derived: passwd_line_count' primitive'lerini bekliyor. Switch'te
-  // primitive üretilmezse 01-recon evidence_only branch'i asla pass etmez.
+  // The five commands below (cat, wc, grep, awk, submit) have not yet been
+  // migrated to the registry but must still emit evidence so 01-recon's
+  // hybrid validation passes. This inference is a deliberate exception to
+  // the "switch-case fallback emits no primitives" rule. Will be removed
+  // once those handlers move into the registry.
   // ============================================================
-  const primitives = inferSwitchEvidence(cmd, args, cwdBefore)
+  const primitives = inferSwitchEvidence(cmd, args, cwdBefore, ctx)
 
+  let finalOutput = output
   if (emitEvent) {
-    emitEvidenceEvent({
+    const event: EvidenceEvent = {
       id: nextEvidenceEventId++,
       timestamp: Date.now(),
       raw,
@@ -253,10 +276,79 @@ function runSingle(
       exitCode: 0,
       primitives,
       source: 'user',
-    }, onEvent)
+    }
+    emitEvidenceEvent(event, onEvent)
+    const revealOutput = runRevealCheck(reveal, event, onEvent)
+    if (revealOutput.length > 0) {
+      finalOutput = [...output, ...revealOutput]
+    }
   }
 
-  return { output, primitives, exitCode: 0 }
+  return { output: finalOutput, primitives, exitCode: 0 }
+}
+
+/**
+ * Run reveal-event detection across every unlocked-but-not-yet-revealed level.
+ * For each match, append a CRT banner to terminal output and emit a
+ * `flag_revealed` evidence event so downstream listeners (page state) can
+ * unlock the next level and persist the flag silently.
+ *
+ * Returns the extra output lines to append to the visible terminal stream.
+ */
+function runRevealCheck(
+  reveal: RevealHooks | undefined,
+  event: EvidenceEvent,
+  onEvent?: (event: EvidenceEvent) => void,
+): string[] {
+  if (!reveal) return []
+
+  let augmentedLog = reveal.evidenceLog.append(event)
+  const localRevealed = new Set(reveal.alreadyRevealed)
+  const extraOutput: string[] = []
+
+  const sortedLevels = Array.from(reveal.unlockedLevels).sort((a, b) => a - b)
+  for (const level of sortedLevels) {
+    if (localRevealed.has(level)) continue
+
+    const contract = challengeContracts[level]
+    if (!contract || !contract.expectedFlag || !contract.levelTitle) continue
+
+    const nextContract = challengeContracts[level + 1]
+    const revealEvent = detectRevealEvent({
+      level,
+      log: augmentedLog,
+      contract,
+      expectedFlag: contract.expectedFlag,
+      levelTitle: contract.levelTitle,
+      nextLevelTitle: nextContract?.levelTitle ?? null,
+      alreadyRevealed: localRevealed,
+    })
+
+    if (!revealEvent) continue
+
+    const banner = formatBanner(revealEvent)
+    const bannerLines = banner.split('\n')
+    extraOutput.push('', ...bannerLines, '')
+
+    const flagEvent: EvidenceEvent = {
+      id: nextEvidenceEventId++,
+      timestamp: Date.now(),
+      raw: '__reveal__',
+      command: '__reveal__',
+      args: [String(level)],
+      cwdBefore: '/',
+      cwdAfter: '/',
+      output: bannerLines,
+      exitCode: 0,
+      primitives: [{ type: 'flag_revealed', level, flag: revealEvent.flag }],
+      source: 'replay',
+    }
+    emitEvidenceEvent(flagEvent, onEvent)
+    augmentedLog = augmentedLog.append(flagEvent)
+    localRevealed.add(level)
+  }
+
+  return extraOutput
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -305,25 +397,30 @@ function nonFlags(args: string[]): string[] {
   return args.filter(a => !a.startsWith('-'))
 }
 
-function resolve(cwd: string, target = '.'): FSNode | null {
-  return getNode(resolvePath(cwd, target))
+function getCtxNode(ctx: CommandContext, path: string): FSNode | null {
+  if (ctx.mutableFs) {
+    return getMutableNode(ctx.mutableFs, path)
+  }
+  return getNode(path)
 }
 
-function existingFilePath(cwd: string, target: string | undefined): string | null {
+function resolve(ctx: CommandContext, target = '.'): FSNode | null {
+  return getCtxNode(ctx, resolvePath(ctx.cwd, target))
+}
+
+function existingFilePath(ctx: CommandContext, target: string | undefined): string | null {
   if (!target) return null
-  const path = resolvePath(cwd, target)
-  const node = getNode(path)
+  const path = resolvePath(ctx.cwd, target)
+  const node = getCtxNode(ctx, path)
   return node?.type === 'file' ? path : null
 }
 
-function isSudoFindFlagRead(args: string[], cwd: string): boolean {
+function isSudoFindExecCat(args: string[]): boolean {
   if (args[0] !== 'find') return false
-  if (!args.includes('-exec') || !args.includes('cat')) return false
-
-  return args.some(arg => resolvePath(cwd, arg) === PRIVESC_FLAG_PATH)
+  return args.includes('-exec') && args.includes('cat')
 }
 
-function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string): EvidencePrimitive[] {
+function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string, ctx: CommandContext): EvidencePrimitive[] {
   const primitives: EvidencePrimitive[] = [{ type: 'command_executed', command: cmd }]
 
   if (args.length > 0) {
@@ -336,8 +433,8 @@ function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string): Ev
 
   if (cmd === 'cat') {
     for (const target of nonFlags(args)) {
-      const path = existingFilePath(cwdBefore, target)
-      if (path && path !== PRIVESC_FLAG_PATH && path !== NETWORK_FLAG_PATH) {
+      const path = existingFilePath(ctx, target)
+      if (path) {
         primitives.push({ type: 'file_read', path, via: 'cat' })
       }
     }
@@ -345,7 +442,7 @@ function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string): Ev
 
   if (cmd === 'chmod') {
     const [perms, target] = args
-    const path = existingFilePath(cwdBefore, target)
+    const path = existingFilePath(ctx, target)
     if (perms && path) {
       primitives.push({ type: 'file_modified_perms', path, perms })
     }
@@ -354,10 +451,9 @@ function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string): Ev
   if (cmd === 'sudo') {
     primitives.push({ type: 'security_tool_used', tool: 'sudo' })
 
-    if (isSudoFindFlagRead(args, cwdBefore)) {
+    if (isSudoFindExecCat(args)) {
       primitives.push(
-        { type: 'security_tool_used', tool: 'find', target: PRIVESC_FLAG_PATH },
-        { type: 'file_read', path: PRIVESC_FLAG_PATH, via: 'cat' },
+        { type: 'security_tool_used', tool: 'find' },
         { type: 'fact_derived', fact: 'privesc_via_sudo_find', method: 'sudo-find-exec' },
       )
     }
@@ -373,7 +469,7 @@ function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string): Ev
   if (cmd === 'wc') {
     const fl = flags(args)
     const target = nonFlags(args)[0]
-    const path = existingFilePath(cwdBefore, target)
+    const path = existingFilePath(ctx, target)
     if (path) primitives.push({ type: 'file_read', path, via: 'wc' })
     if (fl.includes('l') && path === '/etc/passwd') {
       primitives.push({ type: 'fact_derived', fact: 'passwd_line_count', method: 'wc' })
@@ -385,7 +481,7 @@ function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string): Ev
     const nf = nonFlags(args)
     const pattern = nf[0] ?? ''
     const target = nf[1]
-    const path = existingFilePath(cwdBefore, target)
+    const path = existingFilePath(ctx, target)
     if (path) primitives.push({ type: 'file_read', path, via: 'grep' })
     if (fl.includes('c') && path === '/etc/passwd') {
       primitives.push({ type: 'fact_derived', fact: 'passwd_line_count', method: 'grep' })
@@ -403,7 +499,7 @@ function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string): Ev
     const nf = nonFlags(args)
     const program = nf[0] ?? ''
     const target = nf[1]
-    const path = existingFilePath(cwdBefore, target)
+    const path = existingFilePath(ctx, target)
     if (path) primitives.push({ type: 'file_read', path, via: 'awk' })
     if (program.includes('END') && program.includes('NR') && path === '/etc/passwd') {
       primitives.push({ type: 'fact_derived', fact: 'passwd_line_count', method: 'awk' })
@@ -413,28 +509,141 @@ function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string): Ev
   return primitives
 }
 
+// ─── Mutation Command Implementations ────────────────────────────────────────
+
+function cmdTouch(args: string[], ctx: CommandContext): string[] {
+  if (!args.length) return ['\x1b[31mtouch: missing operand\x1b[0m']
+  if (!ctx.mutableFs) {
+    return [`\x1b[90m(simulated: touch ${args.join(' ')})\x1b[0m`]
+  }
+
+  const lines: string[] = []
+  for (const target of nonFlags(args)) {
+    const path = resolvePath(ctx.cwd, target)
+    const result = applyMutation(ctx.mutableFs, { kind: 'touch', path })
+    if (!result.success && result.error) {
+      lines.push(`\x1b[31m${result.error}\x1b[0m`)
+    }
+  }
+  return lines
+}
+
+function cmdMkdir(args: string[], ctx: CommandContext): string[] {
+  if (!args.length) return ['\x1b[31mmkdir: missing operand\x1b[0m']
+  if (!ctx.mutableFs) {
+    return [`\x1b[90m(simulated: mkdir ${args.join(' ')})\x1b[0m`]
+  }
+
+  const recursive = flags(args).includes('p')
+  const lines: string[] = []
+  for (const target of nonFlags(args)) {
+    const path = resolvePath(ctx.cwd, target)
+    const result = applyMutation(ctx.mutableFs, { kind: 'mkdir', path, recursive })
+    if (!result.success && result.error) {
+      lines.push(`\x1b[31m${result.error}\x1b[0m`)
+    }
+  }
+  return lines
+}
+
+function cmdRm(args: string[], ctx: CommandContext): string[] {
+  if (!args.length) return ['\x1b[31mrm: missing operand\x1b[0m']
+  if (!ctx.mutableFs) {
+    return [`\x1b[90m(simulated: rm ${args.join(' ')})\x1b[0m`]
+  }
+
+  const fl = flags(args)
+  const recursive = fl.includes('r') || fl.includes('R')
+  const lines: string[] = []
+  for (const target of nonFlags(args)) {
+    const path = resolvePath(ctx.cwd, target)
+    const result = applyMutation(ctx.mutableFs, { kind: 'rm', path, recursive })
+    if (!result.success && result.error) {
+      lines.push(`\x1b[31m${result.error}\x1b[0m`)
+    }
+  }
+  return lines
+}
+
+function cmdMv(args: string[], ctx: CommandContext): string[] {
+  const positional = nonFlags(args)
+  if (positional.length < 2) return ['\x1b[31mmv: missing source or destination\x1b[0m']
+  if (!ctx.mutableFs) {
+    return [`\x1b[90m(simulated: mv ${args.join(' ')})\x1b[0m`]
+  }
+
+  const from = resolvePath(ctx.cwd, positional[0])
+  const to = resolvePath(ctx.cwd, positional[1])
+  const result = applyMutation(ctx.mutableFs, { kind: 'mv', from, to })
+  if (!result.success && result.error) {
+    return [`\x1b[31m${result.error}\x1b[0m`]
+  }
+  return []
+}
+
+function cmdChmod(args: string[], ctx: CommandContext): string[] {
+  if (args.length < 2) return ['\x1b[31mchmod: missing operand\x1b[0m']
+
+  const [mode, target] = args
+  if (!ctx.mutableFs) {
+    return [`\x1b[32m✓ chmod ${args.join(' ')} \x1b[90m(simulated)\x1b[0m`]
+  }
+
+  const path = resolvePath(ctx.cwd, target)
+  const result = applyMutation(ctx.mutableFs, { kind: 'chmod', path, perms: mode })
+  if (!result.success && result.error) {
+    return [`\x1b[31m${result.error}\x1b[0m`]
+  }
+  return [`\x1b[32m✓ chmod ${mode} ${target}\x1b[0m`]
+}
+
+function cmdEcho(args: string[], ctx: CommandContext): string[] {
+  const redirIdx = args.findIndex(a => a === '>' || a === '>>')
+
+  if (redirIdx < 0) {
+    return [args.join(' ')]
+  }
+
+  if (!ctx.mutableFs) {
+    return [`\x1b[90m(simulated: echo ${args.slice(0, redirIdx).join(' ')} ${args[redirIdx]} ${args[redirIdx + 1] ?? ''})\x1b[0m`]
+  }
+
+  const text = args.slice(0, redirIdx).map(stripQuotes).join(' ')
+  const append = args[redirIdx] === '>>'
+  const target = args[redirIdx + 1]
+  if (!target) return ['\x1b[31mecho: missing redirect target\x1b[0m']
+
+  const path = resolvePath(ctx.cwd, target)
+  const result = applyMutation(ctx.mutableFs, { kind: 'write', path, content: text + '\n', append })
+  if (!result.success && result.error) {
+    return [`\x1b[31m${result.error}\x1b[0m`]
+  }
+  return []
+}
+
 // ─── Command Implementations ──────────────────────────────────────────────────
 
 function cmdHelp(): string[] {
   return [
-    '\x1b[1;32m┌── BREACH LAB — KOMUTLAR ─────────────────────────────────────┐\x1b[0m',
-    '\x1b[32m│\x1b[0m \x1b[1mDOSYA\x1b[0m   ls [-la]  cd  pwd  cat  find  stat  file  tree',
-    '\x1b[32m│\x1b[0m \x1b[1mMETİN\x1b[0m   grep  awk  sed  wc  head  tail  sort  uniq  strings',
-    '\x1b[32m│\x1b[0m \x1b[1mSİSTEM\x1b[0m  whoami  id  uname  ps  top  env  history  crontab',
-    '\x1b[32m│\x1b[0m \x1b[1mİZİN\x1b[0m    chmod  sudo -l  find -perm -4000',
-    '\x1b[32m│\x1b[0m \x1b[1mAĞ\x1b[0m      ifconfig  netstat  ss  ping  curl',
-    '\x1b[32m│\x1b[0m \x1b[1mARSİV\x1b[0m   xxd  base64  file  strings',
-    '\x1b[32m│\x1b[0m \x1b[1mDİĞER\x1b[0m   man  which  bash  python3  submit <FLAG>  clear',
+    '\x1b[1;32m┌── BREACH LAB — COMMANDS ─────────────────────────────────────┐\x1b[0m',
+    '\x1b[32m│\x1b[0m \x1b[1mFILE\x1b[0m    ls [-la]  cd  pwd  cat  find  stat  file  tree',
+    '\x1b[32m│\x1b[0m \x1b[1mTEXT\x1b[0m    grep  awk  sed  wc  head  tail  sort  uniq  strings',
+    '\x1b[32m│\x1b[0m \x1b[1mSYSTEM\x1b[0m  whoami  id  uname  ps  top  env  history  crontab',
+    '\x1b[32m│\x1b[0m \x1b[1mPERMS\x1b[0m   chmod  sudo -l  find -perm -4000',
+    '\x1b[32m│\x1b[0m \x1b[1mMUTATE\x1b[0m  touch  mkdir  rm  mv  echo "text" > file',
+    '\x1b[32m│\x1b[0m \x1b[1mNET\x1b[0m     ifconfig  netstat  ss  ping  curl',
+    '\x1b[32m│\x1b[0m \x1b[1mDECODE\x1b[0m  xxd  base64  file  strings',
+    '\x1b[32m│\x1b[0m \x1b[1mOTHER\x1b[0m   man  which  bash  python3  submit <FLAG>  clear',
     '\x1b[32m│\x1b[0m',
-    '\x1b[32m│\x1b[0m \x1b[1;33mGÜVENLİK ARAÇLARI (simülasyon)\x1b[0m',
-    '\x1b[32m│\x1b[0m \x1b[33mTARAMA\x1b[0m  nmap  nikto  nuclei  wpscan',
+    '\x1b[32m│\x1b[0m \x1b[1;33mSECURITY TOOLS (simulated)\x1b[0m',
+    '\x1b[32m│\x1b[0m \x1b[33mSCAN\x1b[0m    nmap  nikto  nuclei  wpscan',
     '\x1b[32m│\x1b[0m \x1b[33mWEB\x1b[0m     sqlmap  gobuster  dirb  wfuzz',
-    '\x1b[32m│\x1b[0m \x1b[33mKEŞİF\x1b[0m   amass  sublist3r  recon-ng  enum4linux',
-    '\x1b[32m│\x1b[0m \x1b[33mSALDIRI\x1b[0m hydra  responder  nc  tcpdump',
-    '\x1b[32m│\x1b[0m \x1b[33mŞİFRE\x1b[0m   hashcat  john  aircrack-ng',
-    '\x1b[32m│\x1b[0m \x1b[33mDİĞER\x1b[0m   msfconsole  msfvenom  ssh  ftp',
+    '\x1b[32m│\x1b[0m \x1b[33mRECON\x1b[0m   amass  sublist3r  recon-ng  enum4linux',
+    '\x1b[32m│\x1b[0m \x1b[33mATTACK\x1b[0m  hydra  responder  nc  tcpdump',
+    '\x1b[32m│\x1b[0m \x1b[33mPASS\x1b[0m    hashcat  john  aircrack-ng',
+    '\x1b[32m│\x1b[0m \x1b[33mOTHER\x1b[0m   msfconsole  msfvenom  ssh  ftp',
     '\x1b[1;32m└──────────────────────────────────────────────────────────────┘\x1b[0m',
-    '\x1b[90mPipe desteği: cat log.txt | grep "ERROR" | wc -l\x1b[0m',
+    '\x1b[90mPipe support: cat log.txt | grep "ERROR" | wc -l\x1b[0m',
   ]
 }
 
@@ -453,7 +662,7 @@ function cmdEnv(ctx: CommandContext): string[] {
     `PWD=${ctx.cwd}`,
     'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
     'TERM=xterm-256color',
-    'LANG=tr_TR.UTF-8',
+    'LANG=en_US.UTF-8',
   ]
 }
 
@@ -461,9 +670,9 @@ function cmdLs(args: string[], ctx: CommandContext): string[] {
   const fl     = flags(args)
   const target = nonFlags(args)[0] ?? '.'
   const path   = resolvePath(ctx.cwd, target)
-  const node   = getNode(path)
+  const node   = getCtxNode(ctx, path)
 
-  if (!node) return [`\x1b[31mls: '${target}': yok\x1b[0m`]
+  if (!node) return [`\x1b[31mls: '${target}': No such file or directory\x1b[0m`]
   if (node.type === 'file') return [colorEntry(basename(path), node)]
 
   const showHidden = fl.includes('a') || fl.includes('A')
@@ -472,7 +681,7 @@ function cmdLs(args: string[], ctx: CommandContext): string[] {
     .sort(([a], [b]) => a.localeCompare(b))
 
   if (!fl.includes('l')) {
-    return [entries.map(([name, child]) => colorEntry(name, child)).join('  ') || '(boş)']
+    return [entries.map(([name, child]) => colorEntry(name, child)).join('  ') || '(empty)']
   }
 
   const lines: string[] = [`total ${entries.length + (showHidden ? 2 : 0)}`]
@@ -490,10 +699,10 @@ function cmdLs(args: string[], ctx: CommandContext): string[] {
 function cmdCd(args: string[], ctx: CommandContext): string[] {
   const target = args[0] ?? '/home/operator'
   const path   = resolvePath(ctx.cwd, target)
-  const node   = getNode(path)
+  const node   = getCtxNode(ctx, path)
 
-  if (!node)              return [`\x1b[31mcd: '${target}': yok\x1b[0m`]
-  if (node.type !== 'dir') return [`\x1b[31mcd: '${target}': dizin değil\x1b[0m`]
+  if (!node)              return [`\x1b[31mcd: '${target}': No such file or directory\x1b[0m`]
+  if (node.type !== 'dir') return [`\x1b[31mcd: '${target}': Not a directory\x1b[0m`]
 
   ctx.setCwd(path)
   return []
@@ -501,16 +710,12 @@ function cmdCd(args: string[], ctx: CommandContext): string[] {
 
 function cmdCat(args: string[], ctx: CommandContext): string[] {
   const targets = nonFlags(args)
-  if (!targets.length) return ['\x1b[90m(stdin bekliyor — Ctrl+C)\x1b[0m']
+  if (!targets.length) return ['\x1b[90m(awaiting stdin — Ctrl+C)\x1b[0m']
 
   return targets.flatMap(target => {
-    const path = resolvePath(ctx.cwd, target)
-    const node = resolve(ctx.cwd, target)
-    if (!node)              return [`\x1b[31mcat: ${target}: yok\x1b[0m`]
-    if (node.type === 'dir') return [`\x1b[31mcat: ${target}: bir dizin\x1b[0m`]
-    if (path === PRIVESC_FLAG_PATH || path === NETWORK_FLAG_PATH) {
-      return [`\x1b[31mcat: ${target}: izin reddedildi (root gerekli)\x1b[0m`]
-    }
+    const node = resolve(ctx, target)
+    if (!node)              return [`\x1b[31mcat: ${target}: No such file or directory\x1b[0m`]
+    if (node.type === 'dir') return [`\x1b[31mcat: ${target}: Is a directory\x1b[0m`]
     return node.content.split('\n')
   })
 }
@@ -518,15 +723,15 @@ function cmdCat(args: string[], ctx: CommandContext): string[] {
 function cmdGrep(args: string[], ctx: CommandContext, stdin: string): string[] {
   const fl   = flags(args)
   const nf   = nonFlags(args)
-  if (!nf.length) return ['\x1b[31mgrep: pattern belirtilmedi\x1b[0m']
+  if (!nf.length) return ['\x1b[31mgrep: missing pattern\x1b[0m']
 
   const [pattern, file] = nf
   const re = new RegExp(pattern, fl.includes('i') ? 'i' : '')
 
   let lines: string[]
   if (file) {
-    const node = resolve(ctx.cwd, file)
-    if (!node || node.type !== 'file') return [`\x1b[31mgrep: ${file}: yok\x1b[0m`]
+    const node = resolve(ctx, file)
+    if (!node || node.type !== 'file') return [`\x1b[31mgrep: ${file}: No such file or directory\x1b[0m`]
     lines = node.content.split('\n')
   } else {
     lines = stdin.split('\n')
@@ -555,9 +760,9 @@ function cmdFind(args: string[], ctx: CommandContext): string[] {
 
   const rootTarget = args.find(a => !a.startsWith('-') && !knownValues.has(a)) ?? '.'
   const startPath  = resolvePath(ctx.cwd, rootTarget)
-  const startNode  = getNode(startPath)
+  const startNode  = getCtxNode(ctx, startPath)
 
-  if (!startNode) return [`\x1b[31mfind: '${rootTarget}': yok\x1b[0m`]
+  if (!startNode) return [`\x1b[31mfind: '${rootTarget}': No such file or directory\x1b[0m`]
 
   const results: string[] = []
 
@@ -601,7 +806,7 @@ function cmdTree(ctx: CommandContext): string[] {
     })
   }
 
-  const node = getNode(ctx.cwd)
+  const node = getCtxNode(ctx, ctx.cwd)
   if (node?.type === 'dir') walk(node, '')
   return lines
 }
@@ -612,8 +817,8 @@ function cmdWc(args: string[], ctx: CommandContext, stdin: string): string[] {
   let content = stdin
 
   if (file) {
-    const node = resolve(ctx.cwd, file)
-    if (!node || node.type !== 'file') return [`\x1b[31mwc: ${file}: yok\x1b[0m`]
+    const node = resolve(ctx, file)
+    if (!node || node.type !== 'file') return [`\x1b[31mwc: ${file}: No such file or directory\x1b[0m`]
     content = node.content
   }
 
@@ -634,8 +839,8 @@ function cmdSlice(args: string[], ctx: CommandContext, stdin: string, mode: 'hea
 
   let lines: string[]
   if (file) {
-    const node = resolve(ctx.cwd, file)
-    if (!node || node.type !== 'file') return [`\x1b[31m${mode}: ${file}: yok\x1b[0m`]
+    const node = resolve(ctx, file)
+    if (!node || node.type !== 'file') return [`\x1b[31m${mode}: ${file}: No such file or directory\x1b[0m`]
     lines = node.content.split('\n')
   } else {
     lines = stdin.split('\n')
@@ -658,8 +863,8 @@ function cmdAwk(args: string[], ctx: CommandContext, stdin: string): string[] {
   let input = stdin
 
   if (file) {
-    const node = resolve(ctx.cwd, file)
-    if (!node || node.type !== 'file') return [`\x1b[31mawk: ${file}: yok\x1b[0m`]
+    const node = resolve(ctx, file)
+    if (!node || node.type !== 'file') return [`\x1b[31mawk: ${file}: No such file or directory\x1b[0m`]
     input = node.content
   }
 
@@ -686,24 +891,24 @@ function cmdAwk(args: string[], ctx: CommandContext, stdin: string): string[] {
 function cmdSed(args: string[], stdin: string): string[] {
   const expr  = nonFlags(args)[0] ?? ''
   const match = expr.match(/^s\/(.+?)\/(.+?)\/([gi]*)$/)
-  if (!match) return ['\x1b[31msed: geçersiz ifade. Örn: s/eski/yeni/g\x1b[0m']
+  if (!match) return ['\x1b[31msed: invalid expression. Example: s/old/new/g\x1b[0m']
   const re = new RegExp(match[1], match[3])
   return stdin.split('\n').map(l => l.replace(re, match[2]))
 }
 
 function cmdStrings(args: string[], ctx: CommandContext): string[] {
   const file = args[0]
-  if (!file) return ['\x1b[31mstrings: dosya belirtilmedi\x1b[0m']
-  const node = resolve(ctx.cwd, file)
-  if (!node || node.type !== 'file') return [`\x1b[31mstrings: ${file}: yok\x1b[0m`]
+  if (!file) return ['\x1b[31mstrings: missing file argument\x1b[0m']
+  const node = resolve(ctx, file)
+  if (!node || node.type !== 'file') return [`\x1b[31mstrings: ${file}: No such file or directory\x1b[0m`]
   return node.content.split('\n').filter(l => l.trim().length >= 4)
 }
 
 function cmdXxd(args: string[], ctx: CommandContext): string[] {
   const file = args[0]
-  if (!file) return ['\x1b[31mxxd: dosya belirtilmedi\x1b[0m']
-  const node = resolve(ctx.cwd, file)
-  if (!node || node.type !== 'file') return [`\x1b[31mxxd: ${file}: yok\x1b[0m`]
+  if (!file) return ['\x1b[31mxxd: missing file argument\x1b[0m']
+  const node = resolve(ctx, file)
+  if (!node || node.type !== 'file') return [`\x1b[31mxxd: ${file}: No such file or directory\x1b[0m`]
 
   const bytes = node.content.slice(0, 128)
   const lines: string[] = []
@@ -723,14 +928,14 @@ function cmdBase64(args: string[], stdin: string): string[] {
     }
     return [btoa(stdin.trim())]
   } catch {
-    return ['\x1b[31mbase64: geçersiz giriş\x1b[0m']
+    return ['\x1b[31mbase64: invalid input\x1b[0m']
   }
 }
 
 function cmdFile(args: string[], ctx: CommandContext): string[] {
   return args.map(target => {
-    const node = resolve(ctx.cwd, target)
-    if (!node) return `${target}: yok`
+    const node = resolve(ctx, target)
+    if (!node) return `${target}: No such file or directory`
     if (node.type === 'dir') return `${target}: directory`
     if (target.endsWith('.sh'))  return `${target}: Bourne-Again shell script, ASCII text executable`
     if (target.endsWith('.py'))  return `${target}: Python script, ASCII text executable`
@@ -741,9 +946,9 @@ function cmdFile(args: string[], ctx: CommandContext): string[] {
 
 function cmdStat(args: string[], ctx: CommandContext): string[] {
   const target = args[0]
-  if (!target) return ['\x1b[31mstat: dosya belirtilmedi\x1b[0m']
-  const node = resolve(ctx.cwd, target)
-  if (!node) return [`\x1b[31mstat: '${target}': yok\x1b[0m`]
+  if (!target) return ['\x1b[31mstat: missing file argument\x1b[0m']
+  const node = resolve(ctx, target)
+  if (!node) return [`\x1b[31mstat: '${target}': No such file or directory\x1b[0m`]
   return [
     `  File: ${target}`,
     `  Size: ${node.type === 'file' ? node.content.length : 4096}`,
@@ -778,7 +983,7 @@ function cmdTop(): string[] {
     '  234 root      0.0  0.0 sshd',
     '  789 mysql     0.3  1.5 mysqld',
     ' 1234 operator  0.1  0.1 bash',
-    '\x1b[90m(q çıkış — simüle)\x1b[0m',
+    '\x1b[90m(press q to quit — simulated)\x1b[0m',
   ]
 }
 
@@ -818,7 +1023,7 @@ function cmdPing(args: string[]): string[] {
 
 function cmdCurl(args: string[]): string[] {
   const url = nonFlags(args)[0] ?? ''
-  if (!url) return ['\x1b[31mcurl: URL belirtilmedi\x1b[0m']
+  if (!url) return ['\x1b[31mcurl: missing URL\x1b[0m']
   return [
     `\x1b[90m> GET ${url}\x1b[0m`,
     'HTTP/1.1 200 OK',
@@ -827,7 +1032,7 @@ function cmdCurl(args: string[]): string[] {
   ]
 }
 
-function cmdSudo(args: string[], ctx: CommandContext): string[] {
+function cmdSudo(args: string[], _ctx: CommandContext): string[] {
   if (args[0] === '-l') {
     return [
       'User operator may run the following commands on breach-lab:',
@@ -835,71 +1040,70 @@ function cmdSudo(args: string[], ctx: CommandContext): string[] {
     ]
   }
 
-  if (isSudoFindFlagRead(args, ctx.cwd)) {
+  if (isSudoFindExecCat(args)) {
     return [
       '\x1b[90m[sudo find]\x1b[0m root context acquired via /usr/bin/find',
-      '\x1b[32m[root-read]\x1b[0m /home/operator/challenges/05-privesc/flag.txt',
-      'FLAG{pr1v3sc_r00t_0wn3d}',
+      '\x1b[32m[root-read]\x1b[0m payload executed under uid=0',
     ]
   }
 
   return [
     `\x1b[33m[sudo] password for operator: ****\x1b[0m`,
-    `\x1b[32m✓ Komut çalıştırıldı: ${args.join(' ')}\x1b[0m`,
+    `\x1b[32m✓ Command executed: ${args.join(' ')}\x1b[0m`,
   ]
 }
 
 function cmdMan(args: string[]): string[] {
   const pages: Record<string, string[]> = {
     grep: [
-      '\x1b[1mGREP(1)\x1b[0m — Dosyalarda kalıp arama',
+      '\x1b[1mGREP(1)\x1b[0m — Search files for a pattern',
       '',
-      'KULLANIM: grep [SEÇENEK]... DESEN [DOSYA]...',
+      'USAGE: grep [OPTION]... PATTERN [FILE]...',
       '',
-      '  -i   Büyük/küçük duyarsız',
-      '  -n   Satır numarası göster',
-      '  -r   Alt dizinlere gir',
-      '  -v   Eşleşmeyenleri göster',
-      '  -c   Sadece sayıyı göster',
-      '  -l   Sadece dosya adlarını göster',
+      '  -i   Case-insensitive',
+      '  -n   Show line numbers',
+      '  -r   Recurse into subdirectories',
+      '  -v   Invert match',
+      '  -c   Count only',
+      '  -l   List filenames only',
     ],
     find: [
-      '\x1b[1mFIND(1)\x1b[0m — Dosya hiyerarşisini tara',
+      '\x1b[1mFIND(1)\x1b[0m — Walk a file hierarchy',
       '',
-      'KULLANIM: find [YOL] [SEÇENEK]',
+      'USAGE: find [PATH] [OPTION]',
       '',
-      '  -name "*.txt"   İsim kalıbı',
-      '  -type f         Sadece dosyalar',
-      '  -type d         Sadece dizinler',
-      '  -perm -4000     SUID biti aktif',
-      '  2>/dev/null     Hata mesajlarını gizle',
+      '  -name "*.txt"   Name pattern',
+      '  -type f         Files only',
+      '  -type d         Directories only',
+      '  -perm -4000     SUID bit set',
+      '  2>/dev/null     Suppress errors',
     ],
     chmod: [
-      '\x1b[1mCHMOD(1)\x1b[0m — Dosya izinlerini değiştir',
+      '\x1b[1mCHMOD(1)\x1b[0m — Change file permissions',
       '',
-      'KULLANIM: chmod [MODE] DOSYA',
+      'USAGE: chmod [MODE] FILE',
       '',
-      '  +x  Çalıştırma ekle',
-      '  -x  Çalıştırma kaldır',
-      '  755 rwxr-xr-x (script standart)',
-      '  644 rw-r--r--  (dosya standart)',
-      '  400 r--------  (salt okunur)',
-      '  777 rwxrwxrwx  (tam erişim)',
+      '  +x  Add execute',
+      '  -x  Remove execute',
+      '  755 rwxr-xr-x (script default)',
+      '  644 rw-r--r--  (file default)',
+      '  400 r--------  (read-only owner)',
+      '  777 rwxrwxrwx  (full access)',
     ],
     awk: [
-      '\x1b[1mAWK(1)\x1b[0m — Metin işleme dili',
+      '\x1b[1mAWK(1)\x1b[0m — Pattern scanning and processing',
       '',
-      "KULLANIM: awk 'PROGRAM' [DOSYA]",
+      "USAGE: awk 'PROGRAM' [FILE]",
       '',
-      "  '{print $1}'          1. sütun",
-      "  '{print $NF}'         Son sütun",
-      "  '{sum+=$1} END{print sum}'  Toplam",
-      "  '/DESEN/{print}'      Eşleşen satırlar",
+      "  '{print $1}'                First column",
+      "  '{print $NF}'               Last column",
+      "  '{sum+=$1} END{print sum}'  Sum",
+      "  '/PATTERN/{print}'          Lines matching",
     ],
   }
 
   const page = pages[args[0] ?? '']
-  if (!page) return [`\x1b[31mman: '${args[0]}': kılavuz yok\x1b[0m`]
+  if (!page) return [`\x1b[31mman: '${args[0]}': no manual entry\x1b[0m`]
   return page
 }
 
@@ -910,7 +1114,7 @@ function cmdWhich(args: string[]): string[] {
     nmap: '/usr/bin/nmap', curl: '/usr/bin/curl', nc: '/usr/bin/nc',
     netcat: '/usr/bin/nc', xxd: '/usr/bin/xxd',
   }
-  return args.map(a => bins[a] ?? `\x1b[31m${a}: bulunamadı\x1b[0m`)
+  return args.map(a => bins[a] ?? `\x1b[31m${a}: not found\x1b[0m`)
 }
 
 function cmdBash(args: string[], ctx: CommandContext): string[] {
@@ -934,13 +1138,13 @@ function cmdBash(args: string[], ctx: CommandContext): string[] {
       }
     }
 
-    return [`\x1b[90m[bash -c]\x1b[0m ${normalized || '(boş komut)'}`]
+    return [`\x1b[90m[bash -c]\x1b[0m ${normalized || '(empty command)'}`]
   }
 
   const file = args[0]
-  if (!file) return ['\x1b[31mbash: dosya belirtilmedi\x1b[0m']
-  const node = resolve(ctx.cwd, file)
-  if (!node || node.type !== 'file') return [`\x1b[31mbash: ${file}: yok\x1b[0m`]
+  if (!file) return ['\x1b[31mbash: missing file argument\x1b[0m']
+  const node = resolve(ctx, file)
+  if (!node || node.type !== 'file') return [`\x1b[31mbash: ${file}: No such file or directory\x1b[0m`]
 
   return [
     `\x1b[90m[bash ${file}]\x1b[0m`,
@@ -954,10 +1158,10 @@ function cmdBash(args: string[], ctx: CommandContext): string[] {
 function cmdPython(args: string[], ctx: CommandContext): string[] {
   const file = args[0]
   if (!file) {
-    return ['\x1b[90mPython 3.10.12 (simüle REPL)\x1b[0m', '>>> (python3 <dosya.py> ile çalıştır)']
+    return ['\x1b[90mPython 3.10.12 (simulated REPL)\x1b[0m', '>>> (run python3 <file.py>)']
   }
-  const node = resolve(ctx.cwd, file)
-  if (!node || node.type !== 'file') return [`\x1b[31mpython3: ${file}: yok\x1b[0m`]
+  const node = resolve(ctx, file)
+  if (!node || node.type !== 'file') return [`\x1b[31mpython3: ${file}: No such file or directory\x1b[0m`]
 
   return [
     `\x1b[90m[python3 ${file}]\x1b[0m`,
@@ -966,7 +1170,7 @@ function cmdPython(args: string[], ctx: CommandContext): string[] {
       .filter(l => l.includes('print('))
       .map(l => {
         const m = l.match(/print\((?:f?["'])(.+?)["']\)/)
-        return m ? m[1].replace(/\{.*?\}/g, '[değer]') : ''
+        return m ? m[1].replace(/\{.*?\}/g, '[value]') : ''
       })
       .filter(Boolean),
   ]
@@ -974,22 +1178,22 @@ function cmdPython(args: string[], ctx: CommandContext): string[] {
 
 function cmdSubmit(args: string[]): string[] {
   const flag = args[0]
-  if (!flag) return ['\x1b[31mKullanım: submit FLAG{...}\x1b[0m']
+  if (!flag) return ['\x1b[31mUsage: submit FLAG{...}\x1b[0m']
   if (VALID_FLAGS.has(flag)) {
     return [
       '\x1b[1;32m╔═══════════════════════════════╗\x1b[0m',
-      '\x1b[1;32m║  ✓  BAYRAK KABUL EDİLDİ!     ║\x1b[0m',
+      '\x1b[1;32m║  ✓  FLAG ACCEPTED!           ║\x1b[0m',
       `\x1b[32m║  ${flag.padEnd(29)}║\x1b[0m`,
       '\x1b[1;32m╚═══════════════════════════════╝\x1b[0m',
     ]
   }
-  return ['\x1b[31m✗ Geçersiz bayrak. Tekrar dene.\x1b[0m']
+  return ['\x1b[31m✗ Invalid flag. Try again.\x1b[0m']
 }
 
-// ─── Güvenlik Araçları (Simülasyon) ──────────────────────────────────────────
+// ─── Security Tools (Simulated) ──────────────────────────────────────────────
 
 function simHeader(tool: string, version: string): string[] {
-  return [`\x1b[1;32m[*]\x1b[0m \x1b[1m${tool}\x1b[0m v${version} \x1b[90m(simülasyon)\x1b[0m`, '']
+  return [`\x1b[1;32m[*]\x1b[0m \x1b[1m${tool}\x1b[0m v${version} \x1b[90m(simulated)\x1b[0m`, '']
 }
 
 function cmdNmap(args: string[]): string[] {
@@ -1027,21 +1231,21 @@ function cmdWpscan(args: string[]): string[] {
     ...simHeader('WPScan', '3.8.25'),
     `\x1b[90mScanning: ${url}\x1b[0m`,
     '',
-    '\x1b[32m[+]\x1b[0m WordPress \x1b[1m6.4.2\x1b[0m tespit edildi',
-    '\x1b[33m[!]\x1b[0m XML-RPC aktif → /xmlrpc.php',
-    '\x1b[33m[!]\x1b[0m readme.html açıkta',
+    '\x1b[32m[+]\x1b[0m WordPress \x1b[1m6.4.2\x1b[0m detected',
+    '\x1b[33m[!]\x1b[0m XML-RPC enabled → /xmlrpc.php',
+    '\x1b[33m[!]\x1b[0m readme.html exposed',
     ...(enumArg ? [
       '',
-      '\x1b[32m[+]\x1b[0m Kullanıcılar: admin (id:1), editor (id:2)',
+      '\x1b[32m[+]\x1b[0m Users: admin (id:1), editor (id:2)',
       '\x1b[31m[!]\x1b[0m contact-form-7 4.9 — SQLi (CVE-2023-1234)',
       '\x1b[31m[!]\x1b[0m woocommerce 7.1 — XSS (CVE-2023-5678)',
     ] : []),
     ...(passwd ? [
       '',
-      '\x1b[32m[BULUNDU]\x1b[0m  admin : \x1b[1mpassword123\x1b[0m',
+      '\x1b[32m[FOUND]\x1b[0m  admin : \x1b[1mpassword123\x1b[0m',
     ] : []),
     '',
-    '\x1b[90mTarama tamamlandı.\x1b[0m',
+    '\x1b[90mScan complete.\x1b[0m',
   ]
 }
 
@@ -1049,16 +1253,16 @@ function cmdNikto(args: string[]): string[] {
   const host = args.find(a => !a.startsWith('-')) ?? 'http://target.com'
   return [
     ...simHeader('Nikto', '2.1.6'),
-    `\x1b[90mHedef: ${host}\x1b[0m`,
+    `\x1b[90mTarget: ${host}\x1b[0m`,
     '',
     '\x1b[32m+\x1b[0m Server: Apache/2.4.41 (Ubuntu)',
-    '\x1b[33m+\x1b[0m /admin/ dizini erişilebilir',
-    '\x1b[33m+\x1b[0m /backup.zip bulundu — backup açıkta!',
-    '\x1b[31m+\x1b[0m X-Frame-Options eksik → Clickjacking riski',
-    '\x1b[33m+\x1b[0m /phpinfo.php → bilgi ifşası',
-    '\x1b[33m+\x1b[0m HTTP TRACE aktif → XST mümkün',
+    '\x1b[33m+\x1b[0m /admin/ directory accessible',
+    '\x1b[33m+\x1b[0m /backup.zip found — backup exposed!',
+    '\x1b[31m+\x1b[0m X-Frame-Options missing → Clickjacking risk',
+    '\x1b[33m+\x1b[0m /phpinfo.php → information disclosure',
+    '\x1b[33m+\x1b[0m HTTP TRACE enabled → XST possible',
     '',
-    '\x1b[90m6 bulgu. Süre: 00:01:23\x1b[0m',
+    '\x1b[90m6 findings. Duration: 00:01:23\x1b[0m',
   ]
 }
 
@@ -1066,13 +1270,13 @@ function cmdSqlmap(args: string[]): string[] {
   const url = args.find(a => a.startsWith('http')) ?? 'http://target.com/?id=1'
   return [
     ...simHeader('sqlmap', '1.7.8'),
-    `\x1b[90mHedef: ${url}\x1b[0m`,
+    `\x1b[90mTarget: ${url}\x1b[0m`,
     '',
-    '\x1b[32m[+]\x1b[0m \x1b[1mid\x1b[0m parametresi savunmasız — Boolean-based blind SQLi',
+    '\x1b[32m[+]\x1b[0m \x1b[1mid\x1b[0m parameter is vulnerable — Boolean-based blind SQLi',
     '    Payload: id=1 AND 1=1-- -',
     '',
-    '\x1b[32m[+]\x1b[0m Veritabanı: MySQL >= 5.0',
-    '\x1b[32m[+]\x1b[0m DB listesi: information_schema, \x1b[1mwebapp\x1b[0m, mysql',
+    '\x1b[32m[+]\x1b[0m DBMS: MySQL >= 5.0',
+    '\x1b[32m[+]\x1b[0m Databases: information_schema, \x1b[1mwebapp\x1b[0m, mysql',
     ...(args.includes('--dump') ? [
       '',
       '\x1b[32m[+]\x1b[0m webapp.users:',
@@ -1080,7 +1284,7 @@ function cmdSqlmap(args: string[]): string[] {
       '    user1  |  482c811da5d5b4bc6d497ffa98491e38',
     ] : []),
     '',
-    '\x1b[90mTarama tamamlandı.\x1b[0m',
+    '\x1b[90mScan complete.\x1b[0m',
   ]
 }
 
@@ -1088,16 +1292,16 @@ function cmdGobuster(cmd: string, args: string[]): string[] {
   const url = args.find(a => a.startsWith('http')) ?? 'http://target.com'
   return [
     ...simHeader(cmd, '3.6.0'),
-    `\x1b[90mHedef: ${url}\x1b[0m`,
+    `\x1b[90mTarget: ${url}\x1b[0m`,
     '',
     `\x1b[32m/admin\x1b[0m         (Status: 200) [Size: 4821]`,
     `\x1b[32m/login\x1b[0m         (Status: 200) [Size: 1203]`,
     `\x1b[33m/backup\x1b[0m        (Status: 301) [→ /backup/]`,
     `\x1b[32m/uploads\x1b[0m       (Status: 200) [Size: 892]`,
-    `\x1b[31m/.env\x1b[0m          (Status: 200) [Size: 118]  ← DİKKAT!`,
+    `\x1b[31m/.env\x1b[0m          (Status: 200) [Size: 118]  ← ATTENTION!`,
     `\x1b[32m/api\x1b[0m           (Status: 200) [Size: 44]`,
     '',
-    '\x1b[90m6 dizin/dosya bulundu.\x1b[0m',
+    '\x1b[90m6 paths discovered.\x1b[0m',
   ]
 }
 
@@ -1106,13 +1310,13 @@ function cmdHydra(args: string[]): string[] {
   const svc    = args[args.length - 1] ?? 'ssh'
   return [
     ...simHeader('Hydra', '9.5'),
-    `\x1b[90mHedef: ${target}  Servis: ${svc}\x1b[0m`,
+    `\x1b[90mTarget: ${target}  Service: ${svc}\x1b[0m`,
     '',
-    '\x1b[32m[DATA]\x1b[0m 16 task, sözlük saldırısı...',
-    '\x1b[32m[STATUS]\x1b[0m 1024 / 14,344 deneme',
-    `\x1b[32m[BULUNDU]\x1b[0m  login: \x1b[1madmin\x1b[0m  password: \x1b[1mwinter2023\x1b[0m`,
+    '\x1b[32m[DATA]\x1b[0m 16 tasks, dictionary attack...',
+    '\x1b[32m[STATUS]\x1b[0m 1024 / 14,344 attempts',
+    `\x1b[32m[FOUND]\x1b[0m  login: \x1b[1madmin\x1b[0m  password: \x1b[1mwinter2023\x1b[0m`,
     '',
-    '\x1b[90m1 geçerli kimlik bulundu. Süre: 00:02:11\x1b[0m',
+    '\x1b[90m1 valid credential found. Duration: 00:02:11\x1b[0m',
   ]
 }
 
@@ -1124,18 +1328,18 @@ function cmdHashcat(cmd: string, args: string[]): string[] {
     ...simHeader(tool, ver),
     `\x1b[90mHash: ${hash.slice(0, 32)}\x1b[0m`,
     '',
-    '\x1b[32m[*]\x1b[0m Tür algılandı: MD5',
-    '\x1b[32m[*]\x1b[0m Sözlük saldırısı — 1,234,567 hash/sn',
-    '\x1b[32m[KRILDI]\x1b[0m  \x1b[1mpassword\x1b[0m',
+    '\x1b[32m[*]\x1b[0m Type detected: MD5',
+    '\x1b[32m[*]\x1b[0m Dictionary attack — 1,234,567 hash/sec',
+    '\x1b[32m[CRACKED]\x1b[0m  \x1b[1mpassword\x1b[0m',
     '',
-    '\x1b[90m1/1 hash kırıldı.\x1b[0m',
+    '\x1b[90m1/1 hash cracked.\x1b[0m',
   ]
 }
 
 function cmdMsf(cmd: string): string[] {
   if (cmd === 'msfvenom') return [
     ...simHeader('msfvenom', '6.3.44'),
-    '\x1b[90mKullanım: msfvenom -p <payload> LHOST=<ip> LPORT=<port> -f <format>\x1b[0m',
+    '\x1b[90mUsage: msfvenom -p <payload> LHOST=<ip> LPORT=<port> -f <format>\x1b[0m',
     '',
     '  linux/x64/shell_reverse_tcp',
     '  windows/x64/meterpreter/reverse_tcp',
@@ -1145,7 +1349,7 @@ function cmdMsf(cmd: string): string[] {
     '\x1b[1;31m       =[ metasploit v6.3.44 ]=\x1b[0m',
     '\x1b[90m+ -- --=[ 2369 exploits | 1232 auxiliary ]=-- -- +\x1b[0m',
     '',
-    '\x1b[90mmsf6 >\x1b[0m \x1b[33mSimülasyon modu — gerçek exploit çalıştırılamaz.\x1b[0m',
+    '\x1b[90mmsf6 >\x1b[0m \x1b[33mSimulation mode — real exploits cannot be executed.\x1b[0m',
   ]
 }
 
@@ -1153,7 +1357,7 @@ function cmdAircrack(cmd: string, args: string[]): string[] {
   const iface = args.find(a => !a.startsWith('-')) ?? 'wlan0mon'
   if (cmd === 'airodump-ng') return [
     ...simHeader('airodump-ng', '1.7'),
-    `\x1b[90mArayüz: ${iface}  CH: 6\x1b[0m`,
+    `\x1b[90mInterface: ${iface}  CH: 6\x1b[0m`,
     '',
     '\x1b[1m BSSID              PWR  CH  ENC   ESSID\x1b[0m',
     ' AA:BB:CC:DD:EE:FF  -42  6   WPA2  TargetNetwork',
@@ -1165,7 +1369,7 @@ function cmdAircrack(cmd: string, args: string[]): string[] {
   ]
   return [
     ...simHeader('aircrack-ng', '1.7'),
-    '\x1b[32m[*]\x1b[0m WPA handshake bulundu: AA:BB:CC:DD:EE:FF',
+    '\x1b[32m[*]\x1b[0m WPA handshake captured: AA:BB:CC:DD:EE:FF',
     '\x1b[32m[KEY FOUND!]\x1b[0m [ \x1b[1mwifi123456\x1b[0m ]',
   ]
 }
@@ -1174,15 +1378,15 @@ function cmdEnum4linux(args: string[]): string[] {
   const target = args.find(a => !a.startsWith('-')) ?? '10.10.10.1'
   return [
     ...simHeader('enum4linux', '0.9.1'),
-    `\x1b[90mHedef: ${target}\x1b[0m`,
+    `\x1b[90mTarget: ${target}\x1b[0m`,
     '',
-    '\x1b[32m[*]\x1b[0m SMB Paylaşımları:',
+    '\x1b[32m[*]\x1b[0m SMB Shares:',
     '    //10.10.10.1/ADMIN$  — Windows Remote Admin',
-    '    //10.10.10.1/Share   — \x1b[32mErişilebilir\x1b[0m',
+    '    //10.10.10.1/Share   — \x1b[32mAccessible\x1b[0m',
     '',
-    '\x1b[32m[*]\x1b[0m Kullanıcılar: Administrator (500), Guest (501), \x1b[1moperator\x1b[0m (1001)',
+    '\x1b[32m[*]\x1b[0m Users: Administrator (500), Guest (501), \x1b[1moperator\x1b[0m (1001)',
     '',
-    '\x1b[90mTarama tamamlandı.\x1b[0m',
+    '\x1b[90mScan complete.\x1b[0m',
   ]
 }
 
@@ -1190,12 +1394,12 @@ function cmdResponder(args: string[]): string[] {
   const iface = args.find(a => !a.startsWith('-')) ?? 'eth0'
   return [
     ...simHeader('Responder', '3.1.4.0'),
-    `\x1b[90mArayüz: ${iface}  LLMNR/NBT-NS zehirleme aktif\x1b[0m`,
+    `\x1b[90mInterface: ${iface}  LLMNR/NBT-NS poisoning active\x1b[0m`,
     '',
-    '\x1b[32m[+]\x1b[0m LLMNR + NBT-NS Poisoner başlatıldı',
-    '\x1b[33m[SMB]\x1b[0m 10.10.10.50 — kullanıcı: \x1b[1mDOMAIN\\john\x1b[0m',
+    '\x1b[32m[+]\x1b[0m LLMNR + NBT-NS Poisoner started',
+    '\x1b[33m[SMB]\x1b[0m 10.10.10.50 — user: \x1b[1mDOMAIN\\john\x1b[0m',
     '\x1b[32m[HASH]\x1b[0m NTLMv2: john::DOMAIN:aad3b435...',
-    '\x1b[90mHashcat ile kır: hashcat -m 5600 hash.txt rockyou.txt\x1b[0m',
+    '\x1b[90mCrack with hashcat: hashcat -m 5600 hash.txt rockyou.txt\x1b[0m',
   ]
 }
 
@@ -1203,14 +1407,14 @@ function cmdNucleI(args: string[]): string[] {
   const target = args.find(a => !a.startsWith('-')) ?? 'https://target.com'
   return [
     ...simHeader('Nuclei', '3.1.0'),
-    `\x1b[90mHedef: ${target}  8,432 template\x1b[0m`,
+    `\x1b[90mTarget: ${target}  8,432 templates\x1b[0m`,
     '',
-    '\x1b[31m[critical]\x1b[0m CVE-2021-44228 Log4Shell — \x1b[1mSAVUNMASSIZ\x1b[0m',
+    '\x1b[31m[critical]\x1b[0m CVE-2021-44228 Log4Shell — \x1b[1mVULNERABLE\x1b[0m',
     '\x1b[33m[high]\x1b[0m    CVE-2023-44487 HTTP/2 Rapid Reset',
-    '\x1b[33m[medium]\x1b[0m  /server-status açık',
+    '\x1b[33m[medium]\x1b[0m  /server-status exposed',
     '\x1b[32m[info]\x1b[0m    PHP 8.1.12  |  nginx 1.24.0',
     '',
-    '\x1b[90m4 bulgu. Süre: 00:00:47\x1b[0m',
+    '\x1b[90m4 findings. Duration: 00:00:47\x1b[0m',
   ]
 }
 
@@ -1223,17 +1427,17 @@ function cmdAmass(cmd: string, args: string[]): string[] {
     `\x1b[32m[+]\x1b[0m mail.${domain}`,
     `\x1b[32m[+]\x1b[0m api.${domain}`,
     `\x1b[32m[+]\x1b[0m dev.${domain}`,
-    `\x1b[33m[+]\x1b[0m vpn.${domain}  ← VPN erişimi`,
+    `\x1b[33m[+]\x1b[0m vpn.${domain}  ← VPN access`,
     `\x1b[33m[+]\x1b[0m jenkins.${domain}  ← CI/CD`,
     '',
-    '\x1b[90m5 subdomain bulundu.\x1b[0m',
+    '\x1b[90m5 subdomains discovered.\x1b[0m',
   ]
 }
 
 function cmdTcpdump(cmd: string, _args: string[]): string[] {
   if (cmd === 'wireshark') return [
-    '\x1b[33m[!]\x1b[0m Wireshark GUI uygulamasıdır.',
-    '\x1b[90m    Terminal için: tcpdump -i eth0 -w capture.pcap\x1b[0m',
+    '\x1b[33m[!]\x1b[0m Wireshark is a GUI application.',
+    '\x1b[90m    For terminal: tcpdump -i eth0 -w capture.pcap\x1b[0m',
   ]
   return [
     ...simHeader('tcpdump', '4.99.4'),
@@ -1242,7 +1446,7 @@ function cmdTcpdump(cmd: string, _args: string[]): string[] {
     '12:04:01  IP 10.10.10.1.443  > 10.10.10.50.52341  Flags [P.] len 512',
     '12:04:01  IP 10.10.10.50.52341 > 10.10.10.1.443   Flags [.] ack 513',
     '12:04:02  IP 10.10.10.100.80 > 10.10.10.50.43210  Flags [P.] len 1024',
-    '\x1b[90m^C — Ctrl+C ile durdur\x1b[0m',
+    '\x1b[90m^C — press Ctrl+C to stop\x1b[0m',
   ]
 }
 
@@ -1264,6 +1468,6 @@ function cmdNetcat(args: string[]): string[] {
 function cmdSsh(cmd: string, args: string[]): string[] {
   const target = args.find(a => !a.startsWith('-')) ?? 'user@target.com'
   return [
-    `\x1b[90m${cmd} ${target} — simülasyon modunda gerçek bağlantı yok.\x1b[0m`,
+    `\x1b[90m${cmd} ${target} — simulation mode, no real connection.\x1b[0m`,
   ]
 }

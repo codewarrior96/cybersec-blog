@@ -18,7 +18,7 @@
               "README.txt": {
                 "type": "file",
                 "perms": "-rw-r--r--",
-                "content": "BREACH LAB — Siber Güvenlik Eğitim Terminali\n\n  challenges/   CTF görevleri (6 seviye)\n  tools/        Güvenlik araç scriptleri\n  notes/        Referans notları\n  .bash_history Komut geçmişi\n\nYardım: help\nGörevler: cd challenges && cat README.txt"
+                "content": "BREACH LAB — Cybersecurity Training Terminal\n\n  challenges/    CTF missions (6 levels)\n  tools/         Security tooling scripts\n  notes/         Reference notes\n  .bash_history  Command history\n\nHelp: help\nMissions: cd challenges && cat README.txt"
               },
               "challenges": {
                 "type": "dir",
@@ -27,7 +27,7 @@
                   "README.txt": {
                     "type": "file",
                     "perms": "-rw-r--r--",
-                    "content": "CTF GÖREVLERİ — Baştan Sona\n\n  01-recon/   Sistem keşfi          [KOLAY]\n  02-perms/   Dosya izinleri         [KOLAY]\n  03-hidden/  Gizli dosyalar          [ORTA]\n  04-grep/    Metin analizi            [ORTA]\n  05-privesc/ Yetki yükseltme           [ZOR]\n  06-network/ Ağ analizi                [ZOR]\n\nHer gorev klasorunde mission.txt gorev tanimini icerir.\nBayrak (FLAG) bazen flag.txt dosyasinda, bazen script/log/gizli dosya ciktisinda bulunur.\nBayragi bulduktan sonra: submit FLAG{...}"
+                    "content": "CTF MISSIONS — Beginner to Advanced\n\n  01-recon/    System reconnaissance     [EASY]\n  02-perms/    File permissions          [EASY]\n  03-hidden/   Hidden files              [MEDIUM]\n  04-grep/     Text analysis             [MEDIUM]\n  05-privesc/  Privilege escalation      [HARD]\n  06-network/  Network analysis          [HARD]\n\nEach mission folder contains a mission.txt brief.\nWhen you complete the required steps, the flag is revealed automatically in the terminal — no manual file read required."
                   }
                 }
               },
@@ -38,22 +38,22 @@
                   "README.txt": {
                     "type": "file",
                     "perms": "-rw-r--r--",
-                    "content": "ARAÇLAR:\n  nmap.sh      → Port tarayıcı simülatörü\n  linpeas.sh   → Privesc kontrol\n  hashcrack.py → MD5 kırıcı (demo)\n\nKullanım: bash <araç.sh>\n"
+                    "content": "TOOLS:\n  nmap.sh       → Port scanner simulator\n  linpeas.sh    → Privesc check\n  hashcrack.py  → MD5 cracker (demo)\n\nUsage: bash <tool.sh>\n"
                   },
                   "nmap.sh": {
                     "type": "file",
                     "perms": "-rwxr-xr-x",
-                    "content": "#!/bin/bash\necho \"[*] Nmap Simüle Tarama\"\necho \"PORT     STATE  SERVICE  VERSION\"\necho \"22/tcp   open   ssh      OpenSSH 8.2p1\"\necho \"80/tcp   open   http     nginx 1.18.0\"\necho \"443/tcp  open   https    nginx 1.18.0\"\necho \"3306/tcp open   mysql    MySQL 8.0.26\"\necho \"8080/tcp open   http-alt Node.js\"\necho \"[+] Tarama tamamlandı — 5 açık port\"\n"
+                    "content": "#!/bin/bash\necho \"[*] Nmap Simulated Scan\"\necho \"PORT     STATE  SERVICE  VERSION\"\necho \"22/tcp   open   ssh      OpenSSH 8.2p1\"\necho \"80/tcp   open   http     nginx 1.18.0\"\necho \"443/tcp  open   https    nginx 1.18.0\"\necho \"3306/tcp open   mysql    MySQL 8.0.26\"\necho \"8080/tcp open   http-alt Node.js\"\necho \"[+] Scan complete — 5 open ports\"\n"
                   },
                   "linpeas.sh": {
                     "type": "file",
                     "perms": "-rwxr-xr-x",
-                    "content": "#!/bin/bash\necho \"╔══════════ LinPEAS v4.5.2 ══════════╗\"\necho \"[+] SUID/SGID dosyaları:\"\necho \"  /usr/bin/sudo  /usr/bin/passwd  /usr/bin/newgrp\"\necho \"[+] Yazılabilir dizinler:\"\necho \"  /tmp  /var/tmp  /dev/shm\"\necho \"[+] Sudo konfigürasyonu:\"\necho \"  operator ALL=(ALL) NOPASSWD: /usr/bin/vim\"\necho \"[!] Dikkat: vim ile root shell alınabilir!\"\necho \"  sudo vim -c '!bash'\"\n"
+                    "content": "#!/bin/bash\necho \"╔══════════ LinPEAS v4.5.2 ══════════╗\"\necho \"[+] SUID/SGID files:\"\necho \"  /usr/bin/sudo  /usr/bin/passwd  /usr/bin/newgrp\"\necho \"[+] Writable directories:\"\necho \"  /tmp  /var/tmp  /dev/shm\"\necho \"[+] Sudo configuration:\"\necho \"  operator ALL=(ALL) NOPASSWD: /usr/bin/vim\"\necho \"[!] Warning: vim can spawn a root shell.\"\necho \"  sudo vim -c '!bash'\"\n"
                   },
                   "hashcrack.py": {
                     "type": "file",
                     "perms": "-rwxr-xr-x",
-                    "content": "#!/usr/bin/env python3\nimport hashlib\n\nWORDLIST = [\"password\", \"123456\", \"admin\", \"qwerty\", \"letmein\", \"root\"]\nTARGET = \"5f4dcc3b5aa765d61d8327deb882cf99\"  # MD5\n\nfor word in WORDLIST:\n    if hashlib.md5(word.encode()).hexdigest() == TARGET:\n        print(f\"[+] Şifre bulundu: {word}\")\n        break\nelse:\n    print(\"[-] Wordlist'te bulunamadı\")\n"
+                    "content": "#!/usr/bin/env python3\nimport hashlib\n\nWORDLIST = [\"password\", \"123456\", \"admin\", \"qwerty\", \"letmein\", \"root\"]\nTARGET = \"5f4dcc3b5aa765d61d8327deb882cf99\"  # MD5\n\nfor word in WORDLIST:\n    if hashlib.md5(word.encode()).hexdigest() == TARGET:\n        print(f\"[+] Password found: {word}\")\n        break\nelse:\n    print(\"[-] Not found in wordlist\")\n"
                   }
                 }
               },
@@ -64,12 +64,12 @@
                   "linux-commands.txt": {
                     "type": "file",
                     "perms": "-rw-r--r--",
-                    "content": "TEMEL LINUX KOMUTLARI\n\nDOSYA: ls -la | cat | grep | find | chmod | chown\nMETİN: grep | awk | sed | wc | head | tail | sort\nSİSTEM: ps aux | top | uname -a | id | env | which\nAĞ: ifconfig | netstat | ss | ping | curl | wget\nCTF: strings | xxd | base64 | file | binwalk\n"
+                    "content": "BASIC LINUX COMMANDS\n\nFILES:   ls -la | cat | grep | find | chmod | chown\nTEXT:    grep | awk | sed | wc | head | tail | sort\nSYSTEM:  ps aux | top | uname -a | id | env | which\nNET:     ifconfig | netstat | ss | ping | curl | wget\nCTF:     strings | xxd | base64 | file | binwalk\n"
                   },
                   "ctf-checklist.txt": {
                     "type": "file",
                     "perms": "-rw-r--r--",
-                    "content": "CTF BAŞLANGIÇ LİSTESİ\n\n[ ] file <hedef>             → Dosya türü\n[ ] strings <hedef>          → Okunabilir metinler\n[ ] xxd <hedef> | head       → Hex dump\n[ ] find / -name \"flag*\"     → Bayrak arama\n[ ] env | grep -i flag       → Ortam değişkenleri\n[ ] cat ~/.bash_history      → Geçmiş komutlar\n[ ] sudo -l                  → Sudo yetkiler\n[ ] find / -perm -4000       → SUID dosyaları\n[ ] crontab -l               → Zamanlanmış görevler\n"
+                    "content": "CTF STARTER CHECKLIST\n\n[ ] file <target>            → File type\n[ ] strings <target>         → Readable strings\n[ ] xxd <target> | head      → Hex dump\n[ ] find / -name \"*.txt\"     → Search by extension\n[ ] env | grep -i token      → Environment variables\n[ ] cat ~/.bash_history      → Command history\n[ ] sudo -l                  → Sudo privileges\n[ ] find / -perm -4000       → SUID files\n[ ] crontab -l               → Scheduled tasks\n"
                   }
                 }
               },
@@ -94,7 +94,7 @@
           "shadow": {
             "type": "file",
             "perms": "-rw-r-----",
-            "content": "cat: /etc/shadow: İzin reddedildi\n"
+            "content": "cat: /etc/shadow: Permission denied\n"
           },
           "os-release": {
             "type": "file",

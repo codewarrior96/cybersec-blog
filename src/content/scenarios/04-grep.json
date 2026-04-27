@@ -26,7 +26,7 @@
                       "mission.txt": {
                         "type": "file",
                         "perms": "-rw-r--r--",
-                        "content": "[LEVEL 4] METİN ANALİZİ — ORTA\n────────────────────────────────\n\nGörev: Bu klasördeki access.log dosyasında bir FLAG saklı.\ngrep komutu ile FLAG kelimesini içeren satırı bul.\n\nİpucu: grep \"FLAG\" access.log"
+                        "content": "[LEVEL 4] GREP MASTER — MEDIUM\n───────────────────────────────\n\nObjective: A FLAG is hidden inside access.log. Use grep to surface the matching line.\n\nHint: grep \"FLAG\" access.log\nHint: grep -n \"FLAG\" access.log (with line number)\nWhen the matching line is rendered, the flag appears in the terminal."
                       },
                       "access.log": {
                         "type": "file",

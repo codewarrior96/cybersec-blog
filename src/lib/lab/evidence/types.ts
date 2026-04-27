@@ -33,6 +33,7 @@ export type EvidencePrimitive =
   | { type: 'flag_submitted'; flag: string }
   | { type: 'security_tool_used'; tool: string; target?: string }
   | { type: 'fact_derived'; fact: string; value?: string; method?: string }
+  | { type: 'flag_revealed'; level: number; flag: string }
 
 export interface EvidenceEvent {
   id: number

@@ -6,6 +6,7 @@ import AnsiText from './AnsiText'
 import { runCommand, VALID_FLAGS } from '@/lib/lab/engine'
 import { deserializeEvidenceLog, evidenceStorageKey, serializeEvidenceLog } from '@/lib/lab/evidence'
 import { resolvePath, getNode } from '@/lib/lab/filesystem'
+import { initMutableFs } from '@/lib/lab/mutation'
 import type { EvidenceEvent, EvidenceLog } from '@/lib/lab/evidence'
 import type { CommandContext, PendingCommand, TerminalExecution, TerminalLine, TerminalCommandSource } from '@/lib/lab/types'
 
@@ -51,6 +52,7 @@ function tabComplete(input: string, cwd: string): string | null {
 interface Props {
   wsUrl?: string
   onFlagSubmit?: (flag: string) => void
+  onFlagRevealed?: (level: number, flag: string) => void
   pendingCommand?: PendingCommand | null
   onCommandConsumed?: () => void
   onCommandExecuted?: (execution: TerminalExecution) => void
@@ -65,12 +67,16 @@ interface Props {
   setHistory: Dispatch<SetStateAction<string[]>>
   histIdx: number
   setHistIdx: Dispatch<SetStateAction<number>>
+  evidenceLog: EvidenceLog
   setEvidenceLog: Dispatch<SetStateAction<EvidenceLog>>
+  unlockedLevels: ReadonlySet<number>
+  alreadyRevealed: ReadonlySet<number>
 }
 
 export default function Terminal({
   wsUrl,
   onFlagSubmit,
+  onFlagRevealed,
   pendingCommand,
   onCommandConsumed,
   onCommandExecuted,
@@ -85,7 +91,10 @@ export default function Terminal({
   setHistory,
   histIdx,
   setHistIdx,
+  evidenceLog,
   setEvidenceLog,
+  unlockedLevels,
+  alreadyRevealed,
 }: Props) {
   const resolvedWsUrl = wsUrl ?? process.env.NEXT_PUBLIC_TERMINAL_WS
   const [wsStatus, setWsStatus] = useState<WsStatus>('simulated')
@@ -159,7 +168,13 @@ export default function Terminal({
 
       return next
     })
-  }, [setEvidenceLog])
+
+    for (const primitive of event.primitives) {
+      if (primitive.type === 'flag_revealed') {
+        onFlagRevealed?.(primitive.level, primitive.flag)
+      }
+    }
+  }, [setEvidenceLog, onFlagRevealed])
 
   const execute = useCallback((raw: string, source: TerminalCommandSource = 'manual') => {
     const cwdBefore = cwdRef.current
@@ -189,10 +204,15 @@ export default function Terminal({
         nextCwd = path
       },
       history,
+      mutableFs: initMutableFs(),
     }
 
     // Evidence currently emitted only in simulated mode. Future: capture from WebSocket protocol.
-    const output = runCommand(raw, ctx, handleEvidenceEvent)
+    const output = runCommand(raw, ctx, handleEvidenceEvent, {
+      evidenceLog,
+      unlockedLevels,
+      alreadyRevealed,
+    })
 
     if (output[0] === '__CLEAR__') {
       setLines([])
@@ -223,7 +243,7 @@ export default function Terminal({
       output,
       timestamp: Date.now(),
     })
-  }, [handleEvidenceEvent, history, onCommandExecuted, onFlagSubmit, setCwd, setHistory, setInput, setLines])
+  }, [evidenceLog, unlockedLevels, alreadyRevealed, handleEvidenceEvent, history, onCommandExecuted, onFlagSubmit, setCwd, setHistory, setInput, setLines])
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     switch (event.key) {

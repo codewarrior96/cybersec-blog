@@ -215,6 +215,10 @@ export function matchPrimitive(expected: EvidencePrimitive, actual: EvidencePrim
       return matchSecurityToolUsed(expected, actual)
     case 'fact_derived':
       return matchFactDerived(expected, actual)
+    case 'flag_revealed':
+      return actual.type === 'flag_revealed'
+        && expected.level === actual.level
+        && expected.flag === actual.flag
     default: {
       const exhaustive: never = expected
       return exhaustive

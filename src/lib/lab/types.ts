@@ -26,6 +26,13 @@ export interface CommandContext {
   cwd: string
   setCwd: (path: string) => void
   history: string[]
+  /**
+   * Optional session-scoped mutable filesystem snapshot. When present,
+   * mutation commands (touch, mkdir, rm, mv, chmod, echo > …) operate on
+   * this tree and read commands resolve against it before falling back to
+   * the static ROOT. Absent ⇒ legacy simulated behavior.
+   */
+  mutableFs?: DirNode
 }
 
 export type TerminalCommandSource = 'manual' | 'assisted'
@@ -88,7 +95,7 @@ export interface Challenge {
   level: number
   title: string
   path: string
-  difficulty: 'KOLAY' | 'ORTA' | 'ZOR' | 'EXPERT'
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD' | 'EXPERT'
   color: string
   description: string
   flagKey: string

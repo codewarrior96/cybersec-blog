@@ -80,9 +80,8 @@ const sudoListPrivileges: EvidencePrimitive = {
 const sudoFindExecCatPrivescFlag: EvidencePrimitive = {
   type: 'command_executed_with_args',
   command: 'sudo',
-  args: ['find', '-exec', 'cat', 'flag.txt'],
+  args: ['find', '-exec', 'cat'],
   argMatch: 'ordered_subsequence',
-  pathArgs: [{ index: 6, pathMatch: 'exact' }],
 }
 
 const privescViaSudoFind: EvidencePrimitive = {
@@ -202,19 +201,14 @@ const backdoorGrepViaLabel: readonly EvidencePrimitive[] = [
 
 export const challengeContracts: Partial<Record<number, ValidationContract>> = {
   1: {
+    expectedFlag: 'FLAG{r3con_master_l1nux}',
+    levelTitle: 'RECONNAISSANCE',
     required: [],
     sufficient: passwdLineCountSolutions,
-    requiresBeforeReading: [
-      {
-        target: {
-          path: '/home/operator/challenges/01-recon/flag.txt',
-          pathMatch: 'exact',
-        },
-        anyOf: passwdLineCountSolutions,
-      },
-    ],
   },
   2: {
+    expectedFlag: 'FLAG{ch4mod_p3rm1ss10ns}',
+    levelTitle: 'FILE PERMISSIONS',
     required: [
       chmodSecretExecutable,
       bashSecretScript,
@@ -222,6 +216,8 @@ export const challengeContracts: Partial<Record<number, ValidationContract>> = {
     ],
   },
   3: {
+    expectedFlag: 'FLAG{h1dden_1n_pl41n_s1ght}',
+    levelTitle: 'HIDDEN FILES',
     required: [
       hiddenFileRead,
       submitLevel3Flag,
@@ -244,6 +240,8 @@ export const challengeContracts: Partial<Record<number, ValidationContract>> = {
     ],
   },
   4: {
+    expectedFlag: 'FLAG{gr3p_1s_p0w3r}',
+    levelTitle: 'GREP MASTER',
     required: [
       submitLevel4Flag,
     ],
@@ -265,26 +263,18 @@ export const challengeContracts: Partial<Record<number, ValidationContract>> = {
     ],
   },
   5: {
+    expectedFlag: 'FLAG{pr1v3sc_r00t_0wn3d}',
+    levelTitle: 'PRIVILEGE ESCALATION',
     required: [
       submitLevel5Flag,
       sudoListPrivileges,
       sudoFindExecCatPrivescFlag,
       privescViaSudoFind,
     ],
-    requiresBeforeReading: [
-      {
-        target: {
-          path: '/home/operator/challenges/05-privesc/flag.txt',
-          pathMatch: 'exact',
-        },
-        all: [
-          sudoListPrivileges,
-          sudoFindExecCatPrivescFlag,
-        ],
-      },
-    ],
   },
   6: {
+    expectedFlag: 'FLAG{n3tw0rk_m4st3r_2024}',
+    levelTitle: 'NETWORK ANALYSIS',
     required: [
       submitLevel6Flag,
       suspiciousPortDiscovered,

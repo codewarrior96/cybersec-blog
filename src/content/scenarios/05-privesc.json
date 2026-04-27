@@ -26,12 +26,7 @@
                       "mission.txt": {
                         "type": "file",
                         "perms": "-rw-r--r--",
-                        "content": "[LEVEL 5] YETKİ YÜKSELTMESİ — ZOR\n─────────────────────────────────────\n\nGörev: Sistemdeki privilege escalation vektörlerini bul\n\nİpucu 1: sudo -l ile izin verilen root komutlarını gör\nİpucu 2: find neden NOPASSWD çalışıyor, bunu analiz et\nİpucu 3: sudo find . -exec cat flag.txt \\; ile root okuma simülasyonunu uygula"
-                      },
-                      "flag.txt": {
-                        "type": "file",
-                        "perms": "-rw-------",
-                        "content": "FLAG{pr1v3sc_r00t_0wn3d}\n"
+                        "content": "[LEVEL 5] PRIVILEGE ESCALATION — HARD\n──────────────────────────────────────\n\nObjective: Discover the privilege escalation vector and execute a root-context read.\n\nHint 1: sudo -l (which commands can run as root?)\nHint 2: find -perm -4000 (look for SUID binaries)\nHint 3: sudo find . -exec cat target \\; (use the GTFOBins find vector)\nWhen the privesc chain succeeds, the flag appears in the terminal."
                       }
                     }
                   }

@@ -26,12 +26,12 @@
                       "mission.txt": {
                         "type": "file",
                         "perms": "-rw-r--r--",
-                        "content": "[LEVEL 2] DOSYA İZİNLERİ — KOLAY\n──────────────────────────────────\n\nGörev: secret.sh çalıştırılabilir yap ve çalıştır\n\nİpucu 1: ls -la (mevcut izinleri gör)\nİpucu 2: chmod +x secret.sh\nİpucu 3: bash secret.sh"
+                        "content": "[LEVEL 2] FILE PERMISSIONS — EASY\n──────────────────────────────────\n\nObjective: Make secret.sh executable and run it.\n\nHint 1: ls -la (inspect current permissions)\nHint 2: chmod +x secret.sh\nHint 3: bash secret.sh — when it runs, the flag appears in the terminal."
                       },
                       "secret.sh": {
                         "type": "file",
                         "perms": "-rw-r--r--",
-                        "content": "#!/bin/bash\necho \"İzinler tamam!\"\necho \"Bayrak: FLAG{ch4mod_p3rm1ss10ns}\"\n"
+                        "content": "#!/bin/bash\necho \"Permissions OK!\"\necho \"Access granted to the protected routine.\"\n"
                       }
                     }
                   }

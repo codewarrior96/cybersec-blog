@@ -16,6 +16,14 @@ export interface ValidationContract {
   sufficient?: readonly (readonly EvidencePrimitive[])[]
   forbidden?: readonly EvidencePrimitive[]
   requiresBeforeReading?: readonly RequiresBeforeReadingClause[]
+  /**
+   * Flag that the auto-reveal banner should print when this contract's
+   * evidence requirements are satisfied. Populated in contracts.ts when
+   * Block B replaces filesystem flag.txt with contract metadata.
+   */
+  expectedFlag?: string
+  /** Display title used in the reveal banner header for this level. */
+  levelTitle?: string
 }
 
 export interface ValidationResult {

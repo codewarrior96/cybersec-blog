@@ -4,33 +4,35 @@ import { stripAnsi } from '../evidence'
 export function humanize(p: EvidencePrimitive): string {
   switch (p.type) {
     case 'command_executed':
-      return `\`${p.command}\` komutunu calistir`
+      return `run the \`${p.command}\` command`
     case 'command_executed_with_args':
-      return `\`${[p.command, ...p.args].join(' ')}\` komutunu calistir`
+      return `run \`${[p.command, ...p.args].join(' ')}\``
     case 'cwd_reached':
-      return `\`${p.path}\` dizinine gec`
+      return `change directory to \`${p.path}\``
     case 'file_read':
-      return `\`${p.path}\` dosyasini \`${p.via}\` ile oku`
+      return `read \`${p.path}\` with \`${p.via}\``
     case 'file_created':
-      return `\`${p.path}\` dosyasini olustur`
+      return `create \`${p.path}\``
     case 'file_removed':
-      return `\`${p.path}\` dosyasini sil`
+      return `remove \`${p.path}\``
     case 'file_modified_perms':
-      return `\`${p.path}\` icin \`${p.perms}\` iznini uygula`
+      return `apply permissions \`${p.perms}\` to \`${p.path}\``
     case 'output_contains':
-      return `komut ciktisinda \`${stripAnsi(p.value)}\` degerini uret`
+      return `produce \`${stripAnsi(p.value)}\` in the command output`
     case 'pipeline_used':
-      return `\`${p.commands.join(' | ')}\` pipeline akisini kullan`
+      return `chain the pipeline \`${p.commands.join(' | ')}\``
     case 'flag_submitted':
-      return `\`${p.flag}\` bayragini gonder`
+      return `submit the flag \`${p.flag}\``
     case 'security_tool_used':
       return p.target
-        ? `\`${p.tool}\` aracini \`${p.target}\` hedefi icin calistir`
-        : `\`${p.tool}\` aracini calistir`
+        ? `run \`${p.tool}\` against \`${p.target}\``
+        : `run the \`${p.tool}\` tool`
     case 'fact_derived':
       return p.value
-        ? `\`${p.fact}\` bilgisini \`${p.value}\` olarak turet`
-        : `\`${p.fact}\` bilgisini turet`
+        ? `derive \`${p.fact}\` as \`${p.value}\``
+        : `derive \`${p.fact}\``
+    case 'flag_revealed':
+      return `Level ${p.level} reveal: \`${p.flag}\``
     default: {
       const exhaustive: never = p
       return exhaustive

@@ -25,23 +25,23 @@ type CTFSubmitState = 'valid' | 'invalid' | 'duplicate' | 'blocked'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DIFFICULTY_META: Record<Difficulty, { label: string; color: string }> = {
-  beginner:     { label: 'Başlangıç', color: 'rgb(var(--route-accent-rgb))' },
-  intermediate: { label: 'Orta',      color: '#f59e0b' },
-  advanced:     { label: 'İleri',     color: '#ef4444' },
-  expert:       { label: 'Uzman',     color: '#7c3aed' },
+  beginner:     { label: 'Beginner',     color: 'rgb(var(--route-accent-rgb))' },
+  intermediate: { label: 'Intermediate', color: '#f59e0b' },
+  advanced:     { label: 'Advanced',     color: '#ef4444' },
+  expert:       { label: 'Expert',       color: '#7c3aed' },
 }
 
 const CONTENT_TABS: { id: ContentTab; icon: string; label: string }[] = [
-  { id: 'curriculum', icon: '[]', label: 'Müfredat'      },
-  { id: 'tools',      icon: '{}', label: 'Araçlar'       },
-  { id: 'ctf',        icon: '##', label: 'CTF Görevleri' },
+  { id: 'curriculum', icon: '[]', label: 'Curriculum'    },
+  { id: 'tools',      icon: '{}', label: 'Tools'         },
+  { id: 'ctf',        icon: '##', label: 'CTF Missions'  },
 ]
 
 const MOBILE_TABS: { id: MobileTab; icon: string; label: string }[] = [
-  { id: 'curriculum', icon: '[]', label: 'Müfredat' },
-  { id: 'tools',      icon: '{}', label: 'Araçlar'  },
-  { id: 'ctf',        icon: '##', label: 'CTF'      },
-  { id: 'terminal',   icon: '>_', label: 'Terminal' },
+  { id: 'curriculum', icon: '[]', label: 'Curriculum' },
+  { id: 'tools',      icon: '{}', label: 'Tools'      },
+  { id: 'ctf',        icon: '##', label: 'CTF'        },
+  { id: 'terminal',   icon: '>_', label: 'Terminal'   },
 ]
 
 const STORAGE_KEYS = {
@@ -193,12 +193,12 @@ export default function LabPage() {
 
   // ── CTF flag submit + level unlock ───────────────────────────────────────
   function validationMessageFromResult(result: ValidationResult): string {
-    if (result.missing[0]) return `Henüz şunu yapmadın: ${humanize(result.missing[0])}.`
-    if (result.forbidden[0]) return `Bu çözüm akışı kabul edilmiyor: ${humanize(result.forbidden[0])}.`
+    if (result.missing[0]) return `Not done yet: ${humanize(result.missing[0])}.`
+    if (result.forbidden[0]) return `This approach is not accepted: ${humanize(result.forbidden[0])}.`
     if (result.temporalFailures.length > 0) {
-      return 'Önce bu göreve ait terminal kanıtlarını tamamla, sonra flag değerini tekrar gönder.'
+      return 'Complete the terminal evidence for this mission first, then resubmit the flag.'
     }
-    return 'Terminal kanıtı eksik: görevi terminalde çöz, flag dosyasını oku ve tekrar gönder.'
+    return 'Terminal evidence missing — solve the mission in the terminal and the flag will reveal automatically.'
   }
 
   function handleCTFFlag(flag: string, level: number): CTFSubmitState {
@@ -235,6 +235,23 @@ export default function LabPage() {
     handleCTFFlag(flag, challenge.level)
   }
 
+  function handleTerminalFlagRevealed(level: number, flag: string) {
+    setSubmittedFlags(prev => {
+      if (prev.has(flag)) return prev
+      return new Set([...Array.from(prev), flag])
+    })
+    setUnlockedLevels(prev => {
+      if (prev.has(level + 1)) return prev
+      return new Set([...Array.from(prev), level + 1])
+    })
+    setCtfValidationMessages(prev => {
+      if (!prev[level]) return prev
+      const next = { ...prev }
+      delete next[level]
+      return next
+    })
+  }
+
   // ── Hint reveal ──────────────────────────────────────────────────────────
   function revealNextHint(level: number) {
     setRevealedHints(prev => {
@@ -250,6 +267,11 @@ export default function LabPage() {
   const visibleRevealedHints = mounted ? revealedHints : DEFAULT_VISIBLE_REVEALED_HINTS
   const progress = visibleSubmittedFlags.size
   const total    = VALID_FLAGS.size
+  const alreadyRevealed = new Set(
+    CHALLENGES
+      .filter(ch => visibleSubmittedFlags.has(ch.flagKey))
+      .map(ch => ch.level),
+  )
   const terminalSessionProps = {
     cwd: terminalCwd,
     setCwd: setTerminalCwd,
@@ -261,7 +283,10 @@ export default function LabPage() {
     setHistory: setTerminalHistory,
     histIdx: terminalHistIdx,
     setHistIdx: setTerminalHistIdx,
+    evidenceLog,
     setEvidenceLog,
+    unlockedLevels: visibleUnlockedLevels,
+    alreadyRevealed,
   }
 
   function renderContent(tab: ContentTab, isMobile = false) {
@@ -332,6 +357,7 @@ export default function LabPage() {
                 pendingCommand={pendingCommand}
                 onCommandConsumed={handleCommandConsumed}
                 onFlagSubmit={handleTerminalFlagSubmit}
+                onFlagRevealed={handleTerminalFlagRevealed}
                 onCommandExecuted={handleCommandExecuted}
               />
             </div>
@@ -352,6 +378,7 @@ export default function LabPage() {
                 pendingCommand={pendingCommand}
                 onCommandConsumed={handleCommandConsumed}
                 onFlagSubmit={handleTerminalFlagSubmit}
+                onFlagRevealed={handleTerminalFlagRevealed}
                 onCommandExecuted={handleCommandExecuted}
               />
             : renderContent(mobileTab as ContentTab, true)
@@ -377,7 +404,7 @@ function DesktopTopBar({ activeTab, onTabChange, progress, total }: {
         </span>
         <span style={{ padding: '1px 7px', borderRadius: 3, fontSize: 9, fontWeight: 700,
           background: 'rgb(var(--route-accent-rgb) / 0.08)', color: 'rgb(var(--route-accent-rgb) / 0.65)',
-          border: '1px solid rgb(var(--route-accent-rgb) / 0.16)' }}>SİBER GÜVENLİK</span>
+          border: '1px solid rgb(var(--route-accent-rgb) / 0.16)' }}>CYBER SECURITY</span>
       </div>
 
       <div className="community-tab-group">
@@ -486,18 +513,18 @@ function CTFTab({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
           <div>
             <p style={{ color: 'rgb(var(--route-accent-rgb) / 0.65)', fontSize: 10, letterSpacing: '0.2em', margin: '0 0 4px' }}>
-              PRATİK GÖREVLER
+              PRACTICE MISSIONS
             </p>
             <h2 style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 20, fontFamily: 'inherit', margin: 0 }}>
-              CTF Görevleri
+              CTF Missions
             </h2>
             <p style={{ color: 'rgba(148,163,184,0.65)', fontSize: 12, margin: '4px 0 0' }}>
-              Terminali kullanarak görevleri çöz, bayrak gönder, ilerle
+              Solve missions in the terminal — flags reveal automatically when prerequisites are met
             </p>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 20, fontWeight: 800 }}>{completed}/{CHALLENGES.length}</div>
-            <div style={{ color: 'rgb(var(--route-muted-rgb) / 0.72)', fontSize: 10, letterSpacing: '0.1em' }}>TAMAMLANDI</div>
+            <div style={{ color: 'rgb(var(--route-muted-rgb) / 0.72)', fontSize: 10, letterSpacing: '0.1em' }}>COMPLETED</div>
           </div>
         </div>
 
@@ -622,12 +649,12 @@ function ChallengeCard({
       {/* Card body */}
       {!isUnlocked ? (
         <div style={{ padding: '0.85rem 1.1rem', color: 'rgba(148,163,184,0.4)', fontSize: 11, fontStyle: 'italic' }}>
-          Bu görevi açmak için önceki görevi tamamla.
+          Complete the previous mission to unlock this one.
         </div>
       ) : isCompleted ? (
         <div style={{ padding: '0.85rem 1.1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ color: 'rgb(var(--route-accent-rgb))', fontSize: 14 }}>✓</span>
-          <span style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 12, fontWeight: 700 }}>Görev Tamamlandı</span>
+          <span style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 12, fontWeight: 700, letterSpacing: '0.1em' }}>AUTO-COMPLETED</span>
           <code style={{ marginLeft: 'auto', color: 'rgba(0,255,65,0.5)', fontSize: 10 }}>{ch.flagKey}</code>
         </div>
       ) : (
@@ -640,14 +667,14 @@ function ChallengeCard({
             display: 'flex', alignItems: 'center', gap: 6, width: 'fit-content',
             outline: 'none',
           }}>
-            <span>⌨</span> Terminalde Aç
+            <span>⌨</span> Open in Terminal
           </button>
 
-          {/* İpucu bölümü */}
+          {/* Hint section */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <span style={{ color: 'rgba(148,163,184,0.5)', fontSize: 10, letterSpacing: '0.1em' }}>
-                İPUCU {hintsRevealed}/{ch.hints.length}
+                HINT {hintsRevealed}/{ch.hints.length}
               </span>
               {hintsRevealed < ch.hints.length && (
                 <button onClick={onRevealHint} style={{
@@ -656,7 +683,7 @@ function ChallengeCard({
                   color: '#f59e0b', fontSize: 10, fontFamily: 'inherit',
                   outline: 'none',
                 }}>
-                  💡 İpucu Göster
+                  💡 Reveal Hint
                 </button>
               )}
             </div>
@@ -681,7 +708,7 @@ function ChallengeCard({
                           <button
                             key={`${i}-code-${segmentIndex}`}
                             type="button"
-                            title="Komutu kopyala"
+                            title="Copy command"
                             onClick={() => { void copyCommand(segment.value) }}
                             style={{
                               display: 'inline-flex',
@@ -737,22 +764,22 @@ function ChallengeCard({
                 color: 'rgb(var(--route-accent-rgb))', fontSize: 12, fontFamily: 'inherit', fontWeight: 700,
                 outline: 'none', flexShrink: 0,
               }}>
-                Gönder
+                Submit
               </button>
             </div>
             {submitState === 'invalid' && (
-              <p style={{ color: '#ef4444', fontSize: 10, margin: '4px 0 0' }}>❌ Geçersiz flag, tekrar dene.</p>
+              <p style={{ color: '#ef4444', fontSize: 10, margin: '4px 0 0' }}>❌ Invalid flag, try again.</p>
             )}
             {submitState === 'duplicate' && (
-              <p style={{ color: '#f59e0b', fontSize: 10, margin: '4px 0 0' }}>⚠ Bu flag zaten gönderildi.</p>
+              <p style={{ color: '#f59e0b', fontSize: 10, margin: '4px 0 0' }}>⚠ This flag was already submitted.</p>
             )}
             {submitState === 'blocked' && (
               <p style={{ color: '#f59e0b', fontSize: 10, lineHeight: 1.5, margin: '4px 0 0' }}>
-                {validationMessage ?? 'Once terminal kanitini tamamla, sonra tekrar dene.'}
+                {validationMessage ?? 'Complete the terminal evidence first, then retry.'}
               </p>
             )}
             {submitState === 'valid' && (
-              <p style={{ color: 'rgb(var(--route-accent-rgb))', fontSize: 10, margin: '4px 0 0' }}>✓ Doğru! Sonraki görev açıldı.</p>
+              <p style={{ color: 'rgb(var(--route-accent-rgb))', fontSize: 10, margin: '4px 0 0' }}>✓ Correct! Next mission unlocked.</p>
             )}
           </div>
         </div>

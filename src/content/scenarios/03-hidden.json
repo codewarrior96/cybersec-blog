@@ -26,17 +26,17 @@
                       "mission.txt": {
                         "type": "file",
                         "perms": "-rw-r--r--",
-                        "content": "[LEVEL 3] GİZLİ DOSYALAR — ORTA\n─────────────────────────────────\n\nGörev: Bu klasörde gizli bir dosya var. Bul ve oku.\n\nİpucu 1: ls -la (nokta ile başlayan dosyalar gizlidir)\nİpucu 2: cat <gizli_dosya>"
+                        "content": "[LEVEL 3] HIDDEN FILES — MEDIUM\n────────────────────────────────\n\nObjective: There is a hidden (dot-prefixed) file in this directory. Find and read it.\n\nHint 1: ls -la (dotfiles are hidden by default)\nHint 2: cat <hidden_file> — once you read it, the flag appears in the terminal."
                       },
                       ".vault": {
                         "type": "file",
                         "perms": "-rw-------",
-                        "content": "FLAG{h1dden_1n_pl41n_s1ght}\n"
+                        "content": "ACCESS GRANTED — encrypted vault decoded.\nThe credential token has been registered with your session.\n"
                       },
                       "decoy.txt": {
                         "type": "file",
                         "perms": "-rw-r--r--",
-                        "content": "Burada değil... daha derine bak.\n"
+                        "content": "Not here — look deeper.\n"
                       }
                     }
                   }
