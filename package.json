@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "backfill:identity": "node scripts/backfill-identity-postgres.mjs",
+    "lab:migrate-fs": "npx --yes tsx scripts/migrate-fs-to-scenarios.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

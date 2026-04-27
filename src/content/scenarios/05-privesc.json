@@ -1,0 +1,65 @@
+{
+  "id": "05-privesc",
+  "title": "Privilege Escalation",
+  "description": "Sudo discovery and GTFOBins-style find execution path.",
+  "difficulty": "advanced",
+  "initialFs": {
+    "type": "dir",
+    "perms": "drwxr-xr-x",
+    "children": {
+      "home": {
+        "type": "dir",
+        "perms": "drwxr-xr-x",
+        "children": {
+          "operator": {
+            "type": "dir",
+            "perms": "drwxr-xr-x",
+            "children": {
+              "challenges": {
+                "type": "dir",
+                "perms": "drwxr-xr-x",
+                "children": {
+                  "05-privesc": {
+                    "type": "dir",
+                    "perms": "drwxr-xr-x",
+                    "children": {
+                      "mission.txt": {
+                        "type": "file",
+                        "perms": "-rw-r--r--",
+                        "content": "[LEVEL 5] YETKİ YÜKSELTMESİ — ZOR\n─────────────────────────────────────\n\nGörev: Sistemdeki privilege escalation vektörlerini bul\n\nİpucu 1: sudo -l ile izin verilen root komutlarını gör\nİpucu 2: find neden NOPASSWD çalışıyor, bunu analiz et\nİpucu 3: sudo find . -exec cat flag.txt \\; ile root okuma simülasyonunu uygula"
+                      },
+                      "flag.txt": {
+                        "type": "file",
+                        "perms": "-rw-------",
+                        "content": "FLAG{pr1v3sc_r00t_0wn3d}\n"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "challenges": [
+    {
+      "level": 5,
+      "id": "05-privesc",
+      "path": "/home/operator/challenges/05-privesc"
+    }
+  ],
+  "metadata": {
+    "estimatedTime": 18,
+    "tags": [
+      "linux",
+      "sudo",
+      "privesc",
+      "gtfobins"
+    ],
+    "prerequisites": [
+      "02-perms"
+    ]
+  }
+}

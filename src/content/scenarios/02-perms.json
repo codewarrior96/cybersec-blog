@@ -1,0 +1,64 @@
+{
+  "id": "02-perms",
+  "title": "File Permissions",
+  "description": "Permission inspection and executable script workflow.",
+  "difficulty": "beginner",
+  "initialFs": {
+    "type": "dir",
+    "perms": "drwxr-xr-x",
+    "children": {
+      "home": {
+        "type": "dir",
+        "perms": "drwxr-xr-x",
+        "children": {
+          "operator": {
+            "type": "dir",
+            "perms": "drwxr-xr-x",
+            "children": {
+              "challenges": {
+                "type": "dir",
+                "perms": "drwxr-xr-x",
+                "children": {
+                  "02-perms": {
+                    "type": "dir",
+                    "perms": "drwxr-xr-x",
+                    "children": {
+                      "mission.txt": {
+                        "type": "file",
+                        "perms": "-rw-r--r--",
+                        "content": "[LEVEL 2] DOSYA İZİNLERİ — KOLAY\n──────────────────────────────────\n\nGörev: secret.sh çalıştırılabilir yap ve çalıştır\n\nİpucu 1: ls -la (mevcut izinleri gör)\nİpucu 2: chmod +x secret.sh\nİpucu 3: bash secret.sh"
+                      },
+                      "secret.sh": {
+                        "type": "file",
+                        "perms": "-rw-r--r--",
+                        "content": "#!/bin/bash\necho \"İzinler tamam!\"\necho \"Bayrak: FLAG{ch4mod_p3rm1ss10ns}\"\n"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "challenges": [
+    {
+      "level": 2,
+      "id": "02-perms",
+      "path": "/home/operator/challenges/02-perms"
+    }
+  ],
+  "metadata": {
+    "estimatedTime": 12,
+    "tags": [
+      "linux",
+      "permissions",
+      "chmod"
+    ],
+    "prerequisites": [
+      "01-recon"
+    ]
+  }
+}

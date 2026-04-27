@@ -1,0 +1,62 @@
+{
+  "id": "01-recon",
+  "title": "Recon Basics",
+  "description": "System discovery with /etc/passwd and line-count validation.",
+  "difficulty": "beginner",
+  "initialFs": {
+    "type": "dir",
+    "perms": "drwxr-xr-x",
+    "children": {
+      "home": {
+        "type": "dir",
+        "perms": "drwxr-xr-x",
+        "children": {
+          "operator": {
+            "type": "dir",
+            "perms": "drwxr-xr-x",
+            "children": {
+              "challenges": {
+                "type": "dir",
+                "perms": "drwxr-xr-x",
+                "children": {
+                  "01-recon": {
+                    "type": "dir",
+                    "perms": "drwxr-xr-x",
+                    "children": {
+                      "mission.txt": {
+                        "type": "file",
+                        "perms": "-rw-r--r--",
+                        "content": "[LEVEL 1] KEŞİF — KOLAY\n─────────────────────────\n\nGörev: /etc/passwd kaç satır içeriyor?\n\nİpucu 1: cat /etc/passwd\nİpucu 2: cat /etc/passwd | wc -l\nİpucu 3: Sonra flag.txt oku"
+                      },
+                      "flag.txt": {
+                        "type": "file",
+                        "perms": "-r--------",
+                        "content": "FLAG{r3con_master_l1nux}\n"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "challenges": [
+    {
+      "level": 1,
+      "id": "01-recon",
+      "path": "/home/operator/challenges/01-recon"
+    }
+  ],
+  "metadata": {
+    "estimatedTime": 10,
+    "tags": [
+      "linux",
+      "recon",
+      "filesystem"
+    ],
+    "prerequisites": []
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "id": "04-grep",
+  "title": "Grep Analysis",
+  "description": "Log filtering with grep and pattern-based triage.",
+  "difficulty": "intermediate",
+  "initialFs": {
+    "type": "dir",
+    "perms": "drwxr-xr-x",
+    "children": {
+      "home": {
+        "type": "dir",
+        "perms": "drwxr-xr-x",
+        "children": {
+          "operator": {
+            "type": "dir",
+            "perms": "drwxr-xr-x",
+            "children": {
+              "challenges": {
+                "type": "dir",
+                "perms": "drwxr-xr-x",
+                "children": {
+                  "04-grep": {
+                    "type": "dir",
+                    "perms": "drwxr-xr-x",
+                    "children": {
+                      "mission.txt": {
+                        "type": "file",
+                        "perms": "-rw-r--r--",
+                        "content": "[LEVEL 4] METİN ANALİZİ — ORTA\n────────────────────────────────\n\nGörev: Bu klasördeki access.log dosyasında bir FLAG saklı.\ngrep komutu ile FLAG kelimesini içeren satırı bul.\n\nİpucu: grep \"FLAG\" access.log"
+                      },
+                      "access.log": {
+                        "type": "file",
+                        "perms": "-rw-r--r--",
+                        "content": "192.168.1.1 - GET /index.html 200\n10.0.0.5 - POST /login 401 \"invalid credentials\"\n45.33.32.156 - GET /admin FLAG{gr3p_1s_p0w3r} 403\n172.16.0.1 - GET /robots.txt 200\n10.0.0.99 - GET /.env 404\n192.168.1.100 - POST /api/users 500"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "challenges": [
+    {
+      "level": 4,
+      "id": "04-grep",
+      "path": "/home/operator/challenges/04-grep"
+    }
+  ],
+  "metadata": {
+    "estimatedTime": 14,
+    "tags": [
+      "linux",
+      "grep",
+      "logs"
+    ],
+    "prerequisites": [
+      "01-recon"
+    ]
+  }
+}

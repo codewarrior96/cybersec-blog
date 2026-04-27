@@ -1,0 +1,65 @@
+{
+  "id": "06-network",
+  "title": "Network Analysis",
+  "description": "Suspicious port discovery and syslog correlation.",
+  "difficulty": "advanced",
+  "initialFs": {
+    "type": "dir",
+    "perms": "drwxr-xr-x",
+    "children": {
+      "home": {
+        "type": "dir",
+        "perms": "drwxr-xr-x",
+        "children": {
+          "operator": {
+            "type": "dir",
+            "perms": "drwxr-xr-x",
+            "children": {
+              "challenges": {
+                "type": "dir",
+                "perms": "drwxr-xr-x",
+                "children": {
+                  "06-network": {
+                    "type": "dir",
+                    "perms": "drwxr-xr-x",
+                    "children": {
+                      "mission.txt": {
+                        "type": "file",
+                        "perms": "-rw-r--r--",
+                        "content": "[LEVEL 6] AĞ ANALİZİ — ZOR\n─────────────────────────────\n\nGörev: Açık portları listele ve alışılmadık servisi bul.\nŞüpheli portu sistem loglarında doğrula.\n\nİpucu 1: ss -tulpn veya netstat -tulpn\nİpucu 2: Alışılmadık port 4444 olabilir mi?\nİpucu 3: grep 4444 /var/log/syslog"
+                      },
+                      "flag.txt": {
+                        "type": "file",
+                        "perms": "-rw-------",
+                        "content": "FLAG{n3tw0rk_m4st3r_2024}\n"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "challenges": [
+    {
+      "level": 6,
+      "id": "06-network",
+      "path": "/home/operator/challenges/06-network"
+    }
+  ],
+  "metadata": {
+    "estimatedTime": 18,
+    "tags": [
+      "linux",
+      "network",
+      "syslog",
+      "blue-team"
+    ],
+    "prerequisites": [
+      "04-grep"
+    ]
+  }
+}
