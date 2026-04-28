@@ -252,6 +252,42 @@ function runSingle(
         if (node?.type === 'file') {
           return [`\x1b[33m[?] ${maybePath} is a file. Use cat ${maybePath} to view it.\x1b[0m`]
         }
+
+        // Path-style invocation of a script not present in the lab FS
+        // (e.g. ./linpeas.sh, ./support/analyzeHeadless) — friendly stub.
+        if (maybePath.endsWith('.sh') || maybePath.includes('linpeas')) {
+          return [
+            `\x1b[90m[${maybePath} ${args.join(' ')}]\x1b[0m`,
+            `\x1b[90m(simulated execution — script not staged in lab FS)\x1b[0m`,
+            `\x1b[90mIn the real workflow you would download it first:\x1b[0m`,
+            `\x1b[90m  curl -L https://github.com/.../linpeas.sh -o linpeas.sh && chmod +x linpeas.sh\x1b[0m`,
+          ]
+        }
+        return [
+          `\x1b[90m[${maybePath} ${args.join(' ')}]\x1b[0m`,
+          `\x1b[90m(simulated execution — file not in lab FS)\x1b[0m`,
+        ]
+      }
+
+      // Mimikatz module-style syntax: lsadump::dcsync, privilege::debug …
+      if (cmd.includes('::')) {
+        return [
+          `\x1b[33m[mimikatz]\x1b[0m ${cmd} ${args.join(' ')}`,
+          '\x1b[90m(Windows-only — run inside the mimikatz.exe REPL)\x1b[0m',
+          `\x1b[90mExample real flow: privilege::debug → ${cmd}\x1b[0m`,
+        ]
+      }
+
+      // Framework REPL verbs (msfconsole / recon-ng inner commands)
+      if (cmd === 'search' || cmd === 'use' || cmd === 'marketplace'
+          || cmd === 'modules' || cmd === 'options' || cmd === 'sessions') {
+        return [
+          `\x1b[33m[REPL verb]\x1b[0m ${cmd} ${args.join(' ')}`,
+          '\x1b[90m(this is an msfconsole/recon-ng inner verb — start the framework first)\x1b[0m',
+          `\x1b[90mUsage:\x1b[0m`,
+          `\x1b[90m  msfconsole -q\x1b[0m`,
+          `\x1b[90m  msf6> ${cmd} ${args.join(' ')}\x1b[0m`,
+        ]
       }
 
       return [`\x1b[31mbash: ${cmd}: command not found\x1b[0m`]
@@ -1196,19 +1232,189 @@ function cmdPython(args: string[], ctx: CommandContext): string[] {
   if (!file) {
     return ['\x1b[90mPython 3.10.12 (simulated REPL)\x1b[0m', '>>> (run python3 <file.py>)']
   }
-  const node = resolve(ctx, file)
-  if (!node || node.type !== 'file') return [`\x1b[31mpython3: ${file}: No such file or directory\x1b[0m`]
 
+  // python3 -c "<expr>" — inline expression simulator
+  if (file === '-c') {
+    const expr = args.slice(1).join(' ').replace(/^['"]|['"]$/g, '')
+    const repeat = expr.match(/print\(\s*['"]([^'"]+)['"]\s*\*\s*(\d+)\s*\)/)
+    if (repeat) return [repeat[1].repeat(Math.min(parseInt(repeat[2], 10), 200))]
+    const literal = expr.match(/print\(\s*['"]([^'"]*)['"]\s*\)/)
+    if (literal) return [literal[1]]
+    return [`\x1b[90m[python3 -c]\x1b[0m ${expr || '(empty)'}`]
+  }
+
+  // Real FS lookup first — preserves blog-fundamentals lessons
+  const node = resolve(ctx, file)
+  if (node && node.type === 'file') {
+    return [
+      `\x1b[90m[python3 ${file}]\x1b[0m`,
+      ...node.content
+        .split('\n')
+        .filter(l => l.includes('print('))
+        .map(l => {
+          const m = l.match(/print\((?:f?["'])(.+?)["']\)/)
+          return m ? m[1].replace(/\{.*?\}/g, '[value]') : ''
+        })
+        .filter(Boolean),
+    ]
+  }
+
+  // Script not in FS — route well-known security-tool scripts to canned simulators
+  const lower = file.toLowerCase()
+  const restArgs = args.slice(1)
+
+  if (lower.includes('sublist3r')) return cmdAmass('sublist3r', restArgs)
+  if (lower === 'sf.py' || lower.includes('spiderfoot')) {
+    const ipPort = flagValue(restArgs, '-l')
+    const target = flagValue(restArgs, '-s')
+    const type = flagValue(restArgs, '-t')
+    const fmt = flagValue(restArgs, '-o')
+    if (ipPort) return [
+      ...simHeader('SpiderFoot', '4.0'),
+      `\x1b[90mWeb UI: http://${ipPort}\x1b[0m`,
+      '\x1b[32m[*] Scan engine ready. Open the URL in your browser.\x1b[0m',
+      '\x1b[90m200+ data sources available.\x1b[0m',
+    ]
+    if (target) return [
+      ...simHeader('SpiderFoot', '4.0'),
+      `\x1b[90mTarget: ${target}  Type: ${type ?? 'DOMAIN'}  Format: ${fmt ?? 'tab'}\x1b[0m`,
+      '',
+      `[+] mail.${target}        (DNS)`,
+      `[+] api.${target}         (DNS)`,
+      `[+] admin@${target}        (EMAILADDR)`,
+      `[+] support@${target}      (EMAILADDR)`,
+      `[+] 198.51.100.42         (IP_ADDRESS)`,
+      '',
+      '\x1b[90m5 entities discovered.\x1b[0m',
+    ]
+    return [...simHeader('SpiderFoot', '4.0'), '\x1b[90mUsage: python3 sf.py {-l <ip:port>|-s <target> -t <type>}\x1b[0m']
+  }
+  if (lower === 'vol.py' || lower.includes('volatility')) {
+    const fIdx = restArgs.indexOf('-f')
+    const dump = fIdx >= 0 ? restArgs[fIdx + 1] : 'memory.dmp'
+    const plugin = restArgs.find(a => /^[a-z]+\.[a-z]+/i.test(a)) ?? 'windows.pslist'
+    const lines = [
+      ...simHeader('Volatility', '3.0.1'),
+      `\x1b[90mDump   : ${dump}\x1b[0m`,
+      `\x1b[90mPlugin : ${plugin}\x1b[0m`,
+      '',
+    ]
+    if (plugin.includes('pslist')) {
+      lines.push(
+        'PID    PPID   ImageFileName       Offset(V)',
+        '4      0      System              0xfffffa800a4b8b30',
+        '292    4      smss.exe            0xfffffa800c1f7060',
+        '376    368    csrss.exe           0xfffffa800c2c4060',
+        '1024   376    explorer.exe        0xfffffa800d8a3060',
+        '2104   1024   chrome.exe          0xfffffa800ec23060',
+        '3148   1024   notepad.exe         0xfffffa800f021060',
+      )
+    } else if (plugin.includes('cmdline')) {
+      lines.push(
+        'PID    Process              Args',
+        '1024   explorer.exe         C:\\Windows\\Explorer.EXE',
+        '2104   chrome.exe           --type=renderer https://target.com',
+        '3148   notepad.exe          C:\\Users\\admin\\flag.txt',
+      )
+    } else if (plugin.includes('netscan')) {
+      lines.push(
+        'Offset      Proto  LocalAddr      ForeignAddr     State        Pid',
+        '0xfa800c1   TCP    0.0.0.0:445    0.0.0.0:0       LISTENING    4',
+        '0xfa800c2   TCP    10.0.0.5:443   1.2.3.4:53124   ESTABLISHED  2104',
+      )
+    } else if (plugin.includes('hashdump')) {
+      lines.push(
+        'Administrator:500:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::',
+        'Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::',
+        'admin:1001:aad3b435b51404eeaad3b435b51404ee:8846f7eaee8fb117ad06bdd830b7586c:::',
+      )
+    } else if (plugin.includes('filescan')) {
+      lines.push(
+        '0xfa8001234  4  0  RW-rw-       \\Device\\HarddiskVolume2\\Users\\admin\\notes.txt',
+        '0xfa8005678  3  0  RWD---r-d    \\Device\\HarddiskVolume2\\Windows\\Temp\\flag.txt',
+        '0xfa8009abc  2  0  RW-rw-       \\Device\\HarddiskVolume2\\Users\\admin\\readme.txt',
+      )
+    } else if (plugin.includes('linux')) {
+      lines.push(
+        'ls -la',
+        'cd challenges',
+        'sudo -l',
+        'find / -perm -4000 2>/dev/null',
+      )
+    } else {
+      lines.push(`(plugin "${plugin}" — output omitted in simulation)`)
+    }
+    return lines
+  }
+  if (lower === 'psexec.py' || lower.includes('psexec')) {
+    const target = restArgs.find(a => a.includes('@'))?.split('@')[1] ?? 'target'
+    return [
+      `\x1b[90m[psexec.py]\x1b[0m establishing SMB session → ${target}`,
+      '\x1b[32m[*]\x1b[0m Found writable share: ADMIN$',
+      '\x1b[32m[*]\x1b[0m Service RemoteSvc installed',
+      '\x1b[32m[*]\x1b[0m Service started',
+      '',
+      'Microsoft Windows [Version 10.0.19045]',
+      '(c) Microsoft Corporation. All rights reserved.',
+      '',
+      'C:\\Windows\\system32> whoami',
+      'nt authority\\system',
+    ]
+  }
+  if (lower.includes('secretsdump')) {
+    const target = restArgs.find(a => a.includes('@'))?.split('@')[1] ?? 'DC_IP'
+    return [
+      `\x1b[90m[secretsdump.py]\x1b[0m dumping NTDS from ${target}`,
+      '',
+      '[*] Service RemoteRegistry is in stopped state',
+      '[*] Starting service RemoteRegistry',
+      '[*] Target system bootKey: 0x8b56b2cb5033d8e8a3e4e5e9b0d4e2c1',
+      '[*] Dumping local SAM hashes (uid:rid:lmhash:nthash)',
+      'Administrator:500:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::',
+      'Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::',
+      '[*] Dumping cached domain logon information',
+      'DOMAIN\\admin:$DCC2$10240#admin#abc123def456...:::',
+      '[*] Cleaning up...',
+    ]
+  }
+  if (lower.includes('getuserspns')) {
+    return [
+      `\x1b[90m[GetUserSPNs.py]\x1b[0m requesting Kerberos tickets for SPN accounts`,
+      '',
+      'ServicePrincipalName     Name      MemberOf',
+      '-----------------------  --------  ----------------------------',
+      'MSSQLSvc/dc01:1433       sql_svc   CN=Domain Admins,...',
+      'HTTP/web01.domain.local  web_svc   CN=Domain Users,...',
+      '',
+      '$krb5tgs$23$*sql_svc$DOMAIN.LOCAL$MSSQLSvc/dc01:1433*$<truncated-hash>',
+      '$krb5tgs$23$*web_svc$DOMAIN.LOCAL$HTTP/web01*$<truncated-hash>',
+      '',
+      '\x1b[90mFeed to hashcat -m 13100 to crack offline.\x1b[0m',
+    ]
+  }
+  if (lower.includes('getnpusers')) {
+    return [
+      `\x1b[90m[GetNPUsers.py]\x1b[0m AS-REP roasting (no Kerberos pre-auth)`,
+      '$krb5asrep$23$nopreauth@DOMAIN.LOCAL:abc123...:def456...',
+    ]
+  }
+  if (lower.includes('ntlmrelayx')) {
+    return [
+      `\x1b[90m[ntlmrelayx.py]\x1b[0m relay listener active on ports 80/445`,
+      '[*] Servers started, waiting for connections',
+      '[*] HTTPD: Received connection from 10.0.0.42',
+      '[*] HTTPD: Authenticating against smb://10.0.0.5 as DOMAIN/john SUCCEED',
+      '[*] HTTPD: Showing dumped SAM',
+    ]
+  }
+  if (lower.includes('responder')) {
+    return cmdResponder(restArgs)
+  }
+
+  // Generic fallback — accept the script invocation rather than emitting "not found"
   return [
-    `\x1b[90m[python3 ${file}]\x1b[0m`,
-    ...node.content
-      .split('\n')
-      .filter(l => l.includes('print('))
-      .map(l => {
-        const m = l.match(/print\((?:f?["'])(.+?)["']\)/)
-        return m ? m[1].replace(/\{.*?\}/g, '[value]') : ''
-      })
-      .filter(Boolean),
+    `\x1b[90m[python3 ${file}] ${restArgs.join(' ')}\x1b[0m`,
+    `\x1b[90m(simulated execution — script not in lab FS)\x1b[0m`,
   ]
 }
 
@@ -1430,29 +1636,49 @@ function cmdGobuster(cmd: string, args: string[]): string[] {
 }
 
 function cmdHydra(args: string[]): string[] {
-  const username = flagValue(args, '-l') ?? flagValue(args, '-L') ?? 'admin'
+  const userList = flagValue(args, '-L')
+  const username = userList ?? flagValue(args, '-l') ?? 'admin'
   const passList = flagValue(args, '-P') ?? flagValue(args, '-p') ?? '/usr/share/wordlists/rockyou.txt'
   const tasks = flagValue(args, '-t') ?? '16'
   const port = flagValue(args, '-s')
-  // Last token is usually service descriptor (e.g., ssh://10.0.0.1, ftp://target, or just "ssh")
-  const last = args[args.length - 1] ?? ''
-  const svcMatch = last.match(/^([a-z]+)(?::\/\/(.+))?$/i)
-  const svc = svcMatch?.[1] ?? 'ssh'
-  const targetFromUrl = svcMatch?.[2]
-  const target = targetFromUrl
-    ?? args.find(a => /^\d{1,3}(\.\d{1,3}){3}$/.test(a) || (!a.startsWith('-') && a.includes('.') && !a.startsWith('/'))) ?? 'target'
-  const password = svc === 'ftp' ? 'qwerty' : svc === 'http-post-form' ? 'admin123' : 'winter2023'
+
+  // First scan: look for proto://host descriptor anywhere in args
+  let svc = 'ssh'
+  let target = 'target'
+  for (const a of args) {
+    const m = a.match(/^([a-z][a-z0-9-]*):\/\/(.+)$/i)
+    if (m) { svc = m[1]; target = m[2]; break }
+  }
+  // Second scan: explicit "host <service-form>" pattern
+  if (target === 'target') {
+    const knownSvc = ['ssh', 'ftp', 'http-get', 'http-post', 'http-post-form',
+      'http-get-form', 'rdp', 'smb', 'telnet', 'vnc', 'smtp', 'pop3', 'imap',
+      'mysql', 'postgres', 'snmp']
+    const svcIdx = args.findIndex(a => knownSvc.includes(a))
+    if (svcIdx > 0) {
+      svc = args[svcIdx]
+      target = args[svcIdx - 1] ?? 'target'
+    }
+  }
+
+  const password = svc === 'ftp' ? 'qwerty'
+    : svc === 'http-post-form' ? 'admin123'
+    : svc === 'rdp' ? 'P@ssw0rd!'
+    : 'winter2023'
+
+  const userLabel = userList ? `<list: ${userList}>` : username
+  const foundUser = userList ? 'admin' : username
 
   return [
     ...simHeader('Hydra', '9.5'),
     `\x1b[90mTarget   : ${target}${port ? ':' + port : ''}\x1b[0m`,
     `\x1b[90mService  : ${svc}\x1b[0m`,
-    `\x1b[90mUsername : ${username}\x1b[0m`,
+    `\x1b[90mUser     : ${userLabel}\x1b[0m`,
     `\x1b[90mWordlist : ${passList}\x1b[0m`,
     '',
     `\x1b[32m[DATA]\x1b[0m ${tasks} tasks, dictionary attack...`,
     '\x1b[32m[STATUS]\x1b[0m 1024 / 14,344 attempts',
-    `\x1b[32m[FOUND]\x1b[0m  ${target} ${svc} login: \x1b[1m${username}\x1b[0m  password: \x1b[1m${password}\x1b[0m`,
+    `\x1b[32m[FOUND]\x1b[0m  ${target} ${svc} login: \x1b[1m${foundUser}\x1b[0m  password: \x1b[1m${password}\x1b[0m`,
     '',
     '\x1b[90m1 valid credential found. Duration: 00:02:11\x1b[0m',
   ]

@@ -1857,9 +1857,9 @@ function ToolDetail({ tool, onSendCommand }: { tool: ToolCard; onSendCommand: (c
         </p>
       </div>
 
-      <CodeBlock label="Kurulum" code={tool.install} />
+      <CodeBlock label="Install" code={tool.install} />
 
-      <Section title="Önemli Parametreler">
+      <Section title="Key Flags">
         <div style={{ display: 'grid', gap: '0.35rem' }}>
           {tool.flags.map(f => (
             <div key={f.flag} style={{ display: 'flex', gap: '0.85rem', padding: '0.45rem 0.65rem',
@@ -1873,7 +1873,7 @@ function ToolDetail({ tool, onSendCommand }: { tool: ToolCard; onSendCommand: (c
         </div>
       </Section>
 
-      <Section title="Kullanım Örnekleri">
+      <Section title="Usage Examples">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
           {tool.examples.map((ex, i) => (
             <div key={i} style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -1882,7 +1882,7 @@ function ToolDetail({ tool, onSendCommand }: { tool: ToolCard; onSendCommand: (c
                 <pre style={{ margin: 0, color: '#e2e8f0', fontSize: 11, fontFamily: 'inherit',
                   whiteSpace: 'pre-wrap', flex: 1 }}>{ex.command}</pre>
                 <button onClick={() => onSendCommand(ex.command.split('\n')[0])}
-                  title="Terminale gönder"
+                  title="Send to terminal"
                   style={{
                     flexShrink: 0, padding: '3px 8px', borderRadius: 4, cursor: 'pointer',
                     background: 'rgb(var(--route-accent-rgb) / 0.08)', border: '1px solid rgb(var(--route-accent-rgb) / 0.16)',
