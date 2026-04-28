@@ -1293,7 +1293,7 @@ export default function Terminal({
 
         /* ── Popout window UX ──────────────────────────────────────── */
         .lab-terminal[data-mode="floating"] {
-          height: 100% !important;
+          /* Height comes from inline style (popoutSize.h); avoid 100% override. */
         }
         .lab-terminal[data-mode="floating"] .lab-terminal__chrome {
           cursor: move;
