@@ -1665,7 +1665,7 @@ function ToolsTab({ initialToolId, onSendCommand, onSelectTool, isMobile = false
   onSelectTool: (id: string | null) => void
   isMobile?: boolean
 }) {
-  const [category, setCategory] = useState<ToolCategory>('Tümü')
+  const [category, setCategory] = useState<ToolCategory>('All')
   const [search,   setSearch]   = useState('')
   const [selected, setSelected] = useState<ToolCard | null>(
     () => initialToolId ? (TOOLS.find(t => t.id === initialToolId) ?? null) : null
@@ -1679,7 +1679,7 @@ function ToolsTab({ initialToolId, onSendCommand, onSelectTool, isMobile = false
   }, [initialToolId])
 
   const filtered = TOOLS.filter(t => {
-    const matchCat = category === 'Tümü' || t.category === category
+    const matchCat = category === 'All' || t.category === category
     const q = search.toLowerCase()
     const matchSearch = !q || t.name.toLowerCase().includes(q) ||
       t.description.toLowerCase().includes(q) || t.tags.some(tag => tag.includes(q))

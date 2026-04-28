@@ -307,16 +307,16 @@ export const MODULES: Module[] = [
 
 // ─── Tool Cards ───────────────────────────────────────────────────────────────
 
-export const TOOL_CATEGORIES = ['Tümü', 'Ağ', 'Web', 'Exploit', 'Şifre', 'Keşif', 'Tersine', 'Forensics', 'OSINT'] as const
+export const TOOL_CATEGORIES = ['All', 'Network', 'Web', 'Exploit', 'Password', 'Recon', 'Reverse', 'Forensics', 'OSINT'] as const
 
 export const TOOLS: ToolCard[] = [
 
-  // ── Ağ ───────────────────────────────────────────────────────────────────────
+  // ── Network ──────────────────────────────────────────────────────────────────
 
   {
     id: 'nmap',
     name: 'Nmap',
-    category: 'Ağ',
+    category: 'Network',
     difficulty: 'beginner',
     version: '7.94',
     os: ['Linux', 'Windows', 'macOS'],
@@ -343,7 +343,7 @@ export const TOOLS: ToolCard[] = [
   {
     id: 'wireshark',
     name: 'Wireshark',
-    category: 'Ağ',
+    category: 'Network',
     difficulty: 'beginner',
     version: '4.2.4',
     os: ['Linux', 'Windows', 'macOS'],
@@ -367,7 +367,7 @@ export const TOOLS: ToolCard[] = [
   {
     id: 'netcat',
     name: 'Netcat (nc)',
-    category: 'Ağ',
+    category: 'Network',
     difficulty: 'beginner',
     version: '1.219',
     os: ['Linux', 'macOS'],
@@ -393,7 +393,7 @@ export const TOOLS: ToolCard[] = [
   {
     id: 'aircrack-ng',
     name: 'Aircrack-ng',
-    category: 'Ağ',
+    category: 'Network',
     difficulty: 'intermediate',
     version: '1.7',
     os: ['Linux', 'macOS'],
@@ -417,7 +417,7 @@ export const TOOLS: ToolCard[] = [
   {
     id: 'enum4linux',
     name: 'Enum4linux',
-    category: 'Ağ',
+    category: 'Network',
     difficulty: 'beginner',
     version: '0.9.1',
     os: ['Linux'],
@@ -441,7 +441,7 @@ export const TOOLS: ToolCard[] = [
   {
     id: 'responder',
     name: 'Responder',
-    category: 'Ağ',
+    category: 'Network',
     difficulty: 'intermediate',
     version: '3.1.4.0',
     os: ['Linux'],
@@ -758,12 +758,12 @@ export const TOOLS: ToolCard[] = [
     tags: ['windows', 'credential-dumping', 'pass-the-hash', 'active-directory'],
   },
 
-  // ── Şifre ─────────────────────────────────────────────────────────────────────
+  // ── Password ─────────────────────────────────────────────────────────────────
 
   {
     id: 'hydra',
     name: 'Hydra',
-    category: 'Şifre',
+    category: 'Password',
     difficulty: 'beginner',
     version: '9.5',
     os: ['Linux', 'Windows', 'macOS'],
@@ -787,7 +787,7 @@ export const TOOLS: ToolCard[] = [
   {
     id: 'hashcat',
     name: 'Hashcat',
-    category: 'Şifre',
+    category: 'Password',
     difficulty: 'intermediate',
     version: '6.2.6',
     os: ['Linux', 'Windows', 'macOS'],
@@ -810,7 +810,7 @@ export const TOOLS: ToolCard[] = [
   {
     id: 'john',
     name: 'John the Ripper',
-    category: 'Şifre',
+    category: 'Password',
     difficulty: 'beginner',
     version: '1.9.0-jumbo',
     os: ['Linux', 'Windows', 'macOS'],
@@ -831,12 +831,12 @@ export const TOOLS: ToolCard[] = [
     tags: ['password', 'hash', 'offline'],
   },
 
-  // ── Keşif ─────────────────────────────────────────────────────────────────────
+  // ── Recon ────────────────────────────────────────────────────────────────────
 
   {
     id: 'linpeas',
     name: 'LinPEAS',
-    category: 'Keşif',
+    category: 'Recon',
     difficulty: 'intermediate',
     version: 'latest',
     os: ['Linux'],
@@ -857,7 +857,7 @@ export const TOOLS: ToolCard[] = [
   {
     id: 'amass',
     name: 'Amass',
-    category: 'Keşif',
+    category: 'Recon',
     difficulty: 'intermediate',
     version: '4.2.0',
     os: ['Linux', 'Windows', 'macOS'],
@@ -880,7 +880,7 @@ export const TOOLS: ToolCard[] = [
   {
     id: 'sublist3r',
     name: 'Sublist3r',
-    category: 'Keşif',
+    category: 'Recon',
     difficulty: 'beginner',
     version: '1.1',
     os: ['Linux', 'macOS'],
@@ -903,7 +903,7 @@ export const TOOLS: ToolCard[] = [
   {
     id: 'recon-ng',
     name: 'Recon-ng',
-    category: 'Keşif',
+    category: 'Recon',
     difficulty: 'intermediate',
     version: '5.1.2',
     os: ['Linux', 'macOS'],
@@ -923,12 +923,12 @@ export const TOOLS: ToolCard[] = [
     tags: ['recon', 'osint', 'framework', 'subdomain'],
   },
 
-  // ── Tersine ───────────────────────────────────────────────────────────────────
+  // ── Reverse ──────────────────────────────────────────────────────────────────
 
   {
     id: 'gdb',
     name: 'GDB + pwndbg',
-    category: 'Tersine',
+    category: 'Reverse',
     difficulty: 'advanced',
     version: '14.2 + pwndbg 2024.02',
     os: ['Linux', 'macOS'],
@@ -953,7 +953,7 @@ export const TOOLS: ToolCard[] = [
   {
     id: 'ghidra',
     name: 'Ghidra',
-    category: 'Tersine',
+    category: 'Reverse',
     difficulty: 'advanced',
     version: '11.1.2',
     os: ['Linux', 'Windows', 'macOS'],
@@ -973,7 +973,7 @@ export const TOOLS: ToolCard[] = [
   {
     id: 'radare2',
     name: 'Radare2',
-    category: 'Tersine',
+    category: 'Reverse',
     difficulty: 'advanced',
     version: '5.9.4',
     os: ['Linux', 'Windows', 'macOS'],
@@ -997,7 +997,7 @@ export const TOOLS: ToolCard[] = [
   {
     id: 'binwalk',
     name: 'Binwalk',
-    category: 'Tersine',
+    category: 'Reverse',
     difficulty: 'intermediate',
     version: '2.4.3',
     os: ['Linux', 'macOS'],

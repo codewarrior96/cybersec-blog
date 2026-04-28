@@ -199,8 +199,8 @@ function runSingle(
     case 'mv':           return cmdMv(args, ctx)
     case 'ps':           return cmdPs(args)
     case 'top': case 'htop': return cmdTop()
-    case 'ifconfig': case 'ip': return cmdIfconfig()
-    case 'netstat': case 'ss': return cmdNetstat()
+    case 'ifconfig': case 'ip': return cmdIfconfig(args)
+    case 'netstat': case 'ss': return cmdNetstat(cmd, args)
     case 'ping':         return cmdPing(args)
     case 'curl': case 'wget': return cmdCurl(args)
     case 'sudo':         return cmdSudo(args, ctx)
@@ -218,15 +218,23 @@ function runSingle(
     case 'nikto':        return cmdNikto(args)
     case 'sqlmap':       return cmdSqlmap(args)
     case 'gobuster': case 'dirb': case 'wfuzz': return cmdGobuster(cmd, args)
+    case 'ffuf':         return cmdFfuf(args)
     case 'hydra':        return cmdHydra(args)
     case 'hashcat': case 'john': return cmdHashcat(cmd, args)
-    case 'msfconsole': case 'msfvenom': return cmdMsf(cmd)
+    case 'ssh2john':     return cmdSsh2john(args)
+    case 'unshadow':     return cmdUnshadow(args)
+    case 'msfconsole': case 'msfvenom': return cmdMsf(cmd, args)
     case 'aircrack-ng': case 'airodump-ng': case 'aireplay-ng': return cmdAircrack(cmd, args)
     case 'enum4linux':   return cmdEnum4linux(args)
     case 'responder':    return cmdResponder(args)
     case 'nuclei':       return cmdNucleI(args)
     case 'amass': case 'sublist3r': case 'recon-ng': return cmdAmass(cmd, args)
     case 'wireshark': case 'tcpdump': return cmdTcpdump(cmd, args)
+    case 'tshark':       return cmdTshark(args)
+    case 'shodan':       return cmdShodan(args)
+    case 'theharvester': return cmdTheHarvester(args)
+    case 'binwalk':      return cmdBinwalk(args)
+    case 'gdb':          return cmdGdb(args)
     case 'netcat': case 'nc':   return cmdNetcat(args)
     case 'ssh': case 'ftp': case 'telnet': return cmdSsh(cmd, args)
     case 'burpsuite': case 'burp': return [`\x1b[33m[*] Burp Suite is a GUI application; it cannot be launched from the terminal.\x1b[0m`, `\x1b[90m    Real-world: java -jar burpsuite.jar\x1b[0m`]
@@ -987,19 +995,43 @@ function cmdTop(): string[] {
   ]
 }
 
-function cmdIfconfig(): string[] {
-  return [
-    '\x1b[1meth0\x1b[0m: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500',
-    '        inet \x1b[32m10.0.2.15\x1b[0m  netmask 255.255.255.0  broadcast 10.0.2.255',
-    '        ether 08:00:27:ab:cd:ef',
-    '',
-    '\x1b[1mlo\x1b[0m: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536',
-    '        inet \x1b[32m127.0.0.1\x1b[0m  netmask 255.0.0.0',
-  ]
+function cmdIfconfig(args: string[]): string[] {
+  const iface = args.find(a => !a.startsWith('-')) ?? null
+  const banner = iface
+    ? `\x1b[90m[ifconfig ${iface}] interface detail\x1b[0m`
+    : `\x1b[90m[ifconfig] all interfaces\x1b[0m`
+  const blocks: string[] = [banner, '']
+  if (!iface || iface === 'eth0') {
+    blocks.push(
+      '\x1b[1meth0\x1b[0m: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500',
+      '        inet \x1b[32m10.0.2.15\x1b[0m  netmask 255.255.255.0  broadcast 10.0.2.255',
+      '        ether 08:00:27:ab:cd:ef  txqueuelen 1000  (Ethernet)',
+      '        RX packets 1842  bytes 1423019 (1.4 MB)',
+      '        TX packets 1024  bytes  198432 (198 KB)',
+    )
+  }
+  if (!iface) {
+    blocks.push('')
+  }
+  if (!iface || iface === 'lo') {
+    blocks.push(
+      '\x1b[1mlo\x1b[0m: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536',
+      '        inet \x1b[32m127.0.0.1\x1b[0m  netmask 255.0.0.0',
+      '        loop  txqueuelen 1000  (Local Loopback)',
+    )
+  }
+  return blocks
 }
 
-function cmdNetstat(): string[] {
-  return [
+function cmdNetstat(cmd: string, args: string[]): string[] {
+  const fl = flags(args)
+  const tcp = fl.includes('t')
+  const udp = fl.includes('u')
+  const listen = fl.includes('l')
+  const filter = [tcp && 'tcp', udp && 'udp', listen && 'listening'].filter(Boolean).join('+') || 'all'
+  const lines: string[] = [
+    `\x1b[90m[${cmd} ${args.join(' ')}] filter: ${filter}\x1b[0m`,
+    '',
     'Proto  Local Address          State',
     'tcp    0.0.0.0:22             LISTEN',
     'tcp    0.0.0.0:80             LISTEN',
@@ -1008,6 +1040,10 @@ function cmdNetstat(): string[] {
     'tcp    127.0.0.1:3306         LISTEN',
     'tcp    10.0.2.15:22           ESTABLISHED',
   ]
+  if (udp || !tcp) {
+    lines.push('udp    0.0.0.0:68              -')
+  }
+  return lines
 }
 
 function cmdPing(args: string[]): string[] {
@@ -1200,10 +1236,29 @@ function cmdNmap(args: string[]): string[] {
   const target = args.find(a => !a.startsWith('-')) ?? '10.10.10.1'
   const isSV = args.includes('-sV') || args.includes('-A')
   const isSC = args.includes('-sC') || args.includes('-A')
-  const ports = args.find(a => a.startsWith('-p'))?.slice(2) ?? '1-1000'
+  const isSn = args.includes('-sn')
+  const portFlag = args.find(a => a.startsWith('-p'))?.slice(2) ?? '1-1000'
+  const isFullScan = portFlag === '-' || portFlag === ''
+  const ports = isFullScan ? '1-65535' : portFlag
+  const timing = args.find(a => /^-T[0-5]$/.test(a)) ?? '-T3'
+  const duration = isFullScan ? '37.81' : timing === '-T4' ? '2.14' : '4.23'
+
+  if (isSn) {
+    return [
+      ...simHeader('Nmap', '7.94'),
+      `\x1b[90mStarting Nmap scan on ${target} (ping sweep)\x1b[0m`,
+      '',
+      `Nmap scan report for ${target.replace(/\.\d+$/, '.1')}  Host is up (0.0042s latency).`,
+      `Nmap scan report for ${target.replace(/\.\d+$/, '.42')} Host is up (0.0089s latency).`,
+      `Nmap scan report for ${target.replace(/\.\d+$/, '.50')} Host is up (0.0024s latency).`,
+      '',
+      `\x1b[90mNmap done: 256 IP addresses (3 hosts up) scanned in 1.84 seconds\x1b[0m`,
+    ]
+  }
+
   return [
     ...simHeader('Nmap', '7.94'),
-    `\x1b[90mStarting Nmap scan on ${target} (ports: ${ports})\x1b[0m`,
+    `\x1b[90mStarting Nmap scan on ${target} (ports: ${ports}, timing: ${timing})\x1b[0m`,
     '',
     `Host: \x1b[1;32m${target}\x1b[0m  Status: \x1b[32mUp\x1b[0m  Latency: 0.42ms`,
     '',
@@ -1212,37 +1267,54 @@ function cmdNmap(args: string[]): string[] {
     `80/tcp    \x1b[32mopen\x1b[0m   http     ${isSV ? 'Apache httpd 2.4.41' : ''}`,
     `443/tcp   \x1b[32mopen\x1b[0m   https    ${isSV ? 'Apache httpd 2.4.41' : ''}`,
     `3306/tcp  \x1b[33mopen\x1b[0m   mysql    ${isSV ? 'MySQL 8.0.28' : ''}`,
+    ...(isFullScan ? [
+      `8080/tcp  \x1b[32mopen\x1b[0m   http-alt ${isSV ? 'Node.js Express 4.x' : ''}`,
+      `4444/tcp  \x1b[31mopen\x1b[0m   krb524   ${isSV ? '?' : ''}  ← unusual`,
+    ] : []),
     ...(isSC ? [
       '',
-      '\x1b[90m| http-title: Welcome to the Lab\x1b[0m',
+      `\x1b[90m| http-title: Welcome to ${target}\x1b[0m`,
       '\x1b[90m| ssh-hostkey: 3072 RSA (2048-bit)\x1b[0m',
       '\x1b[90m|_http-server-header: Apache/2.4.41\x1b[0m',
     ] : []),
     '',
-    `\x1b[90mNmap done: 1 IP (1 host up) scanned in 4.23 seconds\x1b[0m`,
+    `\x1b[90mNmap done: 1 IP (1 host up) scanned in ${duration} seconds\x1b[0m`,
   ]
 }
 
 function cmdWpscan(args: string[]): string[] {
-  const url     = args.find(a => a.startsWith('http')) ?? 'https://target.com'
-  const enumArg = args.find(a => a.startsWith('--enumerate'))
-  const passwd  = args.includes('--passwords')
+  const url = flagValue(args, '--url') ?? args.find(a => a.startsWith('http')) ?? 'https://target.com'
+  const enumArg = args.find(a => a.startsWith('--enumerate'))?.split(' ').slice(-1)[0]
+    ?? flagValue(args, '--enumerate')
+  const passwd = args.includes('--passwords') || !!flagValue(args, '--passwords')
+  const username = flagValue(args, '--usernames') ?? 'admin'
+
+  const enumPlugins = enumArg?.includes('p')
+  const enumUsers = enumArg?.includes('u')
+  const enumThemes = enumArg?.includes('t')
+
   return [
     ...simHeader('WPScan', '3.8.25'),
-    `\x1b[90mScanning: ${url}\x1b[0m`,
+    `\x1b[90mScanning : ${url}\x1b[0m`,
+    ...(enumArg ? [`\x1b[90mEnumerate: ${enumArg}\x1b[0m`] : []),
     '',
     '\x1b[32m[+]\x1b[0m WordPress \x1b[1m6.4.2\x1b[0m detected',
     '\x1b[33m[!]\x1b[0m XML-RPC enabled → /xmlrpc.php',
     '\x1b[33m[!]\x1b[0m readme.html exposed',
-    ...(enumArg ? [
+    ...(enumUsers ? [
       '',
       '\x1b[32m[+]\x1b[0m Users: admin (id:1), editor (id:2)',
+    ] : []),
+    ...(enumPlugins ? [
       '\x1b[31m[!]\x1b[0m contact-form-7 4.9 — SQLi (CVE-2023-1234)',
       '\x1b[31m[!]\x1b[0m woocommerce 7.1 — XSS (CVE-2023-5678)',
     ] : []),
+    ...(enumThemes ? [
+      '\x1b[33m[!]\x1b[0m theme: twentytwentyone 1.7 — outdated',
+    ] : []),
     ...(passwd ? [
       '',
-      '\x1b[32m[FOUND]\x1b[0m  admin : \x1b[1mpassword123\x1b[0m',
+      `\x1b[32m[FOUND]\x1b[0m  ${username} : \x1b[1mpassword123\x1b[0m`,
     ] : []),
     '',
     '\x1b[90mScan complete.\x1b[0m',
@@ -1250,38 +1322,64 @@ function cmdWpscan(args: string[]): string[] {
 }
 
 function cmdNikto(args: string[]): string[] {
-  const host = args.find(a => !a.startsWith('-')) ?? 'http://target.com'
+  const host = flagValue(args, '-h') ?? args.find(a => !a.startsWith('-')) ?? 'http://target.com'
+  const port = flagValue(args, '-p')
+  const ssl = args.includes('-ssl')
+  const output = flagValue(args, '-o')
   return [
     ...simHeader('Nikto', '2.1.6'),
-    `\x1b[90mTarget: ${host}\x1b[0m`,
+    `\x1b[90mTarget : ${host}${port ? ':' + port : ''}${ssl ? ' (SSL)' : ''}\x1b[0m`,
+    ...(output ? [`\x1b[90mOutput : ${output}\x1b[0m`] : []),
     '',
     '\x1b[32m+\x1b[0m Server: Apache/2.4.41 (Ubuntu)',
     '\x1b[33m+\x1b[0m /admin/ directory accessible',
-    '\x1b[33m+\x1b[0m /backup.zip found — backup exposed!',
+    '\x1b[33m+\x1b[0m /backup.zip found — backup exposed',
     '\x1b[31m+\x1b[0m X-Frame-Options missing → Clickjacking risk',
     '\x1b[33m+\x1b[0m /phpinfo.php → information disclosure',
     '\x1b[33m+\x1b[0m HTTP TRACE enabled → XST possible',
+    ...(ssl ? ['\x1b[33m+\x1b[0m TLSv1.0 supported — deprecated protocol'] : []),
     '',
-    '\x1b[90m6 findings. Duration: 00:01:23\x1b[0m',
+    `\x1b[90m${ssl ? 7 : 6} findings. Duration: 00:01:23\x1b[0m`,
   ]
 }
 
 function cmdSqlmap(args: string[]): string[] {
-  const url = args.find(a => a.startsWith('http')) ?? 'http://target.com/?id=1'
+  const url = args.find(a => a.startsWith('http')) ?? null
+  const requestFile = flagValue(args, '-r')
+  const dbArg = flagValue(args, '-D')
+  const cookie = flagValue(args, '--cookie')
+  const level = flagValue(args, '--level') ?? args.find(a => a.startsWith('--level='))?.split('=')[1] ?? '1'
+  const risk = flagValue(args, '--risk') ?? args.find(a => a.startsWith('--risk='))?.split('=')[1] ?? '1'
+  const target = url ?? (requestFile ? `(request file: ${requestFile})` : 'http://target.com/?id=1')
+
   return [
     ...simHeader('sqlmap', '1.7.8'),
-    `\x1b[90mTarget: ${url}\x1b[0m`,
+    `\x1b[90mTarget : ${target}\x1b[0m`,
+    `\x1b[90mLevel  : ${level}  Risk: ${risk}\x1b[0m`,
+    ...(cookie ? [`\x1b[90mCookie : ${cookie}\x1b[0m`] : []),
     '',
     '\x1b[32m[+]\x1b[0m \x1b[1mid\x1b[0m parameter is vulnerable — Boolean-based blind SQLi',
     '    Payload: id=1 AND 1=1-- -',
     '',
     '\x1b[32m[+]\x1b[0m DBMS: MySQL >= 5.0',
-    '\x1b[32m[+]\x1b[0m Databases: information_schema, \x1b[1mwebapp\x1b[0m, mysql',
+    `\x1b[32m[+]\x1b[0m Databases: information_schema, \x1b[1m${dbArg ?? 'webapp'}\x1b[0m, mysql`,
+    ...(args.includes('--tables') && dbArg ? [
+      '',
+      `\x1b[32m[+]\x1b[0m ${dbArg}.tables:`,
+      `    users    (12 entries)`,
+      `    sessions (3,418 entries)`,
+      `    audit    (89,217 entries)`,
+    ] : []),
     ...(args.includes('--dump') ? [
       '',
-      '\x1b[32m[+]\x1b[0m webapp.users:',
+      `\x1b[32m[+]\x1b[0m ${dbArg ?? 'webapp'}.users:`,
       '    admin  |  5f4dcc3b5aa765d61d8327deb882cf99  (MD5: "password")',
       '    user1  |  482c811da5d5b4bc6d497ffa98491e38',
+    ] : []),
+    ...(args.includes('--os-shell') ? [
+      '',
+      '\x1b[33m[*]\x1b[0m Spawning OS shell via UNION-based payload...',
+      '\x1b[32mos-shell>\x1b[0m  (simulated, no real execution)',
     ] : []),
     '',
     '\x1b[90mScan complete.\x1b[0m',
@@ -1289,171 +1387,348 @@ function cmdSqlmap(args: string[]): string[] {
 }
 
 function cmdGobuster(cmd: string, args: string[]): string[] {
-  const url = args.find(a => a.startsWith('http')) ?? 'http://target.com'
+  const mode = args[0] === 'dir' || args[0] === 'dns' ? args[0] : 'dir'
+  const url = flagValue(args, '-u') ?? args.find(a => a.startsWith('http')) ?? 'http://target.com'
+  const domain = flagValue(args, '-d')
+  const wordlist = flagValue(args, '-w') ?? '/usr/share/wordlists/dirb/common.txt'
+  const ext = flagValue(args, '-x')
+  const threads = flagValue(args, '-t') ?? '10'
+
+  if (mode === 'dns' && domain) {
+    return [
+      ...simHeader(cmd, '3.6.0'),
+      `\x1b[90mDomain   : ${domain}\x1b[0m`,
+      `\x1b[90mWordlist : ${wordlist}\x1b[0m`,
+      '',
+      `\x1b[32mFound: www.${domain}\x1b[0m`,
+      `\x1b[32mFound: api.${domain}\x1b[0m`,
+      `\x1b[32mFound: mail.${domain}\x1b[0m`,
+      `\x1b[33mFound: dev.${domain}\x1b[0m`,
+      `\x1b[33mFound: vpn.${domain}\x1b[0m`,
+      '',
+      '\x1b[90m5 subdomains discovered.\x1b[0m',
+    ]
+  }
+
   return [
     ...simHeader(cmd, '3.6.0'),
-    `\x1b[90mTarget: ${url}\x1b[0m`,
+    `\x1b[90mTarget   : ${url}\x1b[0m`,
+    `\x1b[90mWordlist : ${wordlist}\x1b[0m`,
+    `\x1b[90mThreads  : ${threads}\x1b[0m`,
+    ...(ext ? [`\x1b[90mExts     : ${ext}\x1b[0m`] : []),
     '',
     `\x1b[32m/admin\x1b[0m         (Status: 200) [Size: 4821]`,
     `\x1b[32m/login\x1b[0m         (Status: 200) [Size: 1203]`,
     `\x1b[33m/backup\x1b[0m        (Status: 301) [→ /backup/]`,
     `\x1b[32m/uploads\x1b[0m       (Status: 200) [Size: 892]`,
-    `\x1b[31m/.env\x1b[0m          (Status: 200) [Size: 118]  ← ATTENTION!`,
+    `\x1b[31m/.env\x1b[0m          (Status: 200) [Size: 118]  ← ATTENTION`,
     `\x1b[32m/api\x1b[0m           (Status: 200) [Size: 44]`,
+    ...(ext?.includes('php') ? [`\x1b[32m/admin.php\x1b[0m     (Status: 200) [Size: 2841]`] : []),
     '',
-    '\x1b[90m6 paths discovered.\x1b[0m',
+    `\x1b[90m${ext?.includes('php') ? 7 : 6} paths discovered.\x1b[0m`,
   ]
 }
 
 function cmdHydra(args: string[]): string[] {
-  const target = args.find(a => !a.startsWith('-') && !a.startsWith('/') && a !== args[args.length - 1]) ?? 'target.com'
-  const svc    = args[args.length - 1] ?? 'ssh'
+  const username = flagValue(args, '-l') ?? flagValue(args, '-L') ?? 'admin'
+  const passList = flagValue(args, '-P') ?? flagValue(args, '-p') ?? '/usr/share/wordlists/rockyou.txt'
+  const tasks = flagValue(args, '-t') ?? '16'
+  const port = flagValue(args, '-s')
+  // Last token is usually service descriptor (e.g., ssh://10.0.0.1, ftp://target, or just "ssh")
+  const last = args[args.length - 1] ?? ''
+  const svcMatch = last.match(/^([a-z]+)(?::\/\/(.+))?$/i)
+  const svc = svcMatch?.[1] ?? 'ssh'
+  const targetFromUrl = svcMatch?.[2]
+  const target = targetFromUrl
+    ?? args.find(a => /^\d{1,3}(\.\d{1,3}){3}$/.test(a) || (!a.startsWith('-') && a.includes('.') && !a.startsWith('/'))) ?? 'target'
+  const password = svc === 'ftp' ? 'qwerty' : svc === 'http-post-form' ? 'admin123' : 'winter2023'
+
   return [
     ...simHeader('Hydra', '9.5'),
-    `\x1b[90mTarget: ${target}  Service: ${svc}\x1b[0m`,
+    `\x1b[90mTarget   : ${target}${port ? ':' + port : ''}\x1b[0m`,
+    `\x1b[90mService  : ${svc}\x1b[0m`,
+    `\x1b[90mUsername : ${username}\x1b[0m`,
+    `\x1b[90mWordlist : ${passList}\x1b[0m`,
     '',
-    '\x1b[32m[DATA]\x1b[0m 16 tasks, dictionary attack...',
+    `\x1b[32m[DATA]\x1b[0m ${tasks} tasks, dictionary attack...`,
     '\x1b[32m[STATUS]\x1b[0m 1024 / 14,344 attempts',
-    `\x1b[32m[FOUND]\x1b[0m  login: \x1b[1madmin\x1b[0m  password: \x1b[1mwinter2023\x1b[0m`,
+    `\x1b[32m[FOUND]\x1b[0m  ${target} ${svc} login: \x1b[1m${username}\x1b[0m  password: \x1b[1m${password}\x1b[0m`,
     '',
     '\x1b[90m1 valid credential found. Duration: 00:02:11\x1b[0m',
   ]
 }
 
 function cmdHashcat(cmd: string, args: string[]): string[] {
-  const hash = args.find(a => !a.startsWith('-')) ?? '5f4dcc3b5aa765d61d8327deb882cf99'
+  const target = args.find(a => !a.startsWith('-') && !a.startsWith('/usr/')) ?? 'hash.txt'
+  const wordlist = args.find(a => a.startsWith('/usr/') || a.endsWith('.txt') && a !== target) ?? '/usr/share/wordlists/rockyou.txt'
+  const mode = flagValue(args, '-m')
+  const attack = flagValue(args, '-a') ?? '0'
   const tool = cmd === 'john' ? 'John the Ripper' : 'Hashcat'
   const ver  = cmd === 'john' ? '1.9.0' : '6.2.6'
+
+  const hashType = mode === '0' ? 'MD5' :
+    mode === '100' ? 'SHA1' :
+    mode === '1000' ? 'NTLM' :
+    mode === '1800' ? 'sha512crypt $6$ (Unix)' :
+    mode === '2500' ? 'WPA-EAPOL-PBKDF2' :
+    mode === '5600' ? 'NetNTLMv2' :
+    mode ? `mode ${mode}` : 'MD5 (auto-detected)'
+
+  const cracked = mode === '1000' ? 'Welcome2024!' :
+    mode === '1800' ? 'P@ssw0rd!' :
+    mode === '5600' ? 'spring2024' :
+    'password'
+
+  const speed = mode === '1800' ? '14,234' :
+    mode === '1000' ? '5,621,003,994' :
+    '1,234,567'
+
   return [
     ...simHeader(tool, ver),
-    `\x1b[90mHash: ${hash.slice(0, 32)}\x1b[0m`,
+    `\x1b[90mTarget   : ${target}\x1b[0m`,
+    `\x1b[90mWordlist : ${wordlist}\x1b[0m`,
+    `\x1b[90mAttack   : -a ${attack}\x1b[0m`,
     '',
-    '\x1b[32m[*]\x1b[0m Type detected: MD5',
-    '\x1b[32m[*]\x1b[0m Dictionary attack — 1,234,567 hash/sec',
-    '\x1b[32m[CRACKED]\x1b[0m  \x1b[1mpassword\x1b[0m',
+    `\x1b[32m[*]\x1b[0m Hash type   : ${hashType}`,
+    `\x1b[32m[*]\x1b[0m Speed       : ${speed} H/s`,
+    `\x1b[32m[CRACKED]\x1b[0m  \x1b[1m${cracked}\x1b[0m`,
     '',
     '\x1b[90m1/1 hash cracked.\x1b[0m',
   ]
 }
 
-function cmdMsf(cmd: string): string[] {
-  if (cmd === 'msfvenom') return [
-    ...simHeader('msfvenom', '6.3.44'),
-    '\x1b[90mUsage: msfvenom -p <payload> LHOST=<ip> LPORT=<port> -f <format>\x1b[0m',
-    '',
-    '  linux/x64/shell_reverse_tcp',
-    '  windows/x64/meterpreter/reverse_tcp',
-    '  php/meterpreter_reverse_tcp',
-  ]
+function cmdMsf(cmd: string, args: string[]): string[] {
+  if (cmd === 'msfvenom') {
+    const payload = flagValue(args, '-p') ?? 'linux/x64/shell_reverse_tcp'
+    const format = flagValue(args, '-f') ?? 'elf'
+    const output = flagValue(args, '-o')
+    const lhost = args.find(a => a.startsWith('LHOST='))?.split('=')[1]
+    const lport = args.find(a => a.startsWith('LPORT='))?.split('=')[1]
+    if (lhost || lport || output) {
+      return [
+        ...simHeader('msfvenom', '6.3.44'),
+        `\x1b[90mPayload : ${payload}\x1b[0m`,
+        `\x1b[90mFormat  : ${format}\x1b[0m`,
+        ...(lhost ? [`\x1b[90mLHOST   : ${lhost}\x1b[0m`] : []),
+        ...(lport ? [`\x1b[90mLPORT   : ${lport}\x1b[0m`] : []),
+        '',
+        `\x1b[32m[+]\x1b[0m No platform was selected, choosing Msf::Module::Platform::Linux`,
+        `\x1b[32m[+]\x1b[0m Payload size: 132 bytes`,
+        `\x1b[32m[+]\x1b[0m Final size of ${format} file: 247 bytes`,
+        ...(output ? [`\x1b[32mSaved as: ${output}\x1b[0m`] : []),
+      ]
+    }
+    return [
+      ...simHeader('msfvenom', '6.3.44'),
+      '\x1b[90mUsage: msfvenom -p <payload> LHOST=<ip> LPORT=<port> -f <format>\x1b[0m',
+      '',
+      '  linux/x64/shell_reverse_tcp',
+      '  windows/x64/meterpreter/reverse_tcp',
+      '  php/meterpreter_reverse_tcp',
+    ]
+  }
+  const quiet = args.includes('-q')
   return [
-    '\x1b[1;31m       =[ metasploit v6.3.44 ]=\x1b[0m',
-    '\x1b[90m+ -- --=[ 2369 exploits | 1232 auxiliary ]=-- -- +\x1b[0m',
-    '',
+    ...(quiet ? [] : ['\x1b[1;31m       =[ metasploit v6.3.44 ]=\x1b[0m',
+                      '\x1b[90m+ -- --=[ 2369 exploits | 1232 auxiliary ]=-- -- +\x1b[0m',
+                      '']),
+    ...(quiet ? ['\x1b[90m[msfconsole -q] started in quiet mode\x1b[0m'] : []),
     '\x1b[90mmsf6 >\x1b[0m \x1b[33mSimulation mode — real exploits cannot be executed.\x1b[0m',
   ]
 }
 
 function cmdAircrack(cmd: string, args: string[]): string[] {
-  const iface = args.find(a => !a.startsWith('-')) ?? 'wlan0mon'
+  const iface = args.find(a => !a.startsWith('-') && /wlan|mon/.test(a)) ?? 'wlan0mon'
+  const bssid = flagValue(args, '--bssid') ?? 'AA:BB:CC:DD:EE:FF'
+  const channel = flagValue(args, '-c') ?? '6'
+  const wordlist = flagValue(args, '-w')
+  const capFile = args.find(a => a.endsWith('.cap')) ?? null
+
   if (cmd === 'airodump-ng') return [
     ...simHeader('airodump-ng', '1.7'),
-    `\x1b[90mInterface: ${iface}  CH: 6\x1b[0m`,
+    `\x1b[90mInterface: ${iface}  CH: ${channel}\x1b[0m`,
+    ...(bssid !== 'AA:BB:CC:DD:EE:FF' ? [`\x1b[90mBSSID    : ${bssid}\x1b[0m`] : []),
+    ...(wordlist ? [`\x1b[90mWriting  : ${wordlist}\x1b[0m`] : []),
     '',
     '\x1b[1m BSSID              PWR  CH  ENC   ESSID\x1b[0m',
-    ' AA:BB:CC:DD:EE:FF  -42  6   WPA2  TargetNetwork',
+    ` ${bssid}  -42  ${channel.padEnd(2)}  WPA2  TargetNetwork`,
     ' 11:22:33:44:55:66  -78  11  WPA2  HomeWifi',
+    ' DD:EE:FF:00:11:22  -65  1   WPA3  GuestNet',
   ]
-  if (cmd === 'aireplay-ng') return [
-    ...simHeader('aireplay-ng', '1.7'),
-    'Sending DeAuth (code 7) to broadcast -- BSSID: AA:BB:CC:DD:EE:FF',
-  ]
+  if (cmd === 'aireplay-ng') {
+    const count = flagValue(args, '-0') ?? '10'
+    return [
+      ...simHeader('aireplay-ng', '1.7'),
+      `\x1b[90mTarget BSSID: ${bssid}\x1b[0m`,
+      `Sending ${count} DeAuth (code 7) to broadcast -- BSSID: ${bssid}`,
+    ]
+  }
   return [
     ...simHeader('aircrack-ng', '1.7'),
-    '\x1b[32m[*]\x1b[0m WPA handshake captured: AA:BB:CC:DD:EE:FF',
+    `\x1b[90mCapture  : ${capFile ?? 'capture-01.cap'}\x1b[0m`,
+    `\x1b[90mWordlist : ${wordlist ?? 'rockyou.txt'}\x1b[0m`,
+    '',
+    `\x1b[32m[*]\x1b[0m WPA handshake captured: ${bssid}`,
     '\x1b[32m[KEY FOUND!]\x1b[0m [ \x1b[1mwifi123456\x1b[0m ]',
   ]
 }
 
 function cmdEnum4linux(args: string[]): string[] {
   const target = args.find(a => !a.startsWith('-')) ?? '10.10.10.1'
-  return [
+  const fl = flags(args)
+  const all = fl.includes('a')
+  const blocks: string[] = [
     ...simHeader('enum4linux', '0.9.1'),
-    `\x1b[90mTarget: ${target}\x1b[0m`,
+    `\x1b[90mTarget: ${target}  Flags: ${fl || '(default)'}\x1b[0m`,
     '',
-    '\x1b[32m[*]\x1b[0m SMB Shares:',
-    '    //10.10.10.1/ADMIN$  — Windows Remote Admin',
-    '    //10.10.10.1/Share   — \x1b[32mAccessible\x1b[0m',
-    '',
-    '\x1b[32m[*]\x1b[0m Users: Administrator (500), Guest (501), \x1b[1moperator\x1b[0m (1001)',
-    '',
-    '\x1b[90mScan complete.\x1b[0m',
   ]
+  if (all || fl.includes('S')) {
+    blocks.push(
+      '\x1b[32m[*]\x1b[0m SMB Shares:',
+      `    //${target}/ADMIN$  — Windows Remote Admin`,
+      `    //${target}/Share   — \x1b[32mAccessible\x1b[0m`,
+    )
+  }
+  if (all || fl.includes('U')) {
+    blocks.push('\x1b[32m[*]\x1b[0m Users: Administrator (500), Guest (501), \x1b[1moperator\x1b[0m (1001)')
+  }
+  if (all || fl.includes('G')) {
+    blocks.push('\x1b[32m[*]\x1b[0m Groups: Domain Admins, Backup Operators, Remote Desktop Users')
+  }
+  if (all || fl.includes('P')) {
+    blocks.push('\x1b[32m[*]\x1b[0m Password Policy: min-length 8, lockout-threshold 5')
+  }
+  blocks.push('', '\x1b[90mScan complete.\x1b[0m')
+  return blocks
 }
 
 function cmdResponder(args: string[]): string[] {
-  const iface = args.find(a => !a.startsWith('-')) ?? 'eth0'
+  const iface = flagValue(args, '-I') ?? args.find(a => !a.startsWith('-')) ?? 'eth0'
+  const analyze = args.includes('-A')
+  const verbose = args.includes('-v') || args.includes('-rdwv') || args.includes('-rdw')
   return [
     ...simHeader('Responder', '3.1.4.0'),
-    `\x1b[90mInterface: ${iface}  LLMNR/NBT-NS poisoning active\x1b[0m`,
+    `\x1b[90mInterface: ${iface}\x1b[0m`,
+    `\x1b[90mMode     : ${analyze ? 'analyze (passive)' : 'poison (LLMNR + NBT-NS + MDNS)'}\x1b[0m`,
+    ...(verbose ? [`\x1b[90mVerbose  : enabled\x1b[0m`] : []),
     '',
-    '\x1b[32m[+]\x1b[0m LLMNR + NBT-NS Poisoner started',
+    `\x1b[32m[+]\x1b[0m ${analyze ? 'Listening for broadcast queries' : 'Poisoner started'}`,
     '\x1b[33m[SMB]\x1b[0m 10.10.10.50 — user: \x1b[1mDOMAIN\\john\x1b[0m',
-    '\x1b[32m[HASH]\x1b[0m NTLMv2: john::DOMAIN:aad3b435...',
+    '\x1b[32m[HASH]\x1b[0m NTLMv2: john::DOMAIN:aad3b435b51404eeaad3b435b51404ee:...',
     '\x1b[90mCrack with hashcat: hashcat -m 5600 hash.txt rockyou.txt\x1b[0m',
   ]
 }
 
 function cmdNucleI(args: string[]): string[] {
-  const target = args.find(a => !a.startsWith('-')) ?? 'https://target.com'
+  const target = flagValue(args, '-u') ?? flagValue(args, '-l') ?? args.find(a => a.startsWith('http')) ?? 'https://target.com'
+  const templates = flagValue(args, '-t')
+  const sevFilter = flagValue(args, '-severity')
+  const isList = !!flagValue(args, '-l')
+  const allSev = ['critical', 'high', 'medium', 'info']
+  const wantedSev = sevFilter ? sevFilter.split(',').map(s => s.trim()) : allSev
+
+  const findings: string[] = []
+  if (wantedSev.includes('critical')) {
+    findings.push('\x1b[31m[critical]\x1b[0m CVE-2021-44228 Log4Shell — \x1b[1mVULNERABLE\x1b[0m')
+  }
+  if (wantedSev.includes('high')) {
+    findings.push('\x1b[33m[high]\x1b[0m    CVE-2023-44487 HTTP/2 Rapid Reset')
+    findings.push('\x1b[33m[high]\x1b[0m    CVE-2024-3094 xz-utils backdoor (sshd)')
+  }
+  if (wantedSev.includes('medium')) {
+    findings.push('\x1b[33m[medium]\x1b[0m  /server-status exposed')
+  }
+  if (wantedSev.includes('info')) {
+    findings.push('\x1b[32m[info]\x1b[0m    PHP 8.1.12  |  nginx 1.24.0')
+  }
+
   return [
     ...simHeader('Nuclei', '3.1.0'),
-    `\x1b[90mTarget: ${target}  8,432 templates\x1b[0m`,
+    `\x1b[90mTarget   : ${isList ? `(list: ${target})` : target}\x1b[0m`,
+    `\x1b[90mTemplates: ${templates ?? '8,432 default'}\x1b[0m`,
+    ...(sevFilter ? [`\x1b[90mSeverity : ${sevFilter}\x1b[0m`] : []),
     '',
-    '\x1b[31m[critical]\x1b[0m CVE-2021-44228 Log4Shell — \x1b[1mVULNERABLE\x1b[0m',
-    '\x1b[33m[high]\x1b[0m    CVE-2023-44487 HTTP/2 Rapid Reset',
-    '\x1b[33m[medium]\x1b[0m  /server-status exposed',
-    '\x1b[32m[info]\x1b[0m    PHP 8.1.12  |  nginx 1.24.0',
+    ...findings,
     '',
-    '\x1b[90m4 findings. Duration: 00:00:47\x1b[0m',
+    `\x1b[90m${findings.length} findings. Duration: 00:00:47\x1b[0m`,
   ]
 }
 
 function cmdAmass(cmd: string, args: string[]): string[] {
-  const domain = args.find(a => !a.startsWith('-') && a.includes('.')) ?? 'target.com'
+  const domain = flagValue(args, '-d') ?? args.find(a => !a.startsWith('-') && a.includes('.') && !a.includes('/')) ?? 'target.com'
+  const active = args.includes('-active')
+  const passive = args.includes('-passive')
+  const isIntel = args.includes('intel')
+
+  if (isIntel) {
+    return [
+      ...simHeader(cmd, '4.2.0'),
+      `\x1b[90mDomain: ${domain} (WHOIS intel)\x1b[0m`,
+      `Registrant : Example Corp`,
+      `Email      : domains@${domain}`,
+      `Created    : 2014-03-21`,
+    ]
+  }
+
   return [
     ...simHeader(cmd, '4.2.0'),
-    `\x1b[90mDomain: ${domain}\x1b[0m`,
+    `\x1b[90mDomain: ${domain}  Mode: ${active ? 'active' : passive ? 'passive' : 'default'}\x1b[0m`,
     '',
     `\x1b[32m[+]\x1b[0m mail.${domain}`,
     `\x1b[32m[+]\x1b[0m api.${domain}`,
     `\x1b[32m[+]\x1b[0m dev.${domain}`,
     `\x1b[33m[+]\x1b[0m vpn.${domain}  ← VPN access`,
     `\x1b[33m[+]\x1b[0m jenkins.${domain}  ← CI/CD`,
+    ...(active ? [`\x1b[33m[+]\x1b[0m staging.${domain}  ← active probe`] : []),
     '',
-    '\x1b[90m5 subdomains discovered.\x1b[0m',
+    `\x1b[90m${active ? 6 : 5} subdomains discovered.\x1b[0m`,
   ]
 }
 
-function cmdTcpdump(cmd: string, _args: string[]): string[] {
+function cmdTcpdump(cmd: string, args: string[]): string[] {
   if (cmd === 'wireshark') return [
     '\x1b[33m[!]\x1b[0m Wireshark is a GUI application.',
     '\x1b[90m    For terminal: tcpdump -i eth0 -w capture.pcap\x1b[0m',
   ]
+  const iface = flagValue(args, '-i') ?? 'eth0'
+  const writeFile = flagValue(args, '-w')
+  const filter = args.filter(a => /^(port|host|tcp|udp|or|and|not|src|dst)$/.test(a) || /^\d+$/.test(a)).join(' ').trim()
   return [
     ...simHeader('tcpdump', '4.99.4'),
-    '\x1b[90mListening on eth0 ...\x1b[0m',
+    `\x1b[90mListening on ${iface}${filter ? ` with filter: ${filter}` : ''}\x1b[0m`,
+    ...(writeFile ? [`\x1b[90mWriting to: ${writeFile}\x1b[0m`] : []),
     '',
     '12:04:01  IP 10.10.10.1.443  > 10.10.10.50.52341  Flags [P.] len 512',
     '12:04:01  IP 10.10.10.50.52341 > 10.10.10.1.443   Flags [.] ack 513',
     '12:04:02  IP 10.10.10.100.80 > 10.10.10.50.43210  Flags [P.] len 1024',
+    '12:04:03  IP 10.10.10.50.43211 > 10.10.10.100.80  Flags [S]  win 65535',
     '\x1b[90m^C — press Ctrl+C to stop\x1b[0m',
   ]
 }
 
 function cmdNetcat(args: string[]): string[] {
-  const listen = args.includes('-l') || args.some(a => a.includes('lvnp'))
-  const port   = args.find(a => /^\d{2,5}$/.test(a)) ?? '4444'
-  const target = args.find(a => /^\d{1,3}\.\d/.test(a)) ?? '10.10.10.1'
+  const listen = args.includes('-l') || args.some(a => a.includes('lvnp') || a.includes('lp'))
+  const verbose = args.includes('-v') || args.some(a => a.includes('v'))
+  const portScan = args.includes('-z')
+  const port = args.find(a => /^\d{2,5}$/.test(a)) ?? '4444'
+  const target = args.find(a => /^\d{1,3}\.\d/.test(a) || (!a.startsWith('-') && /\./.test(a))) ?? '10.10.10.1'
+
+  if (portScan) {
+    const range = args.find(a => /^\d+-\d+$/.test(a)) ?? '20-100'
+    const [lo, hi] = range.split('-').map(Number)
+    const opens: string[] = []
+    for (const p of [22, 80, 443, 3306, 8080]) {
+      if (p >= lo && p <= hi) {
+        opens.push(`Connection to ${target} ${p} port [tcp/*] succeeded!`)
+      }
+    }
+    return [
+      `\x1b[90m[nc -z ${target} ${range}] port scan${verbose ? ' (verbose)' : ''}\x1b[0m`,
+      ...opens,
+      `\x1b[90m${opens.length} open ports in ${range}.\x1b[0m`,
+    ]
+  }
+
   if (listen) return [
     `\x1b[90mListening on 0.0.0.0:${port} ...\x1b[0m`,
     `\x1b[32mConnection received\x1b[0m from ${target}:54321`,
@@ -1469,5 +1744,178 @@ function cmdSsh(cmd: string, args: string[]): string[] {
   const target = args.find(a => !a.startsWith('-')) ?? 'user@target.com'
   return [
     `\x1b[90m${cmd} ${target} — simulation mode, no real connection.\x1b[0m`,
+  ]
+}
+
+// ─── New simulators (Block C polish) ─────────────────────────────────────────
+
+function flagValue(args: string[], flag: string): string | null {
+  const idx = args.indexOf(flag)
+  return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : null
+}
+
+function cmdFfuf(args: string[]): string[] {
+  const wordlist = flagValue(args, '-w') ?? 'wordlist.txt'
+  const url = flagValue(args, '-u') ?? 'http://target.com/FUZZ'
+  const fc = flagValue(args, '-fc')
+  const fs = flagValue(args, '-fs')
+  return [
+    ...simHeader('ffuf', '2.1.0'),
+    `\x1b[90mTarget    : ${url}\x1b[0m`,
+    `\x1b[90mWordlist  : ${wordlist}\x1b[0m`,
+    ...(fc ? [`\x1b[90mFilter    : status != ${fc}\x1b[0m`] : []),
+    ...(fs ? [`\x1b[90mFilter    : size  != ${fs}\x1b[0m`] : []),
+    '',
+    '\x1b[1m::: Method ::: ::: Status ::: ::: Size :::\x1b[0m',
+    `\x1b[32m  admin\x1b[0m            [Status: 200, Size: 4821]`,
+    `\x1b[32m  login\x1b[0m            [Status: 200, Size: 1203]`,
+    `\x1b[33m  backup\x1b[0m           [Status: 301, Size: 0]`,
+    `\x1b[31m  .env\x1b[0m             [Status: 200, Size: 118] ← exposed`,
+    `\x1b[32m  api\x1b[0m              [Status: 200, Size: 44]`,
+    '',
+    '\x1b[90m5 paths matched. Duration: 00:00:34\x1b[0m',
+  ]
+}
+
+function cmdTshark(args: string[]): string[] {
+  const iface = flagValue(args, '-i') ?? 'eth0'
+  const file = flagValue(args, '-r')
+  const filter = flagValue(args, '-Y')
+  const writeFile = flagValue(args, '-w')
+  return [
+    ...simHeader('tshark', '4.2.4'),
+    file
+      ? `\x1b[90mReading capture: ${file}\x1b[0m`
+      : `\x1b[90mCapturing on interface: ${iface}\x1b[0m`,
+    ...(filter ? [`\x1b[90mDisplay filter: ${filter}\x1b[0m`] : []),
+    ...(writeFile ? [`\x1b[90mWriting to    : ${writeFile}\x1b[0m`] : []),
+    '',
+    '  1   0.000000 10.0.2.15 → 8.8.8.8       DNS  74 Standard query A example.com',
+    '  2   0.012431 8.8.8.8   → 10.0.2.15     DNS  90 Standard query response',
+    '  3   0.014892 10.0.2.15 → 93.184.216.34 TCP  74 49152→443 [SYN]',
+    '  4   0.067120 93.184.216.34 → 10.0.2.15 TCP  74 443→49152 [SYN, ACK]',
+    '  5   0.067334 10.0.2.15 → 93.184.216.34 TCP  66 49152→443 [ACK]',
+    '  6   0.082414 10.0.2.15 → 93.184.216.34 TLSv1.3 583 Client Hello',
+    '',
+    '\x1b[90m6 packets captured.\x1b[0m',
+  ]
+}
+
+function cmdShodan(args: string[]): string[] {
+  const sub = args[0]
+  if (sub === 'host' && args[1]) {
+    const ip = args[1]
+    return [
+      ...simHeader('shodan', '1.31'),
+      `\x1b[1m${ip}\x1b[0m  (Cloudflare, Inc., US)`,
+      '\x1b[1mPorts:\x1b[0m  22/tcp ssh  80/tcp http  443/tcp https',
+    ]
+  }
+  if (sub === 'search') {
+    const query = args.slice(1).filter(a => !a.startsWith('--')).join(' ')
+    const limit = flagValue(args, '--limit')
+    return [
+      ...simHeader('shodan', '1.31'),
+      `\x1b[90mQuery: ${query || '(empty)'}${limit ? '  Limit: ' + limit : ''}\x1b[0m`,
+      '',
+      '1.2.3.4         443    nginx        US',
+      '5.6.7.8         443    Apache/2.4   DE',
+      '203.0.113.42    22     OpenSSH 8.2  TR',
+      '',
+      `\x1b[90m3 results shown.\x1b[0m`,
+    ]
+  }
+  if (sub === 'count') return [`\x1b[90m${args.slice(1).join(' ') || '(no query)'}\x1b[0m`, '12,478']
+  return [...simHeader('shodan', '1.31'), '\x1b[90mUsage: shodan {search|host|count}\x1b[0m']
+}
+
+function cmdTheHarvester(args: string[]): string[] {
+  const domain = flagValue(args, '-d') ?? 'target.com'
+  const sources = flagValue(args, '-b') ?? 'all'
+  const limit = flagValue(args, '-l')
+  return [
+    ...simHeader('theHarvester', '4.4.3'),
+    `\x1b[90mTarget : ${domain}\x1b[0m`,
+    `\x1b[90mSources: ${sources}\x1b[0m`,
+    ...(limit ? [`\x1b[90mLimit  : ${limit}\x1b[0m`] : []),
+    '',
+    '\x1b[1m[*] Emails found:\x1b[0m',
+    `  contact@${domain}`,
+    `  admin@${domain}`,
+    `  john.doe@${domain}`,
+    '',
+    '\x1b[1m[*] Hosts found:\x1b[0m',
+    `  www.${domain}     (1.2.3.4)`,
+    `  mail.${domain}    (1.2.3.5)`,
+    `  api.${domain}     (1.2.3.6)`,
+    '',
+    '\x1b[1m[*] LinkedIn (filtered):\x1b[0m',
+    '  John Doe — Senior Engineer',
+    '  Jane Smith — DevOps Lead',
+  ]
+}
+
+function cmdBinwalk(args: string[]): string[] {
+  const target = args.find(a => !a.startsWith('-')) ?? 'firmware.bin'
+  const extract = args.includes('-e') || args.includes('--extract')
+  const entropy = args.includes('-E')
+  const matryoshka = args.includes('-M')
+  return [
+    ...simHeader('binwalk', '2.4.3'),
+    `\x1b[90mScanning: ${target}\x1b[0m`,
+    '',
+    'DECIMAL    HEXADECIMAL    DESCRIPTION',
+    '-------------------------------------------------------------------',
+    '0          0x0            uImage header, image size: 4194304 bytes',
+    '64         0x40           LZMA compressed data',
+    '1245184    0x130000       Squashfs filesystem, little endian, version 4.0',
+    '4194304    0x400000       JFFS2 filesystem, little endian',
+    ...(extract ? ['', `\x1b[32m[+] Extracted to ./_${target}.extracted/\x1b[0m`] : []),
+    ...(entropy ? ['', '\x1b[33m[*] Entropy: 0x130000 falling — likely encrypted region\x1b[0m'] : []),
+    ...(matryoshka ? ['', '\x1b[90m[*] Recursive scan complete (matryoshka)\x1b[0m'] : []),
+  ]
+}
+
+function cmdGdb(args: string[]): string[] {
+  const target = args.find(a => !a.startsWith('-') && !a.startsWith('(')) ?? 'a.out'
+  return [
+    'GNU gdb (Ubuntu 14.2-ubuntu) 14.2',
+    'Copyright (C) 2024 Free Software Foundation, Inc.',
+    `Reading symbols from ${target}...`,
+    `(No debugging symbols found in ${target})`,
+    'pwndbg: loaded 159 pwndbg commands. Type pwndbg [filter] for a list.',
+    '\x1b[90m(gdb)\x1b[0m \x1b[90m(simulated — no real execution)\x1b[0m',
+    '',
+    '\x1b[90mUseful starting points:\x1b[0m',
+    '  checksec        — show binary protections (NX, PIE, RELRO, Canary)',
+    '  info functions  — list defined symbols',
+    '  disas main      — disassemble main',
+    '  b *main+50      — set breakpoint at offset',
+    '  r / run         — start program',
+    '  x/20wx $rsp     — examine the stack',
+  ]
+}
+
+function cmdSsh2john(args: string[]): string[] {
+  const key = args[0] ?? 'id_rsa'
+  return [
+    `\x1b[90m[ssh2john]\x1b[0m converting ${key} → John format`,
+    `${key}:$sshng$1$16$a3b4c5d6e7f80910$1216$AAAAB3NzaC1yc2EAAAADAQABAAAB...<truncated>`,
+    '',
+    `\x1b[90mPipe to file:  ssh2john ${key} > ${key}.hash\x1b[0m`,
+    `\x1b[90mThen crack:    john --wordlist=rockyou.txt ${key}.hash\x1b[0m`,
+  ]
+}
+
+function cmdUnshadow(args: string[]): string[] {
+  const passwd = args[0] ?? '/etc/passwd'
+  const shadow = args[1] ?? '/etc/shadow'
+  return [
+    `\x1b[90m[unshadow]\x1b[0m merging ${passwd} + ${shadow}`,
+    'root:$6$abcd1234$encryptedRootHashGoesHere:0:0:root:/root:/bin/bash',
+    'operator:$6$efgh5678$anotherEncryptedHash:1000:1000:Operator:/home/operator:/bin/bash',
+    'mysql:$6$ijkl9012$mysqlAccountHash:999:999:MySQL Server:/var/lib/mysql:/bin/false',
+    '',
+    `\x1b[90mPipe to john:  unshadow ${passwd} ${shadow} > combined.txt\x1b[0m`,
   ]
 }
