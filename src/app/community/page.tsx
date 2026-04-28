@@ -791,9 +791,9 @@ function ChallengeCard({
 // ─── Curriculum Tab ───────────────────────────────────────────────────────────
 
 const LESSON_DIFF_META: Record<LessonDifficulty, { label: string; color: string; bg: string }> = {
-  kolay: { label: 'KOLAY', color: 'rgb(var(--route-accent-rgb) / 0.82)', bg: 'rgba(74,222,128,0.08)' },
-  orta:  { label: 'ORTA',  color: '#fbbf24', bg: 'rgba(251,191,36,0.08)'  },
-  zor:   { label: 'ZOR',   color: '#f87171', bg: 'rgba(248,113,113,0.08)' },
+  kolay: { label: 'EASY',   color: 'rgb(var(--route-accent-rgb) / 0.82)', bg: 'rgba(74,222,128,0.08)' },
+  orta:  { label: 'MEDIUM', color: '#fbbf24', bg: 'rgba(251,191,36,0.08)'  },
+  zor:   { label: 'HARD',   color: '#f87171', bg: 'rgba(248,113,113,0.08)' },
 }
 
 const DIFF_ORDER: LessonDifficulty[] = ['kolay', 'orta', 'zor']
@@ -949,15 +949,15 @@ function CurriculumTab({ onSendCommand, terminalExecutions }: { onSendCommand: (
         borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.9rem' }}>
           <div>
-            <p style={{ color: 'rgba(0,255,65,0.5)', fontSize: 9, letterSpacing: '0.18em', margin: 0 }}>EGITIM SETLERI</p>
+            <p style={{ color: 'rgba(0,255,65,0.5)', fontSize: 9, letterSpacing: '0.18em', margin: 0 }}>TRAINING SETS</p>
             <h2 style={{ color: '#e2e8f0', fontSize: 15, fontWeight: 800, margin: '2px 0 0', letterSpacing: '0.04em' }}>
-              Ogrenme Yolu
+              Learning Path
             </h2>
           </div>
           <div style={{ textAlign: 'right' }}>
             <span style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 18, fontWeight: 800 }}>{totalCompleted}</span>
             <span style={{ color: '#475569', fontSize: 12 }}>/{totalLessons}</span>
-            <p style={{ color: '#475569', fontSize: 9, margin: '2px 0 0', letterSpacing: '0.1em' }}>DERS TAMAMLANDI</p>
+            <p style={{ color: '#475569', fontSize: 9, margin: '2px 0 0', letterSpacing: '0.1em' }}>LESSONS COMPLETED</p>
           </div>
         </div>
 
@@ -1051,7 +1051,7 @@ function CurriculumTab({ onSendCommand, terminalExecutions }: { onSendCommand: (
               }}>
                 <div>
                   <p style={{ color: currentSet.color, fontSize: 9, letterSpacing: '0.2em', margin: '0 0 6px', fontWeight: 800 }}>
-                    OPERASYON BRIFINGI
+                    OPERATION BRIEFING
                   </p>
                   <h3 style={{ color: '#f8fafc', fontSize: 18, lineHeight: 1.25, margin: 0, fontWeight: 800 }}>
                     {currentSet.overview.heading}
@@ -1068,7 +1068,7 @@ function CurriculumTab({ onSendCommand, terminalExecutions }: { onSendCommand: (
                     background: 'rgba(255,255,255,0.02)',
                   }}>
                     <p style={{ color: '#64748b', fontSize: 9, fontWeight: 800, letterSpacing: '0.18em', margin: '0 0 8px' }}>
-                      OGRENME MODELI
+                      LEARNING MODEL
                     </p>
                     <p style={{ color: 'rgba(226,232,240,0.8)', fontSize: 11, lineHeight: 1.7, margin: 0 }}>
                       {currentSet.overview.assessment}
@@ -1276,7 +1276,7 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
                   letterSpacing: '0.08em',
                 }}
               >
-                KILITLI
+                LOCKED
               </span>
             )}
             {lesson.mission && (
@@ -1292,7 +1292,7 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
                 letterSpacing: '0.08em',
               }}
             >
-                KANIT {matchedCount}/{totalChecks}
+                EVIDENCE {matchedCount}/{totalChecks}
               </span>
             )}
           </div>
@@ -1322,10 +1322,10 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
               fontWeight: 800,
               letterSpacing: '0.12em',
             }}>
-              TAMAMLANDI
+              COMPLETED
             </span>
           )}
-          <span style={{ color: '#475569', fontSize: 10 }}>{lesson.duration} dk</span>
+          <span style={{ color: '#475569', fontSize: 10 }}>{lesson.duration} min</span>
           <span
             style={{
               color: expanded ? 'rgb(var(--route-accent-rgb) / 0.82)' : '#334155',
@@ -1360,7 +1360,7 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
                   }}
                 >
                   <p style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 9, letterSpacing: '0.18em', margin: '0 0 8px', fontWeight: 800 }}>
-                    OPERASYON BRIFINGI
+                    OPERATION BRIEFING
                   </p>
                   <p style={{ color: '#f8fafc', fontSize: 13, fontWeight: 700, lineHeight: 1.55, margin: 0 }}>
                     {lesson.mission.objective}
@@ -1379,7 +1379,7 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
                   }}
                 >
                   <p style={{ color: '#94a3b8', fontSize: 9, letterSpacing: '0.18em', margin: '0 0 8px', fontWeight: 800 }}>
-                    GOREV TANIMI
+                    MISSION DETAILS
                   </p>
                   <p style={{ color: '#e2e8f0', fontSize: 12, lineHeight: 1.7, margin: 0 }}>{lesson.mission.task}</p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: '0.8rem' }}>
@@ -1415,10 +1415,10 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                   <div>
                     <p style={{ color: '#94a3b8', fontSize: 9, letterSpacing: '0.18em', margin: 0, fontWeight: 800 }}>
-                      DOGRULAMA MERKEZI
+                      VALIDATION CENTER
                     </p>
                     <p style={{ color: 'rgba(148,163,184,0.76)', fontSize: 11, margin: '8px 0 0', lineHeight: 1.7 }}>
-                      Bu görev için terminale kendi komutunu yaz. Sistem sadece manuel girişlerden kanıt toplar.
+                      Type your own commands into the terminal for this mission. The system only collects evidence from manual entries.
                     </p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
@@ -1426,7 +1426,7 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
                       {matchedCount}/{totalChecks}
                     </p>
                     <p style={{ color: '#475569', fontSize: 10, margin: '3px 0 0', letterSpacing: '0.08em' }}>
-                      MANUAL KOMUT {displayManualCount}
+                      MANUAL COMMANDS {displayManualCount}
                     </p>
                   </div>
                 </div>
@@ -1484,7 +1484,7 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
                     }}
                   >
                     <p style={{ color: '#fda4af', fontSize: 10, letterSpacing: '0.14em', fontWeight: 800, margin: '0 0 6px' }}>
-                      EKSIK KANIT
+                      MISSING EVIDENCE
                     </p>
                     <p style={{ color: '#fecdd3', fontSize: 11, margin: 0, lineHeight: 1.7 }}>
                       {missionStatus.missing.map(check => check.label).join(' | ')}
@@ -1503,7 +1503,7 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
                     }}
                   >
                     <p style={{ color: '#86efac', fontSize: 10, letterSpacing: '0.18em', fontWeight: 800, margin: '0 0 6px' }}>
-                      NEDEN BU CALISTI
+                      WHY THIS WORKED
                     </p>
                     <p style={{ color: '#dcfce7', fontSize: 11, margin: 0, lineHeight: 1.8 }}>
                       {lesson.mission.reflection}
@@ -1527,7 +1527,7 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
                       letterSpacing: '0.12em',
                     }}
                   >
-                    COZUMUNU KONTROL ET
+                    VERIFY SOLUTION
                   </button>
                   <button
                     onClick={revealNextHint}
@@ -1546,7 +1546,7 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
                       opacity: revealedHints >= lesson.mission.hints.length ? 0.55 : 1,
                     }}
                   >
-                    {revealedHints >= lesson.mission.hints.length ? 'TUM IPUCLARI ACILDI' : `IPUCU AC ${revealedHints}/${lesson.mission.hints.length}`}
+                    {revealedHints >= lesson.mission.hints.length ? 'ALL HINTS REVEALED' : `SHOW HINT ${revealedHints}/${lesson.mission.hints.length}`}
                   </button>
                   {validationState !== 'idle' && (
                     <button
@@ -1564,7 +1564,7 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
                         letterSpacing: '0.12em',
                       }}
                     >
-                      DURUMU TEMIZLE
+                      CLEAR STATE
                     </button>
                   )}
                 </div>
@@ -1582,7 +1582,7 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
                         }}
                       >
                         <p style={{ color: '#fbbf24', fontSize: 9, letterSpacing: '0.18em', margin: '0 0 6px', fontWeight: 800 }}>
-                          IPUCU {String(hintIndex + 1).padStart(2, '0')}
+                          HINT {String(hintIndex + 1).padStart(2, '0')}
                         </p>
                         <p style={{ color: '#fde68a', fontSize: 11, lineHeight: 1.7, margin: 0 }}>{hint}</p>
                       </div>
@@ -1627,7 +1627,7 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    TERMINALE GONDER
+                    SEND TO TERMINAL
                   </button>
                 </div>
               )}
@@ -1647,7 +1647,7 @@ function LessonCard({ lesson, index, isCompleted, isUnlocked, proofSnapshot, onC
                   letterSpacing: '0.08em',
                 }}
               >
-                {isCompleted ? 'TAMAMLANMAMIS OLARAK ISARETLE' : 'TAMAMLANDI'}
+                {isCompleted ? 'MARK INCOMPLETE' : 'MARK COMPLETE'}
               </button>
             </>
           )}
@@ -1706,7 +1706,7 @@ function ToolsTab({ initialToolId, onSendCommand, onSelectTool, isMobile = false
             color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 12, fontFamily: 'inherit',
             cursor: 'pointer', flexShrink: 0, outline: 'none',
           }}>
-            ← Araç Listesi
+            ← Tool list
           </button>
           <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', ...noScrollbar }}>
             <ToolDetail tool={selected} onSendCommand={onSendCommand} />
@@ -1721,7 +1721,7 @@ function ToolsTab({ initialToolId, onSendCommand, onSelectTool, isMobile = false
         {/* Arama + kategori */}
         <div style={{ padding: '0.65rem 0.85rem', flexShrink: 0, background: '#030303',
           borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Araç ara..."
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tools..."
             style={{ width: '100%', background: 'rgba(255,255,255,0.04)',
               border: '1px solid rgba(255,255,255,0.09)', borderRadius: 5,
               padding: '0.45rem 0.7rem', color: '#e2e8f0', fontSize: 12,
@@ -1770,7 +1770,7 @@ function ToolsTab({ initialToolId, onSendCommand, onSelectTool, isMobile = false
       <div style={{ width: 240, flexShrink: 0, borderRight: '1px solid rgba(255,255,255,0.05)',
         overflowY: 'auto', background: '#030303', display: 'flex', flexDirection: 'column', ...noScrollbar }}>
         <div style={{ padding: '0.75rem' }}>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Araç ara..."
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tools..."
             style={{ width: '100%', background: 'rgba(255,255,255,0.04)',
               border: '1px solid rgba(255,255,255,0.09)', borderRadius: 5,
               padding: '0.45rem 0.7rem', color: '#e2e8f0', fontSize: 11,

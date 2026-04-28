@@ -1232,15 +1232,15 @@ export const CHALLENGES: Challenge[] = [
 export const TRAINING_SETS: TrainingSet[] = [
   {
     id: 'set-01-foundations',
-    title: 'Temel Operasyonlar',
-    subtitle: 'Linux terminal hakimiyeti, dosya sistemi ve temel analiz rutini',
+    title: 'Foundations',
+    subtitle: 'Linux terminal mastery, filesystem, and basic analysis routines',
     icon: 'OPS',
     color: '#00ff41',
     overview: {
-      heading: 'Operasyon hattı',
-      summary: 'Bu set, terminali izlemek değil yönetmek için tasarlandı. Hedefimiz hazır komut tüketmek değil; dosya sistemi, izinler, loglar ve temel ağ göstergeleri üzerinde kendi yorumunu üretebilen bir operatör kası oluşturmak.',
+      heading: 'Operations track',
+      summary: 'This set is designed to make you manage the terminal, not just watch it. The goal is not to consume canned commands but to build operator-grade muscle for interpreting the filesystem, permissions, logs, and basic network indicators on your own.',
       pillars: ['Mission-first', 'Manual command discipline', 'Evidence-based validation', 'Operational reflection'],
-      assessment: 'Her ders bir görev brifingi olarak ilerler. Komutu sen yazarsın, sistem sadece doğru kanıtı yakaladığında dersi tamamlar. Hazır terminal gönderimi bu set için devre dışı bırakıldı.',
+      assessment: 'Each lesson runs as a mission briefing. You type the command; the system completes the lesson only when it captures the right evidence. Pre-canned terminal injection is disabled for this set.',
     },
     lessons: [
       {
@@ -1457,8 +1457,8 @@ export const TRAINING_SETS: TrainingSet[] = [
 
   {
     id: 'set-02-web',
-    title: 'Web Saldırıları',
-    subtitle: 'OWASP Top 10, injection ve web uygulama güvenliği',
+    title: 'Web Attacks',
+    subtitle: 'OWASP Top 10, injection, and web application security',
     icon: 'WEB',
     color: '#f59e0b',
     lessons: [
@@ -1558,8 +1558,8 @@ export const TRAINING_SETS: TrainingSet[] = [
 
   {
     id: 'set-03-pentest',
-    title: 'Sızma Testi',
-    subtitle: 'Metasploit, credential saldırıları ve lateral movement',
+    title: 'Penetration Testing',
+    subtitle: 'Metasploit, credential attacks, and lateral movement',
     icon: 'RED',
     color: '#ef4444',
     lessons: [
@@ -1659,8 +1659,8 @@ export const TRAINING_SETS: TrainingSet[] = [
 
   {
     id: 'set-04-advanced',
-    title: 'İleri Operasyonlar',
-    subtitle: 'Tersine mühendislik, malware analizi ve red team',
+    title: 'Advanced Operations',
+    subtitle: 'Reverse engineering, malware analysis, and red team',
     icon: 'ADV',
     color: '#7c3aed',
     lessons: [
