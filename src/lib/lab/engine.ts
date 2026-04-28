@@ -2,6 +2,7 @@ import { resolvePath, getNode, basename, colorEntry } from './filesystem'
 import { getCommand } from './commands'
 import type { EvidenceEvent, EvidenceLog, EvidencePrimitive } from './evidence'
 import { applyMutation, getMutableNode } from './mutation'
+import { getManPage } from './manpages'
 import { detectRevealEvent, formatBanner } from './reveal'
 import { challengeContracts } from './validation/contracts'
 import type { CommandContext, FSNode } from './types'
@@ -169,8 +170,8 @@ function runSingle(
     case 'whoami':       return ['operator']
     case 'id':           return ['uid=1000(operator) gid=1000(operator) groups=1000(operator),27(sudo),4(adm)']
     case 'hostname':     return ['breach-lab']
-    case 'date':         return [new Date().toString()]
-    case 'uptime':       return [` ${new Date().toTimeString().slice(0, 8)} up 3 days, 4:22, 1 user, load average: 0.08, 0.05, 0.01`]
+    case 'date':         return cmdDate(args)
+    case 'uptime':       return cmdUptime(args)
     case 'uname':        return cmdUname(args)
     case 'env':          return cmdEnv(ctx)
     case 'ls':           return cmdLs(args, ctx)
@@ -199,8 +200,24 @@ function runSingle(
     case 'mv':           return cmdMv(args, ctx)
     case 'ps':           return cmdPs(args)
     case 'top': case 'htop': return cmdTop()
-    case 'ifconfig': case 'ip': return cmdIfconfig(args)
+    case 'du':           return cmdDu(args, ctx)
+    case 'df':           return cmdDf(args)
+    case 'free':         return cmdFree(args)
+    case 'vmstat':       return cmdVmstat(args)
+    case 'iostat':       return cmdIostat(args)
+    case 'lsof':         return cmdLsof(args)
+    case 'mount':        return cmdMount(args)
+    case 'who':          return cmdWho(args)
+    case 'w':            return cmdW(args)
+    case 'last':         return cmdLast(args)
+    case 'ifconfig':     return cmdIfconfig(args)
+    case 'ip':           return cmdIp(args)
     case 'netstat': case 'ss': return cmdNetstat(cmd, args)
+    case 'route':        return cmdRoute(args)
+    case 'arp':          return cmdArp(args)
+    case 'traceroute': case 'tracepath': return cmdTraceroute(args)
+    case 'dig':          return cmdDig(args)
+    case 'nslookup':     return cmdNslookup(args)
     case 'ping':         return cmdPing(args)
     case 'curl': case 'wget': return cmdCurl(args)
     case 'sudo':         return cmdSudo(args, ctx)
@@ -1002,16 +1019,377 @@ function cmdStat(args: string[], ctx: CommandContext): string[] {
   ]
 }
 
+// Session-stable seed + boot timestamp. Varies per page load, stable
+// within session. Used to give deeper-simulation handlers plausibly
+// varying output without breaking determinism within a single command.
+const SESSION_SEED = Date.now() & 0xffff
+const SESSION_BOOT = Date.now()
+let dynamicCallCounter = 0
+function nextDyn(): number {
+  dynamicCallCounter = (dynamicCallCounter + 1) & 0xffff
+  return (SESSION_SEED ^ dynamicCallCounter) & 0xffff
+}
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
 function cmdPs(args: string[]): string[] {
   const all = args.some(a => a.includes('a'))
-  if (!all) return ['  PID TTY    CMD', ' 1234 pts/0  bash', ' 5678 pts/0  ps']
+  // Stable session bash PID, varying ps PID per call
+  const bashPid = 1024 + (SESSION_SEED % 4000)
+  const psPid = bashPid + 200 + (nextDyn() % 800)
+  if (!all) return [
+    '  PID TTY      STAT   TIME CMD',
+    ` ${String(bashPid).padStart(4)} pts/0    Ss     0:00 bash`,
+    ` ${String(psPid).padStart(4)} pts/0    R+     0:00 ps`,
+  ]
+  const initPid = 1
+  const sshdPid = 200 + (SESSION_SEED % 80)
+  const nginxPid = sshdPid + 220 + (SESSION_SEED % 90)
+  const mysqlPid = nginxPid + 320 + (SESSION_SEED % 70)
   return [
-    'USER       PID %CPU %MEM COMMAND',
-    'root         1  0.0  0.1 /sbin/init',
-    'root       234  0.0  0.0 sshd: [listener]',
-    'www-data   456  0.1  0.2 nginx: worker process',
-    'mysql      789  0.3  1.5 /usr/sbin/mysqld',
-    'operator  1234  0.0  0.1 bash',
+    'USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND',
+    `root      ${String(initPid).padStart(4)}  0.0  0.1 169032  9456 ?        Ss   Jan15  0:12 /sbin/init`,
+    `root      ${String(sshdPid).padStart(4)}  0.0  0.0  72128  3204 ?        Ss   Jan15  0:00 sshd: [listener]`,
+    `www-data  ${String(nginxPid).padStart(4)}  0.1  0.2  62492 12108 ?        S    Jan15  0:14 nginx: worker process`,
+    `mysql     ${String(mysqlPid).padStart(4)}  0.3  1.5 1432836 124016 ?     Sl   Jan15  3:42 /usr/sbin/mysqld`,
+    `operator  ${String(bashPid).padStart(4)}  0.0  0.1  21192  4708 pts/0    Ss   Jan15  0:00 bash`,
+    `operator  ${String(psPid).padStart(4)}  0.0  0.0  10632  3320 pts/0    R+   12:04  0:00 ps aux`,
+  ]
+}
+
+function cmdDate(args: string[]): string[] {
+  const now = new Date()
+  if (args.includes('-u') || args.includes('--utc')) {
+    return [now.toUTCString()]
+  }
+  if (args.includes('+%s')) {
+    return [String(Math.floor(now.getTime() / 1000))]
+  }
+  if (args.includes('-I') || args.includes('--iso-8601')) {
+    return [now.toISOString().slice(0, 10)]
+  }
+  return [now.toString()]
+}
+
+function cmdUptime(args: string[]): string[] {
+  const minutesSinceLoad = Math.floor((Date.now() - SESSION_BOOT) / 60000)
+  const days = 3 + Math.floor(minutesSinceLoad / 1440)
+  const hours = (4 + Math.floor(minutesSinceLoad / 60)) % 24
+  const mins = (22 + minutesSinceLoad) % 60
+  const now = new Date()
+  const time = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`
+  if (args.includes('-p')) return [`up ${days} days, ${hours} hours, ${mins} minutes`]
+  return [` ${time} up ${days} days, ${pad2(hours)}:${pad2(mins)},  1 user,  load average: 0.08, 0.05, 0.01`]
+}
+
+function cmdDu(args: string[], ctx: CommandContext): string[] {
+  const fl = flags(args)
+  const summary = fl.includes('s')
+  const target = nonFlags(args)[0] ?? '.'
+  const path = resolvePath(ctx.cwd, target)
+  const node = getCtxNode(ctx, path)
+  if (!node) return [`\x1b[31mdu: cannot access '${target}': No such file or directory\x1b[0m`]
+  // Deterministic but varying size per path
+  const sizeForNode = (n: FSNode, depth: number): number => {
+    if (n.type === 'file') return Math.max(1, n.content.length / 1024)
+    let total = 4
+    for (const c of Object.values(n.children)) total += sizeForNode(c, depth + 1)
+    return total
+  }
+  const formatK = (k: number) => {
+    const m = k / 1024
+    return m >= 1 ? `${m.toFixed(1)}M` : `${Math.ceil(k)}K`
+  }
+  if (summary) return [`${formatK(sizeForNode(node, 0)).padEnd(8)}${target}`]
+  // Non-summary: list direct children
+  if (node.type !== 'dir') return [`${formatK(sizeForNode(node, 0)).padEnd(8)}${target}`]
+  const lines: string[] = []
+  for (const [name, child] of Object.entries(node.children)) {
+    lines.push(`${formatK(sizeForNode(child, 1)).padEnd(8)}${target.replace(/\/$/, '')}/${name}`)
+  }
+  lines.push(`${formatK(sizeForNode(node, 0)).padEnd(8)}${target}`)
+  return lines
+}
+
+function cmdDf(args: string[]): string[] {
+  const human = args.includes('-h') || args.includes('--human-readable')
+  const inodes = args.includes('-i')
+  // Slight variation per call to feel alive
+  const rootUsed = 14 + (nextDyn() % 4) / 10
+  const homeUsed = 28 + (nextDyn() % 6) / 10
+  const tmpUsed = 1 + (nextDyn() % 3) / 10
+  const fmt = (totalG: number, usedG: number) => {
+    const total = `${totalG}G`
+    const used = `${usedG.toFixed(1)}G`
+    const avail = `${(totalG - usedG).toFixed(1)}G`
+    const pct = `${Math.round((usedG / totalG) * 100)}%`
+    return human ? { total, used, avail, pct } : {
+      total: String(totalG * 1024 * 1024),
+      used: String(Math.round(usedG * 1024 * 1024)),
+      avail: String(Math.round((totalG - usedG) * 1024 * 1024)),
+      pct,
+    }
+  }
+  if (inodes) {
+    return [
+      'Filesystem     Inodes  IUsed  IFree IUse% Mounted on',
+      '/dev/sda1      655360  82391 572969   13% /',
+      '/dev/sda2     1310720  98214 1212506   8% /home',
+      'tmpfs          512000   1024  510976    1% /tmp',
+    ]
+  }
+  const root = fmt(40, rootUsed)
+  const home = fmt(80, homeUsed)
+  const tmp = fmt(4, tmpUsed)
+  return [
+    `Filesystem      ${human ? 'Size' : '1K-blocks'}      Used Available Use% Mounted on`,
+    `/dev/sda1       ${root.total.padStart(8)} ${root.used.padStart(8)} ${root.avail.padStart(9)} ${root.pct.padStart(4)} /`,
+    `/dev/sda2       ${home.total.padStart(8)} ${home.used.padStart(8)} ${home.avail.padStart(9)} ${home.pct.padStart(4)} /home`,
+    `tmpfs           ${tmp.total.padStart(8)} ${tmp.used.padStart(8)} ${tmp.avail.padStart(9)} ${tmp.pct.padStart(4)} /tmp`,
+  ]
+}
+
+function cmdFree(args: string[]): string[] {
+  const human = args.includes('-h')
+  const mb = args.includes('-m')
+  const totalKb = 4 * 1024 * 1024 // 4 GB
+  const usedKb = Math.floor(totalKb * (0.55 + (nextDyn() % 100) / 1000))
+  const freeKb = totalKb - usedKb
+  const cacheKb = Math.floor(totalKb * 0.18)
+  const swapTotalKb = 2 * 1024 * 1024
+  const swapUsedKb = Math.floor(swapTotalKb * (0.05 + (nextDyn() % 30) / 1000))
+  const fmt = (kb: number) => {
+    if (human) {
+      const mb = kb / 1024
+      return mb >= 1024 ? `${(mb / 1024).toFixed(1)}Gi` : `${Math.round(mb)}Mi`
+    }
+    if (mb) return String(Math.round(kb / 1024))
+    return String(kb)
+  }
+  return [
+    '              total        used        free      shared  buff/cache   available',
+    `Mem:    ${fmt(totalKb).padStart(11)} ${fmt(usedKb).padStart(11)} ${fmt(freeKb).padStart(11)} ${fmt(0).padStart(11)} ${fmt(cacheKb).padStart(11)} ${fmt(freeKb + cacheKb).padStart(11)}`,
+    `Swap:   ${fmt(swapTotalKb).padStart(11)} ${fmt(swapUsedKb).padStart(11)} ${fmt(swapTotalKb - swapUsedKb).padStart(11)}`,
+  ]
+}
+
+function cmdVmstat(_args: string[]): string[] {
+  return [
+    'procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----',
+    ' r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st',
+    ` 1  0  124k 1.4G  84M  720M    0    0     8    21  104  328  2  1 97  0  0`,
+    ` 0  0  124k 1.4G  84M  720M    0    0     0    32   98  301  1  0 99  0  0`,
+    ` 1  0  124k 1.4G  84M  720M    0    0     0    18  112  342  3  1 96  0  0`,
+  ]
+}
+
+function cmdIostat(args: string[]): string[] {
+  const extended = args.includes('-x')
+  const out: string[] = [
+    'Linux 5.15.0-91-generic (breach-lab) 	' + new Date().toLocaleDateString('en-CA') + ' 	_x86_64_	(4 CPU)',
+    '',
+    'avg-cpu:  %user   %nice %system %iowait  %steal   %idle',
+    '           2.10    0.05    0.83    0.04    0.00   96.98',
+    '',
+  ]
+  if (extended) {
+    out.push(
+      'Device            r/s     w/s     rkB/s     wkB/s   rrqm/s   wrqm/s  %rrqm  %wrqm r_await w_await aqu-sz rareq-sz wareq-sz  svctm  %util',
+      'sda              2.41    8.92     48.20    142.80     0.10     0.42   3.99   4.50    0.42    1.21   0.01    20.0     16.0   0.18   0.21',
+    )
+  } else {
+    out.push(
+      'Device             tps    kB_read/s    kB_wrtn/s    kB_dscd/s    kB_read    kB_wrtn    kB_dscd',
+      'sda              11.33        48.20       142.80         0.00     412345     921384          0',
+    )
+  }
+  return out
+}
+
+function cmdLsof(args: string[]): string[] {
+  const portArg = args.find(a => a.startsWith(':')) ?? args[args.indexOf('-i') + 1]
+  if (portArg && portArg.startsWith(':')) {
+    const port = portArg.slice(1)
+    return [
+      'COMMAND   PID     USER   FD   TYPE DEVICE SIZE/OFF NODE NAME',
+      `nginx     ${438 + (SESSION_SEED % 60)} www-data    6u  IPv4  18234      0t0  TCP *:${port} (LISTEN)`,
+    ]
+  }
+  return [
+    'COMMAND      PID     USER   FD   TYPE DEVICE SIZE/OFF      NODE NAME',
+    'systemd       1     root  cwd    DIR    8,1     4096         2 /',
+    'systemd       1     root  txt    REG    8,1  1620224      4203 /usr/lib/systemd/systemd',
+    'sshd        287     root    3u  IPv4    18234      0t0     TCP *:22 (LISTEN)',
+    'mysqld      829    mysql   16u  IPv4    19481      0t0     TCP 127.0.0.1:3306 (LISTEN)',
+    'nginx       488 www-data    6u  IPv4    21002      0t0     TCP *:80 (LISTEN)',
+    'bash       1024 operator  cwd    DIR    8,1     4096   1310912 /home/operator',
+  ]
+}
+
+function cmdMount(_args: string[]): string[] {
+  return [
+    'sysfs on /sys type sysfs (rw,nosuid,nodev,noexec,relatime)',
+    'proc on /proc type proc (rw,nosuid,nodev,noexec,relatime)',
+    'udev on /dev type devtmpfs (rw,nosuid,relatime,size=2018284k)',
+    'devpts on /dev/pts type devpts (rw,nosuid,noexec,relatime,gid=5,mode=620)',
+    '/dev/sda1 on / type ext4 (rw,relatime,errors=remount-ro)',
+    '/dev/sda2 on /home type ext4 (rw,relatime)',
+    'tmpfs on /tmp type tmpfs (rw,nosuid,nodev,relatime,size=512000k)',
+    'tmpfs on /run type tmpfs (rw,nosuid,nodev,noexec,relatime,size=403656k,mode=755)',
+  ]
+}
+
+function cmdWho(_args: string[]): string[] {
+  const now = new Date()
+  const t = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`
+  return [
+    `operator pts/0        ${now.toLocaleDateString('en-CA')} ${t} (10.0.2.2)`,
+    `root     pts/1        ${now.toLocaleDateString('en-CA')} 08:00 (192.168.1.1)`,
+  ]
+}
+
+function cmdW(_args: string[]): string[] {
+  const now = new Date()
+  const t = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`
+  return [
+    ` ${t} up 3 days, 4:22,  2 users,  load average: 0.08, 0.05, 0.01`,
+    'USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT',
+    `operator pts/0    10.0.2.2         ${pad2(now.getHours())}:00    0.00s  0.21s  0.04s bash`,
+    'root     pts/1    192.168.1.1      08:00    1:42m  0.32s  0.05s -bash',
+  ]
+}
+
+function cmdLast(args: string[]): string[] {
+  const nIdx = args.indexOf('-n')
+  const limit = nIdx >= 0 ? Math.max(1, parseInt(args[nIdx + 1] ?? '10', 10) || 10) : 10
+  const sessions = [
+    'operator pts/0        10.0.2.2         Jan 15 08:00   still logged in',
+    'operator pts/0        10.0.2.2         Jan 14 21:14 - 22:43  (01:29)',
+    'root     pts/1        192.168.1.1      Jan 14 19:02 - 19:55  (00:53)',
+    'operator pts/0        10.0.2.2         Jan 14 16:22 - 18:45  (02:23)',
+    'reboot   system boot  5.15.0-91-generic Jan 14 16:00   still running',
+    'operator pts/0        10.0.2.2         Jan 13 09:11 - 14:32  (05:21)',
+    'root     pts/1        192.168.1.1      Jan 13 08:30 - 09:01  (00:31)',
+    'operator pts/0        10.0.2.2         Jan 12 14:18 - 18:00  (03:42)',
+    'reboot   system boot  5.15.0-91-generic Jan 12 14:00   still running',
+    'operator pts/0        10.0.2.2         Jan 11 10:00 - 12:30  (02:30)',
+  ]
+  const out = sessions.slice(0, limit)
+  out.push('', 'wtmp begins Jan 11 10:00:00 2024')
+  return out
+}
+
+function cmdIp(args: string[]): string[] {
+  const sub = args[0]
+  if (sub === 'route' || sub === 'r') return cmdRoute(args.slice(1))
+  if (sub === 'addr' || sub === 'a' || sub === 'link' || sub === 'l') return cmdIfconfig([])
+  if (sub === '-h' || sub === '--help' || !sub) {
+    return [
+      'Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }',
+      'where  OBJECT := { addr | route | link | rule | neigh }',
+    ]
+  }
+  return cmdIfconfig(args)
+}
+
+function cmdRoute(args: string[]): string[] {
+  const numeric = args.includes('-n') || args.includes('-rn')
+  return [
+    `Kernel IP routing table${numeric ? '' : ' (resolving names)'}`,
+    'Destination     Gateway         Genmask         Flags Metric Ref    Use Iface',
+    `0.0.0.0         10.0.2.2        0.0.0.0         UG    100    0        0 eth0`,
+    `10.0.2.0        0.0.0.0         255.255.255.0   U     100    0        0 eth0`,
+    `169.254.0.0     0.0.0.0         255.255.0.0     U     1000   0        0 eth0`,
+  ]
+}
+
+function cmdArp(args: string[]): string[] {
+  const numeric = args.includes('-n')
+  const all = args.includes('-a')
+  if (all) {
+    return [
+      `_gateway (10.0.2.2) at 52:54:00:12:35:02 [ether] on eth0`,
+      `? (10.0.2.3) at 52:54:00:12:35:03 [ether] on eth0`,
+      `breach-lab (10.0.2.15) at 08:00:27:ab:cd:ef [ether] on eth0`,
+    ]
+  }
+  return [
+    'Address                  HWtype  HWaddress           Flags Mask            Iface',
+    `${numeric ? '10.0.2.2' : '_gateway'.padEnd(24)} ether   52:54:00:12:35:02   C                     eth0`,
+    `${numeric ? '10.0.2.3' : '?'.padEnd(24)} ether   52:54:00:12:35:03   C                     eth0`,
+  ]
+}
+
+function cmdTraceroute(args: string[]): string[] {
+  const target = args.find(a => !a.startsWith('-')) ?? 'example.com'
+  const targetIp = /^\d/.test(target) ? target : '93.184.216.34'
+  return [
+    `traceroute to ${target} (${targetIp}), 30 hops max, 60 byte packets`,
+    ` 1  _gateway (10.0.2.2)  0.241 ms  0.214 ms  0.198 ms`,
+    ` 2  192.168.1.1 (192.168.1.1)  1.812 ms  1.792 ms  1.770 ms`,
+    ` 3  10.0.0.1 (10.0.0.1)  4.124 ms  4.103 ms  4.082 ms`,
+    ` 4  isp-edge-rtr-01.net (203.0.113.1)  12.481 ms  12.412 ms  12.391 ms`,
+    ` 5  100.64.0.1 (100.64.0.1)  18.224 ms  18.190 ms  18.179 ms`,
+    ` 6  ${target} (${targetIp})  19.014 ms  18.992 ms  18.974 ms`,
+  ]
+}
+
+function cmdDig(args: string[]): string[] {
+  const domain = args.find(a => !a.startsWith('-') && a.includes('.')) ?? 'example.com'
+  const types = ['A', 'AAAA', 'MX', 'NS', 'TXT', 'CNAME', 'SOA']
+  const requestedType = args.find(a => types.includes(a.toUpperCase()))?.toUpperCase() ?? 'A'
+  const now = new Date().toUTCString().slice(0, -4)
+
+  const sectionFor = (type: string): string[] => {
+    if (type === 'A') return [`${domain}.\t\t300\tIN\tA\t93.184.216.34`]
+    if (type === 'AAAA') return [`${domain}.\t\t300\tIN\tAAAA\t2606:2800:220:1:248:1893:25c8:1946`]
+    if (type === 'MX') return [
+      `${domain}.\t\t3600\tIN\tMX\t10 mail.${domain}.`,
+      `${domain}.\t\t3600\tIN\tMX\t20 backup-mail.${domain}.`,
+    ]
+    if (type === 'NS') return [
+      `${domain}.\t\t86400\tIN\tNS\tns1.${domain}.`,
+      `${domain}.\t\t86400\tIN\tNS\tns2.${domain}.`,
+    ]
+    if (type === 'TXT') return [`${domain}.\t\t300\tIN\tTXT\t"v=spf1 include:_spf.example.com ~all"`]
+    if (type === 'CNAME') return [`www.${domain}.\t300\tIN\tCNAME\t${domain}.`]
+    return [`${domain}.\t\t3600\tIN\tSOA\tns1.${domain}. admin.${domain}. 2024011501 7200 3600 1209600 300`]
+  }
+
+  return [
+    '',
+    '; <<>> DiG 9.18.24 <<>> ' + (requestedType !== 'A' ? `${domain} ${requestedType}` : domain),
+    ';; global options: +cmd',
+    ';; Got answer:',
+    ';; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: ' + (10000 + (nextDyn() % 50000)),
+    ';; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0',
+    '',
+    ';; QUESTION SECTION:',
+    `;${domain}.\t\t\tIN\t${requestedType}`,
+    '',
+    ';; ANSWER SECTION:',
+    ...sectionFor(requestedType),
+    '',
+    ';; Query time: ' + (12 + (nextDyn() % 30)) + ' msec',
+    ';; SERVER: 10.0.2.2#53(10.0.2.2)',
+    `;; WHEN: ${now}+0000`,
+    ';; MSG SIZE  rcvd: 56',
+    '',
+  ]
+}
+
+function cmdNslookup(args: string[]): string[] {
+  const domain = args.find(a => !a.startsWith('-') && a.includes('.')) ?? 'example.com'
+  return [
+    `Server:		10.0.2.2`,
+    `Address:	10.0.2.2#53`,
+    '',
+    'Non-authoritative answer:',
+    `Name:	${domain}`,
+    `Address: 93.184.216.34`,
+    `Name:	${domain}`,
+    `Address: 2606:2800:220:1:248:1893:25c8:1946`,
   ]
 }
 
@@ -1126,56 +1504,12 @@ function cmdSudo(args: string[], _ctx: CommandContext): string[] {
 }
 
 function cmdMan(args: string[]): string[] {
-  const pages: Record<string, string[]> = {
-    grep: [
-      '\x1b[1mGREP(1)\x1b[0m — Search files for a pattern',
-      '',
-      'USAGE: grep [OPTION]... PATTERN [FILE]...',
-      '',
-      '  -i   Case-insensitive',
-      '  -n   Show line numbers',
-      '  -r   Recurse into subdirectories',
-      '  -v   Invert match',
-      '  -c   Count only',
-      '  -l   List filenames only',
-    ],
-    find: [
-      '\x1b[1mFIND(1)\x1b[0m — Walk a file hierarchy',
-      '',
-      'USAGE: find [PATH] [OPTION]',
-      '',
-      '  -name "*.txt"   Name pattern',
-      '  -type f         Files only',
-      '  -type d         Directories only',
-      '  -perm -4000     SUID bit set',
-      '  2>/dev/null     Suppress errors',
-    ],
-    chmod: [
-      '\x1b[1mCHMOD(1)\x1b[0m — Change file permissions',
-      '',
-      'USAGE: chmod [MODE] FILE',
-      '',
-      '  +x  Add execute',
-      '  -x  Remove execute',
-      '  755 rwxr-xr-x (script default)',
-      '  644 rw-r--r--  (file default)',
-      '  400 r--------  (read-only owner)',
-      '  777 rwxrwxrwx  (full access)',
-    ],
-    awk: [
-      '\x1b[1mAWK(1)\x1b[0m — Pattern scanning and processing',
-      '',
-      "USAGE: awk 'PROGRAM' [FILE]",
-      '',
-      "  '{print $1}'                First column",
-      "  '{print $NF}'               Last column",
-      "  '{sum+=$1} END{print sum}'  Sum",
-      "  '/PATTERN/{print}'          Lines matching",
-    ],
-  }
-
-  const page = pages[args[0] ?? '']
-  if (!page) return [`\x1b[31mman: '${args[0]}': no manual entry\x1b[0m`]
+  // Optional section number: `man 5 fstab`, `man 1 ls`. Skip leading numeric.
+  const filtered = args.filter(a => !/^\d+$/.test(a))
+  const target = filtered[0] ?? ''
+  if (!target) return ['What manual page do you want?', 'For example, try \'man man\'.']
+  const page = getManPage(target)
+  if (!page) return [`\x1b[31mNo manual entry for ${target}\x1b[0m`]
   return page
 }
 
