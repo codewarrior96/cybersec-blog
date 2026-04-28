@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import AnsiText from './AnsiText'
 import { runCommand, VALID_FLAGS } from '@/lib/lab/engine'
@@ -163,6 +163,13 @@ export default function Terminal({
   // ── Tab completion cycle ───────────────────────────────────────────────────
   const tabCycleRef = useRef<{ original: string; matches: string[]; idx: number } | null>(null)
 
+  // ── FLIP transition refs (lift / dock animation) ──────────────────────────
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  // Pre-mode-change rect snapshot. When set, the next layout effect runs FLIP.
+  const flipFromRectRef = useRef<DOMRect | null>(null)
+  // True while a CSS transform transition is interpolating the terminal.
+  const animatingRef = useRef(false)
+
   const cwdRef = useRef(cwd)
   const wsRef = useRef<WebSocket | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -316,6 +323,8 @@ export default function Terminal({
     // Don't start drag if user clicked a window-action button
     const target = event.target as HTMLElement
     if (target.closest('.lab-terminal__window-dot')) return
+    // Don't start drag while a FLIP transition is interpolating the element
+    if (animatingRef.current) return
     event.preventDefault()
     dragStateRef.current = {
       kind: 'move',
@@ -329,6 +338,7 @@ export default function Terminal({
   const onResizeMouseDown = useCallback((event: React.MouseEvent) => {
     if (windowMode !== 'floating') return
     if (event.button !== 0) return
+    if (animatingRef.current) return
     event.preventDefault()
     event.stopPropagation()
     dragStateRef.current = {
@@ -375,9 +385,24 @@ export default function Terminal({
     }
   }, [windowMode])
 
-  const handleClose = useCallback(() => setWindowMode('inline'), [])
-  const handleMinimize = useCallback(() => setWindowMode('minimized'), [])
+  // Snapshot the terminal's current bounding rect so the next render can FLIP
+  // back to it. Skipped if no DOM ref or transitioning into/out of minimized
+  // (minimized has its own CSS transition, see CP3).
+  const captureFlipRect = useCallback(() => {
+    if (rootRef.current && windowMode !== 'minimized') {
+      flipFromRectRef.current = rootRef.current.getBoundingClientRect()
+    }
+  }, [windowMode])
+
+  const handleClose = useCallback(() => {
+    captureFlipRect()
+    setWindowMode('inline')
+  }, [captureFlipRect])
+  const handleMinimize = useCallback(() => {
+    setWindowMode('minimized')
+  }, [])
   const togglePopout = useCallback(() => {
+    captureFlipRect()
     setWindowMode(prev => {
       if (prev === 'floating') return 'inline'
       if (prev === 'inline') {
@@ -393,7 +418,72 @@ export default function Terminal({
       // From minimized → restore to floating
       return 'floating'
     })
-  }, [popoutSize.w, popoutSize.h])
+  }, [captureFlipRect, popoutSize.w, popoutSize.h])
+
+  // FLIP animation: after each mode-change render, if a from-rect was
+  // captured, compute the inverted transform and play the transition.
+  useLayoutEffect(() => {
+    const fromRect = flipFromRectRef.current
+    flipFromRectRef.current = null
+    const root = rootRef.current
+    if (!fromRect || !root) return
+
+    // Respect prefers-reduced-motion: skip animation entirely.
+    if (typeof window !== 'undefined' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return
+    }
+
+    const toRect = root.getBoundingClientRect()
+    if (toRect.width === 0 || toRect.height === 0) return
+    const dx = fromRect.left - toRect.left
+    const dy = fromRect.top - toRect.top
+    const sx = fromRect.width / toRect.width
+    const sy = fromRect.height / toRect.height
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1
+        && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) {
+      return
+    }
+
+    // Apply inverted transform IMMEDIATELY (no transition) so the element
+    // visually stays at its old position.
+    animatingRef.current = true
+    root.style.transformOrigin = '0 0'
+    root.style.transition = 'transform 0s'
+    root.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+    root.style.willChange = 'transform'
+
+    const cleanup = (event?: TransitionEvent) => {
+      if (event && event.propertyName !== 'transform') return
+      if (!root) return
+      root.style.transition = ''
+      root.style.transform = ''
+      root.style.transformOrigin = ''
+      root.style.willChange = ''
+      animatingRef.current = false
+      root.removeEventListener('transitionend', cleanup as EventListener)
+    }
+
+    // Force layout flush, then on next frame (double-rAF to guarantee a
+    // paint occurred at the inverted position) remove the transform with
+    // a CSS transition — browser interpolates back to natural position.
+    void root.offsetWidth
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!root) return
+        root.style.transition = 'transform 300ms cubic-bezier(0.22, 1, 0.36, 1)'
+        root.style.transform = 'translate(0, 0) scale(1, 1)'
+        root.addEventListener('transitionend', cleanup as EventListener)
+      })
+    })
+
+    // Safety net in case transitionend never fires (display:none, etc.)
+    const safety = window.setTimeout(() => cleanup(), 700)
+    return () => {
+      window.clearTimeout(safety)
+      root.removeEventListener('transitionend', cleanup as EventListener)
+    }
+  }, [windowMode])
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     // ── Ctrl+R: reverse history search overlay ─────────────────────────────
@@ -593,11 +683,27 @@ export default function Terminal({
             box-shadow: 0 8px 24px rgb(0 0 0 / 0.6), 0 0 18px rgb(0 255 65 / 0.18);
             backdrop-filter: blur(8px);
             z-index: 50;
+            transform-origin: 100% 100%;
+            animation: lab-terminal-min-in 160ms cubic-bezier(0.22, 1, 0.36, 1);
             transition: transform 0.18s ease, border-color 0.18s ease;
+          }
+          @keyframes lab-terminal-min-in {
+            from { transform: scale(0.85); opacity: 0; }
+            to   { transform: scale(1);    opacity: 1; }
           }
           .lab-terminal__min-tab:hover {
             transform: translateY(-2px);
             border-color: rgb(0 255 65 / 0.6);
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .lab-terminal__min-tab,
+            .lab-terminal__inline-placeholder {
+              animation: none !important;
+              transition: none !important;
+            }
+            .lab-terminal__placeholder-dot {
+              animation: none !important;
+            }
           }
           .lab-terminal__min-dot {
             width: 8px;
@@ -640,17 +746,10 @@ export default function Terminal({
       }
     : {}
 
-  const inlinePlaceholder = isFloating ? (
-    <div className="lab-terminal__inline-placeholder" onClick={() => setWindowMode('inline')}>
-      <span className="lab-terminal__placeholder-dot" />
-      Terminal popped out — click to dock
-    </div>
-  ) : null
-
   return (
     <>
-      {inlinePlaceholder}
       <div
+        ref={rootRef}
         className="lab-terminal"
         onClick={() => inputRef.current?.focus()}
         style={floatingStyle}
