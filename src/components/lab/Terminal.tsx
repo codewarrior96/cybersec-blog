@@ -521,13 +521,6 @@ export default function Terminal({
 
   const { label: wsLabel, color: wsColor } = WS_META[wsStatus]
   const prompt = buildPrompt(cwd)
-  const quickActions = [
-    { label: 'Help Index', command: 'help' },
-    { label: 'Challenge Deck', command: 'cd challenges && cat README.txt' },
-    { label: 'Tool Shelf', command: 'ls /opt/tools' },
-    { label: 'Return Home', command: 'cd /home/operator' },
-  ]
-  const shellLabel = wsStatus === 'simulated' ? 'Training runtime' : 'Remote shell link'
   const bufferEmpty = lines.length === 0
   const showWelcomeState = bufferEmpty && history.length === 0
   const showClearedState = bufferEmpty && history.length > 0
@@ -701,43 +694,7 @@ export default function Terminal({
         </div>
       </div>
 
-      <div className="lab-terminal__meta">
-        <div className="lab-terminal__meta-cluster">
-          <div className="lab-terminal__chip">
-            <span className="lab-terminal__chip-label">Runtime</span>
-            <span className="lab-terminal__chip-value">{shellLabel}</span>
-          </div>
-          <div className="lab-terminal__chip">
-            <span className="lab-terminal__chip-label">Workspace</span>
-            <span className="lab-terminal__chip-value">{cwd.replace(HOME, '~') || '~'}</span>
-          </div>
-          <div className="lab-terminal__chip">
-            <span className="lab-terminal__chip-label">History</span>
-            <span className="lab-terminal__chip-value">{history.length} commands</span>
-          </div>
-        </div>
-        <span className="lab-terminal__meta-shortcut">TAB complete - Ctrl+L clear - Ctrl+C reset input</span>
-      </div>
-
       <div className="lab-terminal__body">
-        <div className="lab-terminal__action-row">
-          {quickActions.map(action => (
-            <button
-              key={action.command}
-              type="button"
-              className="lab-terminal__action-card"
-              onMouseDown={event => event.preventDefault()}
-              onClick={() => {
-                execute(action.command, 'assisted')
-                inputRef.current?.focus()
-              }}
-            >
-              <span className="lab-terminal__action-title">{action.label}</span>
-              <span className="lab-terminal__action-command">{action.command}</span>
-            </button>
-          ))}
-        </div>
-
         <div className="lab-terminal__viewport-shell">
           <div className="lab-terminal__viewport-glow" />
           <div className="lab-terminal__scanlines" />
@@ -747,7 +704,7 @@ export default function Terminal({
                 <span className="lab-terminal__welcome-kicker">Breach Lab</span>
                 <strong className="lab-terminal__welcome-title">Operator console is live and ready.</strong>
                 <p className="lab-terminal__welcome-copy">
-                  Use the command deck for guided exploration or drop straight into a custom workflow below.
+                  Type <code>help</code> for the command index, <code>man &lt;cmd&gt;</code> for reference pages.
                 </p>
               </div>
             ) : showClearedState ? (
@@ -822,7 +779,6 @@ export default function Terminal({
         }
 
         .lab-terminal__chrome,
-        .lab-terminal__meta,
         .lab-terminal__dock {
           position: relative;
           z-index: 1;
@@ -907,55 +863,6 @@ export default function Terminal({
           text-transform: uppercase;
         }
 
-        .lab-terminal__meta {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          padding: 12px 16px;
-          border-bottom: 1px solid rgb(var(--route-accent-rgb) / 0.08);
-          background: linear-gradient(180deg, rgb(6 12 10 / 0.94), rgb(5 9 8 / 0.88));
-        }
-
-        .lab-terminal__meta-cluster {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
-        }
-
-        .lab-terminal__chip {
-          display: inline-flex;
-          align-items: baseline;
-          gap: 8px;
-          padding: 8px 11px;
-          border: 1px solid rgb(255 255 255 / 0.07);
-          border-radius: 999px;
-          background: linear-gradient(180deg, rgb(255 255 255 / 0.028), rgb(255 255 255 / 0.012));
-          box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03);
-        }
-
-        .lab-terminal__chip-label {
-          color: rgb(var(--route-muted-rgb) / 0.54);
-          font-size: 9px;
-          font-weight: 700;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-        }
-
-        .lab-terminal__chip-value {
-          color: rgb(226 232 240 / 0.84);
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.03em;
-        }
-
-        .lab-terminal__meta-shortcut {
-          color: rgb(var(--route-muted-rgb) / 0.48);
-          font-size: 10px;
-          letter-spacing: 0.05em;
-          white-space: nowrap;
-        }
-
         .lab-terminal__body {
           position: relative;
           z-index: 1;
@@ -965,69 +872,6 @@ export default function Terminal({
           flex-direction: column;
           gap: 12px;
           padding: 14px;
-        }
-
-        .lab-terminal__action-row {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 10px;
-        }
-
-        .lab-terminal__action-card {
-          position: relative;
-          overflow: hidden;
-          display: flex;
-          min-width: 0;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 8px;
-          padding: 12px 14px;
-          border: 1px solid rgb(var(--route-accent-rgb) / 0.14);
-          border-radius: 16px;
-          background:
-            linear-gradient(180deg, rgb(var(--route-accent-rgb) / 0.11), rgb(var(--route-accent-rgb) / 0.04)),
-            linear-gradient(180deg, rgb(255 255 255 / 0.02), rgb(255 255 255 / 0.005));
-          color: inherit;
-          text-align: left;
-          transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
-          cursor: pointer;
-        }
-
-        .lab-terminal__action-card::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(120deg, transparent 20%, rgb(255 255 255 / 0.11) 50%, transparent 80%);
-          opacity: 0;
-          transform: translateX(-120%);
-          transition: transform 280ms ease, opacity 180ms ease;
-          pointer-events: none;
-        }
-
-        .lab-terminal__action-card:hover {
-          transform: translateY(-1px);
-          border-color: rgb(var(--route-accent-rgb) / 0.28);
-          box-shadow: 0 18px 28px rgb(0 0 0 / 0.22), 0 0 0 1px rgb(var(--route-accent-rgb) / 0.08);
-        }
-
-        .lab-terminal__action-card:hover::after {
-          opacity: 1;
-          transform: translateX(110%);
-        }
-
-        .lab-terminal__action-title {
-          color: rgb(240 253 244 / 0.96);
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-        }
-
-        .lab-terminal__action-command {
-          color: rgb(191 219 254 / 0.72);
-          font-size: 11px;
-          line-height: 1.5;
-          word-break: break-word;
         }
 
         .lab-terminal__viewport-shell {
@@ -1219,22 +1063,6 @@ export default function Terminal({
           font-size: 10px;
           letter-spacing: 0.08em;
           white-space: nowrap;
-        }
-
-        @media (max-width: 1100px) {
-          .lab-terminal__meta {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-
-          .lab-terminal__meta-shortcut {
-            white-space: normal;
-          }
-
-          .lab-terminal__action-row {
-            grid-template-columns: 1fr;
-          }
-
         }
 
         /* ── Reverse history search overlay (Ctrl+R) ──────────────── */
