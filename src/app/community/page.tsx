@@ -322,11 +322,15 @@ export default function LabPage() {
   function handleReplayChallenge(level: number) {
     const challenge = CHALLENGES.find(c => c.level === level)
     if (!challenge) return
-    if (!(evidenceLog instanceof RingEvidenceLog)) return
-    // Re-arm the gate at a fresh cursor and clear completion state for this
-    // level (keep unlock so the operator can replay without redoing prereqs).
-    const cursor = evidenceLog.nextEventId()
-    setStartedAt(prev => ({ ...prev, [level]: cursor }))
+    // Clear the gate so the card returns to NOT STARTED. The operator must
+    // click "Start Challenge" again to arm a fresh cursor — symmetric with
+    // the rest of the start-gate flow. Unlock is intentionally preserved.
+    setStartedAt(prev => {
+      if (prev[level] === undefined) return prev
+      const next = { ...prev }
+      delete next[level]
+      return next
+    })
     setSubmittedFlags(prev => {
       if (!prev.has(challenge.flagKey)) return prev
       const next = new Set(prev)
