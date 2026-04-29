@@ -1,6 +1,12 @@
 import type { EvidencePrimitive } from '../evidence'
 import type { ValidationContract } from './types'
 
+// ─── L1: RECONNAISSANCE ──────────────────────────────────────────────────────
+//
+// Each "sufficient" group expresses a complete, observable command pattern.
+// The engine emits the underlying primitives (command_executed_with_args,
+// file_read, pipeline_used) universally; no CTF-specific inference required.
+
 const passwdLineCountViaPipeline: readonly EvidencePrimitive[] = [
   { type: 'file_read', path: '/etc/passwd', via: 'cat' },
   { type: 'command_executed_with_args', command: 'wc', args: ['-l'] },
@@ -16,7 +22,6 @@ const passwdLineCountViaWc: readonly EvidencePrimitive[] = [
     pathArgs: [{ index: 1, pathMatch: 'exact' }],
   },
   { type: 'file_read', path: '/etc/passwd', via: 'wc' },
-  { type: 'fact_derived', fact: 'passwd_line_count', method: 'wc' },
 ]
 
 const passwdLineCountViaAwk: readonly EvidencePrimitive[] = [
@@ -28,7 +33,6 @@ const passwdLineCountViaAwk: readonly EvidencePrimitive[] = [
     pathArgs: [{ index: 1, pathMatch: 'exact' }],
   },
   { type: 'file_read', path: '/etc/passwd', via: 'awk' },
-  { type: 'fact_derived', fact: 'passwd_line_count', method: 'awk' },
 ]
 
 const passwdLineCountViaGrep: readonly EvidencePrimitive[] = [
@@ -40,7 +44,6 @@ const passwdLineCountViaGrep: readonly EvidencePrimitive[] = [
     pathArgs: [{ index: 1, pathMatch: 'exact' }],
   },
   { type: 'file_read', path: '/etc/passwd', via: 'grep' },
-  { type: 'fact_derived', fact: 'passwd_line_count', method: 'grep' },
 ]
 
 const passwdLineCountSolutions = [
@@ -49,6 +52,8 @@ const passwdLineCountSolutions = [
   passwdLineCountViaAwk,
   passwdLineCountViaGrep,
 ] as const
+
+// ─── L2: FILE PERMISSIONS ────────────────────────────────────────────────────
 
 const chmodSecretExecutable: EvidencePrimitive = {
   type: 'command_executed_with_args',
@@ -71,12 +76,17 @@ const submitLevel2Flag: EvidencePrimitive = {
   flag: 'FLAG{ch4mod_p3rm1ss10ns}',
 }
 
+// ─── L5: PRIVILEGE ESCALATION ────────────────────────────────────────────────
+
 const sudoListPrivileges: EvidencePrimitive = {
   type: 'command_executed_with_args',
   command: 'sudo',
   args: ['-l'],
 }
 
+// `sudo find … -exec cat …` IS the privesc vector — the underlying
+// command pattern is the contract's source of truth (no fact_derived
+// inference needed; pattern is fully declarative).
 const sudoFindExecCatPrivescFlag: EvidencePrimitive = {
   type: 'command_executed_with_args',
   command: 'sudo',
@@ -84,16 +94,12 @@ const sudoFindExecCatPrivescFlag: EvidencePrimitive = {
   argMatch: 'ordered_subsequence',
 }
 
-const privescViaSudoFind: EvidencePrimitive = {
-  type: 'fact_derived',
-  fact: 'privesc_via_sudo_find',
-  method: 'sudo-find-exec',
-}
-
 const submitLevel5Flag: EvidencePrimitive = {
   type: 'flag_submitted',
   flag: 'FLAG{pr1v3sc_r00t_0wn3d}',
 }
+
+// ─── L3: HIDDEN FILES ────────────────────────────────────────────────────────
 
 const hiddenListViaLa: readonly EvidencePrimitive[] = [
   { type: 'command_executed_with_args', command: 'ls', args: ['-l', '-a'] },
@@ -113,6 +119,8 @@ const submitLevel3Flag: EvidencePrimitive = {
   type: 'flag_submitted',
   flag: 'FLAG{h1dden_1n_pl41n_s1ght}',
 }
+
+// ─── L4: GREP MASTER ─────────────────────────────────────────────────────────
 
 const grepFlagAccessLog: readonly EvidencePrimitive[] = [
   {
@@ -149,31 +157,24 @@ const submitLevel4Flag: EvidencePrimitive = {
   flag: 'FLAG{gr3p_1s_p0w3r}',
 }
 
-const suspiciousPortDiscovered: EvidencePrimitive = {
-  type: 'fact_derived',
-  fact: 'suspicious_port_4444',
-}
+// ─── L6: NETWORK ANALYSIS ────────────────────────────────────────────────────
+//
+// Port discovery (ss/netstat) and log correlation (grep on syslog) used to be
+// expressed as `fact_derived` inferences emitted by the engine. They are now
+// captured declaratively by the underlying universal primitives the engine
+// already emits for every command.
 
-const backdoorInvestigated: EvidencePrimitive = {
-  type: 'fact_derived',
-  fact: 'backdoor_investigated',
-  method: 'grep-syslog',
-}
+const netstatRun: EvidencePrimitive = { type: 'command_executed', command: 'netstat' }
+const ssRun: EvidencePrimitive = { type: 'command_executed', command: 'ss' }
 
 const submitLevel6Flag: EvidencePrimitive = {
   type: 'flag_submitted',
   flag: 'FLAG{n3tw0rk_m4st3r_2024}',
 }
 
-const networkDiscoveryViaSs: readonly EvidencePrimitive[] = [
-  { type: 'command_executed', command: 'ss' },
-  suspiciousPortDiscovered,
-]
+const networkDiscoveryViaSs: readonly EvidencePrimitive[] = [ssRun]
 
-const networkDiscoveryViaNetstat: readonly EvidencePrimitive[] = [
-  { type: 'command_executed', command: 'netstat' },
-  suspiciousPortDiscovered,
-]
+const networkDiscoveryViaNetstat: readonly EvidencePrimitive[] = [netstatRun]
 
 const backdoorGrepViaPort: readonly EvidencePrimitive[] = [
   {
@@ -184,7 +185,6 @@ const backdoorGrepViaPort: readonly EvidencePrimitive[] = [
     pathArgs: [{ index: 1, pathMatch: 'exact' }],
   },
   { type: 'file_read', path: '/var/log/syslog', via: 'grep' },
-  backdoorInvestigated,
 ]
 
 const backdoorGrepViaLabel: readonly EvidencePrimitive[] = [
@@ -196,7 +196,6 @@ const backdoorGrepViaLabel: readonly EvidencePrimitive[] = [
     pathArgs: [{ index: 1, pathMatch: 'exact' }],
   },
   { type: 'file_read', path: '/var/log/syslog', via: 'grep' },
-  backdoorInvestigated,
 ]
 
 export const challengeContracts: Partial<Record<number, ValidationContract>> = {
@@ -269,7 +268,6 @@ export const challengeContracts: Partial<Record<number, ValidationContract>> = {
       submitLevel5Flag,
       sudoListPrivileges,
       sudoFindExecCatPrivescFlag,
-      privescViaSudoFind,
     ],
   },
   6: {
@@ -277,8 +275,6 @@ export const challengeContracts: Partial<Record<number, ValidationContract>> = {
     levelTitle: 'NETWORK ANALYSIS',
     required: [
       submitLevel6Flag,
-      suspiciousPortDiscovered,
-      backdoorInvestigated,
     ],
     sufficient: [
       [...networkDiscoveryViaSs, ...backdoorGrepViaPort],
@@ -292,9 +288,10 @@ export const challengeContracts: Partial<Record<number, ValidationContract>> = {
           path: '/var/log/syslog',
           pathMatch: 'exact',
         },
-        all: [
-          suspiciousPortDiscovered,
-          backdoorInvestigated,
+        // Port discovery (any of ss/netstat) must precede the syslog read.
+        anyOf: [
+          [ssRun],
+          [netstatRun],
         ],
       },
     ],

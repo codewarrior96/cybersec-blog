@@ -1,4 +1,4 @@
-import { registerAll, getCommand, registerCommand } from './registry'
+import { registerAll, getCommand, registerCommand, listRegistryCommandNames } from './registry'
 import { clearHandler } from './system/clear'
 import { helpHandler } from './system/help'
 import { historyHandler } from './system/history'
@@ -22,5 +22,5 @@ if (process.env.NODE_ENV !== 'production') {
     })
 }
 
-export { getCommand, registerCommand, registerAll }
+export { getCommand, registerCommand, registerAll, listRegistryCommandNames }
 export type { CommandHandler, CommandResult, SideEffect, CommandCategory } from './types'

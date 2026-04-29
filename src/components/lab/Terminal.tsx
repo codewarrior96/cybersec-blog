@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import AnsiText from './AnsiText'
-import { runCommand, VALID_FLAGS } from '@/lib/lab/engine'
+import { runCommand, VALID_FLAGS, getKnownCommands } from '@/lib/lab/engine'
 import { deserializeEvidenceLog, evidenceStorageKey, serializeEvidenceLog } from '@/lib/lab/evidence'
 import { resolvePath, getNode } from '@/lib/lab/filesystem'
 import { initMutableFs } from '@/lib/lab/mutation'
@@ -31,35 +31,11 @@ function buildPrompt(cwd: string): string {
   return `\x1b[1;32moperator\x1b[0m@\x1b[1;36mbreach-lab\x1b[0m:\x1b[1;34m${cwd.replace(HOME, '~')}\x1b[0m$ `
 }
 
-// Known top-level commands the engine routes (registry + switch-case + manpages).
-// Hardcoded because the engine uses a switch — no introspection API. Keep
-// alphabetically sorted for clean cycle order.
-const KNOWN_COMMANDS: readonly string[] = [
-  'aircrack-ng', 'aireplay-ng', 'airodump-ng', 'amass', 'arp', 'awk',
-  'base64', 'bash', 'binwalk', 'burp', 'burpsuite',
-  'cat', 'cd', 'chmod', 'chown', 'clear', 'crontab', 'curl',
-  'date', 'df', 'dig', 'dirb', 'du',
-  'echo', 'enum4linux', 'env', 'exit',
-  'ffuf', 'file', 'find', 'free', 'ftp',
-  'gdb', 'ghidra', 'gobuster', 'grep',
-  'hashcat', 'head', 'help', 'history', 'hostname', 'htop', 'hydra',
-  'id', 'ifconfig', 'iostat', 'ip',
-  'john',
-  'kill',
-  'last', 'logout', 'ls', 'lsof',
-  'man', 'marketplace', 'mkdir', 'modules', 'mount', 'msfconsole', 'msfvenom', 'mv',
-  'nc', 'netcat', 'netstat', 'nikto', 'nmap', 'nslookup', 'nuclei',
-  'options',
-  'ping', 'ps', 'pwd', 'python', 'python3',
-  'r2', 'radare2', 'recon-ng', 'responder', 'rm', 'route', 'rsync',
-  'scp', 'sed', 'sessions', 'shodan', 'sort', 'sqlmap', 'ss', 'ssh',
-  'ssh2john', 'stat', 'strings', 'sublist3r', 'submit', 'sudo',
-  'tail', 'tar', 'tcpdump', 'telnet', 'theharvester', 'top', 'touch', 'traceroute', 'tree', 'tshark',
-  'umount', 'uname', 'uniq', 'unshadow', 'uptime', 'use',
-  'vmstat',
-  'w', 'wfuzz', 'wget', 'which', 'who', 'whoami', 'wireshark', 'wpscan',
-  'xxd',
-]
+// Tab completion list — derived from the engine via getKnownCommands().
+// Source of truth lives in src/lib/lab/engine.ts (SWITCH_COMMAND_TOKENS +
+// registry + DEFAULT_BRANCH_TOKENS). Adding a new command to the engine
+// automatically expands tab completion without a second-list update.
+const KNOWN_COMMANDS: readonly string[] = getKnownCommands()
 
 interface TabResult {
   value: string

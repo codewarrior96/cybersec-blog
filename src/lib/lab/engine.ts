@@ -1,5 +1,5 @@
 import { resolvePath, getNode, basename, colorEntry } from './filesystem'
-import { getCommand } from './commands'
+import { getCommand, listRegistryCommandNames } from './commands'
 import type { EvidenceEvent, EvidenceLog, EvidencePrimitive } from './evidence'
 import { applyMutation, getMutableNode } from './mutation'
 import { getManPage } from './manpages'
@@ -14,7 +14,6 @@ export interface RevealHooks {
 }
 
 let nextEvidenceEventId = 0
-const SYSLOG_PATH = '/var/log/syslog'
 
 // ─── Valid CTF Flags ──────────────────────────────────────────────────────────
 
@@ -26,6 +25,64 @@ export const VALID_FLAGS: ReadonlySet<string> = new Set([
   'FLAG{pr1v3sc_r00t_0wn3d}',
   'FLAG{n3tw0rk_m4st3r_2024}',
 ])
+
+// ─── Known Commands (single source of truth for tab completion) ──────────────
+//
+// Tokens dispatched by the runSingle switch-case. When you add a new `case`
+// arm in runSingle, add the token here too — they MUST stay synchronized.
+// The verifyRegistry helper validates the registry side; this array covers
+// the remaining switch arms.
+//
+// Stage 3 (Block C): replaces the hand-maintained KNOWN_COMMANDS list that
+// previously lived in components/lab/Terminal.tsx. Terminal now imports
+// getKnownCommands() — adding a tool here automatically expands tab
+// completion without a second-list update.
+const SWITCH_COMMAND_TOKENS: readonly string[] = [
+  'help', 'clear', 'history', 'pwd', 'whoami', 'id', 'hostname',
+  'date', 'uptime', 'uname', 'env',
+  'ls', 'cd', 'cat', 'grep', 'find', 'tree',
+  'wc', 'head', 'tail', 'sort', 'uniq', 'awk', 'sed',
+  'strings', 'xxd', 'base64', 'file', 'stat', 'echo',
+  'chmod', 'mkdir', 'touch', 'rm', 'mv',
+  'ps', 'top', 'htop', 'du', 'df', 'free', 'vmstat', 'iostat', 'lsof', 'mount',
+  'who', 'w', 'last',
+  'ifconfig', 'ip', 'netstat', 'ss', 'route', 'arp',
+  'traceroute', 'tracepath', 'dig', 'nslookup', 'ping',
+  'curl', 'wget', 'sudo', 'man', 'which', 'crontab',
+  'bash', 'python', 'python3', 'submit', 'exit', 'logout',
+  // Security tools (simulated)
+  'nmap', 'wpscan', 'nikto', 'sqlmap',
+  'gobuster', 'dirb', 'wfuzz', 'ffuf',
+  'hydra', 'hashcat', 'john', 'ssh2john', 'unshadow',
+  'msfconsole', 'msfvenom',
+  'aircrack-ng', 'airodump-ng', 'aireplay-ng',
+  'enum4linux', 'responder', 'nuclei',
+  'amass', 'sublist3r', 'recon-ng',
+  'wireshark', 'tcpdump', 'tshark',
+  'shodan', 'theharvester', 'binwalk', 'gdb',
+  'netcat', 'nc', 'ssh', 'ftp', 'telnet',
+  'burpsuite', 'burp', 'ghidra', 'radare2', 'r2',
+] as const
+
+// Tokens recognized by the default-branch in runSingle (mimikatz `::` syntax,
+// msfconsole/recon-ng REPL inner verbs). They produce friendly stub output
+// rather than "command not found".
+const DEFAULT_BRANCH_TOKENS: readonly string[] = [
+  'search', 'use', 'marketplace', 'modules', 'options', 'sessions',
+] as const
+
+/**
+ * Returns every command the engine recognizes — registry + switch-case +
+ * default-branch verbs — deduplicated and sorted alphabetically. Consumed by
+ * Terminal.tsx for tab completion.
+ */
+export function getKnownCommands(): readonly string[] {
+  const seen = new Set<string>()
+  for (const name of listRegistryCommandNames()) seen.add(name.toLowerCase())
+  for (const name of SWITCH_COMMAND_TOKENS) seen.add(name)
+  for (const name of DEFAULT_BRANCH_TOKENS) seen.add(name)
+  return Array.from(seen).sort()
+}
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -312,16 +369,12 @@ function runSingle(
   }
   })()
 
-  // ============================================================
-  // TEMPORARY: 01-recon hybrid mode bridge
-  // ============================================================
-  // The five commands below (cat, wc, grep, awk, submit) have not yet been
-  // migrated to the registry but must still emit evidence so 01-recon's
-  // hybrid validation passes. This inference is a deliberate exception to
-  // the "switch-case fallback emits no primitives" rule. Will be removed
-  // once those handlers move into the registry.
-  // ============================================================
-  const primitives = inferSwitchEvidence(cmd, args, cwdBefore, ctx)
+  // Universal switch-case evidence: command_executed, command_executed_with_args,
+  // flag_submitted, file_read (cat/wc/grep/awk), file_modified_perms, security_tool_used.
+  // CTF-specific inferences (passwd_line_count, privesc_via_sudo_find, suspicious_port_4444,
+  // backdoor_investigated) used to live here as a transitional shim — they are now
+  // captured declaratively in validation/contracts.ts via the underlying primitives.
+  const primitives = emitSwitchBaseEvidence(cmd, args, ctx)
 
   let finalOutput = output
   if (emitEvent) {
@@ -481,7 +534,18 @@ function isSudoFindExecCat(args: string[]): boolean {
   return args.includes('-exec') && args.includes('cat')
 }
 
-function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string, ctx: CommandContext): EvidencePrimitive[] {
+/**
+ * Emit universal evidence for any switch-case command. Returns base primitives
+ * (command_executed, command_executed_with_args, flag_submitted) plus any
+ * universally-applicable side-effect primitives (file_read for read tools,
+ * file_modified_perms for chmod, security_tool_used for sudo).
+ *
+ * This function is intentionally CTF-agnostic: validation contracts in
+ * validation/contracts.ts express challenge-specific patterns declaratively
+ * over these primitives. Adding new CTF rules here is a smell — extend the
+ * contract instead.
+ */
+function emitSwitchBaseEvidence(cmd: string, args: string[], ctx: CommandContext): EvidencePrimitive[] {
   const primitives: EvidencePrimitive[] = [{ type: 'command_executed', command: cmd }]
 
   if (args.length > 0) {
@@ -511,60 +575,27 @@ function inferSwitchEvidence(cmd: string, args: string[], cwdBefore: string, ctx
 
   if (cmd === 'sudo') {
     primitives.push({ type: 'security_tool_used', tool: 'sudo' })
-
     if (isSudoFindExecCat(args)) {
-      primitives.push(
-        { type: 'security_tool_used', tool: 'find' },
-        { type: 'fact_derived', fact: 'privesc_via_sudo_find', method: 'sudo-find-exec' },
-      )
-    }
-  }
-
-  if (cmd === 'find') {
-    const permIdx = args.indexOf('-perm')
-    if (permIdx >= 0 && args[permIdx + 1] === '-4000') {
-      primitives.push({ type: 'fact_derived', fact: 'suid_discovered', method: 'find-perm-4000' })
+      primitives.push({ type: 'security_tool_used', tool: 'find' })
     }
   }
 
   if (cmd === 'wc') {
-    const fl = flags(args)
     const target = nonFlags(args)[0]
     const path = existingFilePath(ctx, target)
     if (path) primitives.push({ type: 'file_read', path, via: 'wc' })
-    if (fl.includes('l') && path === '/etc/passwd') {
-      primitives.push({ type: 'fact_derived', fact: 'passwd_line_count', method: 'wc' })
-    }
   }
 
   if (cmd === 'grep') {
-    const fl = flags(args)
-    const nf = nonFlags(args)
-    const pattern = nf[0] ?? ''
-    const target = nf[1]
+    const target = nonFlags(args)[1]
     const path = existingFilePath(ctx, target)
     if (path) primitives.push({ type: 'file_read', path, via: 'grep' })
-    if (fl.includes('c') && path === '/etc/passwd') {
-      primitives.push({ type: 'fact_derived', fact: 'passwd_line_count', method: 'grep' })
-    }
-    if (path === SYSLOG_PATH && /4444|BACKDOOR/i.test(pattern)) {
-      primitives.push({ type: 'fact_derived', fact: 'backdoor_investigated', method: 'grep-syslog' })
-    }
-  }
-
-  if (cmd === 'netstat' || cmd === 'ss') {
-    primitives.push({ type: 'fact_derived', fact: 'suspicious_port_4444', method: cmd })
   }
 
   if (cmd === 'awk') {
-    const nf = nonFlags(args)
-    const program = nf[0] ?? ''
-    const target = nf[1]
+    const target = nonFlags(args)[1]
     const path = existingFilePath(ctx, target)
     if (path) primitives.push({ type: 'file_read', path, via: 'awk' })
-    if (program.includes('END') && program.includes('NR') && path === '/etc/passwd') {
-      primitives.push({ type: 'fact_derived', fact: 'passwd_line_count', method: 'awk' })
-    }
   }
 
   return primitives

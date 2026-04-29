@@ -31,3 +31,8 @@ export function registerAll(handlers: readonly CommandHandler[]): void {
     registerCommand(handler)
   }
 }
+
+/** Returns every registered command name (including aliases). */
+export function listRegistryCommandNames(): string[] {
+  return Array.from(registry.keys())
+}
