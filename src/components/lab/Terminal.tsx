@@ -153,9 +153,15 @@ export default function Terminal({
 
   cwdRef.current = cwd
 
+  // Cross-panel command injection: Tools "⌨ Terminal" button and Curriculum
+  // practice button surface a command into the terminal input — they DO NOT
+  // auto-execute. The operator inspects, edits if needed, and presses Enter.
+  // Auto-run was a UX bug: clicking a tool example bypassed CTF challenges by
+  // emitting evidence the operator never typed.
   useEffect(() => {
     if (!pendingCommand || !isActive) return
-    execute(pendingCommand.cmd, 'assisted')
+    setInput(pendingCommand.cmd)
+    inputRef.current?.focus()
     onCommandConsumed?.()
   }, [pendingCommand?.id, isActive]) // eslint-disable-line react-hooks/exhaustive-deps
 
