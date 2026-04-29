@@ -30,6 +30,16 @@ export class RingEvidenceLog implements EvidenceLog {
       .filter(event => event.id < eventId)
       .some(event => event.primitives.some(actual => matchPrimitive(expected, actual)))
   }
+
+  /**
+   * The id the next appended event should carry. Computed from the latest
+   * retained event's id + 1, or 0 for an empty log. Used as the cursor for
+   * per-challenge "started at" gates so prior evidence cannot bypass a
+   * not-yet-started CTF challenge.
+   */
+  nextEventId(): number {
+    return (this.events.at(-1)?.id ?? -1) + 1
+  }
 }
 
 export function serializeEvidenceLog(log: EvidenceLog): string {

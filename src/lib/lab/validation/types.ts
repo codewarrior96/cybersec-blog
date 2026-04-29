@@ -31,4 +31,12 @@ export interface ValidationResult {
   missing: readonly EvidencePrimitive[]
   forbidden: readonly EvidencePrimitive[]
   temporalFailures: readonly RequiresBeforeReadingClause[]
+  /**
+   * True iff at least one `sufficient` group was satisfied (or the contract
+   * has no `sufficient` clause). Surfaces the gating bit that `passed`
+   * collapses, so the reveal detector can decline to fire when missing
+   * primitives are only `flag_submitted` BUT no sufficient evidence path
+   * has actually been walked yet.
+   */
+  sufficientMet: boolean
 }

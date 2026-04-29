@@ -8,6 +8,7 @@ const emptyResult: ValidationResult = {
   missing: [],
   forbidden: [],
   temporalFailures: [],
+  sufficientMet: false,
 }
 
 export function validateChallengeWithMode(

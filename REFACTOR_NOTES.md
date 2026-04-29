@@ -35,6 +35,27 @@
 - **Source of truth:** `engine.ts` içinde `SWITCH_COMMAND_TOKENS` + `DEFAULT_BRANCH_TOKENS` sabit dizileri (switch-case'in yanında, eşleşik tutulması için yorumlu) ve `commands/registry.ts:listRegistryCommandNames()`.
 - **DURUM:** ✅ DONE — Block C tamamlanma yolu kapatıldı. Yeni komut eklerken Terminal.tsx'i güncellemek gerekmiyor; engine'deki tek liste yeterli.
 
+## Per-Challenge Start Gate — Cross-Context Bypass Fix
+
+- **Tarih:** 2026-04-29
+- **Sebep:** CTF L1 (RECONNAISSANCE) `required: []` + sufficient'i hiç çalıştırılmadan önce reveal banner verebiliyordu. Daha kötüsü, Curriculum lesson'da veya serbest terminalde `cat /etc/passwd | wc -l` çalıştırmak CTF L1'i otomatik tamamlıyor; kart "AUTO-COMPLETED" olarak görünüp eğitim akışını geçersiz kılıyordu.
+- **Kök neden (4 katman):**
+  1. Tek global `RingEvidenceLog` — tüm sekmeler aynı log'u paylaşıyor.
+  2. `runRevealCheck` her komut sonrası context-agnostic olarak unlocked level'ları doğruluyor.
+  3. `detectRevealEvent` `ValidationResult.passed`'i değil, sadece `missing/forbidden/temporal`'ı kontrol ediyordu — `sufficient` düşse de fire ediyordu.
+  4. localStorage `breach-flags` kalıcı, ne reset ne replay vardı.
+- **Çözüm — Seçenek A (Per-Challenge Start Gate):**
+  - `EvidenceLog.nextEventId()` helper.
+  - `engine.syncEventIdCounter(floor)` — page mount'ta deserialized log'dan engine counter'ı senkronize eder; reload sonrası id collision'ını önler.
+  - `validateContract(contract, log, sinceEventId?)` — opsiyonel cursor parametresi, log'u `event.id >= sinceEventId` filtresinden geçirir. `ValidationResult.sufficientMet: boolean` alanı eklendi (gerçek "user walked the path" sinyali).
+  - `detectRevealEvent({ ..., startedAtEventId? })` — gate'li doğrulama + `sufficientMet=false`'ta erken return.
+  - `RevealHooks.startedAt?: Record<level, eventId>` — engine.runRevealCheck per-level cursor okur.
+  - `page.tsx`: `startedAt` state + `breach-started-at` localStorage anahtarı. "▶ START CHALLENGE" / "↻ REPLAY" butonları. Card 4 durum: LOCKED / NOT STARTED / IN PROGRESS / COMPLETED.
+- **Migration:** Mount sırasında `submittedFlags` içinde flag'i olan ama `startedAt` kaydı bulunmayan level'lara sentinel `-1` atanır. Detector bu sentinel'i "legacy completion, do not re-fire" olarak yorumlar — mevcut kullanıcılar deploy sonrası banner spam'i ile karşılaşmaz, kart direkt COMPLETED + Replay olarak render olur.
+- **Trade-off:** Gate temporal — contextual değil. Kullanıcı L1'i Start ettikten sonra Curriculum sekmesine geçip orada `cat /etc/passwd | wc -l` çalıştırırsa, o event'ler `id >= startedAt[1]` olduğu için L1 reveal'ı tetikler. Strict context isolation (per-tab evidence log) gelecek bir bloğa ertelendi.
+- **Test net'i:** `src/lib/lab/__tests__/cross-context-bypass.test.ts` — 3 test (TEST-FIRST, baseline FAIL → fix sonrası PASS): pre-start bypass yok, post-start fire çalışıyor, legacy sentinel re-fire suppress ediyor.
+- **DURUM:** ✅ Working tree'de + commit edildi.
+
 ## Block C Stage 1 — content.ts Split
 
 - **Tarih:** 2026-04-29

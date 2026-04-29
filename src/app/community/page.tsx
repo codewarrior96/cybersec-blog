@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { TOOLS, CHALLENGES, TOOL_CATEGORIES, TRAINING_SETS } from '@/lib/lab/content'
-import { VALID_FLAGS, isValidFlag } from '@/lib/lab/engine'
+import { VALID_FLAGS, isValidFlag, syncEventIdCounter } from '@/lib/lab/engine'
 import { RingEvidenceLog } from '@/lib/lab/evidence'
 import { validateChallengeWithMode } from '@/lib/lab/validation/adapter'
 import { challengeContracts } from '@/lib/lab/validation/contracts'
@@ -48,7 +48,11 @@ const STORAGE_KEYS = {
   unlocked: 'breach-unlocked',
   hints: 'breach-hints',
   flags: 'breach-flags',
+  startedAt: 'breach-started-at',
 } as const
+
+/** Sentinel meaning "completed via legacy localStorage; no fresh cursor". */
+const LEGACY_COMPLETED_SENTINEL = -1
 
 const LAB_HOME = '/home/operator'
 const DEFAULT_VISIBLE_SUBMITTED_FLAGS = new Set<string>()
@@ -93,6 +97,25 @@ function readStoredStringSet(key: string): Set<string> {
     return new Set(parsed)
   } catch {
     return new Set()
+  }
+}
+
+function readStoredNumberMap(key: string): Record<number, number> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return {}
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    const entries = Object.entries(parsed).map(([level, value]) => {
+      const numericLevel = Number(level)
+      const numericValue = typeof value === 'number' ? value : Number(value)
+      return [numericLevel, numericValue] as const
+    })
+    if (entries.some(([level, value]) => Number.isNaN(level) || Number.isNaN(value))) return {}
+    return Object.fromEntries(entries)
+  } catch {
+    return {}
   }
 }
 
@@ -157,11 +180,31 @@ export default function LabPage() {
   // ── CTF ilerleme (localStorage kalıcı) ───────────────────────────────────
   const [unlockedLevels, setUnlockedLevels] = useState<Set<number>>(new Set([1]))
   const [revealedHints,  setRevealedHints]  = useState<Record<number, number>>({})
+  const [startedAt,      setStartedAt]      = useState<Record<number, number>>({})
 
   useEffect(() => {
-    setSubmittedFlags(readStoredStringSet(STORAGE_KEYS.flags))
-    setUnlockedLevels(readStoredNumberSet(STORAGE_KEYS.unlocked, [1]))
-    setRevealedHints(readStoredHintMap(STORAGE_KEYS.hints))
+    const flags = readStoredStringSet(STORAGE_KEYS.flags)
+    const unlocked = readStoredNumberSet(STORAGE_KEYS.unlocked, [1])
+    const hints = readStoredHintMap(STORAGE_KEYS.hints)
+    const persistedStartedAt = readStoredNumberMap(STORAGE_KEYS.startedAt)
+
+    setSubmittedFlags(flags)
+    setUnlockedLevels(unlocked)
+    setRevealedHints(hints)
+
+    // Legacy migration: pre-startGate users have submittedFlags but no
+    // startedAt entries. Synthesize the LEGACY_COMPLETED_SENTINEL so the
+    // detector recognises completion without re-firing the banner. Only
+    // fill levels that are present in submittedFlags AND not yet tracked
+    // in persistedStartedAt — preserves any explicit Start clicks.
+    const migrated: Record<number, number> = { ...persistedStartedAt }
+    for (const ch of CHALLENGES) {
+      if (flags.has(ch.flagKey) && migrated[ch.level] === undefined) {
+        migrated[ch.level] = LEGACY_COMPLETED_SENTINEL
+      }
+    }
+    setStartedAt(migrated)
+
     setMounted(true)
   }, [])
 
@@ -185,6 +228,23 @@ export default function LabPage() {
       localStorage.setItem(STORAGE_KEYS.flags, JSON.stringify(Array.from(submittedFlags)))
     } catch { /* ignore */ }
   }, [mounted, submittedFlags])
+
+  useEffect(() => {
+    if (!mounted) return
+    try {
+      localStorage.setItem(STORAGE_KEYS.startedAt, JSON.stringify(startedAt))
+    } catch { /* ignore */ }
+  }, [mounted, startedAt])
+
+  // Sync engine's monotonic event id counter to the deserialized log so
+  // startedAt cursors captured this session compare correctly against
+  // events emitted from now on.
+  useEffect(() => {
+    if (!mounted) return
+    if (evidenceLog instanceof RingEvidenceLog) {
+      syncEventIdCounter(evidenceLog.nextEventId())
+    }
+  }, [mounted, evidenceLog])
 
   // ── Global flag submit ───────────────────────────────────────────────────
   function handleFlagSubmit(flag: string) {
@@ -252,6 +312,29 @@ export default function LabPage() {
     })
   }
 
+  // ── Per-challenge start gate handlers ─────────────────────────────────────
+  function handleStartChallenge(level: number) {
+    if (!(evidenceLog instanceof RingEvidenceLog)) return
+    const cursor = evidenceLog.nextEventId()
+    setStartedAt(prev => ({ ...prev, [level]: cursor }))
+  }
+
+  function handleReplayChallenge(level: number) {
+    const challenge = CHALLENGES.find(c => c.level === level)
+    if (!challenge) return
+    if (!(evidenceLog instanceof RingEvidenceLog)) return
+    // Re-arm the gate at a fresh cursor and clear completion state for this
+    // level (keep unlock so the operator can replay without redoing prereqs).
+    const cursor = evidenceLog.nextEventId()
+    setStartedAt(prev => ({ ...prev, [level]: cursor }))
+    setSubmittedFlags(prev => {
+      if (!prev.has(challenge.flagKey)) return prev
+      const next = new Set(prev)
+      next.delete(challenge.flagKey)
+      return next
+    })
+  }
+
   // ── Hint reveal ──────────────────────────────────────────────────────────
   function revealNextHint(level: number) {
     setRevealedHints(prev => {
@@ -287,6 +370,7 @@ export default function LabPage() {
     setEvidenceLog,
     unlockedLevels: visibleUnlockedLevels,
     alreadyRevealed,
+    startedAt,
   }
 
   function renderContent(tab: ContentTab, isMobile = false) {
@@ -314,11 +398,14 @@ export default function LabPage() {
         revealedHints={visibleRevealedHints}
         submittedFlags={visibleSubmittedFlags}
         validationMessages={ctfValidationMessages}
+        startedAt={startedAt}
         onFlagSubmit={handleCTFFlag}
         onSendCommand={isMobile
           ? cmd => { sendToTerminal(cmd); setMobileTab('terminal') }
           : sendToTerminal}
         onRevealHint={revealNextHint}
+        onStartChallenge={handleStartChallenge}
+        onReplayChallenge={handleReplayChallenge}
       />
     )
     return null
@@ -493,16 +580,20 @@ function MobileBottomNav({ activeTab, onTabChange }: {
 // ─── CTF Tab ─────────────────────────────────────────────────────────────────
 
 function CTFTab({
-  unlockedLevels, revealedHints, submittedFlags,
+  unlockedLevels, revealedHints, submittedFlags, startedAt,
   validationMessages, onFlagSubmit, onSendCommand, onRevealHint,
+  onStartChallenge, onReplayChallenge,
 }: {
   unlockedLevels: Set<number>
   revealedHints: Record<number, number>
   submittedFlags: Set<string>
+  startedAt: Record<number, number>
   validationMessages: Record<number, string>
   onFlagSubmit: (flag: string, level: number) => CTFSubmitState
   onSendCommand: (cmd: string) => void
   onRevealHint: (level: number) => void
+  onStartChallenge: (level: number) => void
+  onReplayChallenge: (level: number) => void
 }) {
   const completed = CHALLENGES.filter(ch => submittedFlags.has(ch.flagKey)).length
 
@@ -545,11 +636,14 @@ function CTFTab({
               challenge={ch}
               isUnlocked={unlockedLevels.has(ch.level)}
               isCompleted={submittedFlags.has(ch.flagKey)}
+              isStarted={startedAt[ch.level] !== undefined}
               hintsRevealed={revealedHints[ch.level] ?? 0}
               validationMessage={validationMessages[ch.level]}
               onFlagSubmit={flag => onFlagSubmit(flag, ch.level)}
               onSendCommand={() => onSendCommand(`cd /home/operator/${ch.path}`)}
               onRevealHint={() => onRevealHint(ch.level)}
+              onStartChallenge={() => onStartChallenge(ch.level)}
+              onReplayChallenge={() => onReplayChallenge(ch.level)}
             />
           ))}
         </div>
@@ -570,17 +664,22 @@ function splitHintSegments(hint: string): HintSegment[] {
 }
 
 function ChallengeCard({
-  challenge: ch, isUnlocked, isCompleted, hintsRevealed,
+  challenge: ch, isUnlocked, isCompleted, isStarted, hintsRevealed,
   validationMessage, onFlagSubmit, onSendCommand, onRevealHint,
+  onStartChallenge, onReplayChallenge,
 }: {
   challenge: Challenge
   isUnlocked: boolean
   isCompleted: boolean
+  /** True when the operator clicked Start — gate is armed; events count. */
+  isStarted: boolean
   hintsRevealed: number
   validationMessage?: string
   onFlagSubmit: (flag: string) => CTFSubmitState
   onSendCommand: () => void
   onRevealHint: () => void
+  onStartChallenge: () => void
+  onReplayChallenge: () => void
 }) {
   const [flagInput,  setFlagInput]  = useState('')
   const [submitState, setSubmitState] = useState<'idle' | CTFSubmitState>('idle')
@@ -646,16 +745,48 @@ function ChallengeCard({
         </p>
       </div>
 
-      {/* Card body */}
+      {/* Card body — 4 states: LOCKED / COMPLETED / NOT STARTED / IN PROGRESS */}
       {!isUnlocked ? (
         <div style={{ padding: '0.85rem 1.1rem', color: 'rgba(148,163,184,0.4)', fontSize: 11, fontStyle: 'italic' }}>
           Complete the previous mission to unlock this one.
         </div>
       ) : isCompleted ? (
-        <div style={{ padding: '0.85rem 1.1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ padding: '0.85rem 1.1rem', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ color: 'rgb(var(--route-accent-rgb))', fontSize: 14 }}>✓</span>
-          <span style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 12, fontWeight: 700, letterSpacing: '0.1em' }}>AUTO-COMPLETED</span>
-          <code style={{ marginLeft: 'auto', color: 'rgba(0,255,65,0.5)', fontSize: 10 }}>{ch.flagKey}</code>
+          <span style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 12, fontWeight: 700, letterSpacing: '0.1em' }}>COMPLETED</span>
+          <code style={{ color: 'rgba(0,255,65,0.5)', fontSize: 10 }}>{ch.flagKey}</code>
+          <button
+            onClick={onReplayChallenge}
+            style={{
+              marginLeft: 'auto', padding: '4px 10px', borderRadius: 4, cursor: 'pointer',
+              background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
+              color: '#f59e0b', fontSize: 10, fontFamily: 'inherit', fontWeight: 700,
+              outline: 'none', letterSpacing: '0.08em',
+            }}
+            title="Reset and replay this challenge with a fresh evidence gate"
+          >
+            ↻ REPLAY
+          </button>
+        </div>
+      ) : !isStarted ? (
+        <div style={{ padding: '0.85rem 1.1rem', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <p style={{ color: 'rgba(148,163,184,0.7)', fontSize: 11, margin: 0, lineHeight: 1.5 }}>
+            Press <strong style={{ color: 'rgb(var(--route-accent-rgb))' }}>Start Challenge</strong> to arm the
+            evidence gate for this mission. Only commands you run after starting will count toward the flag —
+            this prevents cross-context auto-completes from earlier terminal use.
+          </p>
+          <button
+            onClick={onStartChallenge}
+            style={{
+              padding: '8px 14px', borderRadius: 5, cursor: 'pointer',
+              background: 'rgb(var(--route-accent-rgb) / 0.12)', border: '1px solid rgba(0,255,65,0.35)',
+              color: 'rgb(var(--route-accent-rgb))', fontSize: 12, fontFamily: 'inherit', fontWeight: 800,
+              display: 'flex', alignItems: 'center', gap: 8, width: 'fit-content',
+              outline: 'none', letterSpacing: '0.08em',
+            }}
+          >
+            <span>▶</span> START CHALLENGE
+          </button>
         </div>
       ) : (
         <div style={{ padding: '0.85rem 1.1rem', display: 'flex', flexDirection: 'column', gap: 10 }}>

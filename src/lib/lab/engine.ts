@@ -11,9 +11,39 @@ export interface RevealHooks {
   evidenceLog: EvidenceLog
   unlockedLevels: ReadonlySet<number>
   alreadyRevealed: ReadonlySet<number>
+  /**
+   * Per-challenge start gate map: level → event id cursor captured when the
+   * user clicked "Start Challenge" for that level. Detector evaluates each
+   * level's contract only against events with `id >= startedAt[level]`.
+   *
+   * Sentinel -1 = legacy migration: the level was completed before the
+   * gate existed; preserve completion, suppress re-fire.
+   * Missing entry = level not started yet → detector treats as "no events
+   * count" by gating with `log.nextEventId()` (effectively a future cursor
+   * → empty filtered window → contract cannot pass).
+   */
+  startedAt?: Readonly<Record<number, number>>
 }
 
 let nextEvidenceEventId = 0
+
+/**
+ * Sync the engine's event id counter to a known floor — typically called
+ * from the page on mount with `log.nextEventId()` after deserializing
+ * events from localStorage. Without this sync, the in-memory counter
+ * resets to 0 on reload while persisted events keep their old ids,
+ * which breaks `startedAt` cursors for the per-challenge gate.
+ *
+ * Tests also use this to reset to a clean baseline between scenarios.
+ */
+export function syncEventIdCounter(floor: number): void {
+  if (floor > nextEvidenceEventId) {
+    nextEvidenceEventId = floor
+  } else if (floor === 0) {
+    // Test-only branch: explicit reset to zero baseline.
+    nextEvidenceEventId = 0
+  }
+}
 
 // ─── Valid CTF Flags ──────────────────────────────────────────────────────────
 
@@ -427,6 +457,19 @@ function runRevealCheck(
     const contract = challengeContracts[level]
     if (!contract || !contract.expectedFlag || !contract.levelTitle) continue
 
+    // Per-challenge gate semantics:
+    //   reveal.startedAt undefined        → no gate (legacy callers, tests)
+    //   reveal.startedAt[level] undefined → level not started → block reveal
+    //                                        with +Infinity cursor (no event
+    //                                        id satisfies `>= +Infinity`)
+    //   reveal.startedAt[level] = N       → gate evaluation to events.id >= N
+    //   reveal.startedAt[level] = -1      → legacy migration sentinel
+    let startedAtEventId: number | undefined
+    if (reveal.startedAt) {
+      const entry = reveal.startedAt[level]
+      startedAtEventId = entry === undefined ? Number.POSITIVE_INFINITY : entry
+    }
+
     const nextContract = challengeContracts[level + 1]
     const revealEvent = detectRevealEvent({
       level,
@@ -436,6 +479,7 @@ function runRevealCheck(
       levelTitle: contract.levelTitle,
       nextLevelTitle: nextContract?.levelTitle ?? null,
       alreadyRevealed: localRevealed,
+      startedAtEventId,
     })
 
     if (!revealEvent) continue

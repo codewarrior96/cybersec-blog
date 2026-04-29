@@ -96,6 +96,8 @@ interface Props {
   setEvidenceLog: Dispatch<SetStateAction<EvidenceLog>>
   unlockedLevels: ReadonlySet<number>
   alreadyRevealed: ReadonlySet<number>
+  /** Per-challenge start gate map; see engine.ts RevealHooks. */
+  startedAt?: Readonly<Record<number, number>>
 }
 
 export default function Terminal({
@@ -120,6 +122,7 @@ export default function Terminal({
   setEvidenceLog,
   unlockedLevels,
   alreadyRevealed,
+  startedAt,
 }: Props) {
   const resolvedWsUrl = wsUrl ?? process.env.NEXT_PUBLIC_TERMINAL_WS
   const [wsStatus, setWsStatus] = useState<WsStatus>('simulated')
@@ -265,6 +268,7 @@ export default function Terminal({
       evidenceLog,
       unlockedLevels,
       alreadyRevealed,
+      startedAt,
     })
 
     if (output[0] === '__CLEAR__') {
@@ -296,7 +300,7 @@ export default function Terminal({
       output,
       timestamp: Date.now(),
     })
-  }, [evidenceLog, unlockedLevels, alreadyRevealed, handleEvidenceEvent, history, onCommandExecuted, onFlagSubmit, setCwd, setHistory, setInput, setLines])
+  }, [evidenceLog, unlockedLevels, alreadyRevealed, startedAt, handleEvidenceEvent, history, onCommandExecuted, onFlagSubmit, setCwd, setHistory, setInput, setLines])
 
   // ── Popout window handlers ───────────────────────────────────────────────
   const onChromeMouseDown = useCallback((event: React.MouseEvent) => {
