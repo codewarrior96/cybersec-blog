@@ -2418,4 +2418,24 @@
   .lab-tools-search-input {
     min-height: 44px !important;
   }
+
+  /* M1 — Section labels: TRAINING SETS / OPERATION BRIEFING / LEARNING MODEL /
+     LESSONS COMPLETED / PRACTICE MISSIONS / COMPLETED counter (was 9-10px).
+     Uppercase tracking is wide; trim letter-spacing slightly so the bumped
+     12px does not push labels onto a second line in narrow cards. */
+  .lab-section-label {
+    font-size: 12px !important;
+    letter-spacing: 0.14em !important;
+  }
+
+  /* M3 — Difficulty pills EASY / MEDIUM / HARD + their N/M counters (was 10px). */
+  .lab-difficulty-pill {
+    font-size: 12px !important;
+  }
+
+  /* Bonus — Set-tab inner counter (e.g. "0/11"). Sits next to a 12px set
+     name; bump from 9 → 11 so it stays subordinate but readable. */
+  .lab-set-tab-counter {
+    font-size: 11px !important;
+  }
 }

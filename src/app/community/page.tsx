@@ -607,7 +607,7 @@ function CTFTab({
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
           <div>
-            <p style={{ color: 'rgb(var(--route-accent-rgb) / 0.65)', fontSize: 10, letterSpacing: '0.2em', margin: '0 0 4px' }}>
+            <p className="lab-section-label" style={{ color: 'rgb(var(--route-accent-rgb) / 0.65)', fontSize: 10, letterSpacing: '0.2em', margin: '0 0 4px' }}>
               PRACTICE MISSIONS
             </p>
             <h2 style={{ color: '#e2e8f0', fontWeight: 800, fontSize: 20, fontFamily: 'inherit', margin: 0 }}>
@@ -619,7 +619,7 @@ function CTFTab({
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 20, fontWeight: 800 }}>{completed}/{CHALLENGES.length}</div>
-            <div style={{ color: 'rgb(var(--route-muted-rgb) / 0.72)', fontSize: 10, letterSpacing: '0.1em' }}>COMPLETED</div>
+            <div className="lab-section-label" style={{ color: 'rgb(var(--route-muted-rgb) / 0.72)', fontSize: 10, letterSpacing: '0.1em' }}>COMPLETED</div>
           </div>
         </div>
 
@@ -1086,7 +1086,7 @@ function CurriculumTab({ onSendCommand, terminalExecutions }: { onSendCommand: (
         borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.9rem' }}>
           <div>
-            <p style={{ color: 'rgba(0,255,65,0.5)', fontSize: 9, letterSpacing: '0.18em', margin: 0 }}>TRAINING SETS</p>
+            <p className="lab-section-label" style={{ color: 'rgba(0,255,65,0.5)', fontSize: 9, letterSpacing: '0.18em', margin: 0 }}>TRAINING SETS</p>
             <h2 style={{ color: '#e2e8f0', fontSize: 15, fontWeight: 800, margin: '2px 0 0', letterSpacing: '0.04em' }}>
               Learning Path
             </h2>
@@ -1094,7 +1094,7 @@ function CurriculumTab({ onSendCommand, terminalExecutions }: { onSendCommand: (
           <div style={{ textAlign: 'right' }}>
             <span style={{ color: 'rgb(var(--route-accent-rgb) / 0.82)', fontSize: 18, fontWeight: 800 }}>{totalCompleted}</span>
             <span style={{ color: '#475569', fontSize: 12 }}>/{totalLessons}</span>
-            <p style={{ color: '#475569', fontSize: 9, margin: '2px 0 0', letterSpacing: '0.1em' }}>LESSONS COMPLETED</p>
+            <p className="lab-section-label" style={{ color: '#475569', fontSize: 9, margin: '2px 0 0', letterSpacing: '0.1em' }}>LESSONS COMPLETED</p>
           </div>
         </div>
 
@@ -1122,7 +1122,8 @@ function CurriculumTab({ onSendCommand, terminalExecutions }: { onSendCommand: (
                 <span>{unlocked ? set.icon : '🔒'}</span>
                 <span>{set.title}</span>
                 {unlocked && (
-                  <span style={{ fontSize: 9, background: done ? `${set.color}20` : 'rgba(255,255,255,0.06)',
+                  <span className="lab-set-tab-counter"
+                    style={{ fontSize: 9, background: done ? `${set.color}20` : 'rgba(255,255,255,0.06)',
                     color: done ? set.color : '#475569', border: `1px solid ${done ? set.color + '30' : 'transparent'}`,
                     borderRadius: 3, padding: '1px 5px' }}>
                     {prog}/{set.lessons.length}
@@ -1153,6 +1154,7 @@ function CurriculumTab({ onSendCommand, terminalExecutions }: { onSendCommand: (
               const unlocked = isDifficultyUnlocked(currentSet, d, completed)
               return (
                 <button key={d} onClick={() => { if (unlocked) setActiveDiff(d) }} disabled={!unlocked}
+                  className="lab-difficulty-pill"
                   style={{ padding: '3px 10px', borderRadius: 5,
                     background: activeDiff === d ? m.bg : 'transparent',
                     border: `1px solid ${activeDiff === d ? m.color + '50' : 'rgba(255,255,255,0.07)'}`,
@@ -1188,7 +1190,7 @@ function CurriculumTab({ onSendCommand, terminalExecutions }: { onSendCommand: (
                 padding: '1rem 1.1rem',
               }}>
                 <div>
-                  <p style={{ color: currentSet.color, fontSize: 9, letterSpacing: '0.2em', margin: '0 0 6px', fontWeight: 800 }}>
+                  <p className="lab-section-label" style={{ color: currentSet.color, fontSize: 9, letterSpacing: '0.2em', margin: '0 0 6px', fontWeight: 800 }}>
                     OPERATION BRIEFING
                   </p>
                   <h3 style={{ color: '#f8fafc', fontSize: 18, lineHeight: 1.25, margin: 0, fontWeight: 800 }}>
@@ -1205,7 +1207,7 @@ function CurriculumTab({ onSendCommand, terminalExecutions }: { onSendCommand: (
                     padding: '0.85rem 0.9rem',
                     background: 'rgba(255,255,255,0.02)',
                   }}>
-                    <p style={{ color: '#64748b', fontSize: 9, fontWeight: 800, letterSpacing: '0.18em', margin: '0 0 8px' }}>
+                    <p className="lab-section-label" style={{ color: '#64748b', fontSize: 9, fontWeight: 800, letterSpacing: '0.18em', margin: '0 0 8px' }}>
                       LEARNING MODEL
                     </p>
                     <p style={{ color: 'rgba(226,232,240,0.8)', fontSize: 11, lineHeight: 1.7, margin: 0 }}>
