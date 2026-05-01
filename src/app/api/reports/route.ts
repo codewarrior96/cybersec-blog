@@ -47,6 +47,12 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  const guard = await requireSession(request)
+  if (guard.response) return guard.response
+  if (!guard.session) {
+    return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(request.url)
   const limitRaw = Number(searchParams.get('limit') ?? 20)
   const limit = Number.isFinite(limitRaw) ? Math.min(50, Math.max(1, Math.trunc(limitRaw))) : 20
