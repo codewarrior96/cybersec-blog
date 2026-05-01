@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSession } from '@/lib/api-auth'
 import { createSignedObjectUrl, isSupabaseAppStateEnabled } from '@/lib/supabase-app-state'
 import * as supabaseStore from '@/lib/soc-store-supabase'
 import { getPortfolioProfile } from '@/lib/soc-store-adapter'
@@ -13,9 +14,15 @@ function parseUserId(value: string): number | null {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ userId: string }> | { userId: string } },
 ) {
+  const guard = await requireSession(request)
+  if (guard.response) return guard.response
+  if (!guard.session) {
+    return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 })
+  }
+
   const params = await Promise.resolve(context.params)
   const userId = parseUserId(params.userId)
   if (!userId) {

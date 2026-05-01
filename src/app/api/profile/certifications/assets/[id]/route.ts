@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSession } from '@/lib/api-auth'
 import { createSignedObjectUrl, isSupabaseAppStateEnabled } from '@/lib/supabase-app-state'
 import * as supabaseStore from '@/lib/soc-store-supabase'
 import { getPortfolioCertificationById } from '@/lib/soc-store-adapter'
@@ -13,9 +14,15 @@ function parseId(value: string): number | null {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> | { id: string } },
 ) {
+  const guard = await requireSession(request)
+  if (guard.response) return guard.response
+  if (!guard.session) {
+    return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 })
+  }
+
   const params = await Promise.resolve(context.params)
   const certificationId = parseId(params.id)
   if (!certificationId) {
@@ -27,6 +34,19 @@ export async function GET(
     : await getPortfolioCertificationById(certificationId)
   if (!certification?.assetPath) {
     return NextResponse.json({ error: 'Sertifika dokumani bulunamadi.' }, { status: 404 })
+  }
+
+  // Ownership gate. Replicates the userId check from the PATCH cert route
+  // (api/profile/certifications/[id]/route.ts:37). Spec directs an explicit
+  // 403 with the error string below — diverges from PATCH's 404 (which
+  // collapses unauthorized into not-found to mask existence). Numeric IDs
+  // are already enumerable so existence-masking has limited value here;
+  // explicit 403 is clearer feedback for legitimate misuse.
+  if (certification.userId !== guard.session.user.id) {
+    return NextResponse.json(
+      { error: 'Bu sertifikaya erisim yetkiniz yok.' },
+      { status: 403 },
+    )
   }
 
   try {
