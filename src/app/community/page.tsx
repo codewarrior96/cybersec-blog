@@ -37,11 +37,16 @@ const CONTENT_TABS: { id: ContentTab; icon: string; label: string }[] = [
   { id: 'ctf',        icon: '##', label: 'CTF Missions'  },
 ]
 
+// Mobile bottom-nav: 3 tabs only. Terminal is reachable on mobile via the
+// floating ⌨ FAB (renders inside the mobile shell, persistent across these
+// 3 content tabs). The 'terminal' MobileTab variant is preserved in the type
+// for back-compat — programmatic state changes still type-check — but the
+// `mobileTab === 'terminal'` branch in the mobile shell is now unreachable
+// from user input; the FAB-driven overlay handles all mobile terminal access.
 const MOBILE_TABS: { id: MobileTab; icon: string; label: string }[] = [
   { id: 'curriculum', icon: '[]', label: 'Curriculum' },
   { id: 'tools',      icon: '{}', label: 'Tools'      },
   { id: 'ctf',        icon: '##', label: 'CTF'        },
-  { id: 'terminal',   icon: '>_', label: 'Terminal'   },
 ]
 
 const STORAGE_KEYS = {
@@ -149,6 +154,11 @@ export default function LabPage() {
   const [mounted,        setMounted]        = useState(false)
   const [contentTab,     setContentTab]     = useState<ContentTab>('curriculum')
   const [mobileTab,      setMobileTab]      = useState<MobileTab>('curriculum')
+  // Floating ⌨ terminal overlay (mobile-only, < 768px). The Terminal component
+  // is mounted once inside the sheet and stays mounted across open/close so
+  // input/history/lines/cwd state survives. Visibility controlled via CSS
+  // transform on the .lab-mobile-terminal-sheet wrapper.
+  const [mobileTerminalOpen, setMobileTerminalOpen] = useState(false)
   const [submittedFlags, setSubmittedFlags] = useState<Set<string>>(new Set())
   const [evidenceLog,    setEvidenceLog]    = useState<EvidenceLog>(new RingEvidenceLog())
   const [ctfValidationMessages, setCtfValidationMessages] = useState<Record<number, string>>({})
@@ -382,7 +392,7 @@ export default function LabPage() {
       <CurriculumTab
         terminalExecutions={terminalExecutions}
         onSendCommand={isMobile
-        ? cmd => { sendToTerminal(cmd); setMobileTab('terminal') }
+        ? cmd => { sendToTerminal(cmd); setMobileTerminalOpen(true) }
         : sendToTerminal}
       />
     )
@@ -390,7 +400,7 @@ export default function LabPage() {
       <ToolsTab
         initialToolId={selectedToolId}
         onSendCommand={isMobile
-          ? cmd => { sendToTerminal(cmd); setMobileTab('terminal') }
+          ? cmd => { sendToTerminal(cmd); setMobileTerminalOpen(true) }
           : sendToTerminal}
         onSelectTool={setSelectedToolId}
         isMobile={isMobile}
@@ -405,7 +415,7 @@ export default function LabPage() {
         startedAt={startedAt}
         onFlagSubmit={handleCTFFlag}
         onSendCommand={isMobile
-          ? cmd => { sendToTerminal(cmd); setMobileTab('terminal') }
+          ? cmd => { sendToTerminal(cmd); setMobileTerminalOpen(true) }
           : sendToTerminal}
         onRevealHint={revealNextHint}
         onStartChallenge={handleStartChallenge}
@@ -462,20 +472,61 @@ export default function LabPage() {
       <div className="community-shell flex md:hidden flex-col" style={shellStyle}>
         <MobileTopBar activeTab={mobileTab} progress={progress} total={total} />
         <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {mobileTab === 'terminal'
-            ? <Terminal
-                {...terminalSessionProps}
-                isActive={mobileTab === 'terminal'}
-                pendingCommand={pendingCommand}
-                onCommandConsumed={handleCommandConsumed}
-                onFlagSubmit={handleTerminalFlagSubmit}
-                onFlagRevealed={handleTerminalFlagRevealed}
-                onCommandExecuted={handleCommandExecuted}
-              />
-            : renderContent(mobileTab as ContentTab, true)
-          }
+          {renderContent(mobileTab as ContentTab, true)}
         </div>
         <MobileBottomNav activeTab={mobileTab} onTabChange={setMobileTab} />
+
+        {/* Mobile-only floating ⌨ terminal FAB. Hidden when the overlay is
+            open (avoids overlap) and when the user is reading a tool detail
+            (avoids overlap with the "← Tool list" back button). */}
+        {!mobileTerminalOpen && !(mobileTab === 'tools' && selectedToolId) && (
+          <button
+            type="button"
+            className="lab-mobile-terminal-fab"
+            aria-label="Open terminal"
+            onClick={() => setMobileTerminalOpen(true)}
+          >
+            <span aria-hidden="true">⌨</span>
+          </button>
+        )}
+
+        {/* Mobile-only terminal overlay. Backdrop + slide-up sheet. The
+            Terminal component lives inside the sheet and stays mounted —
+            state (input, history, output, cwd) survives across open/close. */}
+        <div
+          className="lab-mobile-terminal-backdrop"
+          data-open={mobileTerminalOpen ? 'true' : 'false'}
+          onClick={() => setMobileTerminalOpen(false)}
+          aria-hidden={!mobileTerminalOpen}
+        />
+        <div
+          className="lab-mobile-terminal-sheet"
+          data-open={mobileTerminalOpen ? 'true' : 'false'}
+          role="dialog"
+          aria-modal={mobileTerminalOpen}
+          aria-label="Operator terminal"
+          aria-hidden={!mobileTerminalOpen}
+        >
+          <button
+            type="button"
+            className="lab-mobile-terminal-handle"
+            onClick={() => setMobileTerminalOpen(false)}
+            aria-label="Close terminal"
+          >
+            <span className="lab-mobile-terminal-handle-bar" aria-hidden="true" />
+          </button>
+          <div className="lab-mobile-terminal-body">
+            <Terminal
+              {...terminalSessionProps}
+              isActive={mobileTerminalOpen}
+              pendingCommand={pendingCommand}
+              onCommandConsumed={handleCommandConsumed}
+              onFlagSubmit={handleTerminalFlagSubmit}
+              onFlagRevealed={handleTerminalFlagRevealed}
+              onCommandExecuted={handleCommandExecuted}
+            />
+          </div>
+        </div>
       </div>
     </>
   )
@@ -1175,7 +1226,7 @@ function CurriculumTab({ onSendCommand, terminalExecutions }: { onSendCommand: (
         <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.5rem',
           scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}>
           {currentSet.overview && (
-            <div style={{
+            <div className="lab-curriculum-set-intro" style={{
               marginBottom: '1rem',
               border: `1px solid ${currentSet.color}20`,
               borderRadius: 12,

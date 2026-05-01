@@ -35,6 +35,20 @@
 - **Source of truth:** `engine.ts` içinde `SWITCH_COMMAND_TOKENS` + `DEFAULT_BRANCH_TOKENS` sabit dizileri (switch-case'in yanında, eşleşik tutulması için yorumlu) ve `commands/registry.ts:listRegistryCommandNames()`.
 - **DURUM:** ✅ DONE — Block C tamamlanma yolu kapatıldı. Yeni komut eklerken Terminal.tsx'i güncellemek gerekmiyor; engine'deki tek liste yeterli.
 
+## Mobile UX Redesign — Floating Terminal + Curriculum Cleanup
+
+- **Tarih:** 2026-05-01
+- **Sebep:** Mobile (375 px) testte kullanıcı, terminal'i tab olarak kullanmanın bilişsel yük yarattığını raporladı: lesson okurken Terminal tab'ına geçmek bağlamı kaybettiriyor; geri dönüldüğünde mission unutulmuş oluyor. Curriculum set girişi ayrıca "OPERATION BRIEFING" + "LEARNING MODEL" kutuları ve 4 pillar tag ile şişkin — operatör asıl içerik (lesson list) için aşağı kaydırmak zorunda.
+- **Çözüm:**
+  1. **3-tab mobile nav.** `MOBILE_TABS` dizisinden `terminal` girişi kaldırıldı. Desktop content tab'ları zaten 3 (Curriculum / Tools / CTF Missions); desktop terminal'i sağ panelde her zaman görünür, tab'a ihtiyacı yok. Mobile artık 4→3 tab.
+  2. **Floating ⌨ Terminal FAB** (`<768px` only). 56×56 px, sağ-alt köşede `position: fixed`, bottom = 86 px + safe-area-inset. Tap → arka planda backdrop fade-in (200 ms) + alttan slide-up sheet (300 ms cubic-bezier(0.22, 1, 0.36, 1), 60 vh yüksekliğinde). Sheet içinde mevcut `Terminal` componenti mount edilir ve **hiç unmount olmaz** — kullanıcı open/close yaptığında input/history/output/cwd state korunur. Dismiss: drag-handle tap, backdrop tap. `prefers-reduced-motion` saygılı (instant). FAB iki durumda gizlenir: overlay açıkken (overlap önleme) ve Tools detail görünümünde (mevcut `← Tool list` back butonuyla overlap önleme).
+  3. **Curriculum set intro cleanup** (mobile only). `lab-curriculum-set-intro` className'i ile sarılan blok (OPERATION BRIEFING + LEARNING MODEL + pillars) `@media (max-width: 767px) { display: none }` ile mobile'da gizlendi. Set heading + subtitle + difficulty pills (sibling element, blok dışında) korundu — operatör girişten sonra direkt lesson list'e ulaşır.
+- **Cross-panel command injection rewire:** Tools "⌨ Terminal" ve CTF "Open in Terminal" butonları mobile'da `setMobileTab('terminal')` yerine `setMobileTerminalOpen(true)` çağırıyor — komut input'a yazılır, overlay açılır, kullanıcı Enter'a basar.
+- **State preservation kanıtı:** FAB → overlay → `pwd` → output görünür → drag-handle ile kapat → FAB geri gelir → tekrar tap → önceki `pwd` çıktısı hâlâ görünür. Live test PASS.
+- **Trade-off:** `MobileTab` type'ı `'terminal'` variant'ını korur (back-compat ve mevcut çağrıların type-check geçmesi için), ancak mobile shell artık `mobileTab === 'terminal'` branch'ini render etmiyor. Programatik olarak set edilmesi durumunda görünür bir etkisi yok.
+- **Bundle delta:** /community 69.3 → 69.5 kB (+0.2 KB — FAB markup + 6 CSS rule + state hook).
+- **DURUM:** ✅ Working tree (commit pending).
+
 ## Per-Challenge Start Gate — Cross-Context Bypass Fix
 
 - **Tarih:** 2026-04-29
