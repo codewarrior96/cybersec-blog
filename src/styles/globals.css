@@ -2368,3 +2368,54 @@
   0%, 100% { opacity: 0.18; }
   50%       { opacity: 0.55; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Mobile polish — touch targets at 44×44 (Apple HIG / WCAG AA) + scroll cue
+   Stage 2/3 of mobile pass. Desktop pixel-identical (rules scoped to <768px).
+   `!important` is required because the targeted elements use inline `style`
+   on JSX nodes; in cascade order, !important author rules beat inline style.
+   ───────────────────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* H1 — Set-tab strip horizontal scroll cue.
+     Right-edge fade hints at off-screen tabs (L3 Penetration Testing,
+     L4 Advanced Operations). Single-row aesthetic preserved. */
+  .lab-set-tabs-strip {
+    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+            mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  }
+  .lab-set-tab-btn {
+    min-height: 44px !important;
+  }
+
+  /* H2 — Tools "⌨ Terminal" example send button (was 79×23). */
+  .lab-tool-example-send-btn {
+    min-height: 44px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  /* H3 — Tools category chips (was 25 tall). 9 chips, 2 rows on mobile. */
+  .lab-tools-category-chip {
+    min-height: 44px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  /* M2 — Hamburger menu (was 40×40 in CSS, 36×36 in render). */
+  .nb2-menu-btn {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  /* M4 — CTF action buttons: Start Challenge + Replay. */
+  .lab-ctf-action-btn {
+    min-height: 44px !important;
+  }
+
+  /* M5 — Tools search input (was 34 tall). */
+  .lab-tools-search-input {
+    min-height: 44px !important;
+  }
+}

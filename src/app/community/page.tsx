@@ -761,6 +761,7 @@ function ChallengeCard({
           <code style={{ color: 'rgba(0,255,65,0.5)', fontSize: 10 }}>{ch.flagKey}</code>
           <button
             onClick={onReplayChallenge}
+            className="lab-ctf-action-btn"
             style={{
               marginLeft: 'auto', padding: '4px 10px', borderRadius: 4, cursor: 'pointer',
               background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
@@ -781,6 +782,7 @@ function ChallengeCard({
           </p>
           <button
             onClick={onStartChallenge}
+            className="lab-ctf-action-btn"
             style={{
               padding: '8px 14px', borderRadius: 5, cursor: 'pointer',
               background: 'rgb(var(--route-accent-rgb) / 0.12)', border: '1px solid rgba(0,255,65,0.35)',
@@ -1097,7 +1099,7 @@ function CurriculumTab({ onSendCommand, terminalExecutions }: { onSendCommand: (
         </div>
 
         {/* ── Set tabs ── */}
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+        <div className="lab-set-tabs-strip" style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
           {TRAINING_SETS.map((set, i) => {
             const unlocked  = isSetUnlocked(i, TRAINING_SETS, completed)
             const prog      = setProgress(set, completed)
@@ -1105,6 +1107,7 @@ function CurriculumTab({ onSendCommand, terminalExecutions }: { onSendCommand: (
             const isActive  = activeSet === set.id
             return (
               <button key={set.id}
+                className="lab-set-tab-btn"
                 onClick={() => { if (unlocked) setActiveSet(set.id) }}
                 disabled={!unlocked}
                 style={{
@@ -1857,6 +1860,7 @@ function ToolsTab({ initialToolId, onSendCommand, onSelectTool, isMobile = false
         <div style={{ padding: '0.65rem 0.85rem', flexShrink: 0, background: '#030303',
           borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tools..."
+            className="lab-tools-search-input"
             style={{ width: '100%', background: 'rgba(255,255,255,0.04)',
               border: '1px solid rgba(255,255,255,0.09)', borderRadius: 5,
               padding: '0.45rem 0.7rem', color: '#e2e8f0', fontSize: 12,
@@ -1864,6 +1868,7 @@ function ToolsTab({ initialToolId, onSendCommand, onSelectTool, isMobile = false
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
             {TOOL_CATEGORIES.map(cat => (
               <button key={cat} onClick={() => setCategory(cat)}
+                className="lab-tools-category-chip"
                 style={{ padding: '3px 10px', borderRadius: 10, fontSize: 11, cursor: 'pointer',
                   fontFamily: 'inherit', border: '1px solid',
                   borderColor: category === cat ? '#00ff41' : 'rgba(255,255,255,0.09)',
@@ -2018,6 +2023,7 @@ function ToolDetail({ tool, onSendCommand }: { tool: ToolCard; onSendCommand: (c
                   whiteSpace: 'pre-wrap', flex: 1 }}>{ex.command}</pre>
                 <button onClick={() => onSendCommand(ex.command.split('\n')[0])}
                   title="Send to terminal"
+                  className="lab-tool-example-send-btn"
                   style={{
                     flexShrink: 0, padding: '3px 8px', borderRadius: 4, cursor: 'pointer',
                     background: 'rgb(var(--route-accent-rgb) / 0.08)', border: '1px solid rgb(var(--route-accent-rgb) / 0.16)',
