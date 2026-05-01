@@ -1247,6 +1247,12 @@ export default function Terminal({
           .lab-terminal__window-dot--pop {
             display: none;
           }
+          /* Mobile keyboards lack arrow/Tab/Ctrl in the primary typing
+             flow — the shortcut hint just steals the input's flex
+             space (input was being squeezed to ~6px on iPhone widths). */
+          .lab-terminal__input-shortcuts {
+            display: none;
+          }
         }
         .lab-terminal__resize-handle {
           position: absolute;
