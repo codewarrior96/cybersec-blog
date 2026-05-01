@@ -1,22 +1,43 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
+import { SESSION_COOKIE_NAME } from '@/lib/auth-shared'
 
-// ─── CSRF gate (Stage 4 / Audit H1) ──────────────────────────────────────────
+// ─── Edge security gates ─────────────────────────────────────────────────────
 //
-// State-changing API mutations require the request's Origin (or Referer
-// fallback) to match the request host. Industry-standard pattern (Next.js
-// docs, GitHub, Stripe). Same-origin form submissions and fetches pass
-// through transparently; cross-site forged requests are rejected at the
-// edge with 403 before any handler runs.
+// Two layered checks fire on /api/* mutations (POST/PUT/PATCH/DELETE).
+// Read-only methods (GET/HEAD/OPTIONS) and non-API routes pass through
+// untouched. Both layers run BEFORE any route handler executes.
 //
-// Allowed-host derivation: `request.nextUrl.host` automatically covers the
-// production domain, Vercel preview deploys, and localhost — no hardcoded
-// allowlist needed.
+//   1. csrfCheck (Stage 4 / Audit H1)
+//      Origin or Referer must resolve to the request host. Industry-
+//      standard CSRF defense (Next.js docs, GitHub, Stripe). Mismatch
+//      → 403 Origin mismatch.
 //
-// Stage 5 (audit H5) will extend this same file with a session-required
-// gate on protected /api routes.
+//   2. sessionPresenceCheck (Stage 5 / Audit H5)
+//      Cookie `soc_session` must be present (any non-empty value).
+//      Defense-in-depth — route handlers' `requireSession` remains the
+//      authoritative validator (it loads the session record, checks
+//      expiry, etc.). Middleware only does cheap cookie-presence so
+//      handlers don't run for obviously unauthenticated calls. Same
+//      pattern: GitHub, Vercel, Stripe.
+//
+// Allowed-host derivation: `request.nextUrl.host` automatically covers
+// the production domain, Vercel preview deploys, and localhost — no
+// hardcoded allowlist needed.
 
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+
+// Auth bootstrap endpoints — must accept cookie-less mutations.
+//   /api/auth/login    — credentials submission (creates session)
+//   /api/auth/register — account creation (creates session)
+//   /api/auth/logout   — destroys whatever session may or may not exist
+//                        (idempotent + harmless without prior session)
+//   /api/auth/session  — GET, already excluded by MUTATING_METHODS check
+const PUBLIC_API_ROUTES = new Set<string>([
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/logout',
+])
 
 function extractClaimedHost(request: NextRequest): string | null {
   const originHeader = request.headers.get('origin')
@@ -50,11 +71,26 @@ function csrfCheck(request: NextRequest): NextResponse | null {
   return null
 }
 
+function sessionPresenceCheck(request: NextRequest): NextResponse | null {
+  if (!MUTATING_METHODS.has(request.method)) return null
+  if (PUBLIC_API_ROUTES.has(request.nextUrl.pathname)) return null
+
+  const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)
+  if (!sessionCookie?.value) {
+    return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 })
+  }
+  return null
+}
+
 export function middleware(request: NextRequest) {
-  // /api/* branch — CSRF gate on mutations, otherwise pass through.
+  // /api/* branch — layered edge gates, then pass through.
   if (request.nextUrl.pathname.startsWith('/api/')) {
     const csrfResponse = csrfCheck(request)
     if (csrfResponse) return csrfResponse
+
+    const sessionResponse = sessionPresenceCheck(request)
+    if (sessionResponse) return sessionResponse
+
     return NextResponse.next()
   }
 
