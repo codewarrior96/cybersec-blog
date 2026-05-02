@@ -12,13 +12,18 @@ interface EmbeddedRegisterProps {
 }
 
 export default function EmbeddedRegister({
-  redirectTo = '/portfolio?tab=profile',
+  // Default redirect post-Phase-3: send the new operator to the
+  // verify-pending screen so they know to check their inbox. The
+  // `redirectTo` prop is preserved as an override (e.g. embedded
+  // contexts that own their own post-register flow).
+  redirectTo = '/auth/verify-pending',
   autoRedirectIfAuthenticated = false,
 }: EmbeddedRegisterProps) {
   const router = useRouter()
   const [visible, setVisible] = useState(false)
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -55,6 +60,7 @@ export default function EmbeddedRegister({
       const result = await registerWithPassword({
         username: username.trim(),
         displayName: displayName.trim(),
+        email: email.trim(),
         password,
         confirmPassword,
       })
@@ -158,6 +164,25 @@ export default function EmbeddedRegister({
                   onChange={(event) => setDisplayName(event.target.value)}
                   onKeyDown={(event) => event.key === 'Enter' && void handleRegister()}
                   placeholder="Profil basliginda gorunecek isim"
+                  className="w-full rounded-2xl border border-emerald-400/20 bg-black/55 px-4 py-3 text-sm text-emerald-100 outline-none transition focus:border-emerald-300/60 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.3em] text-emerald-300/60">
+                  Email
+                </span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  onKeyDown={(event) => event.key === 'Enter' && void handleRegister()}
+                  autoComplete="email"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  enterKeyHint="next"
+                  placeholder="operator@example.com"
                   className="w-full rounded-2xl border border-emerald-400/20 bg-black/55 px-4 py-3 text-sm text-emerald-100 outline-none transition focus:border-emerald-300/60 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
                 />
               </label>

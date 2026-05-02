@@ -1246,12 +1246,30 @@ export async function archiveReport(id: number, actor: SessionUser, metadata: Re
 }
 
 
+/**
+ * Phase 3 stub: memory store doesn't persist emails; email-key lookups
+ * always return null. Production runs supabase JSON store, so this
+ * branch is dormant in the live identity flow. Kept to satisfy the
+ * adapter contract.
+ */
+export async function readUserByEmailKey(_emailKey: string): Promise<null> {
+  return null
+}
+
 export async function registerUser(input: {
   username: string
   displayName: string
   role: UserRole
   passwordHash: string
   metadata: RequestMetadata
+  // Phase 3 mirror: optional email-verification fields. Memory store is
+  // a fallback for local dev / Vercel cold-start — accept-and-ignore so
+  // the adapter contract stays consistent. Email persistence in memory
+  // mode is not required for current behavior; if needed in the future,
+  // add fields to InternalUser and persist here.
+  email?: string
+  emailVerifyToken?: string | null
+  emailVerifyTokenExpiresAt?: string | null
 }): Promise<SessionUser> {
   const store = getStore()
   if (isReservedUsername(input.username)) {

@@ -148,6 +148,16 @@ export async function authenticateUser(username: string, password: string): Prom
   return toSessionUser(user)
 }
 
+/**
+ * Phase 3 stub: postgres mode does not yet persist email columns
+ * (SQL migration pending). Returns null so the adapter's email-key
+ * uniqueness check defaults to "available" in postgres mode. When
+ * the migration runs, replace with a real query.
+ */
+export async function readUserByEmailKey(_emailKey: string): Promise<null> {
+  return null
+}
+
 export async function createSession(user: SessionUser, metadata: RequestMetadata): Promise<SessionRecord> {
   const client = getRequiredClient()
   const token = randomUUID()
@@ -301,6 +311,15 @@ export async function registerUser(input: {
   role: UserRole
   passwordHash: string
   metadata: RequestMetadata
+  // Phase 3 mirror: optional email-verification fields. Postgres mode is
+  // dormant in production (SOC_IDENTITY_STORE=supabase). When the SQL
+  // migration runs to add these columns, this signature already
+  // matches — at that point the insertIdentityUser payload should be
+  // updated to persist them. For now we accept-and-ignore so the
+  // adapter contract stays consistent across all three stores.
+  email?: string
+  emailVerifyToken?: string | null
+  emailVerifyTokenExpiresAt?: string | null
 }): Promise<SessionUser> {
   if (isReservedUsername(input.username)) {
     throw new Error('Reserved username')

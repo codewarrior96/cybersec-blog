@@ -120,6 +120,10 @@ function toSessionUser(user: StoredUser): SessionUser {
   }
 }
 
+function userByEmailKeyPath(emailKey: string) {
+  return `state/users/by-email/${emailKey}.json`
+}
+
 function userByUsernamePath(username: string) {
   return `state/users/by-username/${normalizeUsernameKey(username)}.json`
 }
@@ -180,11 +184,24 @@ async function readUserById(userId: number) {
   return readJsonObject<StoredUser>(userByIdPath(userId))
 }
 
+async function readUserByEmailKeyInternal(emailKey: string) {
+  return readJsonObject<StoredUser>(userByEmailKeyPath(emailKey))
+}
+
+export async function readUserByEmailKey(emailKey: string) {
+  if (!emailKey) return null
+  return readUserByEmailKeyInternal(emailKey)
+}
+
 async function writeUser(user: StoredUser) {
-  await Promise.all([
+  const writes: Promise<unknown>[] = [
     uploadJsonObject(userByIdPath(user.id), user),
     uploadJsonObject(userByUsernamePath(user.username), user),
-  ])
+  ]
+  if (user.emailKey) {
+    writes.push(uploadJsonObject(userByEmailKeyPath(user.emailKey), user))
+  }
+  await Promise.all(writes)
 }
 
 export async function ensureIdentityShadowUser(input: {
@@ -400,6 +417,13 @@ export async function registerUser(input: {
   role: UserRole
   passwordHash: string
   metadata: RequestMetadata
+  // Phase 3: optional email-verification bundle. When provided, the new
+  // user is persisted with emailVerified=false + the verification token
+  // set on the same write that creates the record (atomic with the
+  // identity-by-id and -by-username index files).
+  email?: string
+  emailVerifyToken?: string | null
+  emailVerifyTokenExpiresAt?: string | null
 }): Promise<SessionUser> {
   await ensureSeedUsers()
   if (isReservedUsername(input.username)) {
@@ -408,6 +432,19 @@ export async function registerUser(input: {
   const existing = await readUserByUsername(input.username)
   if (existing?.isActive) {
     throw new Error('User already exists')
+  }
+
+  const email = input.email ?? ''
+  const emailKey = email ? normalizeEmailKey(email) : ''
+
+  // Email-uniqueness guard. Routes already validate format and pre-check
+  // uniqueness, but we re-check at the storage boundary so concurrent
+  // registrations can't slip past a race in route-level validation.
+  if (emailKey) {
+    const emailTaken = await readUserByEmailKeyInternal(emailKey)
+    if (emailTaken?.isActive) {
+      throw new Error('Email already exists')
+    }
   }
 
   const now = toIsoNow()
@@ -421,13 +458,11 @@ export async function registerUser(input: {
     isActive: true,
     createdAt: now,
     updatedAt: now,
-    // Phase 2 schema-only defaults; Phase 3 will require email at the
-    // route layer and pass it through.
-    email: '',
-    emailKey: '',
+    email,
+    emailKey,
     emailVerified: false,
-    emailVerifyToken: null,
-    emailVerifyTokenExpiresAt: null,
+    emailVerifyToken: input.emailVerifyToken ?? null,
+    emailVerifyTokenExpiresAt: input.emailVerifyTokenExpiresAt ?? null,
     passwordResetToken: null,
     passwordResetTokenExpiresAt: null,
   }

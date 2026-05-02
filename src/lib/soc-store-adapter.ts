@@ -253,6 +253,18 @@ export async function registerUser(...args: Parameters<StoreModule['registerUser
   })
 }
 
+export async function readUserByEmailKey(...args: Parameters<StoreModule['readUserByEmailKey']>) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.readUserByEmailKey(...args)
+  }
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.readUserByEmailKey(...args)
+  }
+  return withStore('readUserByEmailKey', (store) => store.readUserByEmailKey(...args), {
+    allowMemoryFallback: allowCriticalMemoryFallback,
+  })
+}
+
 export async function getPortfolioProfile(...args: Parameters<StoreModule['getPortfolioProfile']>) {
   if (useSupabaseJsonDomains) {
     return supabaseStore.getPortfolioProfile(...args)
