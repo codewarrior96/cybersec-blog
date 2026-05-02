@@ -27,6 +27,7 @@
     "react-simple-maps": "^3.0.0",
     "recharts": "^3.8.0",
     "rehype-pretty-code": "^0.14.3",
+    "resend": "^6.12.2",
     "shiki": "^1.0.0",
     "sqlite": "^5.1.1",
     "sqlite3": "^6.0.1",
