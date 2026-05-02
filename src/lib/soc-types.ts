@@ -13,4 +13,11 @@ export interface SessionUser {
   username: string
   displayName: string
   role: UserRole
+  /**
+   * Email verification status. Surfaced in the session payload so edge
+   * middleware can gate access (Phase 4 of email foundation) without
+   * a per-request DB lookup. Defaults to false on stores that don't
+   * yet persist email (memory, postgres pre-migration).
+   */
+  emailVerified: boolean
 }

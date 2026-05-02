@@ -117,6 +117,7 @@ function toSessionUser(user: StoredUser): SessionUser {
     username: user.username,
     displayName: user.displayName,
     role: user.role,
+    emailVerified: user.emailVerified,
   }
 }
 
@@ -191,6 +192,60 @@ async function readUserByEmailKeyInternal(emailKey: string) {
 export async function readUserByEmailKey(emailKey: string) {
   if (!emailKey) return null
   return readUserByEmailKeyInternal(emailKey)
+}
+
+/**
+ * Phase 4: lookup user by current emailVerifyToken. Used by /api/auth/verify
+ * to consume a verification link. Token is opaque 32-byte hex; we don't
+ * keep a token-to-userid index file since tokens are short-lived and
+ * rotate, so this is O(n) over indexed users. For early-stage scale (0
+ * users today, growing to thousands) this is acceptable. Switch to a
+ * dedicated token index file when signup volume warrants it.
+ */
+export async function findUserByVerifyToken(token: string): Promise<StoredUser | null> {
+  if (!token) return null
+  try {
+    const paths = await listObjectPaths('state/users/by-id/')
+    for (const path of paths) {
+      const user = await readJsonObject<StoredUser>(path)
+      if (user?.emailVerifyToken === token) return user
+    }
+    return null
+  } catch (err) {
+    console.error('[soc-store-supabase.findUserByVerifyToken] failed:', err)
+    return null
+  }
+}
+
+export async function setEmailVerified(userId: number): Promise<StoredUser | null> {
+  const user = await readUserById(userId)
+  if (!user) return null
+  const updated: StoredUser = {
+    ...user,
+    emailVerified: true,
+    emailVerifyToken: null,
+    emailVerifyTokenExpiresAt: null,
+    updatedAt: toIsoNow(),
+  }
+  await writeUser(updated)
+  return updated
+}
+
+export async function setEmailVerifyToken(
+  userId: number,
+  token: string,
+  expiresAt: string,
+): Promise<StoredUser | null> {
+  const user = await readUserById(userId)
+  if (!user) return null
+  const updated: StoredUser = {
+    ...user,
+    emailVerifyToken: token,
+    emailVerifyTokenExpiresAt: expiresAt,
+    updatedAt: toIsoNow(),
+  }
+  await writeUser(updated)
+  return updated
 }
 
 async function writeUser(user: StoredUser) {

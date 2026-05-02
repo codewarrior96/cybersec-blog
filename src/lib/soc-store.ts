@@ -220,6 +220,9 @@ function toSessionUserFromRow(row: {
     username: row.username,
     displayName: row.display_name,
     role: row.role,
+    // SQLite store predates email; defaults to false. Used in dev
+    // SOC_STORAGE=sqlite mode only — production runs supabase JSON.
+    emailVerified: false,
   }
 }
 
@@ -394,6 +397,8 @@ export async function authenticateUser(username: string, password: string): Prom
     username: row.username,
     displayName: row.display_name,
     role: row.role,
+    // SQLite mode predates email; defaults to false.
+    emailVerified: false,
   }
 }
 
@@ -685,6 +690,8 @@ export async function getSessionByToken(token: string): Promise<SessionRecord | 
       username: row.username,
       displayName: row.display_name,
       role: row.role,
+      // SQLite mode predates email; defaults to false.
+      emailVerified: false,
     },
   }
 }
@@ -777,6 +784,7 @@ function toAlertRecord(row: AlertJoinedRow): AlertRecord {
             username: row.assignee_username,
             displayName: row.assignee_display_name,
             role: row.assignee_role,
+            emailVerified: false,
           },
     createdBy:
       row.creator_id == null || row.creator_username == null || row.creator_display_name == null || row.creator_role == null
@@ -786,6 +794,7 @@ function toAlertRecord(row: AlertJoinedRow): AlertRecord {
             username: row.creator_username,
             displayName: row.creator_display_name,
             role: row.creator_role,
+            emailVerified: false,
           },
     noteCount: Number(row.note_count ?? 0),
     ageMinutes: toAgeMinutes(row.created_at),

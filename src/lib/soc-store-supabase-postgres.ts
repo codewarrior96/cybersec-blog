@@ -70,6 +70,10 @@ function toSessionUser(user: Pick<PostgresIdentityUserRow, 'id' | 'username' | '
     username: user.username,
     displayName: user.display_name,
     role: user.role,
+    // Postgres mode doesn't persist email columns yet (Phase 2 mirror is
+    // type-only, awaiting SQL migration). Default to false until the
+    // migration runs; supabase JSON mode is production default.
+    emailVerified: false,
   }
 }
 
@@ -155,6 +159,25 @@ export async function authenticateUser(username: string, password: string): Prom
  * the migration runs, replace with a real query.
  */
 export async function readUserByEmailKey(_emailKey: string): Promise<null> {
+  return null
+}
+
+// Phase 4 stubs — postgres mode awaits SQL migration for email columns.
+// Identity production runs SOC_IDENTITY_STORE=supabase; these branches
+// are dormant. When migration runs, replace with actual UPDATE queries.
+export async function findUserByVerifyToken(_token: string): Promise<null> {
+  return null
+}
+
+export async function setEmailVerified(_userId: number): Promise<null> {
+  return null
+}
+
+export async function setEmailVerifyToken(
+  _userId: number,
+  _token: string,
+  _expiresAt: string,
+): Promise<null> {
   return null
 }
 

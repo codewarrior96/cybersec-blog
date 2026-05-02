@@ -316,6 +316,9 @@ function toSessionUser(user: InternalUser): SessionUser {
     username: user.username,
     displayName: user.displayName,
     role: user.role,
+    // Memory store doesn't persist email; stays unverified for fallback
+    // sessions. Production uses supabase store which surfaces real value.
+    emailVerified: false,
   }
 }
 
@@ -1253,6 +1256,25 @@ export async function archiveReport(id: number, actor: SessionUser, metadata: Re
  * adapter contract.
  */
 export async function readUserByEmailKey(_emailKey: string): Promise<null> {
+  return null
+}
+
+// Phase 4 stubs — memory store does not persist email-verification
+// tokens; these are no-ops returning null so the adapter contract
+// stays consistent. Production identity flow runs supabase store.
+export async function findUserByVerifyToken(_token: string): Promise<null> {
+  return null
+}
+
+export async function setEmailVerified(_userId: number): Promise<null> {
+  return null
+}
+
+export async function setEmailVerifyToken(
+  _userId: number,
+  _token: string,
+  _expiresAt: string,
+): Promise<null> {
   return null
 }
 

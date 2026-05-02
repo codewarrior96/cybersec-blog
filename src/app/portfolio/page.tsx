@@ -50,6 +50,7 @@ function buildReadonlyVisitorProfile(): PortfolioProfileRecord {
       username: 'visitor',
       displayName: 'Portfolio Visitor',
       role: 'viewer',
+      emailVerified: true,
     },
     profile: {
       headline: 'Profil vitrini',

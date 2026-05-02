@@ -265,6 +265,42 @@ export async function readUserByEmailKey(...args: Parameters<StoreModule['readUs
   })
 }
 
+export async function findUserByVerifyToken(...args: Parameters<StoreModule['findUserByVerifyToken']>) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.findUserByVerifyToken(...args)
+  }
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.findUserByVerifyToken(...args)
+  }
+  return withStore('findUserByVerifyToken', (store) => store.findUserByVerifyToken(...args), {
+    allowMemoryFallback: allowCriticalMemoryFallback,
+  })
+}
+
+export async function setEmailVerified(...args: Parameters<StoreModule['setEmailVerified']>) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.setEmailVerified(...args)
+  }
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.setEmailVerified(...args)
+  }
+  return withStore('setEmailVerified', (store) => store.setEmailVerified(...args), {
+    allowMemoryFallback: allowCriticalMemoryFallback,
+  })
+}
+
+export async function setEmailVerifyToken(...args: Parameters<StoreModule['setEmailVerifyToken']>) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.setEmailVerifyToken(...args)
+  }
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.setEmailVerifyToken(...args)
+  }
+  return withStore('setEmailVerifyToken', (store) => store.setEmailVerifyToken(...args), {
+    allowMemoryFallback: allowCriticalMemoryFallback,
+  })
+}
+
 export async function getPortfolioProfile(...args: Parameters<StoreModule['getPortfolioProfile']>) {
   if (useSupabaseJsonDomains) {
     return supabaseStore.getPortfolioProfile(...args)
