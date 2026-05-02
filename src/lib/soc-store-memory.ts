@@ -1259,6 +1259,17 @@ export async function readUserByEmailKey(_emailKey: string): Promise<null> {
   return null
 }
 
+/**
+ * Phase 4.5 stub: looks up a full user record by username. Memory store
+ * doesn't carry email columns on InternalUser, so we cannot return a
+ * StoredUser-shaped record; null is the contract-safe answer. Production
+ * identity flow runs supabase JSON store and uses the real lookup; this
+ * stub exists only so the adapter contract type-checks.
+ */
+export async function readUserByUsername(_username: string): Promise<null> {
+  return null
+}
+
 // Phase 4 stubs — memory store does not persist email-verification
 // tokens; these are no-ops returning null so the adapter contract
 // stays consistent. Production identity flow runs supabase store.

@@ -21,6 +21,16 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
   const [loading, setLoading] = useState(false)
   const [hexVal, setHexVal] = useState('0000')
   const [hint, setHint] = useState('')
+  // Phase 4.5 — unverified-email recovery state. `unverifiedEmail` is
+  // non-null after a 403 EMAIL_NOT_VERIFIED login response; the UI then
+  // reveals a resend-verification block. `resendEmailInput` lets the
+  // user edit/correct the address before re-triggering the email,
+  // pre-filled from the server when available.
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null)
+  const [resendEmailInput, setResendEmailInput] = useState('')
+  const [resending, setResending] = useState(false)
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sent' | 'error'>('idle')
+  const [resendError, setResendError] = useState<string | null>(null)
   const [kaliQuoteText, setKaliQuoteText] = useState('')
   const fullKaliQuote = '"The quieter you become, the more you are able to hear."'
   const [kaliGlitchActive, setKaliGlitchActive] = useState(false)
@@ -111,15 +121,66 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
     if (loading) return
     setLoading(true)
     setError(null)
+    setUnverifiedEmail(null)
+    setResendStatus('idle')
+    setResendError(null)
     try {
       const result = await loginWithPassword(username.trim(), password, { remember })
       if (!result.ok) {
+        if (result.code === 'EMAIL_NOT_VERIFIED') {
+          // Reveal the resend-verification block. Pre-fill the email
+          // when the server supplied it so the operator can hit
+          // "yeniden gönder" without retyping; otherwise leave the
+          // input empty and let them enter it manually.
+          const prefill = result.email ?? ''
+          setUnverifiedEmail(prefill)
+          setResendEmailInput(prefill)
+          setError(result.error ?? 'EMAIL VERIFICATION REQUIRED')
+          return
+        }
         setError(result.error ?? 'ACCESS DENIED - INVALID CREDENTIALS')
         return
       }
       router.push(redirectTo)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleResendVerification = async () => {
+    if (resending) return
+    const target = resendEmailInput.trim()
+    if (!target) {
+      setResendError('Email gerekli.')
+      setResendStatus('error')
+      return
+    }
+    setResending(true)
+    setResendError(null)
+    setResendStatus('idle')
+    try {
+      const response = await fetch('/api/auth/verify/resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: target }),
+      })
+      if (response.status === 429) {
+        setResendStatus('error')
+        setResendError('Çok fazla deneme. Bir saat sonra tekrar dene.')
+        return
+      }
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string }
+        setResendStatus('error')
+        setResendError(payload.error === 'INVALID_EMAIL' ? 'Geçersiz email formatı.' : 'Mail gönderilemedi.')
+        return
+      }
+      setResendStatus('sent')
+    } catch {
+      setResendStatus('error')
+      setResendError('Bağlantı hatası.')
+    } finally {
+      setResending(false)
     }
   }
 
@@ -766,6 +827,108 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
         {error && (
           <div className="el-shake" style={{ marginTop: '0.75rem', textAlign: 'center' }}>
             <p style={{ color: '#ef4444', fontSize: 9, fontFamily: 'monospace' }}>[ {error} ]</p>
+          </div>
+        )}
+
+        {unverifiedEmail !== null && (
+          <div
+            style={{
+              marginTop: '0.75rem',
+              padding: '0.75rem',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              background: 'rgba(245, 158, 11, 0.06)',
+              borderRadius: 4,
+            }}
+          >
+            <p
+              style={{
+                color: 'rgba(245, 158, 11, 0.85)',
+                fontSize: 9,
+                fontFamily: 'monospace',
+                letterSpacing: '0.12em',
+                marginBottom: '0.5rem',
+              }}
+            >
+              [ EMAIL VERIFICATION REQUIRED ]
+            </p>
+            <p
+              style={{
+                color: 'rgba(0,255,65,0.55)',
+                fontSize: 10,
+                fontFamily: 'monospace',
+                lineHeight: 1.55,
+                marginBottom: '0.6rem',
+              }}
+            >
+              Hesabin var ama email henuz dogrulanmamis. Mail kutunu kontrol et veya yeni bir baglanti talep et.
+            </p>
+            <input
+              type="email"
+              value={resendEmailInput}
+              onChange={(event) => setResendEmailInput(event.target.value)}
+              placeholder="email adresi"
+              autoComplete="email"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              className="el-input"
+              style={{
+                ...fieldInputStyle,
+                paddingLeft: '0.75rem',
+                border: '1px solid rgba(0,255,65,0.25)',
+                marginBottom: '0.5rem',
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => void handleResendVerification()}
+              disabled={resending || resendStatus === 'sent'}
+              style={{
+                width: '100%',
+                padding: '0.4rem 0',
+                fontFamily: 'monospace',
+                fontSize: '0.66rem',
+                fontWeight: 700,
+                letterSpacing: '0.15em',
+                cursor: resending || resendStatus === 'sent' ? 'default' : 'pointer',
+                background: 'rgba(245, 158, 11, 0.08)',
+                border: '1px solid rgba(245, 158, 11, 0.5)',
+                color: '#fbbf24',
+                opacity: resending ? 0.75 : 1,
+              }}
+            >
+              {resending
+                ? '[ GONDERILIYOR ]'
+                : resendStatus === 'sent'
+                  ? '[ GONDERILDI - INBOX KONTROL ]'
+                  : '[ YENIDEN MAIL ISTE ]'}
+            </button>
+            {resendStatus === 'sent' && (
+              <p
+                style={{
+                  marginTop: '0.5rem',
+                  color: 'rgba(74, 222, 128, 0.85)',
+                  fontSize: 9,
+                  fontFamily: 'monospace',
+                  textAlign: 'center',
+                }}
+              >
+                Eger email kayitliysa, yeni dogrulama bagi gonderildi.
+              </p>
+            )}
+            {resendStatus === 'error' && resendError && (
+              <p
+                style={{
+                  marginTop: '0.5rem',
+                  color: '#ef4444',
+                  fontSize: 9,
+                  fontFamily: 'monospace',
+                  textAlign: 'center',
+                }}
+              >
+                {resendError}
+              </p>
+            )}
           </div>
         )}
 

@@ -11,14 +11,15 @@ export const metadata: Metadata = {
 /**
  * Post-register landing page (Phase 3 of email foundation milestone).
  *
- * Reached after successful registration. The user's session cookie is set
- * (auto-login preserved) but `emailVerified=false` until they click the
- * link in the verification email. Phase 4 ships the /verify endpoint that
- * flips the flag.
+ * Reached after successful registration. As of Phase 4.5, register no
+ * longer mints a session cookie — the user has NO active session here;
+ * the screen exists only to prompt them to check their inbox. After they
+ * click the verification link, /verify flips emailVerified=true and
+ * directs them to /login to obtain a session.
  *
  * Hacker-terminal style matches /login + /register. No client interactivity
- * — pure server component. Phase 4's resend-verification button will live
- * on the /verify error screen, not here.
+ * — pure server component. The verify-pending screen is treated as a
+ * chromeless gateway by AppShellClient (no nav, no footer).
  */
 export default function VerifyPendingPage() {
   return (
@@ -40,8 +41,8 @@ export default function VerifyPendingPage() {
           </h1>
           <p className="mt-4 text-sm leading-7 text-slate-300/80 md:text-base">
             Hesap kaydın oluşturuldu. Doğrulama bağlantısını kayıt sırasında girdiğin email
-            adresine gönderdim. Bağlantıya tıkladığında hesabın aktive olacak ve oturum
-            açılışın tamamlanacak.
+            adresine gönderdim. Bağlantıya tıkladığında hesabın aktive olacak; ardından
+            giriş ekranından oturum açabilirsin.
           </p>
 
           <div className="mt-8 grid gap-4 md:grid-cols-2">
@@ -81,7 +82,7 @@ export default function VerifyPendingPage() {
 
           <div className="mt-8 flex items-center justify-between gap-4 border-t border-emerald-400/10 pt-5 text-xs text-slate-500">
             <span className="font-mono tracking-[0.24em] text-emerald-300/35">
-              SESSION ACTIVE / EMAIL UNVERIFIED
+              EMAIL VERIFICATION REQUIRED
             </span>
             <Link
               href="/login"

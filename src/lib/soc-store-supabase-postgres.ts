@@ -162,6 +162,18 @@ export async function readUserByEmailKey(_emailKey: string): Promise<null> {
   return null
 }
 
+/**
+ * Phase 4.5 stub: postgres identity mode does not surface the email
+ * column on the StoredUser shape yet (Phase 3 migration pending), so
+ * the username-keyed lookup cannot return the email field that the
+ * login route needs for the EMAIL_NOT_VERIFIED 403 response. Returns
+ * null; production identity flow runs SOC_IDENTITY_STORE=supabase so
+ * this branch is dormant.
+ */
+export async function readUserByUsername(_username: string): Promise<null> {
+  return null
+}
+
 // Phase 4 stubs — postgres mode awaits SQL migration for email columns.
 // Identity production runs SOC_IDENTITY_STORE=supabase; these branches
 // are dormant. When migration runs, replace with actual UPDATE queries.

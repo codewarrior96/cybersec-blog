@@ -1,6 +1,5 @@
 import { randomBytes } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
-import { SESSION_COOKIE_MAX_AGE_SECONDS, SESSION_COOKIE_NAME } from '@/lib/auth-shared'
 import { getRequestMetadata } from '@/lib/auth-server'
 import { getClientIp } from '@/lib/client-ip'
 import { sendEmail } from '@/lib/email'
@@ -17,7 +16,7 @@ import {
 } from '@/lib/identity-validation'
 import { checkRateLimit, recordFailure } from '@/lib/rate-limiter'
 import { hashPassword } from '@/lib/security'
-import { createSession, readUserByEmailKey, registerUser } from '@/lib/soc-store-adapter'
+import { readUserByEmailKey, registerUser } from '@/lib/soc-store-adapter'
 
 interface RegisterBody {
   username?: unknown
@@ -162,11 +161,21 @@ export async function POST(request: NextRequest) {
       emailVerifyTokenExpiresAt,
     })
 
-    const session = await createSession(user, metadata)
-
+    // ─── Phase 4.5: no auto-session on register ──────────────────────────
+    // Previous Phase 3+4 behavior minted a soc_session cookie immediately
+    // after registerUser succeeded — combined with the edge email-gate,
+    // that meant the user "logged in but stuck on verify-pending." The
+    // refactor removes session minting entirely from register: the
+    // account is created in an unverified state, the verification email
+    // is dispatched, and the client redirects to /auth/verify-pending.
+    // The user must complete email verification, then log in via the
+    // login form (which now enforces emailVerified before issuing a
+    // session). This makes login the single source of truth for session
+    // creation and removes the need for any edge-side gating.
+    //
     // Fire verification email. Failures don't roll back the user — the
-    // /verify/resend endpoint (Phase 4) lets the operator request a new
-    // link. We surface the failure as a `warning` so the client can show
+    // /verify/resend endpoint lets the operator request a new link.
+    // We surface the failure as a `warning` so the client can show
     // a "couldn't send email" hint on the verify-pending screen.
     const verifyUrl = `${appBaseUrl(request)}/verify?token=${encodeURIComponent(emailVerifyToken)}`
     const emailContent = buildVerificationEmail(user.displayName, verifyUrl)
@@ -183,24 +192,11 @@ export async function POST(request: NextRequest) {
       warning = 'Verification email could not be sent. Please request a resend.'
     }
 
-    const response = NextResponse.json({
-      authenticated: true,
-      user,
-      expiresAt: session.expiresAt,
+    return NextResponse.json({
+      ok: true,
+      message: 'Doğrulama maili gönderildi. Email kutunu kontrol et.',
       ...(warning ? { warning } : {}),
     })
-
-    response.cookies.set({
-      name: SESSION_COOKIE_NAME,
-      value: session.token,
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: SESSION_COOKIE_MAX_AGE_SECONDS,
-    })
-
-    return response
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Kayit basarisiz oldu.'
     if (message === 'User already exists') {

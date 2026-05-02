@@ -89,12 +89,13 @@ export default async function VerifyPage({ searchParams }: PageProps) {
               <div className="mb-4 flex items-center gap-3">
                 <span className="text-3xl text-emerald-400">✓</span>
                 <h1 className="text-3xl font-semibold tracking-[0.04em] text-slate-100 md:text-4xl">
-                  Email doğrulandı
+                  Email doğrulandı — şimdi giriş yap
                 </h1>
               </div>
               <p className="text-sm leading-7 text-slate-300/80 md:text-base">
-                Hesabın aktive oldu. 3 saniye içinde giriş ekranına yönlendiriliyorsun.
-                Yönlendirme olmazsa aşağıdaki bağlantıdan devam edebilirsin.
+                Hesabın aktive oldu. 3 saniye içinde giriş ekranına yönlendiriliyorsun;
+                kullanıcı adın ve şifrenle oturum açıp BREACH LAB&apos;e erişebilirsin.
+                Yönlendirme olmazsa aşağıdaki bağlantıdan devam et.
               </p>
               <div className="mt-8">
                 <Link

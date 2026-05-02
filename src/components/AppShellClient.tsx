@@ -27,10 +27,21 @@ export default function AppShellClient({
 
   const isLoginRoute = pathname === '/login' || pathname?.startsWith('/login/')
   const isRegisterRoute = pathname === '/register' || pathname?.startsWith('/register/')
+  // Phase 4.5 — `/auth/*` (currently /auth/verify-pending and /verify) is
+  // a chromeless gateway: the user has either just registered or is mid
+  // email-verification flow. They have no active session, the global nav
+  // would be misleading ("HOME · BLOG · …" links they can't actually
+  // open), and the gateway is its own self-contained screen. Treat it
+  // like /login and /register — render the page bare.
+  const isAuthFlowRoute =
+    pathname === '/verify' ||
+    pathname?.startsWith('/verify/') ||
+    pathname?.startsWith('/auth/')
   const isRootRoute = pathname === '/' || pathname === '/home'
 
-  const isAuthGatewayRoute = isLoginRoute || isRegisterRoute || (!isAuthed && isRootRoute)
-  const showOperatorShell = isAuthed && !isLoginRoute && !isRegisterRoute
+  const isAuthGatewayRoute =
+    isLoginRoute || isRegisterRoute || isAuthFlowRoute || (!isAuthed && isRootRoute)
+  const showOperatorShell = isAuthed && !isLoginRoute && !isRegisterRoute && !isAuthFlowRoute
   const showGlobalTools = !isAuthGatewayRoute && !showOperatorShell
 
   useEffect(() => {

@@ -177,10 +177,6 @@ function auditLogPath(action: string) {
   return `state/audit/${Date.now()}-${randomUUID()}-${sanitizeFileSegment(action)}.json`
 }
 
-async function readUserByUsername(username: string) {
-  return readJsonObject<StoredUser>(userByUsernamePath(username))
-}
-
 async function readUserById(userId: number) {
   return readJsonObject<StoredUser>(userByIdPath(userId))
 }
@@ -192,6 +188,19 @@ async function readUserByEmailKeyInternal(emailKey: string) {
 export async function readUserByEmailKey(emailKey: string) {
   if (!emailKey) return null
   return readUserByEmailKeyInternal(emailKey)
+}
+
+/**
+ * Phase 4.5: public username-keyed lookup. Used by the login route
+ * after a successful credential check to fetch the email address for
+ * the EMAIL_NOT_VERIFIED 403 response (so the frontend can pre-fill
+ * the resend-verification flow). The internal helper is already used
+ * across this module; this export just exposes it through the adapter
+ * contract.
+ */
+export async function readUserByUsername(username: string) {
+  if (!username) return null
+  return readJsonObject<StoredUser>(userByUsernamePath(username))
 }
 
 /**

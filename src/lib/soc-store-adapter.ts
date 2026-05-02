@@ -265,6 +265,18 @@ export async function readUserByEmailKey(...args: Parameters<StoreModule['readUs
   })
 }
 
+export async function readUserByUsername(...args: Parameters<StoreModule['readUserByUsername']>) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.readUserByUsername(...args)
+  }
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.readUserByUsername(...args)
+  }
+  return withStore('readUserByUsername', (store) => store.readUserByUsername(...args), {
+    allowMemoryFallback: allowCriticalMemoryFallback,
+  })
+}
+
 export async function findUserByVerifyToken(...args: Parameters<StoreModule['findUserByVerifyToken']>) {
   if (useSupabasePostgresIdentityStore) {
     return supabasePostgresStore.findUserByVerifyToken(...args)

@@ -3,7 +3,7 @@ import { SESSION_COOKIE_MAX_AGE_SECONDS, SESSION_COOKIE_NAME } from '@/lib/auth-
 import { getRequestMetadata } from '@/lib/auth-server'
 import { getClientIp } from '@/lib/client-ip'
 import { checkRateLimit, clearAttempts, recordFailure } from '@/lib/rate-limiter'
-import { authenticateUser, createSession, writeAuditLog } from '@/lib/soc-store-adapter'
+import { authenticateUser, createSession, readUserByUsername, writeAuditLog } from '@/lib/soc-store-adapter'
 
 interface LoginBody {
   username?: unknown
@@ -59,7 +59,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Hatali kullanici adi veya sifre.' }, { status: 401 })
     }
 
+    // Credentials were valid — clear the failed-attempts counter regardless
+    // of whether we ultimately mint a session below. Brute-force protection
+    // is about wrong-password volume; the right-password-but-unverified path
+    // shouldn't be punished by a stale rate-limit window.
     clearAttempts(ip, LOGIN_RATE_LIMIT.bucket)
+
+    // ─── Phase 4.5 gate: verification before session ─────────────────────
+    // Auth Flow Refactor moves the email-verified gate from the edge
+    // middleware (which auto-loaded under a session cookie) to the login
+    // endpoint. We only mint a session for verified accounts; an
+    // unverified account gets a distinct 403 EMAIL_NOT_VERIFIED so the
+    // login form can offer a "resend verification" affordance instead of
+    // a generic credential error.
+    //
+    // Enumeration tradeoff: distinguishing "wrong password" (401) from
+    // "right password, unverified email" (403) reveals that the username
+    // exists. We accept this for UX — the alternative (silently failing
+    // an authenticated-but-unverified login) is confusing and pushes
+    // users toward password resets that won't help. Register-time
+    // emailKey uniqueness already gives the same enumeration signal, so
+    // login parity here is consistent.
+    if (user.emailVerified === false) {
+      // Best-effort email lookup so the frontend can pre-fill the
+      // resend form. Falls back gracefully when the active store is
+      // memory/postgres (those branches return null from this helper).
+      const fullUser = await readUserByUsername(username).catch(() => null)
+      const email = fullUser?.email ?? ''
+      return NextResponse.json(
+        {
+          error: 'EMAIL_NOT_VERIFIED',
+          message: 'Email henüz doğrulanmamış. Mail kutunu kontrol et veya yeniden mail iste.',
+          email,
+        },
+        { status: 403 },
+      )
+    }
 
     const metadata = getRequestMetadata(request)
     const session = await createSession(user, metadata)

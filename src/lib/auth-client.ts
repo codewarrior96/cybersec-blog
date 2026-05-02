@@ -13,6 +13,15 @@ export interface AuthSessionState {
 interface LoginResult {
   ok: boolean
   error?: string
+  /**
+   * Phase 4.5: structured error code for the unverified-email path. Lets
+   * the login form distinguish "wrong credentials" (no code, generic
+   * error) from "right credentials, unverified email" (code set), so it
+   * can surface the resend-verification affordance.
+   */
+  code?: 'EMAIL_NOT_VERIFIED'
+  /** Email associated with the account, when the server can supply it. */
+  email?: string
 }
 
 const UNAUTH_STATE: AuthSessionState = {
@@ -87,7 +96,24 @@ export async function loginWithPassword(
   })
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as { error?: string }
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string
+      message?: string
+      email?: string
+    }
+
+    // Phase 4.5: surface the EMAIL_NOT_VERIFIED 403 as a structured
+    // result so the form can render the resend-verification UI without
+    // string-matching the human-readable message.
+    if (response.status === 403 && payload.error === 'EMAIL_NOT_VERIFIED') {
+      return {
+        ok: false,
+        code: 'EMAIL_NOT_VERIFIED',
+        error: payload.message ?? 'Email henüz doğrulanmamış.',
+        email: payload.email ?? '',
+      }
+    }
+
     return { ok: false, error: payload.error ?? 'Giris basarisiz.' }
   }
 
@@ -115,8 +141,11 @@ export async function registerWithPassword(input: {
     return { ok: false, error: payload.error ?? 'Kayit basarisiz.' }
   }
 
-  await getAuthSession(true)
-  dispatchAuthChanged()
+  // Phase 4.5: register no longer mints a session — the user must verify
+  // their email and then log in to authenticate. We deliberately skip
+  // getAuthSession(true) and dispatchAuthChanged() here because there is
+  // no session to fetch and no auth state to broadcast; firing them would
+  // just incur a wasted /api/auth/session round-trip.
   return { ok: true }
 }
 
