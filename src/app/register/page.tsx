@@ -1,5 +1,5 @@
 import EmbeddedRegister from '@/components/EmbeddedRegister'
 
 export default async function RegisterPage() {
-  return <EmbeddedRegister redirectTo="/portfolio?tab=profile" autoRedirectIfAuthenticated={false} />
+  return <EmbeddedRegister redirectTo="/auth/verify-pending" autoRedirectIfAuthenticated={false} />
 }
