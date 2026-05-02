@@ -20,6 +20,22 @@ interface PostgresIdentityUserRow {
   primary_domain_key: string
   created_at: string
   updated_at: string
+  // ─── Email + recovery (Phase 2 of email foundation) ──────────────────
+  // Type-only mirror of Phase 2 StoredUser additions. The actual
+  // identity.users SQL columns are NOT added by this commit — that's
+  // a separate database migration (out of Phase 2 scope per spec).
+  // The fields are nullable on the row type so reads against the
+  // unmigrated table still type-check (PG returns null for missing
+  // columns when extracted from `select(...)`'s explicit list — this
+  // mirror exists for the day the migration runs, and the SELECT lists
+  // below do NOT yet reference these columns to avoid runtime errors.
+  email?: string | null
+  email_key?: string | null
+  email_verified?: boolean | null
+  email_verify_token?: string | null
+  email_verify_token_expires_at?: string | null
+  password_reset_token?: string | null
+  password_reset_token_expires_at?: string | null
 }
 
 interface PostgresIdentitySessionRow {

@@ -36,6 +36,17 @@ interface StoredUser {
   isActive: boolean
   createdAt: string
   updatedAt: string
+  // ─── Email + recovery (Phase 2 of email foundation) ────────────────────
+  // Schema-only addition; Phase 3+ will populate these during register and
+  // verify/reset flows. Until Phase 3 ships, callers create users with
+  // empty defaults — TS strict satisfied without runtime change.
+  email: string
+  emailKey: string
+  emailVerified: boolean
+  emailVerifyToken: string | null
+  emailVerifyTokenExpiresAt: string | null
+  passwordResetToken: string | null
+  passwordResetTokenExpiresAt: string | null
 }
 
 interface StoredSession {
@@ -86,6 +97,10 @@ function toIsoNow() {
 
 function normalizeUsernameKey(username: string) {
   return username.trim().toLowerCase()
+}
+
+function normalizeEmailKey(email: string) {
+  return email.trim().toLowerCase()
 }
 
 function sanitizeFileSegment(value: string) {
@@ -181,7 +196,18 @@ export async function ensureIdentityShadowUser(input: {
   isActive: boolean
   createdAt: string
   updatedAt: string
+  // Email-related fields are optional inputs so the postgres adapter
+  // (which doesn't yet read them from its rows) can call this without
+  // forcing a schema-coupled refactor in Phase 2. Phase 3+ will pass
+  // them through.
+  email?: string
+  emailVerified?: boolean
+  emailVerifyToken?: string | null
+  emailVerifyTokenExpiresAt?: string | null
+  passwordResetToken?: string | null
+  passwordResetTokenExpiresAt?: string | null
 }) {
+  const email = input.email ?? ''
   const user: StoredUser = {
     id: input.id,
     username: input.username,
@@ -192,6 +218,13 @@ export async function ensureIdentityShadowUser(input: {
     isActive: input.isActive,
     createdAt: input.createdAt,
     updatedAt: input.updatedAt,
+    email,
+    emailKey: normalizeEmailKey(email),
+    emailVerified: input.emailVerified ?? false,
+    emailVerifyToken: input.emailVerifyToken ?? null,
+    emailVerifyTokenExpiresAt: input.emailVerifyTokenExpiresAt ?? null,
+    passwordResetToken: input.passwordResetToken ?? null,
+    passwordResetTokenExpiresAt: input.passwordResetTokenExpiresAt ?? null,
   }
 
   await writeUser(user)
@@ -388,6 +421,15 @@ export async function registerUser(input: {
     isActive: true,
     createdAt: now,
     updatedAt: now,
+    // Phase 2 schema-only defaults; Phase 3 will require email at the
+    // route layer and pass it through.
+    email: '',
+    emailKey: '',
+    emailVerified: false,
+    emailVerifyToken: null,
+    emailVerifyTokenExpiresAt: null,
+    passwordResetToken: null,
+    passwordResetTokenExpiresAt: null,
   }
 
   await writeUser(user)
@@ -433,6 +475,15 @@ export async function createUser(input: {
     isActive: true,
     createdAt: now,
     updatedAt: now,
+    // Phase 2 schema-only defaults; admin-created users currently lack
+    // email association — future admin UI will collect this.
+    email: '',
+    emailKey: '',
+    emailVerified: false,
+    emailVerifyToken: null,
+    emailVerifyTokenExpiresAt: null,
+    passwordResetToken: null,
+    passwordResetTokenExpiresAt: null,
   }
 
   await writeUser(user)
