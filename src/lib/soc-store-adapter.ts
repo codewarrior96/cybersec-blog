@@ -313,6 +313,73 @@ export async function setEmailVerifyToken(...args: Parameters<StoreModule['setEm
   })
 }
 
+// ─── Phase 5 password-reset contract ─────────────────────────────────────────
+// Same routing pattern as the email-verification helpers above. Postgres
+// branch returns null (dormant pending SQL migration); supabase branch is
+// the production path; memory branch is dev fallback.
+
+export async function findUserByPasswordResetToken(
+  ...args: Parameters<StoreModule['findUserByPasswordResetToken']>
+) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.findUserByPasswordResetToken(...args)
+  }
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.findUserByPasswordResetToken(...args)
+  }
+  return withStore(
+    'findUserByPasswordResetToken',
+    (store) => store.findUserByPasswordResetToken(...args),
+    { allowMemoryFallback: allowCriticalMemoryFallback },
+  )
+}
+
+export async function setPasswordResetToken(
+  ...args: Parameters<StoreModule['setPasswordResetToken']>
+) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.setPasswordResetToken(...args)
+  }
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.setPasswordResetToken(...args)
+  }
+  return withStore('setPasswordResetToken', (store) => store.setPasswordResetToken(...args), {
+    allowMemoryFallback: allowCriticalMemoryFallback,
+  })
+}
+
+export async function consumePasswordResetToken(
+  ...args: Parameters<StoreModule['consumePasswordResetToken']>
+) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.consumePasswordResetToken(...args)
+  }
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.consumePasswordResetToken(...args)
+  }
+  return withStore(
+    'consumePasswordResetToken',
+    (store) => store.consumePasswordResetToken(...args),
+    { allowMemoryFallback: allowCriticalMemoryFallback },
+  )
+}
+
+export async function deleteAllSessionsForUser(
+  ...args: Parameters<StoreModule['deleteAllSessionsForUser']>
+) {
+  if (useSupabasePostgresIdentityStore) {
+    return supabasePostgresStore.deleteAllSessionsForUser(...args)
+  }
+  if (useSupabaseIdentityStore) {
+    return supabaseStore.deleteAllSessionsForUser(...args)
+  }
+  return withStore(
+    'deleteAllSessionsForUser',
+    (store) => store.deleteAllSessionsForUser(...args),
+    { allowMemoryFallback: allowCriticalMemoryFallback },
+  )
+}
+
 export async function getPortfolioProfile(...args: Parameters<StoreModule['getPortfolioProfile']>) {
   if (useSupabaseJsonDomains) {
     return supabaseStore.getPortfolioProfile(...args)

@@ -193,6 +193,35 @@ export async function setEmailVerifyToken(
   return null
 }
 
+// Phase 5 stubs — postgres mode awaits the same SQL migration as Phase
+// 2/3/4 to surface password_reset_token + password_reset_token_expires_at
+// columns. Postgres identity mode is dormant in production
+// (SOC_IDENTITY_STORE=supabase); these stubs preserve adapter contract
+// parity. When the migration runs, replace with UPDATE queries against
+// identity.users and a DELETE against identity.sessions WHERE user_id = $1.
+export async function findUserByPasswordResetToken(_token: string): Promise<null> {
+  return null
+}
+
+export async function setPasswordResetToken(
+  _userId: number,
+  _token: string,
+  _expiresAt: string,
+): Promise<null> {
+  return null
+}
+
+export async function consumePasswordResetToken(
+  _userId: number,
+  _newPasswordHash: string,
+): Promise<null> {
+  return null
+}
+
+export async function deleteAllSessionsForUser(_userId: number): Promise<{ deletedCount: number }> {
+  return { deletedCount: 0 }
+}
+
 export async function createSession(user: SessionUser, metadata: RequestMetadata): Promise<SessionRecord> {
   const client = getRequiredClient()
   const token = randomUUID()

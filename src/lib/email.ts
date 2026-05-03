@@ -77,3 +77,57 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
     return { ok: false, error: message }
   }
 }
+
+/**
+ * Phase 5: typed helper for the password-reset email. Wraps `sendEmail`
+ * with a TR-localized template (subject + HTML + plaintext fallback).
+ *
+ * Caller (POST /api/auth/forgot) builds the absolute resetUrl from the
+ * request host so the link works in both production (siberlab.dev) and
+ * preview deploys (vercel.app). The 1-hour expiry warning matches the
+ * token TTL set in the forgot endpoint; updating one without the other
+ * creates user-facing inconsistency, so they're both literal "1 saat".
+ *
+ * The "if you didn't request this, ignore this email" footer is a
+ * standard anti-phishing mitigation: a legitimate user receiving an
+ * unsolicited reset email is the early warning signal for a compromised
+ * password (or for an attacker probing whether their email is registered
+ * — which we already mitigate via the generic /forgot response).
+ *
+ * Phase 6 will centralize email templates; for now the inline structure
+ * matches the verification-email pattern in /api/auth/register +
+ * /api/auth/verify/resend so styling stays consistent across the suite.
+ */
+export async function sendPasswordResetEmail(params: {
+  to: string
+  resetUrl: string
+  username: string
+}): Promise<SendEmailResult> {
+  const safeName = params.username || 'Operator'
+  const subject = 'BREACH LAB — Şifre sıfırlama'
+  const text = [
+    `Merhaba ${safeName},`,
+    '',
+    'BREACH LAB hesabın için şifre sıfırlama talebi aldık. Yeni bir şifre belirlemek için aşağıdaki bağlantıya tıkla:',
+    '',
+    params.resetUrl,
+    '',
+    'Bu bağlantı 1 saat geçerli. Süre dolarsa yeni bir bağlantı talep etmen gerekir.',
+    '',
+    'Eğer bu talebi sen yapmadıysan, bu maili görmezden gelebilirsin — şifren değişmez.',
+    '',
+    '— BREACH LAB',
+  ].join('\n')
+  const html = `<!doctype html>
+<html><body style="font-family:JetBrains Mono,Menlo,monospace;background:#000;color:#e2e8f0;padding:24px;">
+<div style="max-width:560px;margin:0 auto;border:1px solid #00ff4140;border-radius:12px;padding:24px;background:#040806;">
+<p style="color:#00ff41;letter-spacing:0.2em;font-size:11px;margin:0 0 12px;">BREACH LAB</p>
+<h1 style="color:#f8fafc;font-size:18px;margin:0 0 12px;">Şifre sıfırlama</h1>
+<p style="line-height:1.6;color:#cbd5e1;font-size:13px;">Merhaba ${safeName}, BREACH LAB hesabın için şifre sıfırlama talebi aldık. Yeni bir şifre belirlemek için aşağıdaki bağlantıya tıkla:</p>
+<p style="margin:16px 0;"><a href="${params.resetUrl}" style="display:inline-block;background:#00ff41;color:#000;padding:10px 18px;border-radius:8px;font-weight:700;text-decoration:none;">Yeni şifre belirle</a></p>
+<p style="font-size:11px;color:#94a3b8;line-height:1.6;">Bağlantı 1 saat geçerli. Süre dolarsa yeni bir bağlantı talep etmen gerekir. Bağlantı çalışmıyorsa şu URL'yi tarayıcına yapıştırabilirsin:<br/><span style="color:#00ff41;word-break:break-all;">${params.resetUrl}</span></p>
+<p style="font-size:11px;color:#fbbf24;line-height:1.6;margin-top:16px;border-top:1px solid #fbbf2440;padding-top:12px;">⚠ Bu talebi sen yapmadıysan, bu maili görmezden gelebilirsin — şifren değişmez. Yine de hesabının güvende olduğundan emin değilsen, mevcut şifrenle giriş yap ve değiştir.</p>
+<p style="font-size:10px;color:#64748b;margin-top:24px;">— BREACH LAB</p>
+</div></body></html>`
+  return sendEmail({ to: params.to, subject, html, text })
+}

@@ -39,13 +39,22 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 //   /api/auth/verify/resend  — request new verification email; the user
 //                              has no session at this point (Phase 4.5)
 //                              so this must be reachable cookie-less
+//   /api/auth/forgot         — request password-reset link (Phase 5);
+//                              by definition the user has no session
+//                              when recovering a forgotten password
+//   /api/auth/reset          — consume a password-reset token (Phase 5);
+//                              same reasoning as /forgot — no session
+//                              required, CSRF still enforced
 //   /api/auth/session        — GET, already excluded by MUTATING_METHODS check
 //   /api/auth/verify         — GET, ditto
+//   /api/auth/reset/validate — GET, ditto (Phase 5 token pre-check)
 const PUBLIC_API_ROUTES = new Set<string>([
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/logout',
   '/api/auth/verify/resend',
+  '/api/auth/forgot',
+  '/api/auth/reset',
 ])
 
 function extractClaimedHost(request: NextRequest): string | null {

@@ -33,10 +33,19 @@ export default function AppShellClient({
   // would be misleading ("HOME · BLOG · …" links they can't actually
   // open), and the gateway is its own self-contained screen. Treat it
   // like /login and /register — render the page bare.
+  //
+  // Phase 5 — /forgot and /reset join the gateway list for the same
+  // reason: the user is recovering a forgotten password, has no
+  // session, and the password-reset screen is its own self-contained
+  // flow. Both render chromeless.
   const isAuthFlowRoute =
     pathname === '/verify' ||
     pathname?.startsWith('/verify/') ||
-    pathname?.startsWith('/auth/')
+    pathname?.startsWith('/auth/') ||
+    pathname === '/forgot' ||
+    pathname?.startsWith('/forgot/') ||
+    pathname === '/reset' ||
+    pathname?.startsWith('/reset/')
   const isRootRoute = pathname === '/' || pathname === '/home'
 
   const isAuthGatewayRoute =

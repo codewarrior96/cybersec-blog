@@ -257,6 +257,110 @@ export async function setEmailVerifyToken(
   return updated
 }
 
+/**
+ * Phase 5: lookup user by current passwordResetToken. Mirrors the
+ * findUserByVerifyToken pattern — opaque 32-byte hex token, no
+ * dedicated token-to-userid index file (O(n) over indexed users; fine
+ * at current scale, switch to an index when signup volume warrants).
+ */
+export async function findUserByPasswordResetToken(token: string): Promise<StoredUser | null> {
+  if (!token) return null
+  try {
+    const paths = await listObjectPaths('state/users/by-id/')
+    for (const path of paths) {
+      const user = await readJsonObject<StoredUser>(path)
+      if (user?.passwordResetToken === token) return user
+    }
+    return null
+  } catch (err) {
+    console.error('[soc-store-supabase.findUserByPasswordResetToken] failed:', err)
+    return null
+  }
+}
+
+/**
+ * Phase 5: stash a fresh password-reset token + expiry on the user
+ * record. Caller (POST /api/auth/forgot) generates the token via
+ * randomBytes(32).toString('hex') and a 1-hour TTL — shorter than the
+ * verify token's 24h since reset is more sensitive (assumes the
+ * "forgot" signal may indicate compromise).
+ */
+export async function setPasswordResetToken(
+  userId: number,
+  token: string,
+  expiresAt: string,
+): Promise<StoredUser | null> {
+  const user = await readUserById(userId)
+  if (!user) return null
+  const updated: StoredUser = {
+    ...user,
+    passwordResetToken: token,
+    passwordResetTokenExpiresAt: expiresAt,
+    updatedAt: toIsoNow(),
+  }
+  await writeUser(updated)
+  return updated
+}
+
+/**
+ * Phase 5: atomic consume of a password-reset token. Writes the new
+ * passwordHash, clears the reset token + expiry, and bumps updatedAt
+ * in one writeUser pass. Caller validates token freshness BEFORE
+ * calling this; we don't double-check here since the token may already
+ * have been cleared by a concurrent reset (both writes idempotent).
+ */
+export async function consumePasswordResetToken(
+  userId: number,
+  newPasswordHash: string,
+): Promise<StoredUser | null> {
+  const user = await readUserById(userId)
+  if (!user) return null
+  const updated: StoredUser = {
+    ...user,
+    passwordHash: newPasswordHash,
+    passwordResetToken: null,
+    passwordResetTokenExpiresAt: null,
+    updatedAt: toIsoNow(),
+  }
+  await writeUser(updated)
+  return updated
+}
+
+/**
+ * Phase 5: invalidate every active session for a user. Used after a
+ * successful password reset to force fresh login on every device —
+ * standard GitHub/banking pattern. Iterates `state/sessions/*.json`,
+ * reads each, and deletes those whose embedded `user.id` matches.
+ *
+ * O(N) over total active sessions (not just this user's). Acceptable
+ * at current scale; if session volume grows, swap for a per-user
+ * index file (`state/sessions/by-user/{id}/{token}`).
+ *
+ * Best-effort: we tolerate individual deletion failures (logged) and
+ * report `deletedCount` = the number actually removed. Caller can
+ * decide whether to surface a warning if deletedCount < expected.
+ */
+export async function deleteAllSessionsForUser(userId: number): Promise<{ deletedCount: number }> {
+  let deletedCount = 0
+  try {
+    const paths = await listObjectPaths('state/sessions/')
+    for (const path of paths) {
+      try {
+        const session = await readJsonObject<StoredSession>(path)
+        if (!session) continue
+        if (session.user?.id !== userId) continue
+        await deleteObject(path)
+        deletedCount += 1
+      } catch (err) {
+        console.warn('[soc-store-supabase.deleteAllSessionsForUser] per-session delete failed:', path, err)
+      }
+    }
+  } catch (err) {
+    console.error('[soc-store-supabase.deleteAllSessionsForUser] list failed:', err)
+  }
+  return { deletedCount }
+}
+
 async function writeUser(user: StoredUser) {
   const writes: Promise<unknown>[] = [
     uploadJsonObject(userByIdPath(user.id), user),

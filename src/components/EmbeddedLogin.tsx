@@ -970,16 +970,24 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
         </div>
 
         <div style={{ marginTop: '0.5rem', textAlign: 'center' }}>
+          {/* Phase 5: live link to the forgot-password gateway. The
+              existing "sifremi unuttum?" placeholder used to be a
+              no-op button calling setHint('') — replaced with a real
+              router.push so the user lands on /forgot and can request
+              a reset link. */}
           <button
             type="button"
-            onClick={() => setHint('')}
+            onClick={() => router.push('/forgot')}
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'rgba(0,255,65,0.25)',
+              color: 'rgba(0,255,65,0.4)',
               fontSize: 9,
               fontFamily: 'monospace',
               cursor: 'pointer',
+              textDecoration: 'underline',
+              textDecorationColor: 'rgba(0,255,65,0.2)',
+              textUnderlineOffset: '2px',
             }}
           >
             sifremi unuttum?

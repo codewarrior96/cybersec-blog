@@ -1289,6 +1289,41 @@ export async function setEmailVerifyToken(
   return null
 }
 
+// Phase 5 stubs — memory store does not persist password-reset tokens
+// or per-session records (sessions are opaque encoded tokens, not
+// individual records). Returns null / { deletedCount: 0 } so the
+// adapter contract stays consistent across all three stores. Production
+// identity flow runs supabase store where these operations are real.
+export async function findUserByPasswordResetToken(_token: string): Promise<null> {
+  return null
+}
+
+export async function setPasswordResetToken(
+  _userId: number,
+  _token: string,
+  _expiresAt: string,
+): Promise<null> {
+  return null
+}
+
+export async function consumePasswordResetToken(
+  _userId: number,
+  _newPasswordHash: string,
+): Promise<null> {
+  return null
+}
+
+export async function deleteAllSessionsForUser(_userId: number): Promise<{ deletedCount: number }> {
+  // Memory store sessions are opaque encoded tokens with no per-user
+  // index — there is nothing to iterate and delete. Production supabase
+  // store iterates state/sessions/*.json and deletes those matching the
+  // userId. For the dev/Vercel cold-start memory fallback, this is a
+  // best-effort no-op; the user's existing token will keep working
+  // until natural expiry (acceptable since memory mode is not the
+  // production identity store).
+  return { deletedCount: 0 }
+}
+
 export async function registerUser(input: {
   username: string
   displayName: string
