@@ -387,6 +387,21 @@ export async function deleteAllSessionsForUser(
   )
 }
 
+// F-002: account permanent delete with GDPR cascade. Identity store
+// is supabase in production; postgres branch is dormant (Phase 2
+// migration pending) and falls through to the JSON store which is
+// where user records live anyway. Memory branch is dev fallback.
+export async function deleteUserCascade(
+  ...args: Parameters<StoreModule['deleteUserCascade']>
+) {
+  if (useSupabaseJsonDomains) {
+    return supabaseStore.deleteUserCascade(...args)
+  }
+  return withStore('deleteUserCascade', (store) => store.deleteUserCascade(...args), {
+    allowMemoryFallback: allowCriticalMemoryFallback,
+  })
+}
+
 export async function getPortfolioProfile(...args: Parameters<StoreModule['getPortfolioProfile']>) {
   if (useSupabaseJsonDomains) {
     return supabaseStore.getPortfolioProfile(...args)

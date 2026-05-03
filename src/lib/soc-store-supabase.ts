@@ -8,6 +8,7 @@ import {
   readJsonObject,
   uploadJsonObject,
 } from '@/lib/supabase-app-state'
+import { deleteStoredAsset } from '@/lib/portfolio-assets'
 import type {
   RequestMetadata,
   SessionRecord,
@@ -177,7 +178,11 @@ function auditLogPath(action: string) {
   return `state/audit/${Date.now()}-${randomUUID()}-${sanitizeFileSegment(action)}.json`
 }
 
-async function readUserById(userId: number) {
+// F-002: exported so DELETE /api/users/me can re-fetch the full
+// StoredUser record (including passwordHash) for password verification.
+// SessionUser intentionally omits the hash; this is the controlled
+// path to access it.
+export async function readUserById(userId: number) {
   return readJsonObject<StoredUser>(userByIdPath(userId))
 }
 
@@ -359,6 +364,165 @@ export async function deleteAllSessionsForUser(userId: number): Promise<{ delete
     console.error('[soc-store-supabase.deleteAllSessionsForUser] list failed:', err)
   }
   return { deletedCount }
+}
+
+/**
+ * F-002: account permanent delete with GDPR cascade.
+ *
+ * Cascade order (sacred — do not reorder):
+ *   1. Audit snapshot BEFORE any deletion. AUDIT_LOG_FAILED throws to
+ *      abort the whole cascade — user remains intact. Cannot delete
+ *      without forensic record.
+ *   2. Sessions (delegates to deleteAllSessionsForUser)
+ *   3. Reports (own only — createdByUserId === userId)
+ *   4. Certifications: binary asset + index entry + record
+ *   5. Educations
+ *   6. Avatar binaries (avatars/user-{id}/* prefix)
+ *   7. Profile record
+ *   8. User indexes — by-email, by-username, by-id LAST. Failure here
+ *      throws (cannot leave half-deleted user record).
+ *
+ * Per-step error handling: best-effort with console.warn for orphans
+ * on resource steps; final user-record deletion is fatal-on-failure.
+ *
+ * Returns null when the user doesn't exist; throws AUDIT_LOG_FAILED
+ * if step 1 fails. Caller maps these to 404 / 500 respectively.
+ */
+export async function deleteUserCascade(
+  userId: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<{
+  deleted: true
+  counts: {
+    sessions: number
+    reports: number
+    certifications: number
+    educations: number
+  }
+} | null> {
+  const user = await readUserById(userId)
+  if (!user) return null
+
+  // Pre-count cascade resources for the audit snapshot. Done BEFORE
+  // any delete so the count reflects what's about to be removed,
+  // even if resource deletion later fails partially.
+  const allReportPaths = await listObjectPaths(reportsPrefix())
+  const userReportPaths: string[] = []
+  for (const path of allReportPaths) {
+    if (!path.endsWith('.json')) continue
+    const report = await readJsonObject<StoredReport>(path)
+    if (report && report.createdByUserId === userId) {
+      userReportPaths.push(path)
+    }
+  }
+
+  const certPaths = (await listObjectPaths(certificationPrefix(userId))).filter((p) => p.endsWith('.json'))
+  const certs: PortfolioCertificationRecord[] = []
+  for (const path of certPaths) {
+    const cert = await readJsonObject<PortfolioCertificationRecord>(path)
+    if (cert) certs.push(cert)
+  }
+
+  const eduPaths = (await listObjectPaths(educationPrefix(userId))).filter((p) => p.endsWith('.json'))
+
+  const counts = {
+    sessions: 0, // populated by deleteAllSessionsForUser below
+    reports: userReportPaths.length,
+    certifications: certs.length,
+    educations: eduPaths.length,
+  }
+
+  // Step 1 — audit FIRST (sacred invariant)
+  try {
+    await writeAuditLog({
+      actorUserId: actor.id,
+      action: 'user.delete',
+      entityType: 'user',
+      entityId: userId,
+      details: {
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+        counts,
+      },
+      metadata,
+    })
+  } catch (err) {
+    console.error('[soc-store-supabase.deleteUserCascade] audit write failed, aborting:', err)
+    throw new Error('AUDIT_LOG_FAILED')
+  }
+
+  // Step 2 — sessions
+  const { deletedCount: sessionsDeleted } = await deleteAllSessionsForUser(userId)
+  counts.sessions = sessionsDeleted
+
+  // Step 3 — reports
+  for (const path of userReportPaths) {
+    try {
+      await deleteObject(path)
+    } catch (err) {
+      console.warn('[soc-store-supabase.deleteUserCascade] report delete failed:', path, err)
+    }
+  }
+
+  // Step 4 — certifications (asset + index + record)
+  for (const cert of certs) {
+    try {
+      if (cert.assetPath) {
+        await deleteStoredAsset(cert.assetPath)
+      }
+      await deleteObject(certificationIndexPath(cert.id))
+      await deleteObject(certificationPath(userId, cert.id))
+    } catch (err) {
+      console.warn('[soc-store-supabase.deleteUserCascade] cert delete failed:', cert.id, err)
+    }
+  }
+
+  // Step 5 — educations
+  for (const path of eduPaths) {
+    try {
+      await deleteObject(path)
+    } catch (err) {
+      console.warn('[soc-store-supabase.deleteUserCascade] education delete failed:', path, err)
+    }
+  }
+
+  // Step 6 — avatar binaries
+  try {
+    const avatarPaths = await listObjectPaths(avatarPrefix(userId))
+    for (const path of avatarPaths) {
+      try {
+        await deleteStoredAsset(path)
+      } catch (err) {
+        console.warn('[soc-store-supabase.deleteUserCascade] avatar binary delete failed:', path, err)
+      }
+    }
+  } catch (err) {
+    console.warn('[soc-store-supabase.deleteUserCascade] avatar list failed:', err)
+  }
+
+  // Step 7 — profile
+  try {
+    await deleteObject(profilePath(userId))
+  } catch (err) {
+    console.warn('[soc-store-supabase.deleteUserCascade] profile delete failed:', err)
+  }
+
+  // Step 8 — user indexes (LAST, in this order; fatal-on-failure)
+  try {
+    if (user.emailKey) {
+      await deleteObject(userByEmailKeyPath(user.emailKey))
+    }
+    await deleteObject(userByUsernamePath(user.username))
+    await deleteObject(userByIdPath(userId))
+  } catch (err) {
+    console.error('[soc-store-supabase.deleteUserCascade] user index delete failed:', err)
+    throw err
+  }
+
+  return { deleted: true, counts }
 }
 
 async function writeUser(user: StoredUser) {

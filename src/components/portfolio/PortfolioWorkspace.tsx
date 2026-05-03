@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getAuthSession } from '@/lib/auth-client'
+import DangerZone from '@/components/portfolio/DangerZone'
 import type {
   PortfolioCertificationRecord,
   PortfolioEducationRecord,
@@ -1553,6 +1554,11 @@ export default function PortfolioWorkspace({
           {message && <p className="mt-5 text-sm text-emerald-300">{message}</p>}
         </div>
       </section>
+
+      {/* F-002: account permanent-delete entry. Visible only when the
+          viewer owns the profile (editable=true means there's a live
+          session). Visitors and read-only viewers don't see it. */}
+      {editable && <DangerZone />}
     </div>
   )
 }

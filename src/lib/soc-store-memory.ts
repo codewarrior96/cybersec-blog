@@ -1397,6 +1397,74 @@ export async function deleteAllSessionsForUser(_userId: number): Promise<{ delet
   return { deletedCount: 0 }
 }
 
+/**
+ * F-002: account permanent delete with GDPR cascade. Mirrors the
+ * supabase store's deleteUserCascade order and counts. Memory store
+ * has no binary asset storage (avatars, certification PDFs) so those
+ * cascade steps are no-ops here. Production runs supabase JSON store
+ * where the full cascade applies.
+ *
+ * Audit log written BEFORE any deletion (sacred invariant — user
+ * record cannot be erased without a forensic trace). Returns null if
+ * the user doesn't exist.
+ */
+export async function deleteUserCascade(
+  userId: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<{
+  deleted: true
+  counts: {
+    sessions: number
+    reports: number
+    certifications: number
+    educations: number
+  }
+} | null> {
+  const store = getStore()
+  const user = store.users.find((u) => u.id === userId)
+  if (!user) return null
+
+  // Step 1 — audit BEFORE deletion
+  const counts = {
+    sessions: 0, // memory store has no per-session records
+    reports: store.reports.filter((r) => r.createdByUserId === userId).length,
+    certifications: store.certifications.filter((c) => c.userId === userId).length,
+    educations: store.education.filter((e) => e.userId === userId).length,
+  }
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'user.delete',
+    entityType: 'user',
+    entityId: userId,
+    details: {
+      username: user.username,
+      role: user.role,
+      counts,
+    },
+    metadata,
+  })
+
+  // Step 2 — sessions: memory store has no persistent session records
+  // Step 3 — reports
+  store.reports = store.reports.filter((r) => r.createdByUserId !== userId)
+  // Step 4 — certifications
+  store.certifications = store.certifications.filter((c) => c.userId !== userId)
+  // Step 5 — educations
+  store.education = store.education.filter((e) => e.userId !== userId)
+  // Step 6 — avatar binaries: memory store has no binary asset storage
+  // Step 7 — profile
+  store.profiles = store.profiles.filter((p) => p.userId !== userId)
+  // Step 8 — user record (memory store: single users array)
+  const idx = store.users.findIndex((u) => u.id === userId)
+  if (idx >= 0) {
+    store.users.splice(idx, 1)
+  }
+
+  return { deleted: true, counts }
+}
+
 export async function registerUser(input: {
   username: string
   displayName: string
