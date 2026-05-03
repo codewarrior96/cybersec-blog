@@ -135,10 +135,10 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
           const prefill = result.email ?? ''
           setUnverifiedEmail(prefill)
           setResendEmailInput(prefill)
-          setError(result.error ?? 'EMAIL VERIFICATION REQUIRED')
+          setError(result.error ?? 'E-posta doğrulanmamış')
           return
         }
-        setError(result.error ?? 'ACCESS DENIED - INVALID CREDENTIALS')
+        setError(result.error ?? 'Giriş bilgileri hatalı')
         return
       }
       router.push(redirectTo)
@@ -151,7 +151,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
     if (resending) return
     const target = resendEmailInput.trim()
     if (!target) {
-      setResendError('Email gerekli.')
+      setResendError('E-posta adresi gerekli.')
       setResendStatus('error')
       return
     }
@@ -166,13 +166,13 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
       })
       if (response.status === 429) {
         setResendStatus('error')
-        setResendError('Çok fazla deneme. Bir saat sonra tekrar dene.')
+        setResendError('Çok fazla deneme. Bir saat sonra tekrar deneyin.')
         return
       }
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as { error?: string }
         setResendStatus('error')
-        setResendError(payload.error === 'INVALID_EMAIL' ? 'Geçersiz email formatı.' : 'Mail gönderilemedi.')
+        setResendError(payload.error === 'INVALID_EMAIL' ? 'Geçersiz e-posta formatı.' : 'E-posta gönderilemedi.')
         return
       }
       setResendStatus('sent')
@@ -738,7 +738,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
 
         <div>
           <p style={{ color: 'rgba(0,255,65,0.4)', fontSize: 9, fontFamily: 'monospace', marginBottom: 4 }}>
-            USER_ID:
+            Kullanıcı adı
           </p>
           <div className="el-field">
             <span
@@ -764,7 +764,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
               autoCapitalize="none"
               spellCheck={false}
               enterKeyHint="go"
-              placeholder="enter username..."
+              placeholder="Kullanıcı adınızı giriniz"
               className="el-input"
               style={fieldInputStyle}
             />
@@ -773,7 +773,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
 
         <div style={{ marginTop: '0.75rem' }}>
           <p style={{ color: 'rgba(0,255,65,0.4)', fontSize: 9, fontFamily: 'monospace', marginBottom: 4 }}>
-            PASS_KEY:
+            Şifre
           </p>
           <div className="el-field">
             <span
@@ -799,7 +799,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
               autoCapitalize="none"
               spellCheck={false}
               enterKeyHint="go"
-              placeholder="enter password..."
+              placeholder="Şifrenizi giriniz"
               className="el-input"
               style={{ ...fieldInputStyle, paddingRight: '2.5rem' }}
             />
@@ -819,14 +819,14 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
                 fontSize: 12,
               }}
             >
-              {showPass ? 'HIDE' : 'SHOW'}
+              {showPass ? 'Gizle' : 'Göster'}
             </button>
           </div>
         </div>
 
         {error && (
           <div className="el-shake" style={{ marginTop: '0.75rem', textAlign: 'center' }}>
-            <p style={{ color: '#ef4444', fontSize: 9, fontFamily: 'monospace' }}>[ {error} ]</p>
+            <p style={{ color: '#ef4444', fontSize: 9, fontFamily: 'monospace' }}>{error}</p>
           </div>
         )}
 
@@ -849,7 +849,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
                 marginBottom: '0.5rem',
               }}
             >
-              [ EMAIL VERIFICATION REQUIRED ]
+              E-posta doğrulanmamış
             </p>
             <p
               style={{
@@ -898,10 +898,10 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
               }}
             >
               {resending
-                ? '[ GONDERILIYOR ]'
+                ? 'Gönderiliyor...'
                 : resendStatus === 'sent'
-                  ? '[ GONDERILDI - INBOX KONTROL ]'
-                  : '[ YENIDEN MAIL ISTE ]'}
+                  ? 'Gönderildi'
+                  : 'Yeniden gönder'}
             </button>
             {resendStatus === 'sent' && (
               <p
@@ -945,7 +945,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
               htmlFor="el-remember"
               style={{ color: 'rgba(0,255,65,0.4)', fontSize: 9, fontFamily: 'monospace', cursor: 'pointer' }}
             >
-              OTURUMU ACIK TUT
+              Beni hatırla
             </label>
           </div>
           <button
@@ -965,7 +965,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
               opacity: loading ? 0.75 : 1,
             }}
           >
-            {loading ? '[ CONNECTING ]' : '[ ACCESS ]'}
+            {loading ? 'Giriş yapılıyor...' : 'Giriş yap'}
           </button>
         </div>
 
@@ -990,7 +990,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
               textUnderlineOffset: '2px',
             }}
           >
-            sifremi unuttum?
+            Şifremi unuttum
           </button>
         </div>
 
@@ -998,7 +998,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
 
         <div style={{ marginTop: '0.75rem', textAlign: 'center' }}>
           <span style={{ color: 'rgba(100,116,139,0.6)', fontSize: 9, fontFamily: 'monospace' }}>
-            Hesabin yok mu?
+            Hesabınız yok mu?
           </span>
           <button
             type="button"
@@ -1013,7 +1013,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
               cursor: 'pointer',
             }}
           >
-            [ KAYIT OL ]
+            Kayıt ol
           </button>
         </div>
 

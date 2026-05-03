@@ -40,7 +40,7 @@ export default function EmbeddedVerifyResend() {
     const target = email.trim()
     if (!target) {
       setStatus('error')
-      setErrorMsg('Email adresi gerekli.')
+      setErrorMsg('E-posta adresi gerekli.')
       return
     }
 
@@ -56,14 +56,14 @@ export default function EmbeddedVerifyResend() {
 
       if (response.status === 429) {
         setStatus('error')
-        setErrorMsg('Çok fazla deneme. Bir saat sonra tekrar dene.')
+        setErrorMsg('Çok fazla deneme. Bir saat sonra tekrar deneyin.')
         return
       }
 
       if (response.status === 400) {
         const payload = (await response.json().catch(() => ({}))) as { error?: string }
         setStatus('error')
-        setErrorMsg(payload.error === 'INVALID_EMAIL' ? 'Geçersiz email formatı.' : 'İstek geçersiz.')
+        setErrorMsg(payload.error === 'INVALID_EMAIL' ? 'Geçersiz e-posta formatı.' : 'İstek geçersiz.')
         return
       }
 
@@ -74,7 +74,7 @@ export default function EmbeddedVerifyResend() {
       setStatus('sent')
     } catch {
       setStatus('error')
-      setErrorMsg('Bağlantı hatası. Tekrar dene.')
+      setErrorMsg('Bağlantı hatası. Tekrar deneyin.')
     }
   }
 
@@ -86,11 +86,11 @@ export default function EmbeddedVerifyResend() {
         aria-live="polite"
       >
         <p className="font-mono text-[10px] uppercase tracking-[0.32em] text-emerald-300/80">
-          [ İSTEK ALINDI ]
+          İstek alındı
         </p>
         <p className="mt-2 text-sm leading-6 text-slate-200">
-          Eğer bu email kayıtlıysa, yeni bir doğrulama bağlantısı gönderildi. Mail kutunu
-          (ve spam klasörünü) birkaç saniye sonra kontrol et.
+          Eğer bu e-posta kayıtlıysa, yeni bir doğrulama bağlantısı gönderildi. E-posta
+          kutunuzu (ve spam klasörünü) birkaç saniye sonra kontrol edin.
         </p>
       </div>
     )
@@ -103,7 +103,7 @@ export default function EmbeddedVerifyResend() {
           htmlFor="resend-email"
           className="font-mono text-[10px] uppercase tracking-[0.3em] text-emerald-300/60"
         >
-          EMAIL_ADDR:
+          E-posta adresi
         </label>
         <input
           id="resend-email"
@@ -116,14 +116,14 @@ export default function EmbeddedVerifyResend() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           disabled={status === 'submitting'}
-          placeholder="kayıt sırasında girdiğin email"
+          placeholder="kayıt sırasında girdiğiniz e-posta"
           className="mt-2 w-full rounded-lg border border-emerald-400/30 bg-black/60 px-4 py-2.5 font-mono text-sm text-emerald-200 placeholder:text-emerald-300/25 focus:border-emerald-400/60 focus:outline-none focus:ring-2 focus:ring-emerald-400/20 disabled:opacity-60"
         />
       </div>
 
       {status === 'error' && errorMsg && (
         <p className="font-mono text-[11px] tracking-wide text-rose-400" role="alert">
-          [ {errorMsg} ]
+          {errorMsg}
         </p>
       )}
 
@@ -132,7 +132,7 @@ export default function EmbeddedVerifyResend() {
         disabled={status === 'submitting'}
         className="w-full rounded-2xl border border-emerald-300/40 bg-emerald-400/10 px-5 py-2.5 font-mono text-[11px] uppercase tracking-[0.32em] text-emerald-200 transition hover:border-emerald-200/55 hover:bg-emerald-400/16 disabled:opacity-60"
       >
-        {status === 'submitting' ? '[ GÖNDERİLİYOR ]' : '[ Doğrulama mailini yeniden gönder ]'}
+        {status === 'submitting' ? 'Gönderiliyor...' : 'Doğrulama mailini yeniden gönder'}
       </button>
     </form>
   )

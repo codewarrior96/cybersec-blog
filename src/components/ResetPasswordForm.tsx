@@ -140,14 +140,14 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
       }
       if (response.status === 429) {
         setSubmitState('error')
-        setSubmitError(payload.message ?? 'Çok fazla deneme. Birkaç dakika sonra tekrar dene.')
+        setSubmitError(payload.message ?? 'Çok fazla deneme. Birkaç dakika sonra tekrar deneyin.')
         return
       }
       setSubmitState('error')
-      setSubmitError(payload.message ?? 'Şifre sıfırlanamadı. Tekrar dene.')
+      setSubmitError(payload.message ?? 'Şifre sıfırlanamadı. Tekrar deneyin.')
     } catch {
       setSubmitState('error')
-      setSubmitError('Bağlantı hatası. Tekrar dene.')
+      setSubmitError('Bağlantı hatası. Tekrar deneyin.')
     }
   }
 
@@ -158,7 +158,7 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
           Bağlantı doğrulanıyor
         </h1>
         <p className="mt-4 font-mono text-sm leading-7 text-emerald-300/70" aria-live="polite">
-          [ TOKEN_VALIDATION_IN_PROGRESS ]
+          Doğrulanıyor...
         </p>
       </>
     )
@@ -175,17 +175,17 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
         </div>
         <p className="text-sm leading-7 text-slate-300/80 md:text-base">
           Bu şifre sıfırlama bağlantısı 1 saat geçerliydi ve süresi doldu. Yeni bir bağlantı
-          talep et — mevcut hesabın için geçerli olacak.
+          talep edin — mevcut hesabınız için geçerli olacak.
         </p>
         <div className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-400/[0.05] p-4 text-sm text-slate-300">
-          Güvenlik gereği reset bağlantıları kısa süreli olarak çalışır.
+          Güvenlik gereği şifre sıfırlama bağlantıları kısa süreli olarak çalışır.
         </div>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href="/forgot"
             className="inline-flex items-center justify-center rounded-2xl border border-amber-300/35 bg-amber-400/10 px-6 py-3 font-mono text-[12px] uppercase tracking-[0.35em] text-amber-200 transition hover:border-amber-200/50 hover:bg-amber-400/16"
           >
-            Yeni bağlantı iste
+            Yeni bağlantı talep et
           </Link>
           <Link
             href="/login"
@@ -209,15 +209,15 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
         </div>
         <p className="text-sm leading-7 text-slate-300/80 md:text-base">
           {validation.phase === 'network-error'
-            ? 'Bağlantı doğrulama servisi şu anda yanıt vermiyor. Birkaç dakika sonra tekrar dene veya yeni bir bağlantı talep et.'
-            : 'Bu bağlantı geçersiz veya zaten kullanılmış. Yeni bir bağlantı talep et.'}
+            ? 'Bağlantı doğrulama servisi şu anda yanıt vermiyor. Birkaç dakika sonra tekrar deneyin veya yeni bir bağlantı talep edin.'
+            : 'Bu bağlantı geçersiz veya zaten kullanılmış. Yeni bir bağlantı talep edin.'}
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href="/forgot"
             className="inline-flex items-center justify-center rounded-2xl border border-emerald-300/35 bg-emerald-400/10 px-6 py-3 font-mono text-[12px] uppercase tracking-[0.35em] text-emerald-200 transition hover:border-emerald-200/50 hover:bg-emerald-400/16"
           >
-            Yeni bağlantı iste
+            Yeni bağlantı talep et
           </Link>
           <Link
             href="/login"
@@ -241,12 +241,12 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
         <div className="mb-4 flex items-center gap-3">
           <span className="text-3xl text-emerald-400">✓</span>
           <h1 className="text-3xl font-semibold tracking-[0.04em] text-slate-100 md:text-4xl">
-            Şifren güncellendi
+            Şifreniz güncellendi
           </h1>
         </div>
         <p className="text-sm leading-7 text-slate-300/80 md:text-base">
-          Tüm cihazlardaki oturumların sonlandırıldı. 3 saniye içinde giriş ekranına
-          yönlendiriliyorsun; yeni şifrenle oturum açabilirsin.
+          Tüm cihazlardaki oturumlarınız sonlandırıldı. 3 saniye içinde giriş ekranına
+          yönlendiriliyorsunuz; yeni şifrenizle oturum açabilirsiniz.
         </p>
         <div className="mt-8">
           <Link
@@ -263,11 +263,11 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   return (
     <>
       <h1 className="text-3xl font-semibold tracking-[0.04em] text-slate-100 md:text-4xl">
-        Yeni şifre belirle
+        Yeni şifre belirleyin
       </h1>
       <p className="mt-4 text-sm leading-7 text-slate-300/80 md:text-base">
-        Yeni şifren en az {MIN_PASSWORD} karakter olmalı. Sıfırlama tamamlandığında tüm
-        cihazlardaki oturumların sonlandırılacak.
+        Yeni şifreniz en az {MIN_PASSWORD} karakter olmalı. Sıfırlama tamamlandığında tüm
+        cihazlardaki oturumlarınız sonlandırılacak.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
@@ -276,7 +276,7 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
             htmlFor="reset-new"
             className="font-mono text-[10px] uppercase tracking-[0.3em] text-emerald-300/60"
           >
-            NEW_PASSWORD:
+            Yeni şifre
           </label>
           <input
             id="reset-new"
@@ -298,7 +298,7 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
             htmlFor="reset-confirm"
             className="font-mono text-[10px] uppercase tracking-[0.3em] text-emerald-300/60"
           >
-            CONFIRM_PASSWORD:
+            Yeni şifre (tekrar)
           </label>
           <input
             id="reset-confirm"
@@ -327,7 +327,7 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
 
         {submitState === 'error' && submitError && (
           <p className="font-mono text-[11px] tracking-wide text-rose-400" role="alert">
-            [ {submitError} ]
+            {submitError}
           </p>
         )}
 
@@ -336,7 +336,7 @@ export default function ResetPasswordForm({ token }: ResetPasswordFormProps) {
           disabled={submitState === 'submitting'}
           className="w-full rounded-2xl border border-emerald-300/40 bg-emerald-400/10 px-6 py-3 font-mono text-[12px] uppercase tracking-[0.35em] text-emerald-200 transition hover:border-emerald-200/55 hover:bg-emerald-400/16 disabled:opacity-60"
         >
-          {submitState === 'submitting' ? '[ KAYDEDİLİYOR ]' : '[ Şifreyi güncelle ]'}
+          {submitState === 'submitting' ? 'Kaydediliyor...' : 'Şifreyi güncelle'}
         </button>
       </form>
     </>

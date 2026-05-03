@@ -34,7 +34,7 @@ export default function ForgotPasswordForm() {
     const target = email.trim()
     if (!target) {
       setStatus('error')
-      setErrorMsg('Email adresi gerekli.')
+      setErrorMsg('E-posta adresi gerekli.')
       return
     }
 
@@ -50,14 +50,14 @@ export default function ForgotPasswordForm() {
 
       if (response.status === 429) {
         setStatus('error')
-        setErrorMsg('Çok fazla deneme. Bir saat sonra tekrar dene.')
+        setErrorMsg('Çok fazla deneme. Bir saat sonra tekrar deneyin.')
         return
       }
 
       if (response.status === 400) {
         const payload = (await response.json().catch(() => ({}))) as { error?: string }
         setStatus('error')
-        setErrorMsg(payload.error === 'INVALID_EMAIL' ? 'Geçersiz email formatı.' : 'İstek geçersiz.')
+        setErrorMsg(payload.error === 'INVALID_EMAIL' ? 'Geçersiz e-posta formatı.' : 'İstek geçersiz.')
         return
       }
 
@@ -68,7 +68,7 @@ export default function ForgotPasswordForm() {
       setStatus('sent')
     } catch {
       setStatus('error')
-      setErrorMsg('Bağlantı hatası. Tekrar dene.')
+      setErrorMsg('Bağlantı hatası. Tekrar deneyin.')
     }
   }
 
@@ -80,15 +80,15 @@ export default function ForgotPasswordForm() {
         aria-live="polite"
       >
         <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-emerald-300/80">
-          [ İSTEK ALINDI ]
+          İstek alındı
         </p>
         <p className="mt-3 text-sm leading-6 text-slate-200">
-          Eğer bu email kayıtlıysa, şifre sıfırlama bağlantısı gönderildi. Mail kutunu
-          (ve spam klasörünü) kontrol et. Bağlantı 1 saat geçerli.
+          Eğer bu e-posta kayıtlıysa, şifre sıfırlama bağlantısı gönderildi. E-posta
+          kutunuzu (ve spam klasörünü) kontrol edin. Bağlantı 1 saat geçerli.
         </p>
         <p className="mt-3 text-xs leading-5 text-slate-400">
-          Mail gelmediyse: kayıt sırasında kullandığın email adresini kontrol et veya birkaç
-          dakika sonra tekrar dene.
+          E-posta gelmediyse: kayıt sırasında kullandığınız e-posta adresini kontrol edin
+          veya birkaç dakika sonra tekrar deneyin.
         </p>
         <div className="mt-5">
           <Link
@@ -109,7 +109,7 @@ export default function ForgotPasswordForm() {
           htmlFor="forgot-email"
           className="font-mono text-[10px] uppercase tracking-[0.3em] text-emerald-300/60"
         >
-          EMAIL_ADDR:
+          E-posta adresi
         </label>
         <input
           id="forgot-email"
@@ -122,14 +122,14 @@ export default function ForgotPasswordForm() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           disabled={status === 'submitting'}
-          placeholder="operator@domain.tld"
+          placeholder="ornek@email.com"
           className="mt-2 w-full rounded-lg border border-emerald-400/30 bg-black/60 px-4 py-3 font-mono text-sm text-emerald-200 placeholder:text-emerald-300/25 focus:border-emerald-400/60 focus:outline-none focus:ring-2 focus:ring-emerald-400/20 disabled:opacity-60"
         />
       </div>
 
       {status === 'error' && errorMsg && (
         <p className="font-mono text-[11px] tracking-wide text-rose-400" role="alert">
-          [ {errorMsg} ]
+          {errorMsg}
         </p>
       )}
 
@@ -138,15 +138,12 @@ export default function ForgotPasswordForm() {
         disabled={status === 'submitting'}
         className="w-full rounded-2xl border border-emerald-300/40 bg-emerald-400/10 px-6 py-3 font-mono text-[12px] uppercase tracking-[0.35em] text-emerald-200 transition hover:border-emerald-200/55 hover:bg-emerald-400/16 disabled:opacity-60"
       >
-        {status === 'submitting' ? '[ GÖNDERİLİYOR ]' : '[ Sıfırlama bağlantısı gönder ]'}
+        {status === 'submitting' ? 'Gönderiliyor...' : 'Sıfırlama bağlantısı gönder'}
       </button>
 
-      <div className="flex items-center justify-between pt-2 text-xs text-slate-500">
+      <div className="flex items-center justify-start pt-2 text-xs text-slate-500">
         <Link href="/login" className="font-mono uppercase tracking-[0.24em] text-emerald-300/55 hover:text-emerald-200">
           ← Giriş ekranı
-        </Link>
-        <Link href="/register" className="font-mono uppercase tracking-[0.24em] text-emerald-300/45 hover:text-emerald-200">
-          Hesap oluştur
         </Link>
       </div>
     </form>

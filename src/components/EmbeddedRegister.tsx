@@ -66,7 +66,7 @@ export default function EmbeddedRegister({
       })
 
       if (!result.ok) {
-        setError(result.error ?? 'Kayit basarisiz oldu.')
+        setError(result.error ?? 'Hesap oluşturulamadı.')
         return
       }
 
@@ -94,24 +94,25 @@ export default function EmbeddedRegister({
             <div className="mb-8 flex items-center gap-3">
               <div className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.9)]" />
               <span className="font-mono text-[11px] uppercase tracking-[0.42em] text-emerald-300/80">
-                Operator Identity Provisioning
+                Yeni hesap oluştur
               </span>
             </div>
 
             <h1 className="max-w-xl text-3xl font-semibold tracking-[0.04em] text-slate-100 md:text-5xl">
-              Portfolyo icin canli ve duzenlenebilir bir profil olusturalim.
+              Portfolyonuz için canlı ve düzenlenebilir bir profil oluşturun.
             </h1>
             <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-300/80 md:text-base">
-              Kayit olduktan sonra seni dogrudan <span className="font-semibold text-emerald-300">Portfolio</span>
-              {' '}alanindaki profesyonel profil hub&apos;ina goturecegim. Orada sertifikalarini belge olarak
-              yukleyebilir, egitimlerini duzenleyebilir ve kendi vitrininin kontrolunu alabilirsin.
+              Kayıt olduktan sonra sizi doğrudan <span className="font-semibold text-emerald-300">Portfolio</span>
+              {' '}alanındaki profesyonel profil hub&apos;ına yönlendireceğiz. Orada sertifikalarınızı
+              belge olarak yükleyebilir, eğitimlerinizi düzenleyebilir ve kendi vitrininizin kontrolünü
+              alabilirsiniz.
             </p>
 
             <div className="mt-8 grid gap-4 md:grid-cols-3">
               {[
-                ['01', 'Profil', 'Baslik, biyografi, uzmanlik alanlari ve kullandigin araclar.'],
-                ['02', 'Sertifikalar', 'PDF veya gorsel belge onizlemeli profesyonel sertifika vitrinleri.'],
-                ['03', 'Egitimler', 'Kendi egitim yolculugunu satir satir guncelleyebilecegin alan.'],
+                ['01', 'Profil', 'Başlık, biyografi, uzmanlık alanları ve kullandığınız araçlar.'],
+                ['02', 'Sertifikalar', 'PDF veya görsel belge önizlemeli profesyonel sertifika vitrini.'],
+                ['03', 'Egitimler', 'Kendi eğitim yolculuğunuzu satır satır güncelleyebileceğiniz alan.'],
               ].map(([index, title, description]) => (
                 <div
                   key={title}
@@ -128,18 +129,18 @@ export default function EmbeddedRegister({
           <section className="rounded-[24px] border border-emerald-400/12 bg-[#040807]/88 p-6 shadow-[inset_0_0_40px_rgba(0,0,0,0.55)] md:p-8">
             <div className="mb-8">
               <p className="font-mono text-[11px] uppercase tracking-[0.42em] text-emerald-300/65">
-                Register
+                Yeni hesap
               </p>
-              <h2 className="mt-3 text-2xl font-semibold text-slate-100">Yeni operator profili</h2>
+              <h2 className="mt-3 text-2xl font-semibold text-slate-100">Hesap bilgileri</h2>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Guvenli oturum acilisi ile hesabini olustur, sonra profiline gecelim.
+                Hesabınızı oluşturun, ardından profil alanınıza geçeceğiz.
               </p>
             </div>
 
             <div className="space-y-4">
               <label className="block">
                 <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.3em] text-emerald-300/60">
-                  Kullanici Adi
+                  Kullanıcı adı
                 </span>
                 <input
                   value={username}
@@ -150,27 +151,27 @@ export default function EmbeddedRegister({
                   autoCapitalize="none"
                   spellCheck={false}
                   enterKeyHint="next"
-                  placeholder="ornek: breach.analyst"
+                  placeholder="ornek_kullanici"
                   className="w-full rounded-2xl border border-emerald-400/20 bg-black/55 px-4 py-3 text-sm text-emerald-100 outline-none transition focus:border-emerald-300/60 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
                 />
               </label>
 
               <label className="block">
                 <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.3em] text-emerald-300/60">
-                  Gorunen Ad
+                  Görünen ad
                 </span>
                 <input
                   value={displayName}
                   onChange={(event) => setDisplayName(event.target.value)}
                   onKeyDown={(event) => event.key === 'Enter' && void handleRegister()}
-                  placeholder="Profil basliginda gorunecek isim"
+                  placeholder="Profilinizde görünecek ad"
                   className="w-full rounded-2xl border border-emerald-400/20 bg-black/55 px-4 py-3 text-sm text-emerald-100 outline-none transition focus:border-emerald-300/60 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
                 />
               </label>
 
               <label className="block">
                 <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.3em] text-emerald-300/60">
-                  Email
+                  E-posta adresi
                 </span>
                 <input
                   type="email"
@@ -182,14 +183,14 @@ export default function EmbeddedRegister({
                   autoCapitalize="none"
                   spellCheck={false}
                   enterKeyHint="next"
-                  placeholder="operator@example.com"
+                  placeholder="ornek@email.com"
                   className="w-full rounded-2xl border border-emerald-400/20 bg-black/55 px-4 py-3 text-sm text-emerald-100 outline-none transition focus:border-emerald-300/60 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
                 />
               </label>
 
               <label className="block">
                 <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.3em] text-emerald-300/60">
-                  Sifre
+                  Şifre
                 </span>
                 <div className="relative">
                   <input
@@ -210,14 +211,14 @@ export default function EmbeddedRegister({
                     onClick={() => setShowPassword((value) => !value)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[11px] uppercase tracking-[0.25em] text-emerald-300/55 transition hover:text-emerald-200"
                   >
-                    {showPassword ? 'Hide' : 'Show'}
+                    {showPassword ? 'Gizle' : 'Göster'}
                   </button>
                 </div>
               </label>
 
               <label className="block">
                 <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.3em] text-emerald-300/60">
-                  Sifre Tekrari
+                  Şifre (tekrar)
                 </span>
                 <div className="relative">
                   <input
@@ -230,7 +231,7 @@ export default function EmbeddedRegister({
                     autoCapitalize="none"
                     spellCheck={false}
                     enterKeyHint="done"
-                    placeholder="Sifreni tekrar gir"
+                    placeholder="Şifrenizi tekrar giriniz"
                     className="w-full rounded-2xl border border-emerald-400/20 bg-black/55 px-4 py-3 pr-20 text-sm text-emerald-100 outline-none transition focus:border-emerald-300/60 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
                   />
                   <button
@@ -238,7 +239,7 @@ export default function EmbeddedRegister({
                     onClick={() => setShowConfirmPassword((value) => !value)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[11px] uppercase tracking-[0.25em] text-emerald-300/55 transition hover:text-emerald-200"
                   >
-                    {showConfirmPassword ? 'Hide' : 'Show'}
+                    {showConfirmPassword ? 'Gizle' : 'Göster'}
                   </button>
                 </div>
               </label>
@@ -256,13 +257,12 @@ export default function EmbeddedRegister({
               disabled={loading}
               className="mt-6 inline-flex w-full items-center justify-center rounded-2xl border border-emerald-300/35 bg-emerald-400/10 px-4 py-3 font-mono text-[12px] uppercase tracking-[0.35em] text-emerald-200 transition hover:border-emerald-200/50 hover:bg-emerald-400/16 disabled:cursor-default disabled:opacity-60"
             >
-              {loading ? 'Profil olusturuluyor' : 'Kayit Ol ve Profili Ac'}
+              {loading ? 'Hesap oluşturuluyor...' : 'Hesap oluştur'}
             </button>
 
-            <div className="mt-6 flex items-center justify-between gap-4 border-t border-emerald-400/10 pt-5 text-xs text-slate-500">
-              <span className="font-mono tracking-[0.24em] text-emerald-300/35">TLS 1.3 / SESSION BOOTSTRAP</span>
+            <div className="mt-6 flex items-center justify-end gap-4 border-t border-emerald-400/10 pt-5 text-xs text-slate-500">
               <Link href="/login" className="font-mono uppercase tracking-[0.28em] text-emerald-300/60 transition hover:text-emerald-200">
-                Giris ekranina don
+                Giriş ekranına dön
               </Link>
             </div>
           </section>
