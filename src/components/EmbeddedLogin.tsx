@@ -981,14 +981,18 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'rgba(0,255,65,0.4)',
-              fontSize: 9,
+              color: 'rgba(0,255,65,0.85)',
+              fontSize: 11,
               fontFamily: 'monospace',
               cursor: 'pointer',
               textDecoration: 'underline',
-              textDecorationColor: 'rgba(0,255,65,0.2)',
-              textUnderlineOffset: '2px',
+              textDecorationColor: 'rgba(0,255,65,0.5)',
+              textUnderlineOffset: '3px',
+              padding: '0.25rem 0.5rem',
+              transition: 'color 0.15s',
             }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#00ff41' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(0,255,65,0.85)' }}
           >
             Şifremi unuttum
           </button>
@@ -997,7 +1001,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
         <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.05)' }} />
 
         <div style={{ marginTop: '0.75rem', textAlign: 'center' }}>
-          <span style={{ color: 'rgba(100,116,139,0.6)', fontSize: 9, fontFamily: 'monospace' }}>
+          <span style={{ color: 'rgba(148,163,184,0.85)', fontSize: 11, fontFamily: 'monospace' }}>
             Hesabınız yok mu?
           </span>
           <button
@@ -1006,12 +1010,20 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
             style={{
               background: 'transparent',
               border: 'none',
-              marginLeft: '0.25rem',
-              color: 'rgba(0,255,65,0.4)',
-              fontSize: 9,
+              marginLeft: '0.5rem',
+              color: 'rgba(0,255,65,0.95)',
+              fontSize: 11,
               fontFamily: 'monospace',
               cursor: 'pointer',
+              textDecoration: 'underline',
+              textDecorationColor: 'rgba(0,255,65,0.5)',
+              textUnderlineOffset: '3px',
+              padding: '0.25rem 0.5rem',
+              fontWeight: 600,
+              transition: 'color 0.15s',
             }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#00ff41' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(0,255,65,0.95)' }}
           >
             Kayıt ol
           </button>
