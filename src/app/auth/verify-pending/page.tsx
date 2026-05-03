@@ -1,10 +1,12 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import EmbeddedVerifyResend from './EmbeddedVerifyResend'
 
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Email doğrulama bekleniyor — BREACH LAB',
+  // Phase 6: title only — root template appends '· siberlab'.
+  title: 'Email doğrulama bekleniyor',
   description: 'Email kutuna gönderilen doğrulama bağlantısına tıkla.',
 }
 
@@ -68,16 +70,21 @@ export default function VerifyPendingPage() {
 
           <div className="mt-8 rounded-2xl border border-amber-400/15 bg-amber-400/[0.04] p-4">
             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-amber-300/70">
-              Bağlantı gelmedi mi?
+              Mail gelmedi mi?
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-300">
-              Tekrar gönderim akışı yakında geliyor. Şimdilik birkaç dakika bekle ve spam
-              klasörünü kontrol et. Yine de gelmezse{' '}
-              <Link href="/login" className="text-emerald-300 underline">
-                giriş ekranı
-              </Link>
-              {' '}üzerinden destek talep edebilirsin.
+              Birkaç dakika bekle ve spam/junk klasörünü kontrol et. Hâlâ gelmediyse
+              kayıt sırasında girdiğin email adresini aşağıya yaz, yeni bir doğrulama
+              bağlantısı isteyelim.
             </p>
+            {/* Phase 6: live resend form. The user has no session here
+                (Phase 4.5 — register doesn't auto-login), so we ask
+                them to type the email explicitly. The endpoint
+                returns the same generic 200 regardless of account
+                state, so the UI never branches on account existence. */}
+            <div className="mt-4">
+              <EmbeddedVerifyResend />
+            </div>
           </div>
 
           <div className="mt-8 flex items-center justify-between gap-4 border-t border-emerald-400/10 pt-5 text-xs text-slate-500">

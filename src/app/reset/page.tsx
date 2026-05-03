@@ -4,7 +4,8 @@ import ResetPasswordForm from '@/components/ResetPasswordForm'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Yeni şifre belirle — BREACH LAB',
+  // Phase 6: title only — root template appends '· siberlab'.
+  title: 'Şifre sıfırla',
   description: 'Şifre sıfırlama bağlantısı ile yeni bir şifre belirle.',
 }
 

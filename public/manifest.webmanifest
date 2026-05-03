@@ -1,0 +1,14 @@
+{
+  "name": "siberlab",
+  "short_name": "siberlab",
+  "description": "Cybersecurity learning lab — TR junior odaklı interaktif eğitim",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#00ff41",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

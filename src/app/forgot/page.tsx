@@ -4,7 +4,10 @@ import ForgotPasswordForm from '@/components/ForgotPasswordForm'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Şifremi unuttum — BREACH LAB',
+  // Phase 6: title only — root layout's '%s · siberlab' template
+  // appends the brand suffix automatically. Phase 5 hardcoded
+  // '— BREACH LAB' which double-stamped against the new template.
+  title: 'Şifremi unuttum',
   description: 'Şifre sıfırlama bağlantısı talep et.',
 }
 

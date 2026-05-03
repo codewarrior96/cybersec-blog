@@ -1,6 +1,9 @@
+import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { getServerSessionFromCookies } from '@/lib/auth-server'
 import HomePageClient from '@/components/HomePageClient'
+
+export const metadata: Metadata = { title: 'Home' }
 
 export default async function HomePage() {
   const cookieStore = cookies()

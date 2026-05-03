@@ -16,9 +16,60 @@ const jetbrainsMono = JetBrains_Mono({
   variable: '--font-mono',
 });
 
+// Phase 6: siberlab branding refresh. The `template: '%s · siberlab'` is
+// the load-bearing piece — every page that exports `metadata.title = 'X'`
+// now renders as 'X · siberlab' in the browser tab. Pages that don't
+// export their own title fall back to the `default` value.
+//
+// Icons: SVG primary (modern browsers), ICO secondary (legacy browser
+// auto-fetch + bookmarks). The ICO file at public/favicon.ico is the
+// pre-Phase-6 generic asset; regenerating it from icon.svg requires
+// imagemagick/sharp/png-to-ico which aren't installed in this
+// environment. Manual regeneration command documented in the Phase 6
+// commit message.
+//
+// Manifest: PWA install metadata. References icon-192.png + icon-512.png
+// which haven't been generated yet (same tooling gap). Browsers ignore
+// missing manifest icons gracefully — the manifest still parses, "Add
+// to Home Screen" still works, the install icon just falls back to the
+// SVG.
 export const metadata: Metadata = {
-  title: { default: 'CyberSec Blog', template: '%s · CyberSec' },
-  description: 'Siber güvenlik, CTF writeup ve araştırma yazıları.',
+  metadataBase: new URL('https://siberlab.dev'),
+  title: {
+    default: 'siberlab — cybersecurity learning lab',
+    template: '%s · siberlab',
+  },
+  description:
+    'TR junior odaklı interaktif siber güvenlik laboratuvarı. Breach Lab, Sentinel telemetri ve gerçek zamanlı CTF senaryoları.',
+  applicationName: 'siberlab',
+  authors: [{ name: 'Salim Aybasti' }],
+  creator: 'Salim Aybasti',
+  publisher: 'siberlab',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: '32x32' },
+    ],
+    apple: '/icon-192.png',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'tr_TR',
+    url: 'https://siberlab.dev',
+    siteName: 'siberlab',
+    title: 'siberlab — cybersecurity learning lab',
+    description: 'TR junior odaklı interaktif siber güvenlik laboratuvarı.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'siberlab',
+    description: 'TR junior odaklı interaktif siber güvenlik laboratuvarı.',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export const viewport: Viewport = {

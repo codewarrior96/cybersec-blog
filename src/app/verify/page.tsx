@@ -5,7 +5,8 @@ import type { Metadata } from 'next'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Email doğrulama — BREACH LAB',
+  // Phase 6: title only — root template appends '· siberlab'.
+  title: 'Email doğrula',
   description: 'Email adresini doğrula ve hesabını aktive et.',
 }
 

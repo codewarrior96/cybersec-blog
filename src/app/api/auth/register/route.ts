@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { getRequestMetadata } from '@/lib/auth-server'
 import { getClientIp } from '@/lib/client-ip'
-import { sendEmail } from '@/lib/email'
+import { sendVerificationEmail } from '@/lib/email'
 import { getReservedUsernameError, isReservedUsername } from '@/lib/identity-rules'
 import {
   getDisplayNameError,
@@ -50,33 +50,6 @@ function appBaseUrl(request: NextRequest): string {
   // Fallback: derive from the request itself. Works in dev + preview
   // deploys where NEXT_PUBLIC_APP_URL may not be set.
   return `${request.nextUrl.protocol}//${request.nextUrl.host}`
-}
-
-function buildVerificationEmail(displayName: string, verifyUrl: string): { subject: string; html: string; text: string } {
-  const safeName = displayName || 'Operator'
-  const subject = 'BREACH LAB — Email adresini doğrula'
-  const text = [
-    `Merhaba ${safeName},`,
-    '',
-    'BREACH LAB hesabını oluşturduğunu görüyorum. Email adresini doğrulamak için aşağıdaki bağlantıya tıkla:',
-    '',
-    verifyUrl,
-    '',
-    'Bu bağlantı 24 saat geçerli. Sen istemediysen bu maili görmezden gelebilirsin.',
-    '',
-    '— BREACH LAB',
-  ].join('\n')
-  const html = `<!doctype html>
-<html><body style="font-family:JetBrains Mono,Menlo,monospace;background:#000;color:#e2e8f0;padding:24px;">
-<div style="max-width:560px;margin:0 auto;border:1px solid #00ff4140;border-radius:12px;padding:24px;background:#040806;">
-<p style="color:#00ff41;letter-spacing:0.2em;font-size:11px;margin:0 0 12px;">BREACH LAB</p>
-<h1 style="color:#f8fafc;font-size:18px;margin:0 0 12px;">Email adresini doğrula</h1>
-<p style="line-height:1.6;color:#cbd5e1;font-size:13px;">Merhaba ${safeName}, BREACH LAB hesabını oluşturdun. Aşağıdaki bağlantıya tıklayarak email adresini doğrula:</p>
-<p style="margin:16px 0;"><a href="${verifyUrl}" style="display:inline-block;background:#00ff41;color:#000;padding:10px 18px;border-radius:8px;font-weight:700;text-decoration:none;">Email adresini doğrula</a></p>
-<p style="font-size:11px;color:#94a3b8;line-height:1.6;">Bağlantı 24 saat geçerli. Bağlantı çalışmıyorsa şu URL'yi tarayıcına yapıştırabilirsin:<br/><span style="color:#00ff41;word-break:break-all;">${verifyUrl}</span></p>
-<p style="font-size:10px;color:#64748b;margin-top:24px;">Sen istemediysen bu maili görmezden gelebilirsin.</p>
-</div></body></html>`
-  return { subject, html, text }
 }
 
 export async function POST(request: NextRequest) {
@@ -177,13 +150,16 @@ export async function POST(request: NextRequest) {
     // /verify/resend endpoint lets the operator request a new link.
     // We surface the failure as a `warning` so the client can show
     // a "couldn't send email" hint on the verify-pending screen.
+    // Phase 6: delegated to sendVerificationEmail which renders via the
+    // centralized email-templates module. Same dispatch behavior; the
+    // body just lives in src/lib/email-templates.ts now so the
+    // verification + reset emails share a header, footer, and brand
+    // mark constant.
     const verifyUrl = `${appBaseUrl(request)}/verify?token=${encodeURIComponent(emailVerifyToken)}`
-    const emailContent = buildVerificationEmail(user.displayName, verifyUrl)
-    const emailResultSend = await sendEmail({
+    const emailResultSend = await sendVerificationEmail({
       to: email,
-      subject: emailContent.subject,
-      html: emailContent.html,
-      text: emailContent.text,
+      verifyUrl,
+      username: user.displayName,
     })
 
     let warning: string | undefined
