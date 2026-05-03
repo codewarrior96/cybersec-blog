@@ -15,7 +15,7 @@ export async function requireSession(request: NextRequest): Promise<GuardResult>
   if (!session) {
     return {
       session: null,
-      response: NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 }),
+      response: NextResponse.json({ error: 'Oturum gerekli.', source: 'route' }, { status: 401 }),
     }
   }
 

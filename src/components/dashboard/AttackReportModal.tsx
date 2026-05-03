@@ -440,12 +440,19 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
       const content = buildContent()
       const response = await fetch('/api/reports', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, content, severity, tags }),
       })
 
       if (!response.ok) {
-        const payload = (await response.json().catch(() => ({}))) as { error?: string }
+        const payload = (await response.json().catch(() => ({}))) as {
+          error?: string
+          source?: string
+        }
+        if (response.status === 401) {
+          throw new Error('Oturumunuz sonlandırılmış olabilir. Giriş ekranından tekrar oturum açın.')
+        }
         throw new Error(payload.error ?? `HTTP ${response.status}`)
       }
 

@@ -95,7 +95,7 @@ function sessionPresenceCheck(request: NextRequest): NextResponse | null {
 
   const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)
   if (!sessionCookie?.value) {
-    return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 })
+    return NextResponse.json({ error: 'Oturum gerekli.', source: 'edge' }, { status: 401 })
   }
   return null
 }
