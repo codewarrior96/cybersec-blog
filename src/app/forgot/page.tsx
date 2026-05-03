@@ -51,18 +51,6 @@ export default function ForgotPage() {
           <div className="mt-8">
             <ForgotPasswordForm />
           </div>
-
-          <div className="mt-8 flex items-center justify-between gap-4 border-t border-emerald-400/10 pt-5 text-xs text-slate-500">
-            <span className="font-mono tracking-[0.24em] text-emerald-300/35">
-              PASSWORD RESET CHECKPOINT
-            </span>
-            <a
-              href="/login"
-              className="font-mono uppercase tracking-[0.28em] text-emerald-300/60 transition hover:text-emerald-200"
-            >
-              Giriş ekranı
-            </a>
-          </div>
         </div>
       </div>
     </div>

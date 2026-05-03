@@ -87,13 +87,10 @@ export default function VerifyPendingPage() {
             </div>
           </div>
 
-          <div className="mt-8 flex items-center justify-between gap-4 border-t border-emerald-400/10 pt-5 text-xs text-slate-500">
-            <span className="font-mono tracking-[0.24em] text-emerald-300/35">
-              EMAIL VERIFICATION REQUIRED
-            </span>
+          <div className="mt-8 flex items-center justify-center border-t border-emerald-400/10 pt-5">
             <Link
               href="/login"
-              className="font-mono uppercase tracking-[0.28em] text-emerald-300/60 transition hover:text-emerald-200"
+              className="font-mono text-xs uppercase tracking-[0.28em] text-emerald-300/60 transition hover:text-emerald-200"
             >
               Giriş ekranı
             </Link>

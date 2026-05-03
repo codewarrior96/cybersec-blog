@@ -192,14 +192,6 @@ export default async function VerifyPage({ searchParams }: PageProps) {
             </>
           )}
 
-          <div className="mt-8 flex items-center justify-between gap-4 border-t border-emerald-400/10 pt-5 text-xs text-slate-500">
-            <span className="font-mono tracking-[0.24em] text-emerald-300/35">
-              EMAIL VERIFICATION CHECKPOINT
-            </span>
-            <span className="font-mono uppercase tracking-[0.28em] text-emerald-300/40">
-              {state === 'success' ? 'OK' : state === 'expired' ? 'EXPIRED' : 'BLOCKED'}
-            </span>
-          </div>
         </div>
       </div>
     </div>

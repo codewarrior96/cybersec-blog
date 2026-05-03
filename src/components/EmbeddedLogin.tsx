@@ -1017,29 +1017,11 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
           </button>
         </div>
 
-        <div style={{ marginTop: '0.75rem', textAlign: 'center' }}>
-          <p
-            style={{
-              color: 'rgba(0,255,65,0.15)',
-              fontSize: 9,
-              fontFamily: 'monospace',
-              marginBottom: '0.25rem',
-            }}
-          >
-            [ CONNECTION: ENCRYPTED - TLS 1.3 ]
-          </p>
-          <p className="el-blink" style={{ color: 'rgba(0,255,65,0.25)', fontSize: 9, fontFamily: 'monospace' }}>
-            [ STATUS: AWAITING AUTHENTICATION ]
-          </p>
-          {!!hint && (
-            <p style={{ color: '#4d7c4d', fontSize: 9, fontFamily: 'monospace', marginTop: 6 }}>{hint}</p>
-          )}
-        </div>
-
-        <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(0,255,65,0.15)' }}>v2.0.26</span>
-          <span style={{ fontFamily: 'monospace', fontSize: 8, color: 'rgba(0,255,65,0.15)' }}>{hexVal}</span>
-        </div>
+        {!!hint && (
+          <div style={{ marginTop: '0.75rem', textAlign: 'center' }}>
+            <p style={{ color: '#4d7c4d', fontSize: 9, fontFamily: 'monospace' }}>{hint}</p>
+          </div>
+        )}
       </div>
       </div>
     </div>
