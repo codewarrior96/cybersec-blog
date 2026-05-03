@@ -23,6 +23,11 @@ interface ReportRecord {
   status: 'active' | 'archived';
   updatedAt: string;
   archivedAt: string | null;
+  // BUG-002: server-derived ownership flag. UI gates ARŞİVLE +
+  // KALICI SİL on this. Optional in the type for backward-compat
+  // with any payload built before the fix shipped — falsy default
+  // means buttons stay hidden, which is the safe behavior.
+  isOwner?: boolean;
 }
 
 type ReportStatusFilter = 'active' | 'archived' | 'all';
@@ -253,12 +258,17 @@ function ReportModal({
               <span className="text-[9px] font-bold px-2 py-0.5 rounded border border-white/10 text-slate-400">
                 {report.status === 'archived' ? 'ARŞİV' : 'AKTİF'}
               </span>
+              {!report.isOwner && (
+                <span className="text-[9px] font-bold px-2 py-0.5 rounded border border-slate-600/40 bg-slate-800/30 text-slate-500">
+                  DİĞER KULLANICI
+                </span>
+              )}
               <span className="text-[9px] text-slate-600">{timeStr(report.createdAt)}</span>
             </div>
             <div className="break-words text-sm font-bold leading-snug text-slate-200 [overflow-wrap:anywhere]">{report.title}</div>
           </div>
           <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
-            {report.status !== 'archived' && onArchive && (
+            {report.status !== 'archived' && onArchive && report.isOwner && (
               <button
                 onClick={() => void onArchive(report)}
                 disabled={archiving}
@@ -271,7 +281,7 @@ function ReportModal({
                 {archiving ? 'ARŞİVLENİYOR' : 'ARŞİVLE'}
               </button>
             )}
-            {report.status === 'archived' && onDelete && (
+            {report.status === 'archived' && onDelete && report.isOwner && (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
                 disabled={deleting}

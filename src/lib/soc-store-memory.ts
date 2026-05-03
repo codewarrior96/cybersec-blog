@@ -627,6 +627,15 @@ export interface ReportRecord {
   createdAt: string
   updatedAt: string
   archivedAt: string | null
+  /**
+   * BUG-002: derived ownership flag computed server-side at list time.
+   * True when the listing actor created this report. Internal
+   * createdByUserId stays server-only — only the boolean leaves.
+   * UI uses this to gate action buttons (ARŞİVLE, KALICI SİL) so
+   * higher-role users seeing mixed lists don't get buttons that
+   * imply universal authority.
+   */
+  isOwner: boolean
 }
 
 export interface PortfolioProfilePatchInput extends PortfolioProfileFields {}
@@ -1125,13 +1134,25 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
 }
 
 export async function listReports(
-  filters: { limit?: number; cursor?: number; status?: ReportStatus | 'all' } = {},
+  filters: {
+    limit?: number
+    cursor?: number
+    status?: ReportStatus | 'all'
+    // BUG-002: per-user listing. When provided, viewers see only
+    // reports they created; admin/analyst see all reports
+    // unchanged. The same actor's id drives the per-row isOwner
+    // flag in the response.
+    actor?: SessionUser
+  } = {},
 ): Promise<{ reports: ReportRecord[]; hasNext: boolean; nextCursor: number | null }> {
   const limit = Math.min(50, Math.max(1, filters.limit ?? 20))
   const store = getStore()
   const statusFilter = filters.status ?? 'active'
+  const actor = filters.actor
+  const isViewer = actor?.role === 'viewer'
   const sorted = [...store.reports]
     .filter((report) => statusFilter === 'all' || report.status === statusFilter)
+    .filter((report) => !isViewer || report.createdByUserId === actor?.id)
     .sort((a, b) => {
     const aTime = new Date(a.createdAt).getTime()
     const bTime = new Date(b.createdAt).getTime()
@@ -1158,6 +1179,10 @@ export async function listReports(
     createdAt: report.createdAt,
     updatedAt: report.updatedAt,
     archivedAt: report.archivedAt,
+    // Default false when no actor was passed — backward-compat for
+    // any internal caller (none today) that uses listReports without
+    // a session context. The route handler always passes actor.
+    isOwner: actor ? report.createdByUserId === actor.id : false,
   }))
 
   return {
@@ -1209,6 +1234,8 @@ export async function createReport(input: {
     createdAt: report.createdAt,
     updatedAt: report.updatedAt,
     archivedAt: report.archivedAt,
+    // BUG-002: actor is the creator by definition here.
+    isOwner: true,
   }
 }
 
@@ -1245,6 +1272,10 @@ export async function archiveReport(id: number, actor: SessionUser, metadata: Re
     createdAt: report.createdAt,
     updatedAt: report.updatedAt,
     archivedAt: report.archivedAt,
+    // BUG-002: archiveReport is reachable by either an owner viewer or
+    // any higher role. Compute the flag honestly so the response
+    // reflects the actor's relationship to the record.
+    isOwner: report.createdByUserId === actor.id,
   }
 }
 

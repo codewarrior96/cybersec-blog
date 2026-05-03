@@ -59,7 +59,10 @@ export async function GET(request: NextRequest) {
   const cursor = parsePositiveInt(searchParams.get('cursor')) ?? undefined
   const status = parseReportStatus(searchParams.get('status'))
 
-  const result = await listReports({ limit, cursor, status })
+  // BUG-002: pass session user into listReports so viewers receive
+  // only their own reports + each row carries the derived isOwner
+  // flag. Higher roles (admin, analyst) see all reports unchanged.
+  const result = await listReports({ limit, cursor, status, actor: guard.session.user })
   return NextResponse.json(result)
 }
 

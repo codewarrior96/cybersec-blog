@@ -1049,10 +1049,20 @@ export async function deletePortfolioEducation(
 }
 
 export async function listReports(
-  filters: { limit?: number; cursor?: number; status?: ReportStatus | 'all' } = {},
+  filters: {
+    limit?: number
+    cursor?: number
+    status?: ReportStatus | 'all'
+    // BUG-002: per-user listing. Mirrors memory store. Viewers see
+    // only their own reports; admin/analyst see all. Drives the
+    // per-row isOwner flag in the response.
+    actor?: SessionUser
+  } = {},
 ): Promise<{ reports: import('@/lib/soc-store-memory').ReportRecord[]; hasNext: boolean; nextCursor: number | null }> {
   const limit = Math.min(50, Math.max(1, filters.limit ?? 20))
   const statusFilter = filters.status ?? 'active'
+  const actor = filters.actor
+  const isViewer = actor?.role === 'viewer'
   const paths = await listObjectPaths(reportsPrefix())
   const reports = (
     await Promise.all(
@@ -1063,6 +1073,7 @@ export async function listReports(
   )
     .filter((item): item is StoredReport => Boolean(item))
     .filter((item) => statusFilter === 'all' || item.status === statusFilter || (!item.status && statusFilter === 'active'))
+    .filter((item) => !isViewer || item.createdByUserId === actor?.id)
     .sort((a, b) => {
       const aTime = new Date(a.createdAt).getTime()
       const bTime = new Date(b.createdAt).getTime()
@@ -1088,6 +1099,10 @@ export async function listReports(
     createdAt: report.createdAt,
     updatedAt: report.updatedAt ?? report.createdAt,
     archivedAt: report.archivedAt ?? null,
+    // Default false when no actor was passed — backward-compat for
+    // callers without session context. The route handler always
+    // passes actor.
+    isOwner: actor ? report.createdByUserId === actor.id : false,
   }))
 
   return {
@@ -1139,6 +1154,8 @@ export async function createReport(input: {
     createdAt: report.createdAt,
     updatedAt: report.updatedAt,
     archivedAt: report.archivedAt,
+    // BUG-002: actor is the creator by definition here.
+    isOwner: true,
   }
 }
 
@@ -1179,6 +1196,10 @@ export async function archiveReport(
     createdAt: existing.createdAt,
     updatedAt: existing.updatedAt,
     archivedAt: existing.archivedAt,
+    // BUG-002: archiveReport is reachable by either an owner viewer or
+    // any higher role. Compute the flag honestly so the response
+    // reflects the actor's relationship to the record.
+    isOwner: existing.createdByUserId === actor.id,
   }
 }
 
