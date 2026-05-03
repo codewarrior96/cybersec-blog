@@ -1,11 +1,13 @@
 import { Resend } from 'resend'
 
 /**
- * Centralized From address. Default Resend sandbox sender — works without
- * a verified domain. Swap this constant when the team owns a domain
- * (e.g. `BREACH LAB <noreply@breach-lab.com>`).
+ * Centralized From address. Uses the verified `siberlab.dev` domain
+ * (DKIM + SPF configured via Vercel auto-configure on May 03 2026,
+ * Resend region eu-west-1). Sandbox restriction lifted — emails can
+ * be dispatched to any recipient address (no longer limited to the
+ * Resend account owner inbox).
  */
-export const EMAIL_FROM = 'BREACH LAB <onboarding@resend.dev>'
+export const EMAIL_FROM = 'BREACH LAB <noreply@siberlab.dev>'
 
 export interface SendEmailParams {
   to: string
