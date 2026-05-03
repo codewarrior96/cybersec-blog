@@ -175,15 +175,20 @@ function ReportModal({
   onClose,
   onArchive,
   archiving,
+  onDelete,
+  deleting,
 }: {
   report: ReportRecord;
   onClose: () => void;
   onArchive?: (report: ReportRecord) => Promise<void> | void;
   archiving?: boolean;
+  onDelete?: (report: ReportRecord) => Promise<void> | void;
+  deleting?: boolean;
 }) {
   const col = SEV_COLOR[report.severity.toUpperCase()] ?? '#8b5cf6';
   const related = matchHistory(report);
   const parsedSections = parseReportSections(report.content);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -229,7 +234,7 @@ function ReportModal({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[96dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border font-mono sm:max-h-[90vh] sm:rounded-lg"
+        className="relative flex max-h-[96dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border font-mono sm:max-h-[90vh] sm:rounded-lg"
         style={{
           background: '#0d0018',
           borderColor: `${col}40`,
@@ -264,6 +269,19 @@ function ReportModal({
                 }}
               >
                 {archiving ? 'ARŞİVLENİYOR' : 'ARŞİVLE'}
+              </button>
+            )}
+            {report.status === 'archived' && onDelete && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={deleting}
+                className="rounded border px-2.5 py-1 text-[9px] font-bold tracking-[0.18em] text-rose-200 transition-all disabled:opacity-50 sm:px-3 sm:text-[10px]"
+                style={{
+                  borderColor: 'rgba(244,63,94,0.35)',
+                  background: 'rgba(244,63,94,0.1)',
+                }}
+              >
+                {deleting ? 'SİLİNİYOR' : 'KALICI SİL'}
               </button>
             )}
             <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition-colors shrink-0">
@@ -334,6 +352,61 @@ function ReportModal({
             </div>
           )}
         </div>
+
+        {/* F-001: Permanent-delete confirmation overlay. Anchored to the
+            modal card via `relative` on the inner wrapper above; covers
+            only the modal interior so users can still see the report
+            title/header context above the dialog. */}
+        {showDeleteConfirm && (
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center p-4"
+            style={{ background: 'rgba(6,0,15,0.92)', backdropFilter: 'blur(6px)' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDeleteConfirm(false);
+            }}
+          >
+            <div
+              className="w-full max-w-md rounded-lg border p-5 font-mono"
+              style={{
+                background: '#0d0018',
+                borderColor: 'rgba(244,63,94,0.4)',
+                boxShadow: '0 0 60px rgba(244,63,94,0.15)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-3 text-xs font-bold tracking-[0.2em] text-rose-300 uppercase">
+                Kalıcı silme onayı
+              </div>
+              <div className="mb-2 break-words text-sm text-slate-200 [overflow-wrap:anywhere]">
+                &quot;{report.title}&quot;
+              </div>
+              <div className="mb-5 text-xs leading-relaxed text-slate-400">
+                Bu raporu kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={deleting}
+                  className="rounded border border-slate-600 bg-slate-800/40 px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] text-slate-300 transition disabled:opacity-50"
+                >
+                  İPTAL
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!onDelete) return;
+                    await onDelete(report);
+                    setShowDeleteConfirm(false);
+                  }}
+                  disabled={deleting}
+                  className="rounded border border-rose-500/50 bg-rose-500/15 px-3 py-1.5 text-[10px] font-bold tracking-[0.2em] text-rose-200 transition disabled:opacity-50"
+                >
+                  {deleting ? 'SİLİNİYOR' : 'EVET, SİL'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -784,6 +857,7 @@ export default function ZafiyetTaramasiPage() {
   const [showTagFilters, setShowTagFilters] = useState(false);
   const [selected, setSelected] = useState<ReportRecord | null>(null);
   const [archivingId, setArchivingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
@@ -845,6 +919,34 @@ export default function ZafiyetTaramasiPage() {
       setArchivingId(null);
     }
   }, [fetchReports, reportStatus]);
+
+  // F-001: permanent deletion. Only triggered after the in-modal
+  // confirmation overlay (ReportModal owns the confirm UI). Server
+  // returns 409 if the report isn't archived — UI shouldn't reach
+  // this path because the KALICI SİL button is hidden on active
+  // reports, but the server contract is the source of truth.
+  // credentials:'include' is the BUG-001 defensive pattern.
+  const deleteSelectedReport = useCallback(async (report: ReportRecord) => {
+    setDeletingId(report.id);
+    try {
+      const res = await fetch(`/api/reports/${report.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        return;
+      }
+
+      setSelected(null);
+      window.dispatchEvent(new CustomEvent(REPORTS_UPDATED_EVENT));
+      await fetchReports();
+    } catch {
+      /* ignore — UI will retry on next focus */
+    } finally {
+      setDeletingId(null);
+    }
+  }, [fetchReports]);
 
   const toggleSev = (s: string) =>
     setSevFilter(prev => {
@@ -1121,6 +1223,8 @@ export default function ZafiyetTaramasiPage() {
           onClose={() => setSelected(null)}
           onArchive={archiveSelectedReport}
           archiving={archivingId === selected.id}
+          onDelete={deleteSelectedReport}
+          deleting={deletingId === selected.id}
         />
       )}
     </div>

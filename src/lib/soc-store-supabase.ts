@@ -1182,4 +1182,44 @@ export async function archiveReport(
   }
 }
 
+/**
+ * F-001: permanent report deletion. Mirrors archiveReport's owner /
+ * status checks; on success removes the JSON object from storage via
+ * the same `deleteObject` primitive used by deleteSession,
+ * deletePortfolioCertification, deletePortfolioEducation.
+ *
+ * Two-stage safety: throws NOT_ARCHIVED if status !== 'archived'.
+ * Owner check: viewer role can only delete own reports.
+ * Audit log: action='report.delete' with same shape as report.archive.
+ */
+export async function deleteReport(
+  id: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<{ deleted: true } | null> {
+  const existing = await readJsonObject<StoredReport>(reportPath(id))
+  if (!existing) return null
+
+  if (actor.role === 'viewer' && existing.createdByUserId !== actor.id) {
+    throw new Error('FORBIDDEN')
+  }
+
+  if (existing.status !== 'archived') {
+    throw new Error('NOT_ARCHIVED')
+  }
+
+  await deleteObject(reportPath(id))
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'report.delete',
+    entityType: 'report',
+    entityId: id,
+    details: { severity: existing.severity, title: existing.title },
+    metadata,
+  })
+
+  return { deleted: true }
+}
+
 

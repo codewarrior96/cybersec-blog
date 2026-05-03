@@ -1248,6 +1248,48 @@ export async function archiveReport(id: number, actor: SessionUser, metadata: Re
   }
 }
 
+/**
+ * F-001: permanent report deletion. Two-stage safety — only archived
+ * reports may be hard-deleted; active reports must be archived first.
+ * Owner check matches archiveReport: viewer role can only delete own
+ * reports, higher roles can delete any.
+ *
+ * Returns null when the id doesn't exist; throws FORBIDDEN /
+ * NOT_ARCHIVED when the contract is violated. Caller (route handler)
+ * maps these to 403 / 409 respectively.
+ */
+export async function deleteReport(
+  id: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<{ deleted: true } | null> {
+  const store = getStore()
+  const index = store.reports.findIndex((item) => item.id === id)
+  if (index === -1) return null
+
+  const report = store.reports[index]
+
+  if (actor.role === 'viewer' && report.createdByUserId !== actor.id) {
+    throw new Error('FORBIDDEN')
+  }
+
+  if (report.status !== 'archived') {
+    throw new Error('NOT_ARCHIVED')
+  }
+
+  store.reports.splice(index, 1)
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'report.delete',
+    entityType: 'report',
+    entityId: id,
+    metadata,
+  })
+
+  return { deleted: true }
+}
+
 
 /**
  * Phase 3 stub: memory store doesn't persist emails; email-key lookups

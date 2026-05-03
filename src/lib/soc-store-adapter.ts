@@ -228,6 +228,13 @@ export async function archiveReport(...args: Parameters<StoreModule['archiveRepo
   return withStore('archiveReport', (store) => store.archiveReport(...args))
 }
 
+export async function deleteReport(...args: Parameters<StoreModule['deleteReport']>) {
+  if (useSupabaseJsonDomains) {
+    return supabaseStore.deleteReport(...args)
+  }
+  return withStore('deleteReport', (store) => store.deleteReport(...args))
+}
+
 
 export async function createUser(...args: Parameters<StoreModule['createUser']>) {
   if (useSupabasePostgresIdentityStore) {
