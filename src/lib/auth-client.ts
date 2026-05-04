@@ -159,8 +159,14 @@ export async function logoutAuth(): Promise<void> {
       method: 'POST',
       credentials: 'include',
     })
-  } catch {
-    // ignore network failures, state will still reset locally
+  } catch (error) {
+    // BUG-003.5: surface fetch failures so the focus-refetch revert
+    // pattern (Salim's BUG-003 symptom) is diagnosable from the
+    // console next time. Optimistic local cache flip already happened
+    // above; this catch intentionally does not re-throw or alter
+    // state — the server-side desync is what we want to detect, not
+    // prevent the local flip.
+    console.warn('[auth-client.logoutAuth] fetch failed:', error)
   }
 }
 
