@@ -101,67 +101,63 @@ function ProfilePanel({
   )
 }
 
-function SkullButton({
+function SkullLogo({
   skullRef,
-  onLogout,
 }: {
   skullRef: React.RefObject<HTMLDivElement>
-  onLogout?: () => void
-  profileOpen?: boolean
-  onToggle?: () => void
-  username?: string
-  threatCount?: number
-  warnCount?: number
 }) {
+  // UX-005 — skull is no longer a logout trigger; it's a brand mark
+  // that navigates to /home. The is-leaving / leaveTimer machinery
+  // remains so the spin-close animation still plays gracefully on
+  // hover-out. The previous isReady / readyTimer (BUG-003 click-gate
+  // remnant) is dropped because there is no click-action to gate.
   const [isLeaving, setIsLeaving] = useState(false)
-  const [isReady, setIsReady] = useState(false)
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const readyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleMouseLeave = () => {
     if (leaveTimer.current) clearTimeout(leaveTimer.current)
-    if (readyTimer.current) clearTimeout(readyTimer.current)
     setIsLeaving(true)
-    setIsReady(false)
     leaveTimer.current = setTimeout(() => setIsLeaving(false), 580)
   }
 
   const handleMouseEnter = () => {
     if (leaveTimer.current) clearTimeout(leaveTimer.current)
     setIsLeaving(false)
-    readyTimer.current = setTimeout(() => setIsReady(true), 520)
   }
 
   return (
     <div className="nb2-skull-wrap" ref={skullRef}>
-      <button
-        type="button"
+      <Link
+        href="/home"
+        prefetch
         className={`nb2-skull-btn ${isLeaving ? 'is-leaving' : ''}`}
-        onClick={() => onLogout?.()}
         onMouseLeave={handleMouseLeave}
         onMouseEnter={handleMouseEnter}
-        aria-label="Logout"
+        aria-label="Home"
       >
         <span className="nb2-skull-ring-pulse" aria-hidden="true" />
         <span className="nb2-skull-ring-orbit" aria-hidden="true" />
-        <span className="nb2-skull-disc" aria-hidden="true">
-          <span className="nb2-skull-hover-overlay" />
-          <svg
-            className="nb2-skull-logout-svg"
-            width="24" height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-          >
-            <line x1="12" y1="2" x2="12" y2="9" />
-            <path d="M6.34 5.34a8 8 0 1 0 11.32 0" />
-          </svg>
-        </span>
-      </button>
-      {/* profile panel removed — custom animation coming */}
+        <span className="nb2-skull-disc" aria-hidden="true" />
+      </Link>
     </div>
+  )
+}
+
+function LogoutButton({ onLogout }: { onLogout?: () => void }) {
+  // UX-005 — dedicated, text-labelled logout affordance. Reuses the
+  // existing `.nb2-logout` class (already present in globals.css, L1479)
+  // which has the brand-correct monospace + uppercase + neon-green
+  // styling. Used in nb2-tools (desktop) and as the trigger pattern
+  // for the drawer bottom (mobile, with a wrapper class).
+  return (
+    <button
+      type="button"
+      className="nb2-logout"
+      onClick={() => onLogout?.()}
+      aria-label="Çıkış"
+    >
+      [ ÇIKIŞ ]
+    </button>
   )
 }
 
@@ -254,15 +250,7 @@ export default function NavigationBar({
   return (
     <>
       <header className="nb2-root">
-        <SkullButton
-          profileOpen={profileOpen}
-          onToggle={() => setProfileOpen((v) => !v)}
-          skullRef={skullRef}
-          username={username}
-          threatCount={threatCount}
-          warnCount={warnCount}
-          onLogout={onLogout}
-        />
+        <SkullLogo skullRef={skullRef} />
 
         <nav className="nb2-links" aria-label="Primary">
           {NAV_LINKS.map((link) => {
@@ -292,6 +280,7 @@ export default function NavigationBar({
               <span className="nb2-retro-segment">{daySegment}</span>
             </div>
           </div>
+          <LogoutButton onLogout={onLogout} />
         </div>
         <div className="nb2-mobile-tools">
           <button
@@ -349,6 +338,21 @@ export default function NavigationBar({
                 )
               })}
             </nav>
+
+            <div className="nb2-drawer-divider" aria-hidden="true" />
+            <div className="nb2-drawer-logout-wrap">
+              <button
+                type="button"
+                className="nb2-drawer-logout-btn"
+                onClick={() => {
+                  onLogout?.()
+                  setDrawerOpen(false)
+                }}
+                aria-label="Çıkış"
+              >
+                [ ÇIKIŞ ]
+              </button>
+            </div>
 
           </aside>
         </>
