@@ -106,33 +106,18 @@ function SkullLogo({
 }: {
   skullRef: React.RefObject<HTMLDivElement>
 }) {
-  // UX-005 — skull is no longer a logout trigger; it's a brand mark
-  // that navigates to /home. The is-leaving / leaveTimer machinery
-  // remains so the spin-close animation still plays gracefully on
-  // hover-out. The previous isReady / readyTimer (BUG-003 click-gate
-  // remnant) is dropped because there is no click-action to gate.
-  const [isLeaving, setIsLeaving] = useState(false)
-  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const handleMouseLeave = () => {
-    if (leaveTimer.current) clearTimeout(leaveTimer.current)
-    setIsLeaving(true)
-    leaveTimer.current = setTimeout(() => setIsLeaving(false), 580)
-  }
-
-  const handleMouseEnter = () => {
-    if (leaveTimer.current) clearTimeout(leaveTimer.current)
-    setIsLeaving(false)
-  }
-
+  // UX-005 → UX-006 — skull is a brand mark / home link with NO hover
+  // transformation. Ambient animations (float bob, ring pulse, orbit,
+  // glow pulse, image pulse) drive the resting visual; previous hover
+  // → red spin transformation is gone (CSS rules deleted in UX-006).
+  // Hover-state machinery from UX-005 is removed because there is no
+  // hover-state to leave anymore.
   return (
     <div className="nb2-skull-wrap" ref={skullRef}>
       <Link
         href="/home"
         prefetch
-        className={`nb2-skull-btn ${isLeaving ? 'is-leaving' : ''}`}
-        onMouseLeave={handleMouseLeave}
-        onMouseEnter={handleMouseEnter}
+        className="nb2-skull-btn"
         aria-label="Home"
       >
         <span className="nb2-skull-ring-pulse" aria-hidden="true" />
