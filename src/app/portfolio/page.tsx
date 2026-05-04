@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import PortfolioWorkspace from '@/components/portfolio/PortfolioWorkspace'
 import { getServerSessionFromCookies } from '@/lib/auth-server'
@@ -43,32 +44,6 @@ function buildProfileFromSeed(user: SessionUser): PortfolioProfileRecord {
   }
 }
 
-function buildReadonlyVisitorProfile(): PortfolioProfileRecord {
-  return {
-    user: {
-      id: 0,
-      username: 'visitor',
-      displayName: 'Portfolio Visitor',
-      role: 'viewer',
-      emailVerified: true,
-    },
-    profile: {
-      headline: 'Profil vitrini',
-      bio: 'Profil, sertifika ve egitim alanlarini gormek icin oturum acabilirsin.',
-      location: 'Istanbul, Turkiye',
-      website: '',
-      specialties: [],
-      tools: [],
-      avatarPath: null,
-      avatarName: null,
-      avatarMimeType: null,
-      updatedAt: new Date('2026-04-05T09:00:00.000Z').toISOString(),
-    },
-    certifications: [],
-    education: [],
-  }
-}
-
 function normalizeTab(value: string | undefined): 'profile' | 'certifications' | 'education' {
   if (value === 'certifications' || value === 'education' || value === 'profile') {
     return value
@@ -86,8 +61,15 @@ export default async function PortfolioPage({
   const cookieStore = cookies()
   const session = await getServerSessionFromCookies(cookieStore)
 
+  // BUG-006 — Symmetric server-side auth gate. Previously this route
+  // rendered a read-only "visitor" view for anon users via a helper
+  // that has been removed in this same change. That visitor view
+  // created an asymmetric attack surface vs sibling protected
+  // routes (/community, /zafiyet-taramasi) which now hard-redirect.
+  // Hard redirect here closes the asymmetry and removes a dead-mode
+  // code path that was never the product's actual UX intent.
   if (!session) {
-    return <PortfolioWorkspace initialProfile={buildReadonlyVisitorProfile()} initialTab={initialTab} editable={false} />
+    redirect('/login')
   }
 
   const profile =
