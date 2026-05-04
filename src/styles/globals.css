@@ -2039,7 +2039,7 @@
   height: 46px;
   border: none;
   background: transparent;
-  cursor: pointer;
+  cursor: default;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -106,24 +106,18 @@ function SkullLogo({
 }: {
   skullRef: React.RefObject<HTMLDivElement>
 }) {
-  // UX-005 → UX-006 — skull is a brand mark / home link with NO hover
-  // transformation. Ambient animations (float bob, ring pulse, orbit,
-  // glow pulse, image pulse) drive the resting visual; previous hover
-  // → red spin transformation is gone (CSS rules deleted in UX-006).
-  // Hover-state machinery from UX-005 is removed because there is no
-  // hover-state to leave anymore.
+  // UX-005 → UX-006 → decoration polish — skull is now purely
+  // ornamental. No click action, no anchor wrapper, no interactive
+  // affordance at all. Ambient animations (float bob, ring pulse,
+  // orbit, glow pulse, image pulse) drive the resting visual. The
+  // element is aria-hidden — it is decoration only.
   return (
     <div className="nb2-skull-wrap" ref={skullRef}>
-      <Link
-        href="/home"
-        prefetch
-        className="nb2-skull-btn"
-        aria-label="Home"
-      >
+      <div className="nb2-skull-btn" aria-hidden="true">
         <span className="nb2-skull-ring-pulse" aria-hidden="true" />
         <span className="nb2-skull-ring-orbit" aria-hidden="true" />
         <span className="nb2-skull-disc" aria-hidden="true" />
-      </Link>
+      </div>
     </div>
   )
 }
