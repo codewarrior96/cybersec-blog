@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     template: '%s · siberlab',
   },
   description:
-    'TR junior odaklı interaktif siber güvenlik laboratuvarı. Breach Lab, Sentinel telemetri ve gerçek zamanlı CTF senaryoları.',
+    'TR junior odaklı interaktif siber güvenlik laboratuvarı. Breach Lab, Zafiyet Taraması telemetri ve gerçek zamanlı CTF senaryoları.',
   applicationName: 'siberlab',
   authors: [{ name: 'Salim Aybasti' }],
   creator: 'Salim Aybasti',

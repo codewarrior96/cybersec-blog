@@ -321,7 +321,7 @@ function getActionMeanings(row: TelemetryRow): TelemetryActionMeaning[] {
   if (!linkedIncident) {
     return [
       { label: 'Vaka Aç', detail: 'Bu telemetri kaydını bağımsız bir vaka kimliğiyle analist kuyruğuna taşır.' },
-      { label: 'Rapor Oluştur', detail: 'Mevcut sinyalden rapor taslağı açar; bağlamı Sentinel tarafında kalıcı hale getirir.' },
+      { label: 'Rapor Oluştur', detail: 'Mevcut sinyalden rapor taslağı açar; bağlamı Zafiyet Taraması tarafında kalıcı hale getirir.' },
       { label: 'İncele', detail: 'Vakayı açar ve statüyü doğrudan “İnceleniyor” akışına geçirir.' },
       { label: 'İzole Et', detail: 'Kaynak IP ve düğüm için containment uygular; olay izini containment akışına bağlar.' },
     ]
@@ -337,7 +337,7 @@ function getActionMeanings(row: TelemetryRow): TelemetryActionMeaning[] {
 
   if (linkedIncident.status === 'INVESTIGATING') {
     return [
-      { label: 'Raporu Güncelle', detail: `${linkedIncident.id} inceleme bulgularını Sentinel rapor akışına taşır.` },
+      { label: 'Raporu Güncelle', detail: `${linkedIncident.id} inceleme bulgularını Zafiyet Taraması rapor akışına taşır.` },
       { label: 'İzole Et', detail: 'Containment uygulayıp vakayı izole edilmiş duruma geçirir.' },
       { label: 'Vakayı Kapat', detail: 'İnceleme tamamlandı kabul eder, ilişik telemetri satırlarını aktif akıştan düşürür.' },
     ]

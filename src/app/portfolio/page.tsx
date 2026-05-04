@@ -9,7 +9,7 @@ import type { SessionUser } from '@/lib/soc-types'
 import type { PortfolioProfileRecord } from '@/lib/portfolio-profile'
 
 export const metadata: Metadata = {
-  title: 'Profil',
+  title: 'Portfolio',
 }
 
 export const dynamic = 'force-dynamic'

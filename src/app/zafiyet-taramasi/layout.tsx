@@ -8,9 +8,9 @@ import { getServerSessionFromCookies } from '@/lib/auth-server'
 // metadata must come from a server component). This sibling layout.tsx
 // surfaces the title AND (BUG-006) enforces the server-side auth gate.
 //
-// Title: 'Sentinel' — the in-app brand name for the SOC dashboard +
-// reports + CVE radar surface that lives at /zafiyet-taramasi.
-// Renders as 'Sentinel · siberlab' via the root layout template.
+// Title: 'Zafiyet Taraması' — matches the URL slug. The previous
+// brand-name alias was retired in NAV-002 to align nav label, page
+// title, and URL. Renders as 'Zafiyet Taraması · siberlab' via root layout.
 //
 // BUG-006: Until this gate shipped, any unauthenticated visitor
 // hitting /zafiyet-taramasi directly received the SOC dashboard
@@ -19,7 +19,7 @@ import { getServerSessionFromCookies } from '@/lib/auth-server'
 // from local data — the surface itself leaked. Layout-level redirect
 // closes that surface for anon users. API-route `requireSession`
 // remains the authoritative validator (defense-in-depth).
-export const metadata: Metadata = { title: 'Sentinel' }
+export const metadata: Metadata = { title: 'Zafiyet Taraması' }
 
 export default async function ZafiyetTaramasiLayout({
   children,

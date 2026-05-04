@@ -284,7 +284,7 @@ function getAttackProfile(label: string): AttackProfile {
       'Olay kapsamını doğrulamak için host, ağ ve uygulama loglarını tek vaka zaman çizelgesinde birleştir.',
       'Kaynak IP ve ilişkili oturumlar için geçici koruma/izleme kararı al.',
       'Etkilenen varlık üzerinde hızlı IOC taraması yap ve gerektiğinde izolasyon planını hazırla.',
-      'Bulgular netleştikçe vaka notlarını Sentinel tarafında rapor kaydıyla eşleştir.',
+      'Bulgular netleştikçe vaka notlarını Zafiyet Taraması tarafında rapor kaydıyla eşleştir.',
     ],
     defenseLayers: [
       'Merkezi SIEM korelasyonlarını olay türüne uygun yeni davranış göstergeleriyle besle.',
@@ -339,7 +339,7 @@ function buildDraftSections(incident: AttackReportIncident, profile: AttackProfi
     ].join('\n\n'),
     recommendations: profile.recommendations
       .map((step, index) => `${index + 1}. ${step}`)
-      .concat('5. Rapor kesinleştiğinde Sentinel tarafında ilgili kayıtla ilişkilendir ve sonraki araştırma adımlarını aynı vaka altında topla.')
+      .concat('5. Rapor kesinleştiğinde Zafiyet Taraması tarafında ilgili kayıtla ilişkilendir ve sonraki araştırma adımlarını aynı vaka altında topla.')
       .join('\n'),
     defense: profile.defenseLayers
       .map((step, index) => `${index + 1}. ${step}`)
@@ -529,7 +529,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
               href="/zafiyet-taramasi"
               className="text-violet-400 text-xs underline underline-offset-2 hover:text-violet-300"
             >
-              Sentinel'de görüntüle
+              Zafiyet Taramasında görüntüle
             </Link>
           </div>
         ) : (
