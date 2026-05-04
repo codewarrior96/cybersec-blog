@@ -137,7 +137,7 @@ function SkullButton({
       <button
         type="button"
         className={`nb2-skull-btn ${isLeaving ? 'is-leaving' : ''}`}
-        onClick={() => { if (isReady) onLogout?.() }}
+        onClick={() => onLogout?.()}
         onMouseLeave={handleMouseLeave}
         onMouseEnter={handleMouseEnter}
         aria-label="Logout"
