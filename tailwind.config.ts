@@ -5,6 +5,9 @@ const config: Config = {
   darkMode: 'class',
   theme: {
     extend: {
+      colors: {
+        'route-accent': 'rgb(var(--route-accent-rgb) / <alpha-value>)',
+      },
       keyframes: {
         shimmer: { '100%': { transform: 'translateX(100%)' } },
       },

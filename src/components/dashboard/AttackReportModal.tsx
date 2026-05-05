@@ -493,10 +493,10 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
           maxHeight: 'min(96dvh, 92vh)',
         }}
       >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-violet-500/20 px-3 py-3 sm:items-center sm:px-5">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-route-accent/20 px-3 py-3 sm:items-center sm:px-5">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <FileText className="w-4 h-4 text-violet-400" />
-            <span className="text-[11px] font-bold uppercase tracking-[0.24em] text-violet-400 sm:text-xs">
+            <FileText className="w-4 h-4 text-route-accent" />
+            <span className="text-[11px] font-bold uppercase tracking-[0.24em] text-route-accent sm:text-xs">
               Saldırı İnceleme Raporu
             </span>
             <div
@@ -527,7 +527,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
             <p className="text-slate-500 text-sm text-center">Rapor başarıyla kaydedildi.</p>
             <Link
               href="/zafiyet-taramasi"
-              className="text-violet-400 text-xs underline underline-offset-2 hover:text-violet-300"
+              className="text-route-accent text-xs underline underline-offset-2 hover:text-route-accent/80"
             >
               Zafiyet Taramasında görüntüle
             </Link>
@@ -540,8 +540,8 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
                 style={{ background: 'rgba(139,92,246,0.04)', borderColor: 'rgba(139,92,246,0.2)' }}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <Shield className="w-3.5 h-3.5 text-violet-400" />
-                  <span className="text-[10px] text-violet-400 font-bold tracking-widest uppercase">
+                  <Shield className="w-3.5 h-3.5 text-route-accent" />
+                  <span className="text-[10px] text-route-accent font-bold tracking-widest uppercase">
                     {explanation.title}
                   </span>
                 </div>
@@ -561,7 +561,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                className="w-full bg-[#06000f] border border-violet-900/40 rounded px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-violet-500/60 transition-colors"
+                className="w-full bg-[#06000f] border border-route-accent/25 rounded px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-route-accent/60 transition-colors"
                 placeholder="Rapor başlığı..."
               />
             </div>
@@ -572,7 +572,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
                 <select
                   value={severity}
                   onChange={(event) => setSeverity(event.target.value as typeof severity)}
-                  className="w-full bg-[#06000f] border border-violet-900/40 rounded px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-violet-500/60"
+                  className="w-full bg-[#06000f] border border-route-accent/25 rounded px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-route-accent/60"
                 >
                   <option value="CRITICAL">KRİTİK</option>
                   <option value="HIGH">YÜKSEK</option>
@@ -582,9 +582,9 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
               </div>
               <div className="flex-1 space-y-1.5">
                 <label className="text-[9px] text-slate-500 tracking-widest uppercase">Etiketler</label>
-                <div className="flex flex-wrap gap-1.5 min-h-[38px] bg-[#06000f] border border-violet-900/40 rounded px-2 py-1.5 items-center focus-within:border-violet-500/60 transition-colors">
+                <div className="flex flex-wrap gap-1.5 min-h-[38px] bg-[#06000f] border border-route-accent/25 rounded px-2 py-1.5 items-center focus-within:border-route-accent/60 transition-colors">
                   {tags.map((tag) => (
-                    <span key={tag} className="flex items-center gap-1 bg-violet-900/30 border border-violet-700/40 px-1.5 py-0.5 rounded text-[10px] text-violet-300">
+                    <span key={tag} className="flex items-center gap-1 bg-route-accent/20 border border-route-accent/35 px-1.5 py-0.5 rounded text-[10px] text-route-accent">
                       <Tag className="w-2.5 h-2.5" />
                       {tag}
                       <button onClick={() => removeTag(tag)} className="text-slate-500 hover:text-red-400 ml-0.5">
@@ -640,7 +640,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
                   value={value}
                   onChange={(event) => setValue(event.target.value)}
                   rows={3}
-                  className="w-full bg-[#06000f] border border-violet-900/40 rounded px-3 py-2 text-sm text-slate-300 font-mono resize-none focus:outline-none focus:border-violet-500/60 transition-colors leading-relaxed"
+                  className="w-full bg-[#06000f] border border-route-accent/25 rounded px-3 py-2 text-sm text-slate-300 font-mono resize-none focus:outline-none focus:border-route-accent/60 transition-colors leading-relaxed"
                   placeholder={placeholder}
                 />
               </div>
@@ -656,11 +656,11 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
         )}
 
         {status !== 'success' && (
-          <div className="shrink-0 border-t border-violet-500/15 px-3 py-3 sm:px-5">
+          <div className="shrink-0 border-t border-route-accent/15 px-3 py-3 sm:px-5">
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
               <button
                 onClick={onClose}
-                className="min-h-[42px] rounded-lg border border-violet-900/30 px-3 text-xs text-slate-400 transition-colors hover:text-slate-200 sm:min-h-0 sm:border-0 sm:px-0"
+                className="min-h-[42px] rounded-lg border border-route-accent/20 px-3 text-xs text-slate-400 transition-colors hover:text-slate-200 sm:min-h-0 sm:border-0 sm:px-0"
               >
                 İptal
               </button>
@@ -671,7 +671,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
                 style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.45)', color: '#c084fc' }}
               >
                 {status === 'loading'
-                  ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border border-violet-400 border-t-transparent" /> Kaydediliyor...</>
+                  ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border border-route-accent border-t-transparent" /> Kaydediliyor...</>
                   : <><Send className="w-3.5 h-3.5" /> Raporu Kaydet</>
                 }
               </button>

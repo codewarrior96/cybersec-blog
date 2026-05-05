@@ -206,7 +206,7 @@ function ReportModal({
     if (line.startsWith('- ')) {
       return (
         <div key={key} className="flex gap-2 break-words text-slate-300 text-xs leading-relaxed [overflow-wrap:anywhere]">
-          <span className="text-violet-500 shrink-0">•</span>
+          <span className="text-route-accent shrink-0">•</span>
           <span>{line.slice(2)}</span>
         </div>
       );
@@ -304,7 +304,7 @@ function ReportModal({
         {report.tags.length > 0 && (
           <div className="flex shrink-0 flex-wrap gap-1.5 border-b px-3 py-2 sm:px-5" style={{ borderColor: `${col}15` }}>
             {report.tags.map(t => (
-              <span key={t} className="flex max-w-full items-center gap-1 break-all rounded border border-violet-700/35 bg-violet-900/25 px-1.5 py-0.5 text-[9px] text-violet-300">
+              <span key={t} className="flex max-w-full items-center gap-1 break-all rounded border border-route-accent/30 bg-route-accent/15 px-1.5 py-0.5 text-[9px] text-route-accent">
                 <Tag className="w-2.5 h-2.5" />{t}
               </span>
             ))}
@@ -314,8 +314,8 @@ function ReportModal({
         {/* Content */}
         <div className="flex-1 min-h-0 space-y-0.5 overflow-x-hidden overflow-y-auto px-3 py-3 sm:px-5 sm:py-4">
           {parsedSections.map((section) => (
-            <div key={section.key} className="mb-3 rounded border border-violet-900/25 bg-violet-950/10 px-3 py-3 sm:px-4">
-              <div className="text-violet-400 font-bold text-[10px] mb-2 tracking-widest uppercase">
+            <div key={section.key} className="mb-3 rounded border border-route-accent/15 bg-route-accent/8 px-3 py-3 sm:px-4">
+              <div className="text-route-accent font-bold text-[10px] mb-2 tracking-widest uppercase">
                 {section.title}
               </div>
               <div className="space-y-1.5">
@@ -326,7 +326,7 @@ function ReportModal({
 
           {/* Historical Parallels */}
           {related.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-violet-900/30">
+            <div className="mt-6 pt-4 border-t border-route-accent/20">
               <div className="flex items-center gap-2 mb-3">
                 <Clock className="w-3 h-3 text-slate-600" />
                 <span className="text-[9px] text-slate-600 tracking-widest uppercase">Tarihsel Paralel Olaylar</span>
@@ -625,7 +625,7 @@ function HistoryTab() {
       {/* Charts Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {/* Bar chart: attacks by year */}
-        <div className="rounded-lg border border-violet-500/15 bg-[#0a000f] p-4">
+        <div className="rounded-lg border border-route-accent/15 bg-[#0a000f] p-4">
           <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-3">▸ Yıllara Göre Saldırı Dağılımı</div>
           <ResponsiveContainer width="100%" height={140}>
             <BarChart data={(() => {
@@ -648,7 +648,7 @@ function HistoryTab() {
         </div>
 
         {/* Pie chart: by category */}
-        <div className="rounded-lg border border-violet-500/15 bg-[#0a000f] p-4">
+        <div className="rounded-lg border border-route-accent/15 bg-[#0a000f] p-4">
           <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-3">▸ Kategori Dağılımı</div>
           <div className="flex items-center gap-4">
             <ResponsiveContainer width={120} height={120}>
@@ -1095,7 +1095,7 @@ export default function ZafiyetTaramasiPage() {
                     className="flex w-full items-center justify-between text-left sm:hidden"
                   >
                     <span className="text-[9px] uppercase tracking-widest text-slate-600">Etiket Ara</span>
-                    <span className="rounded-full border border-violet-900/30 px-2 py-0.5 text-[9px] text-violet-300">
+                    <span className="rounded-full border border-route-accent/20 px-2 py-0.5 text-[9px] text-route-accent">
                       {showTagFilters ? 'Gizle' : 'Aç'}
                     </span>
                   </button>
@@ -1105,14 +1105,14 @@ export default function ZafiyetTaramasiPage() {
                       value={tagFilter}
                       onChange={(e) => setTagFilter(e.target.value)}
                       placeholder="rce, sqli..."
-                      className="w-full rounded border border-violet-900/40 bg-[#0a0015] px-2 py-1.5 text-[10px] text-slate-300 transition-colors placeholder-slate-700 focus:border-violet-500/50 focus:outline-none"
+                      className="w-full rounded border border-route-accent/25 bg-[#0a0015] px-2 py-1.5 text-[10px] text-slate-300 transition-colors placeholder-slate-700 focus:border-route-accent/50 focus:outline-none"
                     />
                     <div className="mt-2 flex flex-wrap gap-1">
                       {allTags.slice(0, 10).map((t) => (
                         <button
                           key={t}
                           onClick={() => setTagFilter(t)}
-                          className="rounded border border-violet-900/30 px-1.5 py-0.5 text-[9px] text-slate-600 transition-colors hover:border-violet-500/40 hover:text-violet-400"
+                          className="rounded border border-route-accent/20 px-1.5 py-0.5 text-[9px] text-slate-600 transition-colors hover:border-route-accent/40 hover:text-route-accent"
                         >
                           {t}
                         </button>
@@ -1196,7 +1196,7 @@ export default function ZafiyetTaramasiPage() {
                       {r.tags.length > 0 && (
                         <div className="mb-3 flex flex-wrap gap-1">
                           {r.tags.slice(0, 4).map((t) => (
-                            <span key={t} className="rounded border border-violet-900/30 px-1.5 py-0.5 text-[9px] text-violet-500">
+                            <span key={t} className="rounded border border-route-accent/20 px-1.5 py-0.5 text-[9px] text-route-accent">
                               {t}
                             </span>
                           ))}

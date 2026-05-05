@@ -72,13 +72,13 @@
 }
 
 [data-route-theme='sentinel'] {
-  --route-bg-rgb: 8 5 15;
-  --route-surface-0-rgb: 12 8 20;
-  --route-surface-1-rgb: 17 11 28;
-  --route-surface-2-rgb: 24 14 38;
-  --route-text-rgb: 238 235 249;
-  --route-muted-rgb: 139 129 161;
-  --route-accent-rgb: 186 129 255;
+  --route-bg-rgb: 12 9 4;
+  --route-surface-0-rgb: 16 13 8;
+  --route-surface-1-rgb: 22 18 11;
+  --route-surface-2-rgb: 30 24 15;
+  --route-text-rgb: 247 240 222;
+  --route-muted-rgb: 168 152 128;
+  --route-accent-rgb: 255 176 56;
   --route-accent-alt-rgb: 248 143 60;
   --route-warn-rgb: 248 176 60;
   --route-danger-rgb: 245 98 109;
