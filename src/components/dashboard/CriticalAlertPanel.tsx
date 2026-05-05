@@ -25,7 +25,7 @@ const SEV_COLOR: Record<CriticalAlertQueueItem['sev'], string> = {
   CRITICAL: '#ef4444',
   HIGH: '#f97316',
   MEDIUM: '#eab308',
-  LOW: '#8b5cf6',
+  LOW: '#94a3b8',
 }
 
 function timeStr(iso: string) {

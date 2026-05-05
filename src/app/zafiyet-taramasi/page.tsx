@@ -37,7 +37,7 @@ type ReportStatusFilter = 'active' | 'archived' | 'all';
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 const SEV_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 const SEV_COLOR: Record<string, string> = {
-  CRITICAL: '#ef4444', HIGH: '#f97316', MEDIUM: '#eab308', LOW: '#8b5cf6',
+  CRITICAL: '#ef4444', HIGH: '#f97316', MEDIUM: '#eab308', LOW: '#94a3b8',
 };
 const SEV_LABEL: Record<string, string> = {
   CRITICAL: 'KRİTİK', HIGH: 'YÜKSEK', MEDIUM: 'ORTA', LOW: 'DÜŞÜK',
@@ -190,7 +190,7 @@ function ReportModal({
   onDelete?: (report: ReportRecord) => Promise<void> | void;
   deleting?: boolean;
 }) {
-  const col = SEV_COLOR[report.severity.toUpperCase()] ?? '#8b5cf6';
+  const col = SEV_COLOR[report.severity.toUpperCase()] ?? '#94a3b8';
   const related = matchHistory(report);
   const parsedSections = parseReportSections(report.content);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -581,7 +581,7 @@ function HistoryTab() {
           { label: 'TOPLAM OLAY', value: breachData.length, col: '#f97316' },
           { label: 'ETKİLENEN', value: `${(totalRecords / 1000).toFixed(1)}B`, col: '#ef4444' },
           { label: 'TAHMİNİ ZARAR', value: '$100B+', col: '#eab308' },
-          { label: 'EN YIKICI YIL', value: '2017', col: '#a78bfa' },
+          { label: 'EN YIKICI YIL', value: '2017', col: 'rgb(var(--route-accent-rgb))' },
         ].map(s => (
           <div key={s.label} className="rounded border border-white/5 bg-white/[0.02] px-3 py-2">
             <div className="text-sm font-bold" style={{ color: s.col }}>{s.value}</div>
@@ -642,7 +642,7 @@ function HistoryTab() {
                 formatter={(v) => [v, 'olay']}
                 labelFormatter={(l) => `20${String(l)}`}
               />
-              <Bar dataKey="count" fill="#8b5cf6" radius={[3,3,0,0]} />
+              <Bar dataKey="count" fill="rgb(var(--route-accent-rgb))" radius={[3,3,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -1154,7 +1154,7 @@ export default function ZafiyetTaramasiPage() {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {filtered.map((r) => {
                   const sev = r.severity.toUpperCase();
-                  const col = SEV_COLOR[sev] ?? '#8b5cf6';
+                  const col = SEV_COLOR[sev] ?? '#94a3b8';
                   return (
                     <div
                       key={r.id}
