@@ -487,9 +487,9 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
       <div
         className="flex max-h-[96dvh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border font-mono sm:max-h-[92vh] sm:rounded-lg"
         style={{
-          background: '#0d0018',
-          borderColor: 'rgba(139,92,246,0.3)',
-          boxShadow: '0 0 60px rgba(139,92,246,0.12)',
+          background: 'rgb(var(--route-surface-0-rgb))',
+          borderColor: 'rgb(var(--route-accent-rgb) / 0.3)',
+          boxShadow: '0 0 60px rgb(var(--route-accent-rgb) / 0.12)',
           maxHeight: 'min(96dvh, 92vh)',
         }}
       >
@@ -537,7 +537,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
             {explanation && (
               <div
                 className="space-y-2 rounded border p-3 sm:p-4"
-                style={{ background: 'rgba(139,92,246,0.04)', borderColor: 'rgba(139,92,246,0.2)' }}
+                style={{ background: 'rgb(var(--route-accent-rgb) / 0.04)', borderColor: 'rgb(var(--route-accent-rgb) / 0.2)' }}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <Shield className="w-3.5 h-3.5 text-route-accent" />
@@ -561,7 +561,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                className="w-full bg-[#06000f] border border-route-accent/25 rounded px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-route-accent/60 transition-colors"
+                className="w-full bg-[rgb(var(--route-bg-rgb))] border border-route-accent/25 rounded px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-route-accent/60 transition-colors"
                 placeholder="Rapor başlığı..."
               />
             </div>
@@ -572,7 +572,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
                 <select
                   value={severity}
                   onChange={(event) => setSeverity(event.target.value as typeof severity)}
-                  className="w-full bg-[#06000f] border border-route-accent/25 rounded px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-route-accent/60"
+                  className="w-full bg-[rgb(var(--route-bg-rgb))] border border-route-accent/25 rounded px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-route-accent/60"
                 >
                   <option value="CRITICAL">KRİTİK</option>
                   <option value="HIGH">YÜKSEK</option>
@@ -582,7 +582,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
               </div>
               <div className="flex-1 space-y-1.5">
                 <label className="text-[9px] text-slate-500 tracking-widest uppercase">Etiketler</label>
-                <div className="flex flex-wrap gap-1.5 min-h-[38px] bg-[#06000f] border border-route-accent/25 rounded px-2 py-1.5 items-center focus-within:border-route-accent/60 transition-colors">
+                <div className="flex flex-wrap gap-1.5 min-h-[38px] bg-[rgb(var(--route-bg-rgb))] border border-route-accent/25 rounded px-2 py-1.5 items-center focus-within:border-route-accent/60 transition-colors">
                   {tags.map((tag) => (
                     <span key={tag} className="flex items-center gap-1 bg-route-accent/20 border border-route-accent/35 px-1.5 py-0.5 rounded text-[10px] text-route-accent">
                       <Tag className="w-2.5 h-2.5" />
@@ -640,7 +640,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
                   value={value}
                   onChange={(event) => setValue(event.target.value)}
                   rows={3}
-                  className="w-full bg-[#06000f] border border-route-accent/25 rounded px-3 py-2 text-sm text-slate-300 font-mono resize-none focus:outline-none focus:border-route-accent/60 transition-colors leading-relaxed"
+                  className="w-full bg-[rgb(var(--route-bg-rgb))] border border-route-accent/25 rounded px-3 py-2 text-sm text-slate-300 font-mono resize-none focus:outline-none focus:border-route-accent/60 transition-colors leading-relaxed"
                   placeholder={placeholder}
                 />
               </div>
@@ -668,7 +668,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
                 onClick={handleSubmit}
                 disabled={status === 'loading'}
                 className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-50 sm:min-h-0 sm:w-auto sm:px-5"
-                style={{ background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.45)', color: '#c084fc' }}
+                style={{ background: 'rgb(var(--route-accent-rgb) / 0.2)', border: '1px solid rgb(var(--route-accent-rgb) / 0.45)', color: 'rgb(var(--route-accent-rgb))' }}
               >
                 {status === 'loading'
                   ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border border-route-accent border-t-transparent" /> Kaydediliyor...</>

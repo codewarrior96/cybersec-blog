@@ -241,7 +241,7 @@ function ReportModal({
       <div
         className="relative flex max-h-[96dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border font-mono sm:max-h-[90vh] sm:rounded-lg"
         style={{
-          background: '#0d0018',
+          background: 'rgb(var(--route-surface-0-rgb))',
           borderColor: `${col}40`,
           boxShadow: `0 0 80px ${col}15`,
         }}
@@ -379,7 +379,7 @@ function ReportModal({
             <div
               className="w-full max-w-md rounded-lg border p-5 font-mono"
               style={{
-                background: '#0d0018',
+                background: 'rgb(var(--route-surface-0-rgb))',
                 borderColor: 'rgba(244,63,94,0.4)',
                 boxShadow: '0 0 60px rgba(244,63,94,0.15)',
               }}
@@ -446,7 +446,7 @@ function AptModal({ apt, onClose }: { apt: AptProfile; onClose: () => void }) {
       <div
         className="w-full max-w-xl flex flex-col rounded-xl border overflow-hidden font-mono"
         style={{
-          background: 'linear-gradient(160deg,#0d0018 0%,#0a000f 100%)',
+          background: 'linear-gradient(160deg,rgb(var(--route-surface-0-rgb)) 0%,rgb(var(--route-bg-rgb)) 100%)',
           borderColor: `${apt.color}45`,
           boxShadow: `0 0 80px ${apt.color}18`,
           maxHeight: '88vh',
@@ -625,7 +625,7 @@ function HistoryTab() {
       {/* Charts Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {/* Bar chart: attacks by year */}
-        <div className="rounded-lg border border-route-accent/15 bg-[#0a000f] p-4">
+        <div className="rounded-lg border border-route-accent/15 bg-[rgb(var(--route-bg-rgb))] p-4">
           <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-3">▸ Yıllara Göre Saldırı Dağılımı</div>
           <ResponsiveContainer width="100%" height={140}>
             <BarChart data={(() => {
@@ -636,8 +636,8 @@ function HistoryTab() {
               <XAxis dataKey="year" tick={{ fill: '#475569', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#475569', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
               <Tooltip
-                contentStyle={{ background: '#0d0018', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 6, fontFamily: 'monospace', fontSize: 10 }}
-                labelStyle={{ color: '#c084fc' }}
+                contentStyle={{ background: 'rgb(var(--route-surface-0-rgb))', border: '1px solid rgb(var(--route-accent-rgb) / 0.3)', borderRadius: 6, fontFamily: 'monospace', fontSize: 10 }}
+                labelStyle={{ color: 'rgb(var(--route-accent-rgb))' }}
                 itemStyle={{ color: '#94a3b8' }}
                 formatter={(v) => [v, 'olay']}
                 labelFormatter={(l) => `20${String(l)}`}
@@ -648,7 +648,7 @@ function HistoryTab() {
         </div>
 
         {/* Pie chart: by category */}
-        <div className="rounded-lg border border-route-accent/15 bg-[#0a000f] p-4">
+        <div className="rounded-lg border border-route-accent/15 bg-[rgb(var(--route-bg-rgb))] p-4">
           <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-3">▸ Kategori Dağılımı</div>
           <div className="flex items-center gap-4">
             <ResponsiveContainer width={120} height={120}>
@@ -667,7 +667,7 @@ function HistoryTab() {
                   ))}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ background: '#0d0018', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 6, fontFamily: 'monospace', fontSize: 10 }}
+                  contentStyle={{ background: 'rgb(var(--route-surface-0-rgb))', border: '1px solid rgb(var(--route-accent-rgb) / 0.3)', borderRadius: 6, fontFamily: 'monospace', fontSize: 10 }}
                   itemStyle={{ color: '#94a3b8' }}
                 />
               </PieChart>
@@ -762,7 +762,7 @@ function HistoryTab() {
             return (
               <div key={e.id} className="relative">
                 {/* Timeline dot */}
-                <div className="absolute -left-7 top-3 w-3 h-3 rounded-full border-2 border-[#06000f] z-10"
+                <div className="absolute -left-7 top-3 w-3 h-3 rounded-full border-2 border-[rgb(var(--route-bg-rgb))] z-10"
                   style={{ background: cat.color, boxShadow: `0 0 8px ${cat.color}80` }} />
 
                 <div
@@ -1105,7 +1105,7 @@ export default function ZafiyetTaramasiPage() {
                       value={tagFilter}
                       onChange={(e) => setTagFilter(e.target.value)}
                       placeholder="rce, sqli..."
-                      className="w-full rounded border border-route-accent/25 bg-[#0a0015] px-2 py-1.5 text-[10px] text-slate-300 transition-colors placeholder-slate-700 focus:border-route-accent/50 focus:outline-none"
+                      className="w-full rounded border border-route-accent/25 bg-[rgb(var(--route-bg-rgb))] px-2 py-1.5 text-[10px] text-slate-300 transition-colors placeholder-slate-700 focus:border-route-accent/50 focus:outline-none"
                     />
                     <div className="mt-2 flex flex-wrap gap-1">
                       {allTags.slice(0, 10).map((t) => (
