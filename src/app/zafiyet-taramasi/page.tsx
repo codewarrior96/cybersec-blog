@@ -4,9 +4,6 @@ import { Tag, X, ChevronRight, Filter, FileText, Clock, Shield, Zap } from 'luci
 import { breachData, type BreachEvent, type BreachCategory } from '@/lib/breachData';
 import CveRadarTab from '@/components/CveRadarTab';
 import { aptProfiles, type AptProfile } from '@/lib/aptData';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-} from 'recharts';
 import { REPORTS_UPDATED_EVENT } from '@/lib/reports-events';
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -642,32 +639,6 @@ function HistoryTab() {
               {s === 'ALL' ? 'SEV: TÜMÜ' : s.toUpperCase()}
             </button>
           ))}
-        </div>
-      </div>
-
-      {/* Charts Row */}
-      <div className="mb-6">
-        {/* Bar chart: attacks by year */}
-        <div className="rounded-lg border border-route-accent/15 bg-[rgb(var(--route-bg-rgb))] p-4">
-          <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-3">▸ Yıllara Göre Saldırı Dağılımı</div>
-          <ResponsiveContainer width="100%" height={140}>
-            <BarChart data={(() => {
-              const map: Record<number, number> = {};
-              filtered.forEach(e => { map[e.year] = (map[e.year] || 0) + 1; });
-              return Object.entries(map).sort(([a],[b]) => Number(a)-Number(b)).map(([year,count]) => ({ year: String(year).slice(2), count }));
-            })()} margin={{ top: 0, right: 0, left: -30, bottom: 0 }}>
-              <XAxis dataKey="year" tick={{ fill: '#475569', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#475569', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
-              <Tooltip
-                contentStyle={{ background: 'rgb(var(--route-surface-0-rgb))', border: '1px solid rgb(var(--route-accent-rgb) / 0.3)', borderRadius: 6, fontFamily: 'monospace', fontSize: 10 }}
-                labelStyle={{ color: 'rgb(var(--route-accent-rgb))' }}
-                itemStyle={{ color: '#94a3b8' }}
-                formatter={(v) => [v, 'olay']}
-                labelFormatter={(l) => `20${String(l)}`}
-              />
-              <Bar dataKey="count" fill="rgb(var(--route-accent-rgb))" radius={[3,3,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
       </div>
 
