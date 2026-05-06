@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { CVEItem } from '@/app/api/cves/route';
 
 
@@ -121,23 +121,12 @@ export default function CveRadarTab() {
   const [data, setData] = useState<CVEResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [keyword, setKeyword] = useState('');
-  const [debouncedKeyword, setDebouncedKeyword] = useState('');
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setDebouncedKeyword(keyword), 500);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [keyword]);
 
   const fetchCVEs = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
-      const params = new URLSearchParams();
-      if (debouncedKeyword.trim()) params.set('keyword', debouncedKeyword.trim());
-      const res = await fetch(`/api/cves?${params.toString()}`);
+      const res = await fetch('/api/cves');
       const json: CVEResponse = await res.json();
       if (!res.ok || json.error) { setError(true); setData(json); }
       else { setData(json); }
@@ -147,7 +136,7 @@ export default function CveRadarTab() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedKeyword]);
+  }, []);
 
   useEffect(() => { void fetchCVEs(); }, [fetchCVEs]);
 
@@ -171,15 +160,6 @@ export default function CveRadarTab() {
           {loading ? <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" /> : <span className="w-2 h-2 rounded-full bg-green-400" />}
           {data?.fetchedAt && <span className="font-mono text-[10px] text-slate-600">{new Date(data.fetchedAt).toLocaleTimeString('tr-TR')}</span>}
         </div>
-      </div>
-
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-3 mb-4 pb-4 border-b border-white/5">
-        <input
-          type="text" value={keyword} onChange={e => setKeyword(e.target.value)}
-          placeholder="Keyword ara... (CVE, ürün, vendor)"
-          className="font-mono text-xs bg-transparent border border-white/10 px-3 py-1.5 text-slate-300 placeholder-slate-700 focus:border-amber-400/50 focus:outline-none rounded w-52 transition-colors"
-        />
       </div>
 
       {/* Error */}

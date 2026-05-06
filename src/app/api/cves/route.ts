@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 export interface CVEItem {
   id: string;
@@ -67,13 +67,8 @@ function formatNVDDate(date: Date): string {
 }
 
 const WINDOW_DAYS = 30;
-const MAX_KEYWORD_LENGTH = 128;
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const keywordRaw = searchParams.get('keyword')?.trim() ?? '';
-  const keyword = keywordRaw.length > 0 && keywordRaw.length <= MAX_KEYWORD_LENGTH ? keywordRaw : null;
-
+export async function GET() {
   const endDate = new Date();
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - WINDOW_DAYS);
@@ -94,7 +89,6 @@ export async function GET(request: NextRequest) {
   nvdParams.set('pubEndDate', formatNVDDate(endDate));
   nvdParams.set('cvssV3Severity', 'CRITICAL');
   nvdParams.set('resultsPerPage', String(NVD_MAX_PAGE));
-  if (keyword) nvdParams.set('keywordSearch', keyword);
 
   const nvdUrl = `${NVD_BASE}?${nvdParams.toString()}`;
 
