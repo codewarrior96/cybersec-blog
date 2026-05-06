@@ -66,9 +66,7 @@ function formatNVDDate(date: Date): string {
   return date.toISOString().replace(/\.\d{3}Z$/, '.000');
 }
 
-const MAX_DAYS = 120;
-const MIN_DAYS = 1;
-const DEFAULT_DAYS = 7;
+const WINDOW_DAYS = 30;
 const MAX_KEYWORD_LENGTH = 128;
 
 export async function GET(request: NextRequest) {
@@ -76,50 +74,35 @@ export async function GET(request: NextRequest) {
   const keywordRaw = searchParams.get('keyword')?.trim() ?? '';
   const keyword = keywordRaw.length > 0 && keywordRaw.length <= MAX_KEYWORD_LENGTH ? keywordRaw : null;
 
-  const parsedDays = parseInt(searchParams.get('days') ?? String(DEFAULT_DAYS), 10);
-  const days = Number.isFinite(parsedDays)
-    ? Math.min(MAX_DAYS, Math.max(MIN_DAYS, parsedDays))
-    : DEFAULT_DAYS;
-
   const endDate = new Date();
   const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
+  startDate.setDate(startDate.getDate() - WINDOW_DAYS);
 
-  const PAGE_SIZE = 100;
   const NVD_BASE = 'https://services.nvd.nist.gov/rest/json/cves/2.0';
   const NVD_HEADERS = { 'User-Agent': 'cybersec-blog/1.0' };
   const NVD_REVALIDATE = { next: { revalidate: 300 } };
+  const NVD_MAX_PAGE = 2000;
 
-  // Build base params (date window + optional keyword) — shared by probe + fetch.
-  const baseParams = new URLSearchParams();
-  baseParams.set('pubStartDate', formatNVDDate(startDate));
-  baseParams.set('pubEndDate', formatNVDDate(endDate));
-  if (keyword) baseParams.set('keywordSearch', keyword);
+  // Single-call strategy: query CRITICAL-only CVEs in the 30-day window.
+  // CRITICAL volume (~5-15/day at NVD) yields ~150-450 entries per month,
+  // well within NVD 2.0's resultsPerPage cap of 2000. Frontend takes the
+  // top 20 by CVSS score; Salim's vision is a curated live feed, not a
+  // comprehensive CVE list. NVD anonymous rate limit (5 req/30s) easily
+  // accommodated; cached server-side for 5 min.
+  const nvdParams = new URLSearchParams();
+  nvdParams.set('pubStartDate', formatNVDDate(startDate));
+  nvdParams.set('pubEndDate', formatNVDDate(endDate));
+  nvdParams.set('cvssV3Severity', 'CRITICAL');
+  nvdParams.set('resultsPerPage', String(NVD_MAX_PAGE));
+  if (keyword) nvdParams.set('keywordSearch', keyword);
+
+  const nvdUrl = `${NVD_BASE}?${nvdParams.toString()}`;
 
   try {
-    // NVD 2.0 default sort = published ASC; without startIndex, we get the
-    // OLDEST 100. Two-call strategy: probe to learn totalResults, then fetch
-    // the last 100 (newest). NVD anonymous rate limit is 5 req per 30 sec;
-    // we use 2 per user action, well within budget.
-    const probeParams = new URLSearchParams(baseParams);
-    probeParams.set('resultsPerPage', '1');
-    const probeUrl = `${NVD_BASE}?${probeParams.toString()}`;
-    const probeRes = await fetch(probeUrl, { headers: NVD_HEADERS, ...NVD_REVALIDATE });
-    if (!probeRes.ok) {
-      throw new Error(`NVD probe returned ${probeRes.status}`);
-    }
-    const probeData: NVDResponse = await probeRes.json();
-    const totalResults = probeData.totalResults ?? 0;
-    const startIndex = Math.max(0, totalResults - PAGE_SIZE);
-
-    const fetchParams = new URLSearchParams(baseParams);
-    fetchParams.set('resultsPerPage', String(PAGE_SIZE));
-    fetchParams.set('startIndex', String(startIndex));
-    const fetchUrl = `${NVD_BASE}?${fetchParams.toString()}`;
-    const res = await fetch(fetchUrl, { headers: NVD_HEADERS, ...NVD_REVALIDATE });
+    const res = await fetch(nvdUrl, { headers: NVD_HEADERS, ...NVD_REVALIDATE });
 
     if (!res.ok) {
-      throw new Error(`NVD fetch returned ${res.status}`);
+      throw new Error(`NVD API returned ${res.status}`);
     }
 
     const data: NVDResponse = await res.json();

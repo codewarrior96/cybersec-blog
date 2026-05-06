@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import type { CVEItem } from '@/app/api/cves/route';
 
-type DaysFilter = 7 | 14 | 30;
 
 interface CVEResponse {
   cves: CVEItem[];
@@ -122,7 +121,6 @@ export default function CveRadarTab() {
   const [data, setData] = useState<CVEResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [daysFilter, setDaysFilter] = useState<DaysFilter>(7);
   const [keyword, setKeyword] = useState('');
   const [debouncedKeyword, setDebouncedKeyword] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -139,7 +137,6 @@ export default function CveRadarTab() {
     try {
       const params = new URLSearchParams();
       if (debouncedKeyword.trim()) params.set('keyword', debouncedKeyword.trim());
-      params.set('days', String(daysFilter));
       const res = await fetch(`/api/cves?${params.toString()}`);
       const json: CVEResponse = await res.json();
       if (!res.ok || json.error) { setError(true); setData(json); }
@@ -150,22 +147,17 @@ export default function CveRadarTab() {
     } finally {
       setLoading(false);
     }
-  }, [daysFilter, debouncedKeyword]);
+  }, [debouncedKeyword]);
 
   useEffect(() => { void fetchCVEs(); }, [fetchCVEs]);
 
-  // Client-side filter: only CRITICAL + HIGH severity CVEs are displayed.
-  // The backend returns the newest 100 CVEs in the date window regardless of
-  // severity; we filter to importance tier here, opinionated for the audience.
-  const cves = (data?.cves ?? []).filter(
-    c => c.severity === 'CRITICAL' || c.severity === 'HIGH'
-  );
-
-  const daysButtons: { label: string; value: DaysFilter }[] = [
-    { label: '7 GÜN', value: 7 },
-    { label: '14 GÜN', value: 14 },
-    { label: '30 GÜN', value: 30 },
-  ];
+  // Backend returns ALL CRITICAL CVEs in the 30-day window. Frontend sorts
+  // by CVSS score descending and takes the top 20 — a curated live feed of
+  // the most severe vulnerabilities of the past month, refreshed via NVD's
+  // 5-minute server-side cache.
+  const cves = [...(data?.cves ?? [])]
+    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    .slice(0, 20);
 
   return (
     <div>
@@ -188,16 +180,6 @@ export default function CveRadarTab() {
           placeholder="Keyword ara... (CVE, ürün, vendor)"
           className="font-mono text-xs bg-transparent border border-white/10 px-3 py-1.5 text-slate-300 placeholder-slate-700 focus:border-amber-400/50 focus:outline-none rounded w-52 transition-colors"
         />
-        <div className="flex items-center gap-1">
-          {daysButtons.map(({ label, value }) => (
-            <button key={value} onClick={() => setDaysFilter(value)}
-              className={`font-mono text-[10px] px-2.5 py-1 border rounded transition-all duration-150 tracking-widest ${
-                daysFilter === value ? 'text-green-400 bg-green-400/10 border-green-400/30' : 'text-slate-500 border-white/10 hover:border-white/20 hover:text-slate-300'
-              }`}>
-              {label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Error */}
