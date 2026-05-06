@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import type { CVEItem } from '@/app/api/cves/route';
 
-type SeverityFilter = 'ALL' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 type DaysFilter = 7 | 14 | 30;
 
 interface CVEResponse {
@@ -119,25 +118,10 @@ function CVECard({ cve }: { cve: CVEItem }) {
   );
 }
 
-function StatCard({ label, count, total, colorClass }: { label: string; count: number; total: number; colorClass: string }) {
-  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-  return (
-    <div className="bg-white/[0.02] border border-white/5 rounded px-4 py-3">
-      <div className={`font-mono font-bold text-2xl leading-none ${colorClass}`}>{count}</div>
-      <div className="font-mono text-[10px] text-slate-500 mt-1 tracking-widest">{label}</div>
-      <div className="mt-2 h-1 bg-white/5 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full ${colorClass.replace('text-', 'bg-')} transition-all duration-700`} style={{ width: `${pct}%` }} />
-      </div>
-      <div className="font-mono text-[10px] text-slate-600 mt-0.5">{pct}%</div>
-    </div>
-  );
-}
-
 export default function CveRadarTab() {
   const [data, setData] = useState<CVEResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('ALL');
   const [daysFilter, setDaysFilter] = useState<DaysFilter>(7);
   const [keyword, setKeyword] = useState('');
   const [debouncedKeyword, setDebouncedKeyword] = useState('');
@@ -154,7 +138,6 @@ export default function CveRadarTab() {
     setError(false);
     try {
       const params = new URLSearchParams();
-      if (severityFilter !== 'ALL') params.set('severity', severityFilter);
       if (debouncedKeyword.trim()) params.set('keyword', debouncedKeyword.trim());
       params.set('days', String(daysFilter));
       const res = await fetch(`/api/cves?${params.toString()}`);
@@ -167,26 +150,16 @@ export default function CveRadarTab() {
     } finally {
       setLoading(false);
     }
-  }, [severityFilter, daysFilter, debouncedKeyword]);
+  }, [daysFilter, debouncedKeyword]);
 
   useEffect(() => { void fetchCVEs(); }, [fetchCVEs]);
 
-  const cves = data?.cves ?? [];
-  const total = data?.total ?? 0;
-  const counts = {
-    CRITICAL: cves.filter(c => c.severity === 'CRITICAL').length,
-    HIGH:     cves.filter(c => c.severity === 'HIGH').length,
-    MEDIUM:   cves.filter(c => c.severity === 'MEDIUM').length,
-    LOW:      cves.filter(c => c.severity === 'LOW').length,
-  };
-
-  const severityButtons: { label: string; value: SeverityFilter }[] = [
-    { label: 'TÜMÜ', value: 'ALL' },
-    { label: 'KRİTİK', value: 'CRITICAL' },
-    { label: 'YÜKSEK', value: 'HIGH' },
-    { label: 'ORTA', value: 'MEDIUM' },
-    { label: 'DÜŞÜK', value: 'LOW' },
-  ];
+  // Client-side filter: only CRITICAL + HIGH severity CVEs are displayed.
+  // The backend returns the newest 100 CVEs in the date window regardless of
+  // severity; we filter to importance tier here, opinionated for the audience.
+  const cves = (data?.cves ?? []).filter(
+    c => c.severity === 'CRITICAL' || c.severity === 'HIGH'
+  );
 
   const daysButtons: { label: string; value: DaysFilter }[] = [
     { label: '7 GÜN', value: 7 },
@@ -205,32 +178,11 @@ export default function CveRadarTab() {
         <div className="flex items-center gap-2">
           {loading ? <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" /> : <span className="w-2 h-2 rounded-full bg-green-400" />}
           {data?.fetchedAt && <span className="font-mono text-[10px] text-slate-600">{new Date(data.fetchedAt).toLocaleTimeString('tr-TR')}</span>}
-          <span className="font-mono text-xs text-amber-400 border border-amber-400/20 px-2.5 py-1 rounded bg-amber-400/5">
-            [ {loading ? '...' : total} CVE ]
-          </span>
         </div>
       </div>
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-3 mb-4 pb-4 border-b border-white/5">
-        <div className="flex items-center gap-1">
-          {severityButtons.map(({ label, value }) => {
-            const isActive = severityFilter === value;
-            const sStyle = value !== 'ALL' ? getSeverityStyle(value) : null;
-            return (
-              <button key={value} onClick={() => setSeverityFilter(value)}
-                className={`font-mono text-[10px] px-2.5 py-1 border rounded transition-all duration-150 tracking-widest ${
-                  isActive
-                    ? sStyle
-                      ? `${sStyle.text} ${sStyle.bg} ${sStyle.border}`
-                      : 'text-amber-400 bg-amber-400/10 border-amber-400/40'
-                    : 'text-slate-500 border-white/10 hover:border-white/20 hover:text-slate-300'
-                }`}>
-                {label}
-              </button>
-            );
-          })}
-        </div>
         <input
           type="text" value={keyword} onChange={e => setKeyword(e.target.value)}
           placeholder="Keyword ara... (CVE, ürün, vendor)"
@@ -247,16 +199,6 @@ export default function CveRadarTab() {
           ))}
         </div>
       </div>
-
-      {/* Stats */}
-      {!loading && cves.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <StatCard label="KRİTİK" count={counts.CRITICAL} total={cves.length} colorClass="text-red-400" />
-          <StatCard label="YÜKSEK" count={counts.HIGH}     total={cves.length} colorClass="text-orange-400" />
-          <StatCard label="ORTA"   count={counts.MEDIUM}   total={cves.length} colorClass="text-amber-400" />
-          <StatCard label="DÜŞÜK"  count={counts.LOW}      total={cves.length} colorClass="text-slate-400" />
-        </div>
-      )}
 
       {/* Error */}
       {error && (
