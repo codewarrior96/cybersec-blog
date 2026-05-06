@@ -6,7 +6,6 @@ import CveRadarTab from '@/components/CveRadarTab';
 import { aptProfiles, type AptProfile } from '@/lib/aptData';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
 } from 'recharts';
 import { REPORTS_UPDATED_EVENT } from '@/lib/reports-events';
 
@@ -601,16 +600,15 @@ function HistoryTab() {
   return (
     <div className="flex-1 min-w-0">
       {/* Stats strip */}
-      <div className="grid grid-cols-4 gap-2 mb-4">
+      <div className="grid grid-cols-3 gap-2 mb-4">
         {[
           { label: 'TOPLAM OLAY', value: breachData.length, col: '#f97316' },
           { label: 'ETKİLENEN', value: `${(totalRecords / 1000).toFixed(1)}B`, col: '#ef4444' },
-          { label: 'TAHMİNİ ZARAR', value: '$100B+', col: '#eab308' },
           { label: 'EN YIKICI YIL', value: String(MOST_DEVASTATING_YEAR ?? '—'), col: 'rgb(var(--route-accent-rgb))' },
         ].map(s => (
-          <div key={s.label} className="rounded border border-white/5 bg-white/[0.02] px-3 py-2">
-            <div className="text-sm font-bold" style={{ color: s.col }}>{s.value}</div>
-            <div className="text-[9px] text-slate-600 tracking-widest mt-0.5">{s.label}</div>
+          <div key={s.label} className="rounded border border-white/5 bg-white/[0.02] px-3 py-3">
+            <div className="text-2xl font-bold" style={{ color: s.col }}>{s.value}</div>
+            <div className="text-[11px] text-slate-500 tracking-widest mt-1">{s.label}</div>
           </div>
         ))}
       </div>
@@ -622,7 +620,7 @@ function HistoryTab() {
           const active = catFilter === b.value;
           return (
             <button key={b.value} onClick={() => setCatFilter(b.value)}
-              className="text-[9px] px-2 py-1 rounded border transition-all tracking-widest"
+              className="text-[11px] px-2.5 py-1.5 rounded border transition-all tracking-widest"
               style={{
                 borderColor: active && style ? `${style.color}50` : active ? '#f97316' : 'rgba(255,255,255,0.08)',
                 background:  active && style ? style.bg : active ? 'rgba(249,115,22,0.1)' : 'transparent',
@@ -635,7 +633,7 @@ function HistoryTab() {
         <div className="flex gap-1 ml-2">
           {(['ALL', 'catastrophic', 'critical', 'major'] as const).map(s => (
             <button key={s} onClick={() => setSevFilter(s)}
-              className="text-[9px] px-2 py-1 rounded border transition-all"
+              className="text-[11px] px-2.5 py-1.5 rounded border transition-all"
               style={{
                 borderColor: sevFilter === s ? `${BREACH_SEV_COLOR[s] ?? '#f97316'}50` : 'rgba(255,255,255,0.08)',
                 background:  sevFilter === s ? `${BREACH_SEV_COLOR[s] ?? '#f97316'}10` : 'transparent',
@@ -648,14 +646,14 @@ function HistoryTab() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div className="mb-6">
         {/* Bar chart: attacks by year */}
         <div className="rounded-lg border border-route-accent/15 bg-[rgb(var(--route-bg-rgb))] p-4">
           <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-3">▸ Yıllara Göre Saldırı Dağılımı</div>
           <ResponsiveContainer width="100%" height={140}>
             <BarChart data={(() => {
               const map: Record<number, number> = {};
-              breachData.forEach(e => { map[e.year] = (map[e.year] || 0) + 1; });
+              filtered.forEach(e => { map[e.year] = (map[e.year] || 0) + 1; });
               return Object.entries(map).sort(([a],[b]) => Number(a)-Number(b)).map(([year,count]) => ({ year: String(year).slice(2), count }));
             })()} margin={{ top: 0, right: 0, left: -30, bottom: 0 }}>
               <XAxis dataKey="year" tick={{ fill: '#475569', fontSize: 9, fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
@@ -670,52 +668,6 @@ function HistoryTab() {
               <Bar dataKey="count" fill="rgb(var(--route-accent-rgb))" radius={[3,3,0,0]} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
-
-        {/* Pie chart: by category */}
-        <div className="rounded-lg border border-route-accent/15 bg-[rgb(var(--route-bg-rgb))] p-4">
-          <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-3">▸ Kategori Dağılımı</div>
-          <div className="flex items-center gap-4">
-            <ResponsiveContainer width={120} height={120}>
-              <PieChart>
-                <Pie
-                  data={(() => {
-                    const map: Record<string, number> = {};
-                    breachData.forEach(e => { map[e.category] = (map[e.category] || 0) + 1; });
-                    return Object.entries(map).map(([name, value]) => ({ name, value }));
-                  })()}
-                  cx="50%" cy="50%" innerRadius={32} outerRadius={52}
-                  dataKey="value" stroke="none"
-                >
-                  {(['espionage','ransomware','datatheft','sabotage','hacktivism']).map((cat, i) => (
-                    <Cell key={cat} fill={['#22d3ee','#f87171','#fbbf24','#fb923c','#a78bfa'][i]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ background: 'rgb(var(--route-surface-0-rgb))', border: '1px solid rgb(var(--route-accent-rgb) / 0.3)', borderRadius: 6, fontFamily: 'monospace', fontSize: 10 }}
-                  itemStyle={{ color: '#94a3b8' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex flex-col gap-1.5 flex-1">
-              {([
-                { cat: 'espionage',  label: 'Espionage',  col: '#22d3ee' },
-                { cat: 'ransomware', label: 'Ransomware', col: '#f87171' },
-                { cat: 'datatheft', label: 'Data Theft',  col: '#fbbf24' },
-                { cat: 'sabotage',  label: 'Sabotage',    col: '#fb923c' },
-                { cat: 'hacktivism',label: 'Hacktivism',  col: '#a78bfa' },
-              ] as { cat: string; label: string; col: string }[]).map(({ cat, label, col }) => {
-                const count = breachData.filter(e => e.category === cat).length;
-                return (
-                  <div key={cat} className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: col }} />
-                    <span className="text-[9px] text-slate-400 flex-1">{label}</span>
-                    <span className="text-[9px] font-bold tabular-nums" style={{ color: col }}>{count}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
       </div>
 
