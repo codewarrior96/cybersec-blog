@@ -272,28 +272,28 @@ function ReportModal({
         <div className="flex shrink-0 flex-col gap-2 border-b px-3 py-3 sm:flex-row sm:items-start sm:justify-between sm:px-5" style={{ borderColor: `${col}20` }}>
           <div className="min-w-0 flex-1 sm:pr-3">
             <div className="mb-1 flex flex-wrap items-center gap-2">
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded border"
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded border"
                 style={{ color: col, borderColor: `${col}50`, background: `${col}15` }}>
                 {SEV_LABEL[report.severity.toUpperCase()] ?? report.severity}
               </span>
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded border border-white/10 text-slate-400">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded border border-white/10 text-slate-400">
                 {report.status === 'archived' ? 'ARŞİV' : 'AKTİF'}
               </span>
               {!report.isOwner && (
-                <span className="text-[9px] font-bold px-2 py-0.5 rounded border border-slate-600/40 bg-slate-800/30 text-slate-500">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded border border-slate-600/40 bg-slate-800/30 text-slate-400">
                   DİĞER KULLANICI
                 </span>
               )}
-              <span className="text-[9px] text-slate-600">{timeStr(report.createdAt)}</span>
+              <span className="text-[11px] text-slate-400">{timeStr(report.createdAt)}</span>
             </div>
-            <div className="break-words text-sm font-bold leading-snug text-slate-200 [overflow-wrap:anywhere]">{report.title}</div>
+            <div className="break-words text-base font-bold leading-snug text-slate-100 [overflow-wrap:anywhere]">{report.title}</div>
           </div>
           <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
             {report.status !== 'archived' && onArchive && report.isOwner && (
               <button
                 onClick={() => void onArchive(report)}
                 disabled={archiving}
-                className="rounded border px-2.5 py-1 text-[9px] font-bold tracking-[0.18em] text-slate-300 transition-all disabled:opacity-50 sm:px-3 sm:text-[10px]"
+                className="rounded border px-2.5 py-1 text-[10px] font-bold tracking-[0.18em] text-slate-300 transition-all disabled:opacity-50 sm:px-3 sm:text-[11px]"
                 style={{
                   borderColor: 'rgba(148,163,184,0.25)',
                   background: 'rgba(15,23,42,0.4)',
@@ -306,7 +306,7 @@ function ReportModal({
               <button
                 onClick={() => setShowDeleteConfirm(true)}
                 disabled={deleting}
-                className="rounded border px-2.5 py-1 text-[9px] font-bold tracking-[0.18em] text-rose-200 transition-all disabled:opacity-50 sm:px-3 sm:text-[10px]"
+                className="rounded border px-2.5 py-1 text-[10px] font-bold tracking-[0.18em] text-rose-200 transition-all disabled:opacity-50 sm:px-3 sm:text-[11px]"
                 style={{
                   borderColor: 'rgba(244,63,94,0.35)',
                   background: 'rgba(244,63,94,0.1)',
@@ -325,7 +325,7 @@ function ReportModal({
         {report.tags.length > 0 && (
           <div className="flex shrink-0 flex-wrap gap-1.5 border-b px-3 py-2 sm:px-5" style={{ borderColor: `${col}15` }}>
             {report.tags.map(t => (
-              <span key={t} className="flex max-w-full items-center gap-1 break-all rounded border border-route-accent/30 bg-route-accent/15 px-1.5 py-0.5 text-[9px] text-route-accent">
+              <span key={t} className="flex max-w-full items-center gap-1 break-all rounded border border-route-accent/30 bg-route-accent/15 px-1.5 py-0.5 text-[10px] text-route-accent">
                 <Tag className="w-2.5 h-2.5" />{t}
               </span>
             ))}
@@ -336,7 +336,7 @@ function ReportModal({
         <div className="flex-1 min-h-0 space-y-0.5 overflow-x-hidden overflow-y-auto px-3 py-3 sm:px-5 sm:py-4">
           {parsedSections.map((section) => (
             <div key={section.key} className="mb-3 rounded border border-route-accent/15 bg-route-accent/8 px-3 py-3 sm:px-4">
-              <div className="text-route-accent font-bold text-[10px] mb-2 tracking-widest uppercase">
+              <div className="text-route-accent font-bold text-[11px] mb-2 tracking-widest uppercase">
                 {section.title}
               </div>
               <div className="space-y-1.5">
@@ -350,7 +350,7 @@ function ReportModal({
             <div className="mt-6 pt-4 border-t border-route-accent/20">
               <div className="flex items-center gap-2 mb-3">
                 <Clock className="w-3 h-3 text-slate-600" />
-                <span className="text-[9px] text-slate-600 tracking-widest uppercase">Tarihsel Paralel Olaylar</span>
+                <span className="text-[11px] text-slate-500 tracking-widest uppercase">Tarihsel Paralel Olaylar</span>
               </div>
               <div className="space-y-2">
                 {related.map(e => {
@@ -362,20 +362,20 @@ function ReportModal({
                     >
                       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                         <div className="flex min-w-0 flex-wrap items-center gap-2">
-                          <span className="text-[9px] font-bold" style={{ color: cat.color }}>{cat.label}</span>
-                          <span className="text-[9px] text-slate-600">{e.year}</span>
+                          <span className="text-[11px] font-bold" style={{ color: cat.color }}>{cat.label}</span>
+                          <span className="text-[11px] text-slate-500">{e.year}</span>
                           {e.nation && (
-                            <span className="rounded border border-slate-700/50 px-1.5 py-0.5 text-[8px] font-bold tracking-[0.18em] text-slate-400">
+                            <span className="rounded border border-slate-700/50 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.18em] text-slate-300">
                               {NATION_FLAGS[e.nation] ?? 'N/A'}
                             </span>
                           )}
                         </div>
-                        <span className="text-[9px]" style={{ color: BREACH_SEV_COLOR[e.severity] ?? '#eab308' }}>
+                        <span className="text-[11px]" style={{ color: BREACH_SEV_COLOR[e.severity] ?? '#eab308' }}>
                           {e.severity.toUpperCase()}
                         </span>
                       </div>
-                      <div className="mb-0.5 break-words text-[10px] font-bold text-slate-300 [overflow-wrap:anywhere]">{e.title}</div>
-                      <div className="line-clamp-2 break-words text-[9px] leading-relaxed text-slate-500 [overflow-wrap:anywhere]">{e.description}</div>
+                      <div className="mb-0.5 break-words text-xs font-bold text-slate-200 [overflow-wrap:anywhere]">{e.title}</div>
+                      <div className="line-clamp-2 break-words text-[11px] leading-relaxed text-slate-400 [overflow-wrap:anywhere]">{e.description}</div>
                     </div>
                   );
                 })}
@@ -977,7 +977,7 @@ export default function ZafiyetTaramasiPage() {
               <div className="rounded-xl border border-white/5 bg-[#0b0714]/60 p-3 sm:p-3.5">
                 <div className="mb-2 flex items-center gap-1.5">
                   <Filter className="h-3 w-3 text-slate-600" />
-                  <span className="text-[9px] uppercase tracking-widest text-slate-600">Önem Seviyesi</span>
+                  <span className="text-[11px] uppercase tracking-widest text-slate-500">Önem Seviyesi</span>
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   {SEV_ORDER.map((s) => {
@@ -987,7 +987,7 @@ export default function ZafiyetTaramasiPage() {
                       <button
                         key={s}
                         onClick={() => toggleSev(s)}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-[10px] transition-all"
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-[11px] transition-all"
                         style={{
                           border: `1px solid ${active ? col + '70' : 'rgba(30,41,59,0.28)'}`,
                           background: active ? 'rgba(5,10,18,0.92)' : 'rgba(2,6,23,0.12)',
@@ -997,7 +997,7 @@ export default function ZafiyetTaramasiPage() {
                       >
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: active ? col : '#334155' }} />
                         {SEV_LABEL[s]}
-                        <span className="ml-auto text-[9px]" style={{ color: active ? '#e2e8f0' : '#64748b', opacity: active ? 0.92 : 0.7 }}>
+                        <span className="ml-auto text-[10px]" style={{ color: active ? '#e2e8f0' : '#64748b', opacity: active ? 0.92 : 0.7 }}>
                           {reports.filter((r) => r.severity.toUpperCase() === s).length}
                         </span>
                       </button>
@@ -1007,7 +1007,7 @@ export default function ZafiyetTaramasiPage() {
               </div>
 
               <div className="rounded-xl border border-white/5 bg-[#0b0714]/60 p-3 sm:p-3.5">
-                <div className="mb-2 text-[9px] uppercase tracking-widest text-slate-600">Rapor Durumu</div>
+                <div className="mb-2 text-[11px] uppercase tracking-widest text-slate-500">Rapor Durumu</div>
                 <div className="grid grid-cols-3 gap-1.5">
                   {([
                     ['active', 'Aktif'],
@@ -1019,7 +1019,7 @@ export default function ZafiyetTaramasiPage() {
                       <button
                         key={value}
                         onClick={() => setReportStatus(value)}
-                        className="flex w-full items-center justify-center gap-2 rounded-md px-2 py-2 text-[10px] transition-all"
+                        className="flex w-full items-center justify-center gap-2 rounded-md px-2 py-2 text-[11px] transition-all"
                         style={{
                           border: active ? '1px solid rgba(34,197,94,0.45)' : '1px solid rgba(30,41,59,0.28)',
                           background: active ? 'rgba(4,18,10,0.92)' : 'rgba(2,6,23,0.12)',
@@ -1042,25 +1042,25 @@ export default function ZafiyetTaramasiPage() {
                     onClick={() => setShowTagFilters((prev) => !prev)}
                     className="flex w-full items-center justify-between text-left sm:hidden"
                   >
-                    <span className="text-[9px] uppercase tracking-widest text-slate-600">Etiket Ara</span>
+                    <span className="text-[11px] uppercase tracking-widest text-slate-500">Etiket Ara</span>
                     <span className="rounded-full border border-route-accent/20 px-2 py-0.5 text-[9px] text-route-accent">
                       {showTagFilters ? 'Gizle' : 'Aç'}
                     </span>
                   </button>
                   <div className={`sm:block ${showTagFilters ? 'mt-3 block' : 'hidden'}`}>
-                    <div className="mb-2 hidden text-[9px] uppercase tracking-widest text-slate-600 sm:block">Etiket Ara</div>
+                    <div className="mb-2 hidden text-[11px] uppercase tracking-widest text-slate-500 sm:block">Etiket Ara</div>
                     <input
                       value={tagFilter}
                       onChange={(e) => setTagFilter(e.target.value)}
                       placeholder="rce, sqli..."
-                      className="w-full rounded border border-route-accent/25 bg-[rgb(var(--route-bg-rgb))] px-2 py-1.5 text-[10px] text-slate-300 transition-colors placeholder-slate-700 focus:border-route-accent/50 focus:outline-none"
+                      className="w-full rounded border border-route-accent/25 bg-[rgb(var(--route-bg-rgb))] px-2 py-1.5 text-[11px] text-slate-300 transition-colors placeholder-slate-700 focus:border-route-accent/50 focus:outline-none"
                     />
                     <div className="mt-2 flex flex-wrap gap-1">
                       {allTags.slice(0, 10).map((t) => (
                         <button
                           key={t}
                           onClick={() => setTagFilter(t)}
-                          className="rounded border border-route-accent/20 px-1.5 py-0.5 text-[9px] text-slate-600 transition-colors hover:border-route-accent/40 hover:text-route-accent"
+                          className="rounded border border-route-accent/20 px-1.5 py-0.5 text-[11px] text-slate-500 transition-colors hover:border-route-accent/40 hover:text-route-accent"
                         >
                           {t}
                         </button>
@@ -1072,7 +1072,7 @@ export default function ZafiyetTaramasiPage() {
 
               <button
                 onClick={() => setActiveTab('history')}
-                className="w-full rounded-lg border border-white/5 bg-[#0b0714]/40 px-2.5 py-2 text-left text-[9px] text-slate-700 transition-colors hover:border-orange-500/20 hover:text-orange-400"
+                className="w-full rounded-lg border border-white/5 bg-[#0b0714]/40 px-2.5 py-2 text-left text-[11px] text-slate-500 transition-colors hover:border-orange-500/20 hover:text-orange-400"
               >
                 Tarihsel veritabanını gör {'->'}
               </button>
@@ -1080,18 +1080,18 @@ export default function ZafiyetTaramasiPage() {
 
             <main className="min-w-0 flex-1">
               {loading && (
-                <div className="py-16 text-center text-xs text-slate-600">
+                <div className="py-16 text-center text-xs text-slate-500">
                   <span className="animate-pulse">Raporlar yükleniyor...</span>
                 </div>
               )}
 
               {!loading && filtered.length === 0 && (
-                <div className="space-y-2 py-16 text-center text-xs text-slate-600">
+                <div className="space-y-2 py-16 text-center text-xs text-slate-500">
                   <FileText className="mx-auto h-8 w-8 opacity-30" />
                   <div>
                     {reportStatus === 'archived' ? 'Henüz arşivlenmiş rapor yok.' : 'Henüz rapor yok.'}
                   </div>
-                  <div className="text-[10px]">
+                  <div className="text-[11px]">
                     {reportStatus === 'archived'
                       ? 'Aktif raporlardan arşivlediğin kayıtlar burada görünecek.'
                       : "Dashboard'daki kritik saldırılardan rapor oluşturun."}
@@ -1126,40 +1126,40 @@ export default function ZafiyetTaramasiPage() {
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span
-                            className="rounded border px-1.5 py-0.5 text-[9px] font-bold"
+                            className="rounded border px-1.5 py-0.5 text-[10px] font-bold"
                             style={{ color: col, borderColor: `${col}45`, background: `${col}18` }}
                           >
                             {SEV_LABEL[sev] ?? sev}
                           </span>
-                          <span className="rounded border border-white/10 px-1.5 py-0.5 text-[9px] text-slate-500">
+                          <span className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] text-slate-400">
                             {r.status === 'archived' ? 'ARŞİV' : 'AKTİF'}
                           </span>
                         </div>
-                        <span className="text-[9px] text-slate-600">{timeStr(r.createdAt)}</span>
+                        <span className="text-[11px] text-slate-400">{timeStr(r.createdAt)}</span>
                       </div>
 
-                      <div className="mb-2 line-clamp-2 text-xs font-bold leading-snug text-slate-200">{r.title}</div>
-                      <div className="mb-3 flex-1 text-[10px] leading-relaxed text-slate-500">{getReportPreview(r)}</div>
+                      <div className="mb-2 line-clamp-2 text-sm font-bold leading-snug text-slate-100">{r.title}</div>
+                      <div className="mb-3 flex-1 text-xs leading-relaxed text-slate-300">{getReportPreview(r)}</div>
 
                       {r.tags.length > 0 && (
                         <div className="mb-3 flex flex-wrap gap-1">
                           {r.tags.slice(0, 4).map((t) => (
-                            <span key={t} className="rounded border border-route-accent/20 px-1.5 py-0.5 text-[9px] text-route-accent">
+                            <span key={t} className="rounded border border-route-accent/20 px-1.5 py-0.5 text-[10px] text-route-accent">
                               {t}
                             </span>
                           ))}
-                          {r.tags.length > 4 && <span className="text-[9px] text-slate-600">+{r.tags.length - 4}</span>}
+                          {r.tags.length > 4 && <span className="text-[11px] text-slate-500">+{r.tags.length - 4}</span>}
                         </div>
                       )}
 
                       {matchHistory(r).length > 0 && (
-                        <div className="mb-2 flex items-center gap-1 text-[9px] text-orange-500/60">
+                        <div className="mb-2 flex items-center gap-1 text-[11px] text-orange-500/80">
                           <Clock className="h-2.5 w-2.5" />
                           {matchHistory(r).length} tarihsel benzer olay
                         </div>
                       )}
 
-                      <div className="mt-auto flex items-center gap-1 text-[10px]" style={{ color: col }}>
+                      <div className="mt-auto flex items-center gap-1 text-[11px]" style={{ color: col }}>
                         <span>Raporu Oku</span>
                         <ChevronRight className="h-3 w-3" />
                       </div>
