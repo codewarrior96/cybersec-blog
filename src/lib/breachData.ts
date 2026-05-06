@@ -628,7 +628,6 @@ export const breachData: BreachEvent[] = [
     target: 'Türkiye İçişleri Bakanlığı / MERNİS',
     category: 'datatheft',
     severity: 'catastrophic',
-    records: 50000000,
     attackVector: 'Database Exfiltration',
     description:
       '50 milyondan fazla Türk vatandaşının kişisel verisi (TC kimlik numarası, ad-soyad, doğum tarihi, adres, anne-baba adı) bir torrent dosyası aracılığıyla internete sızdırıldı. Türkiye\'nin nüfusunun yaklaşık %65\'ini kapsayan bu sızıntı, Doğu Avrupa merkezli aktörler tarafından gerçekleştirildiği değerlendirildi. Veriler MERNİS nüfus kayıt sisteminden elde edildi.',
@@ -689,7 +688,6 @@ export const breachData: BreachEvent[] = [
     target: 'Türk Vatandaşları / e-Devlet Kapısı',
     category: 'datatheft',
     severity: 'major',
-    records: 3500000,
     attackVector: 'Phishing / Social Engineering',
     description:
       'Organize suç örgütleri, Türkiye\'nin e-Devlet portalını taklit eden sahte web siteleri ve SMS kampanyaları aracılığıyla milyonlarca vatandaşı hedef aldı. Doğrulama kodu çalma yöntemiyle hesaplara erişim sağlanarak çeşitli mali dolandırıcılık işlemleri gerçekleştirildi.',

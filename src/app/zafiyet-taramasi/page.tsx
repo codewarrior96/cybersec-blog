@@ -1,6 +1,6 @@
 ﻿'use client';
 import React, { useState, useEffect, useCallback } from 'react';
-import { AlertTriangle, Tag, X, ChevronRight, Filter, FileText, Clock, Shield, Zap } from 'lucide-react';
+import { Tag, X, ChevronRight, Filter, FileText, Clock, Shield, Zap } from 'lucide-react';
 import { breachData, type BreachEvent, type BreachCategory } from '@/lib/breachData';
 import CveRadarTab from '@/components/CveRadarTab';
 import { aptProfiles, type AptProfile } from '@/lib/aptData';
@@ -61,7 +61,32 @@ const NATION_FLAGS: Record<string, string> = {
   'North Korea': 'KP',
   Iran: 'IR',
   'USA/Israel': 'US / IL',
+  Turkey: 'TR',
 };
+
+// Module-level dynamic compute — runs once at module load.
+// Replaces hardcoded 'EN YIKICI YIL' stat card value with a value
+// derived from breachData. Primary metric: count of catastrophic-
+// severity events per year. Tiebreaker: cumulative records-affected.
+// Self-corrects when breachData is updated. Returns null if data
+// is empty (display falls back to '—').
+const MOST_DEVASTATING_YEAR: number | null = (() => {
+  if (breachData.length === 0) return null;
+  const yearScore: Record<number, { cat: number; rec: number }> = {};
+  for (const e of breachData) {
+    const slot = yearScore[e.year] ?? { cat: 0, rec: 0 };
+    if (e.severity === 'catastrophic') slot.cat += 1;
+    slot.rec += e.records ?? 0;
+    yearScore[e.year] = slot;
+  }
+  const years = Object.keys(yearScore).map(Number);
+  years.sort((a, b) => {
+    const sa = yearScore[a]!;
+    const sb = yearScore[b]!;
+    return sb.cat - sa.cat || sb.rec - sa.rec;
+  });
+  return years[0] ?? null;
+})();
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    HELPERS
@@ -581,7 +606,7 @@ function HistoryTab() {
           { label: 'TOPLAM OLAY', value: breachData.length, col: '#f97316' },
           { label: 'ETKİLENEN', value: `${(totalRecords / 1000).toFixed(1)}B`, col: '#ef4444' },
           { label: 'TAHMİNİ ZARAR', value: '$100B+', col: '#eab308' },
-          { label: 'EN YIKICI YIL', value: '2017', col: 'rgb(var(--route-accent-rgb))' },
+          { label: 'EN YIKICI YIL', value: String(MOST_DEVASTATING_YEAR ?? '—'), col: 'rgb(var(--route-accent-rgb))' },
         ].map(s => (
           <div key={s.label} className="rounded border border-white/5 bg-white/[0.02] px-3 py-2">
             <div className="text-sm font-bold" style={{ color: s.col }}>{s.value}</div>
