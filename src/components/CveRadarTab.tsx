@@ -90,7 +90,7 @@ function CVECard({ cve }: { cve: CVEItem }) {
             )}
           </div>
           <div className="text-right pt-0.5">
-            <span className="font-mono text-[10px] text-slate-600">{dateStr}</span>
+            <span className="font-mono text-[11px] text-slate-400">{dateStr}</span>
           </div>
         </div>
       </div>
@@ -111,7 +111,7 @@ function CVECard({ cve }: { cve: CVEItem }) {
         </div>
       )}
       <div className="mt-2">
-        <span className="font-mono text-[10px] text-slate-700">{expanded ? '▲ KAPAT' : '▼ DETAY'}</span>
+        <span className="font-mono text-[11px] text-slate-500">{expanded ? '▲ KAPAT' : '▼ DETAY'}</span>
       </div>
     </div>
   );
@@ -154,11 +154,11 @@ export default function CveRadarTab() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="text-amber-400 font-bold tracking-widest text-xs uppercase">⬡ CVE RADAR</div>
-          <div className="text-slate-600 text-[10px] mt-0.5">Kaynak: National Vulnerability Database (NVD/NIST) · 5 dk güncelleme</div>
+          <div className="text-slate-400 text-xs mt-0.5">Kaynak: National Vulnerability Database (NVD/NIST) · 5 dk güncelleme</div>
         </div>
         <div className="flex items-center gap-2">
           {loading ? <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" /> : <span className="w-2 h-2 rounded-full bg-green-400" />}
-          {data?.fetchedAt && <span className="font-mono text-[10px] text-slate-600">{new Date(data.fetchedAt).toLocaleTimeString('tr-TR')}</span>}
+          {data?.fetchedAt && <span className="font-mono text-[11px] text-slate-400">{new Date(data.fetchedAt).toLocaleTimeString('tr-TR')}</span>}
         </div>
       </div>
 
@@ -173,8 +173,8 @@ export default function CveRadarTab() {
       {/* CVE List */}
       <div className="border border-white/5 rounded-lg overflow-hidden">
         <div className="border-b border-white/5 px-6 py-2 bg-white/[0.01] flex items-center justify-between">
-          <span className="font-mono text-[10px] text-slate-600 tracking-widest">CVE ID / SEVERITY</span>
-          <span className="font-mono text-[10px] text-slate-600 tracking-widest">CVSS SCORE</span>
+          <span className="font-mono text-[11px] text-slate-500 tracking-widest">CVE ID / SEVERITY</span>
+          <span className="font-mono text-[11px] text-slate-500 tracking-widest">CVSS SCORE</span>
         </div>
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
@@ -187,7 +187,7 @@ export default function CveRadarTab() {
         )}
       </div>
 
-      <div className="pt-6 pb-2 font-mono text-[10px] text-slate-700 text-center">
+      <div className="pt-6 pb-2 font-mono text-[11px] text-slate-500 text-center">
         Veriler NVD/NIST API&apos;den alınmaktadır. CVE açıklamalarından sorumluluk kabul edilmez.
       </div>
     </div>
