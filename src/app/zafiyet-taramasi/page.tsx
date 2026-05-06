@@ -645,8 +645,8 @@ function HistoryTab() {
       {/* APT Profile Cards */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-[9px] text-slate-600 tracking-widest uppercase">▸ Tehdit Aktörü Profilleri</span>
-          <span className="text-[8px] bg-red-900/30 border border-red-700/30 text-red-400 px-1.5 py-0.5 rounded">{aptProfiles.length} APT Grubu</span>
+          <span className="text-xs text-slate-500 tracking-widest uppercase">▸ Tehdit Aktörü Profilleri</span>
+          <span className="text-[10px] bg-red-900/30 border border-red-700/30 text-red-400 px-1.5 py-0.5 rounded">{aptProfiles.length} APT Grubu</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {aptProfiles.map((apt: AptProfile) => (
@@ -661,12 +661,12 @@ function HistoryTab() {
                 <div className="flex items-center gap-2">
                   <span className="text-base">{apt.flagEmoji}</span>
                   <div>
-                    <div className="font-bold text-xs" style={{ color: apt.color }}>{apt.name}</div>
-                    <div className="text-[8px] text-slate-600">{apt.aliases[0]}</div>
+                    <div className="font-bold text-sm" style={{ color: apt.color }}>{apt.name}</div>
+                    <div className="text-[10px] text-slate-500">{apt.aliases[0]}</div>
                   </div>
                 </div>
                 <span
-                  className="text-[8px] font-black px-1.5 py-0.5 rounded"
+                  className="text-[10px] font-black px-1.5 py-0.5 rounded"
                   style={{
                     color: apt.riskLevel === 'CRITICAL' ? '#ef4444' : apt.riskLevel === 'HIGH' ? '#f97316' : '#eab308',
                     background: apt.riskLevel === 'CRITICAL' ? 'rgba(239,68,68,0.12)' : apt.riskLevel === 'HIGH' ? 'rgba(249,115,22,0.12)' : 'rgba(234,179,8,0.12)',
@@ -678,19 +678,19 @@ function HistoryTab() {
               </div>
 
               {/* Description */}
-              <p className="text-[9px] text-slate-400 leading-relaxed line-clamp-2">{apt.description}</p>
+              <p className="text-xs text-slate-300 leading-relaxed line-clamp-2">{apt.description}</p>
 
               {/* Specialty tags */}
               <div className="flex flex-wrap gap-1">
                 {apt.specialty.slice(0, 3).map(s => (
-                  <span key={s} className="text-[8px] px-1.5 py-0.5 rounded border border-slate-800 text-slate-500">{s}</span>
+                  <span key={s} className="text-[10px] px-1.5 py-0.5 rounded border border-slate-800 text-slate-400">{s}</span>
                 ))}
               </div>
 
               {/* Footer: active + motivation */}
               <div className="flex items-center justify-between pt-1 border-t border-slate-800">
-                <span className="text-[8px] text-slate-600">{apt.active}</span>
-                <span className="text-[8px] text-slate-600 text-right max-w-[120px] truncate">{apt.motivation.split(',')[0]}</span>
+                <span className="text-[10px] text-slate-500">{apt.active}</span>
+                <span className="text-[10px] text-slate-500 text-right max-w-[120px] truncate">{apt.motivation.split(',')[0]}</span>
               </div>
             </div>
           ))}
@@ -724,54 +724,54 @@ function HistoryTab() {
                   {/* Top row */}
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[9px] text-slate-600 border border-white/5 px-1.5 py-0.5 rounded">
+                      <span className="text-[11px] text-slate-500 border border-white/5 px-1.5 py-0.5 rounded">
                         {e.year}.{String(e.month).padStart(2, '0')}
                       </span>
-                      <span className="text-[9px] font-bold tracking-widest" style={{ color: cat.color }}>
+                      <span className="text-[11px] font-bold tracking-widest" style={{ color: cat.color }}>
                         {cat.label}
                       </span>
-                      <span className="text-[9px]"
+                      <span className="text-[11px]"
                         style={{ color: BREACH_SEV_COLOR[e.severity] ?? '#eab308' }}>
                         {e.severity.toUpperCase()}
                       </span>
                       {e.nation && (
-                        <span className="rounded border border-slate-700/50 px-1.5 py-0.5 text-[8px] font-bold tracking-[0.18em] text-slate-400">
+                        <span className="rounded border border-slate-700/50 px-1.5 py-0.5 text-[10px] font-bold tracking-[0.18em] text-slate-300">
                           {NATION_FLAGS[e.nation] ?? 'N/A'}
                         </span>
                       )}
                     </div>
-                    <span className="text-[9px] text-slate-700 border border-white/5 px-1.5 py-0.5 rounded">
+                    <span className="text-[11px] text-slate-500 border border-white/5 px-1.5 py-0.5 rounded">
                       {e.attackVector}
                     </span>
                   </div>
 
                   {/* Title */}
-                  <div className="text-xs font-bold text-slate-200 mb-1">{e.title}</div>
-                  <div className="text-[9px] text-slate-600 mb-1">
-                    <span className="text-slate-700">HEDEF: </span>{e.target}
+                  <div className="text-sm font-bold text-slate-100 mb-1">{e.title}</div>
+                  <div className="text-[11px] text-slate-400 mb-1">
+                    <span className="text-slate-500">HEDEF: </span>{e.target}
                   </div>
 
                   {/* Records */}
                   {e.records !== undefined && (
-                    <div className="text-[9px] text-red-400/70 mb-1">
+                    <div className="text-[11px] text-red-400 mb-1">
                       Etki {e.records >= 1000 ? `${(e.records / 1000).toFixed(1)}B` : `${e.records}M`} kişi
                     </div>
                   )}
 
                   {/* Description */}
-                  <div className={`text-[10px] text-slate-400 leading-relaxed ${!isEx ? 'line-clamp-2' : ''}`}>
+                  <div className={`text-xs text-slate-300 leading-relaxed ${!isEx ? 'line-clamp-2' : ''}`}>
                     {e.description}
                   </div>
 
                   {/* Expanded: impact */}
                   {isEx && (
                     <div className="mt-2 pt-2 border-t border-white/5">
-                      <div className="text-[9px] text-slate-600 tracking-widest uppercase mb-1">ETKİ</div>
-                      <div className="text-[10px] text-slate-300 leading-relaxed">{e.impact}</div>
+                      <div className="text-[11px] text-slate-500 tracking-widest uppercase mb-1">ETKİ</div>
+                      <div className="text-xs text-slate-200 leading-relaxed">{e.impact}</div>
                     </div>
                   )}
 
-                  <div className="mt-1 text-[9px]" style={{ color: cat.color, opacity: 0.6 }}>
+                  <div className="mt-1 text-[11px]" style={{ color: cat.color, opacity: 0.7 }}>
                     {isEx ? 'KAPAT' : 'DETAY'}
                   </div>
                 </div>
@@ -789,7 +789,7 @@ function HistoryTab() {
 
       {/* End marker */}
       <div className="flex justify-center mt-6">
-        <div className="text-[9px] text-slate-700 border border-white/5 px-4 py-1.5 rounded tracking-widest">
+        <div className="text-[11px] text-slate-500 border border-white/5 px-4 py-1.5 rounded tracking-widest">
           2000 {'->'} 2024 · {breachData.length} olay kayıtlı
         </div>
       </div>
