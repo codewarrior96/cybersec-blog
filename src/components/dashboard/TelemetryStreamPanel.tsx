@@ -726,11 +726,11 @@ export default function TelemetryStreamPanel({
           </div>
 
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:flex-nowrap">
-            <HeaderMetric label="Seçili" value={selectedTelemetryEvent ? formatTime(selectedTelemetryEvent.timestamp) : 'YOK'} className="min-w-0" />
-            <HeaderMetric label="Açık" value={counts.open} tone="text-[#b7ffd0]" className="min-w-0" />
-            <HeaderMetric label="İncelenen" value={counts.investigating} tone="text-cyan-200" className="min-w-0" />
-            <HeaderMetric label="İzole" value={counts.contained} tone="text-emerald-200" className="min-w-0" />
-            <HeaderMetric label="Bekleyen" value={counts.noCase} tone="text-[#99c9a8]" className="min-w-0" />
+            <HeaderMetric label="Seçili" value={selectedTelemetryEvent ? formatTime(selectedTelemetryEvent.timestamp) : 'YOK'} className="min-w-0 xl:flex-1" />
+            <HeaderMetric label="Açık" value={counts.open} tone="text-[#b7ffd0]" className="min-w-0 xl:flex-1" />
+            <HeaderMetric label="İncelenen" value={counts.investigating} tone="text-cyan-200" className="min-w-0 xl:flex-1" />
+            <HeaderMetric label="İzole" value={counts.contained} tone="text-emerald-200" className="min-w-0 xl:flex-1" />
+            <HeaderMetric label="Bekleyen" value={counts.noCase} tone="text-[#99c9a8]" className="min-w-0 xl:flex-1" />
             {selectedTelemetryIncident && (
               <span className="inline-flex min-h-[58px] items-center rounded-lg border border-[#2a4a31] bg-[#0e1e12] px-2.5 py-1 text-[8px] font-mono uppercase tracking-[0.22em] text-[#9fe3b3]">
                 Vaka {selectedTelemetryIncident.id}
