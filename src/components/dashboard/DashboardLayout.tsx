@@ -62,12 +62,6 @@ const THEME = {
   panelDim: 'bg-[#050c07]/94',
   panelHead: 'bg-[#08120b]',
   panelHeadDim: 'bg-[#060c08]',
-  severity: {
-    CRITICAL: { hex: '#f43f5e', text: 'text-rose-400', bg: 'bg-rose-500', doc: 'bg-rose-950/30' },
-    HIGH: { hex: '#f59e0b', text: 'text-amber-400', bg: 'bg-amber-500', doc: 'bg-amber-950/30' },
-    MEDIUM: { hex: '#22c55e', text: 'text-emerald-300', bg: 'bg-emerald-500', doc: 'bg-emerald-950/20' },
-    LOW: { hex: '#86efac', text: 'text-green-300', bg: 'bg-green-500', doc: 'bg-green-950/10' },
-  }
 }
 
 const REGIONS = ['US-EAST', 'UK-LON', 'JP-TYO', 'SG-SIN', 'BR-SAO', 'RU-MOW', 'CN-PEK'] as const
