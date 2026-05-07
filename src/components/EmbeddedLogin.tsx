@@ -945,7 +945,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
               htmlFor="el-remember"
               style={{ color: 'rgba(0,255,65,0.4)', fontSize: 9, fontFamily: 'monospace', cursor: 'pointer' }}
             >
-              Beni hatırla
+              Bu cihazda oturumumu 30 gün hatırla
             </label>
           </div>
           <button
