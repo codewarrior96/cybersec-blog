@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { CircleCheck, Search, ShieldOff, CheckCircle2 } from 'lucide-react'
 
 export type ToastKind = 'promote' | 'investigate' | 'contain' | 'resolve'
@@ -97,15 +98,22 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
 }
 
 export default function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: string) => void }) {
-  if (toasts.length === 0) return null
+  const [mounted, setMounted] = useState(false)
 
-  return (
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted || toasts.length === 0) return null
+
+  return createPortal(
     <div className="fixed top-4 right-4 z-[200] pointer-events-none">
       <div className="flex flex-col gap-2 pointer-events-auto">
         {toasts.map((toast) => (
           <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
         ))}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
