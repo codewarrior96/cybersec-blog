@@ -47,13 +47,13 @@ interface DraftSections {
 }
 
 const REGION_LABELS: Record<string, string> = {
-  'US-EAST': 'United States',
-  'UK-LON': 'United Kingdom',
-  'JP-TYO': 'Japan',
-  'SG-SIN': 'Singapore',
-  'BR-SAO': 'Brazil',
-  'RU-MOW': 'Russia',
-  'CN-PEK': 'China',
+  'US-EAST': 'Amerika Birleşik Devletleri',
+  'UK-LON': 'Birleşik Krallık',
+  'JP-TYO': 'Japonya',
+  'SG-SIN': 'Singapur',
+  'BR-SAO': 'Brezilya',
+  'RU-MOW': 'Rusya',
+  'CN-PEK': 'Çin',
 }
 
 const SEVERITY_LABELS: Record<AttackReportIncident['sev'], string> = {
@@ -339,7 +339,7 @@ function buildDraftSections(incident: AttackReportIncident, profile: AttackProfi
     ].join('\n\n'),
     recommendations: profile.recommendations
       .map((step, index) => `${index + 1}. ${step}`)
-      .concat('5. Rapor kesinleştiğinde Zafiyet Taraması tarafında ilgili kayıtla ilişkilendir ve sonraki araştırma adımlarını aynı vaka altında topla.')
+      .concat(`${profile.recommendations.length + 1}. Rapor kesinleştiğinde Zafiyet Taraması tarafında ilgili kayıtla ilişkilendir ve sonraki araştırma adımlarını aynı vaka altında topla.`)
       .join('\n'),
     defense: profile.defenseLayers
       .map((step, index) => `${index + 1}. ${step}`)
@@ -433,6 +433,14 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
       return
     }
 
+    // Pending tag input flush — submit edilirken eksik kalmasın
+    const pendingTag = toSlug(tagInput.trim())
+    const finalTags = pendingTag && !tags.includes(pendingTag) ? [...tags, pendingTag] : tags
+    if (pendingTag && !tags.includes(pendingTag)) {
+      setTags(finalTags)
+      setTagInput('')
+    }
+
     setStatus('loading')
     setErrorMsg('')
 
@@ -442,7 +450,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, content, severity, tags }),
+        body: JSON.stringify({ title, content, severity, tags: finalTags }),
       })
 
       if (!response.ok) {
@@ -483,6 +491,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center p-2 sm:items-center sm:p-4"
       style={{ background: 'rgba(6,0,15,0.85)', backdropFilter: 'blur(6px)' }}
+      onClick={(event) => { if (event.target === event.currentTarget) onClose() }}
     >
       <div
         className="flex max-h-[96dvh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border font-mono sm:max-h-[92vh] sm:rounded-lg"
@@ -490,7 +499,6 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
           background: 'rgb(var(--route-surface-0-rgb))',
           borderColor: 'rgb(var(--route-accent-rgb) / 0.3)',
           boxShadow: '0 0 60px rgb(var(--route-accent-rgb) / 0.12)',
-          maxHeight: 'min(96dvh, 92vh)',
         }}
       >
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-route-accent/20 px-3 py-3 sm:items-center sm:px-5">
@@ -504,18 +512,18 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
                 display: 'flex',
                 alignItems: 'center',
                 gap: 5,
-                background: 'rgba(239,68,68,0.08)',
+                background: `${severityColor}14`,
                 border: `1px solid ${severityColor}40`,
                 borderRadius: 4,
                 padding: '2px 8px',
               }}
             >
-              <span style={{ fontSize: 9, color: severityColor, fontWeight: 700, letterSpacing: '0.1em' }}>
+              <span className="text-[10px] font-bold tracking-wider" style={{ color: severityColor }}>
                 {SEVERITY_LABELS[severity]}
               </span>
             </div>
           </div>
-          <button onClick={onClose} className="shrink-0 text-slate-500 transition-colors hover:text-slate-300">
+          <button type="button" onClick={onClose} className="shrink-0 text-slate-500 transition-colors hover:text-slate-300">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -557,7 +565,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
             )}
 
             <div className="space-y-1.5">
-              <label className="text-[9px] text-slate-500 tracking-widest uppercase">Rapor Başlığı</label>
+              <label className="text-[10px] text-slate-500 tracking-widest uppercase">Rapor Başlığı</label>
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
@@ -568,7 +576,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <div className="w-full shrink-0 space-y-1.5 sm:w-36">
-                <label className="text-[9px] text-slate-500 tracking-widest uppercase">Önem</label>
+                <label className="text-[10px] text-slate-500 tracking-widest uppercase">Önem</label>
                 <select
                   value={severity}
                   onChange={(event) => setSeverity(event.target.value as typeof severity)}
@@ -581,14 +589,14 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
                 </select>
               </div>
               <div className="flex-1 space-y-1.5">
-                <label className="text-[9px] text-slate-500 tracking-widest uppercase">Etiketler</label>
+                <label className="text-[10px] text-slate-500 tracking-widest uppercase">Etiketler</label>
                 <div className="flex flex-wrap gap-1.5 min-h-[38px] bg-[rgb(var(--route-bg-rgb))] border border-route-accent/25 rounded px-2 py-1.5 items-center focus-within:border-route-accent/60 transition-colors">
                   {tags.map((tag) => (
                     <span key={tag} className="flex items-center gap-1 bg-route-accent/20 border border-route-accent/35 px-1.5 py-0.5 rounded text-[10px] text-route-accent">
                       <Tag className="w-2.5 h-2.5" />
                       {tag}
-                      <button onClick={() => removeTag(tag)} className="text-slate-500 hover:text-red-400 ml-0.5">
-                        x
+                      <button type="button" onClick={() => removeTag(tag)} className="text-slate-500 hover:text-red-400 ml-0.5">
+                        <X className="w-2.5 h-2.5" />
                       </button>
                     </span>
                   ))}
@@ -601,7 +609,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
                         addTag()
                       }
                     }}
-                    className="flex-1 min-w-[80px] bg-transparent text-[11px] text-slate-300 focus:outline-none placeholder-slate-600"
+                    className="flex-1 min-w-[80px] bg-transparent text-xs text-slate-200 focus:outline-none placeholder-slate-600"
                     placeholder="etiket ekle..."
                   />
                 </div>
@@ -635,12 +643,12 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
               },
             ] as const).map(({ label, value, setValue, placeholder }) => (
               <div key={label} className="space-y-1.5">
-                <label className="text-[9px] text-slate-500 tracking-widest uppercase">{label}</label>
+                <label className="text-[10px] text-slate-500 tracking-widest uppercase">{label}</label>
                 <textarea
                   value={value}
                   onChange={(event) => setValue(event.target.value)}
                   rows={3}
-                  className="w-full bg-[rgb(var(--route-bg-rgb))] border border-route-accent/25 rounded px-3 py-2 text-sm text-slate-300 font-mono resize-none focus:outline-none focus:border-route-accent/60 transition-colors leading-relaxed"
+                  className="w-full bg-[rgb(var(--route-bg-rgb))] border border-route-accent/25 rounded px-3 py-2 text-sm text-slate-200 font-mono resize-none focus:outline-none focus:border-route-accent/60 transition-colors leading-relaxed"
                   placeholder={placeholder}
                 />
               </div>
@@ -659,12 +667,14 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
           <div className="shrink-0 border-t border-route-accent/15 px-3 py-3 sm:px-5">
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
               <button
+                type="button"
                 onClick={onClose}
-                className="min-h-[42px] rounded-lg border border-route-accent/20 px-3 text-xs text-slate-400 transition-colors hover:text-slate-200 sm:min-h-0 sm:border-0 sm:px-0"
+                className="min-h-[44px] rounded-lg border border-route-accent/20 px-3 text-xs text-slate-400 transition-colors hover:text-slate-200 sm:min-h-0 sm:border-0 sm:px-0"
               >
                 İptal
               </button>
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={status === 'loading'}
                 className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-50 sm:min-h-0 sm:w-auto sm:px-5"
