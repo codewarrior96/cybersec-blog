@@ -169,7 +169,7 @@ export default function CriticalAlertPanel({
               <span className="text-red-400 font-black tracking-[0.2em] text-xs uppercase critical-flicker">
                 Critical Security Alert
               </span>
-              <span className="text-[9px] text-red-600 tracking-widest uppercase mt-0.5">
+              <span className="text-[10px] text-red-500 tracking-widest uppercase mt-0.5">
                 P1 . auto detected . immediate response required
               </span>
             </div>
@@ -178,7 +178,7 @@ export default function CriticalAlertPanel({
           <div className="flex items-center gap-2">
             {queue.length > 0 && (
               <span
-                className="alert-badge-pop bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full"
+                className="alert-badge-pop bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full"
                 style={{ boxShadow: '0 0 8px rgba(239,68,68,0.6)' }}
               >
                 {queue.length}
@@ -186,7 +186,7 @@ export default function CriticalAlertPanel({
             )}
             <button
               onClick={onClose}
-              className="text-slate-600 hover:text-red-400 transition-colors p-1"
+              className="text-slate-400 hover:text-red-400 transition-colors p-1"
             >
               <X className="w-4 h-4" />
             </button>
@@ -197,14 +197,14 @@ export default function CriticalAlertPanel({
           {latest.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <div className="relative">
-                <Shield className="w-12 h-12 text-slate-700" />
+                <Shield className="w-12 h-12 text-slate-500" />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
                 </div>
               </div>
               <div className="text-center">
                 <div className="text-slate-500 text-xs tracking-widest uppercase">System Secure</div>
-                <div className="text-slate-700 text-[10px] mt-1">Critical queue is empty.</div>
+                <div className="text-slate-500 text-[11px] mt-1">Critical queue is empty.</div>
               </div>
             </div>
           )}
@@ -237,7 +237,7 @@ export default function CriticalAlertPanel({
                     </div>
                     <div className="flex items-center gap-2">
                       <span
-                        className="text-[9px] font-black px-2 py-0.5 rounded-full tracking-wider"
+                        className="text-[10px] font-black px-2 py-0.5 rounded-full tracking-wider"
                         style={{
                           color,
                           background: `${color}18`,
@@ -247,11 +247,11 @@ export default function CriticalAlertPanel({
                       >
                         {incident.sev}
                       </span>
-                      <span className="text-[9px] text-slate-600 tabular-nums">{timeStr(incident.time)}</span>
+                      <span className="text-[11px] text-slate-400 tabular-nums">{timeStr(incident.time)}</span>
                     </div>
                   </div>
 
-                  <div className="text-[10px] text-slate-400 leading-relaxed">
+                  <div className="text-xs text-slate-300 leading-relaxed">
                     {getIncidentDescription(incident.label)}
                   </div>
 
@@ -266,8 +266,8 @@ export default function CriticalAlertPanel({
                         className="rounded px-2 py-1.5"
                         style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.04)' }}
                       >
-                        <div className="text-[8px] text-slate-600 tracking-widest uppercase mb-0.5">{label}</div>
-                        <div className="text-[10px] font-bold tabular-nums truncate" style={{ color: valueColor }}>
+                        <div className="text-[9px] text-slate-500 tracking-widest uppercase mb-0.5">{label}</div>
+                        <div className="text-[11px] font-bold tabular-nums truncate" style={{ color: valueColor }}>
                           {value}
                         </div>
                       </div>
@@ -277,7 +277,7 @@ export default function CriticalAlertPanel({
                   <div className="flex gap-2 pt-0.5">
                     <button
                       onClick={() => onReport(incident)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[10px] font-bold transition-all duration-200 hover:brightness-125 active:scale-95"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold transition-all duration-200 hover:brightness-125 active:scale-95"
                       style={{
                         background: `${color}15`,
                         border: `1px solid ${color}45`,
@@ -290,7 +290,7 @@ export default function CriticalAlertPanel({
                     </button>
                     <button
                       onClick={() => onDismiss(incident.id)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] text-slate-500 hover:text-slate-300 border border-slate-800 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] text-slate-400 hover:text-slate-300 border border-slate-800 transition-colors"
                     >
                       <Zap className="w-3 h-3" />
                       Kapat
@@ -308,11 +308,11 @@ export default function CriticalAlertPanel({
         >
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-[9px] text-slate-600 tracking-widest uppercase">
+            <span className="text-[11px] text-slate-500 tracking-widest uppercase">
               Critical incidents are auto-detected
             </span>
           </div>
-          <span className="text-[9px] text-red-900 font-bold tracking-widest">P1 PRIORITY</span>
+          <span className="text-[10px] text-red-500 font-bold tracking-widest">P1 PRIORITY</span>
         </div>
       </div>
     </div>
