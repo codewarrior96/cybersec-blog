@@ -1919,11 +1919,6 @@
   50%       { opacity: 0.4; transform: scale(0.75); }
 }
 
-@keyframes nb2-panel-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-
 /* ONLINE badge */
 .nb2-online-badge {
   display: inline-flex;
@@ -2106,122 +2101,6 @@
   animation: nb2-skull-img-pulse 3s ease-in-out infinite;
   transition: filter 0.4s ease, opacity 0.4s ease;
   z-index: 0;
-}
-
-/* Profile panel dropdown */
-.nb2-profile-panel {
-  position: absolute;
-  top: calc(100% + 12px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: 296px;
-  background: #0c120c;
-  border: 1px solid #1a2e1a;
-  box-shadow:
-    0 0 0 1px rgba(0, 230, 64, 0.12),
-    0 8px 40px rgba(0, 0, 0, 0.7),
-    0 0 20px rgba(0, 230, 64, 0.08);
-  z-index: 200;
-  animation: nb2-panel-in 0.15s ease-out;
-  font-family: var(--font-mono), monospace;
-}
-
-.nb2-profile-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  border-bottom: 1px solid #1a2e1a;
-}
-
-.nb2-profile-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid rgba(0, 230, 64, 0.4);
-  background: radial-gradient(circle at 50% 40%, #0c180c 0%, #060a06 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.nb2-profile-identity {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.nb2-profile-name {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: #e2e8f0;
-}
-
-.nb2-profile-role {
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  color: #00e640;
-}
-
-.nb2-profile-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-bottom: 1px solid #1a2e1a;
-}
-
-.nb2-profile-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 12px 8px;
-  border-right: 1px solid #1a2e1a;
-}
-
-.nb2-profile-stat:last-child {
-  border-right: none;
-}
-
-.nb2-profile-stat-val {
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.nb2-profile-stat-label {
-  font-size: 7px;
-  letter-spacing: 0.14em;
-  color: #4a6b4a;
-}
-
-.nb2-profile-stat-red   { color: #ff4757; }
-.nb2-profile-stat-amber { color: #ffa502; }
-.nb2-profile-stat-green { color: #00e640; font-size: 10px; }
-
-.nb2-profile-actions {
-  padding: 12px 16px;
-}
-
-.nb2-profile-logout {
-  width: 100%;
-  height: 38px;
-  border: 1px solid rgba(255, 71, 87, 0.35);
-  background: rgba(255, 71, 87, 0.08);
-  color: #ff4757;
-  font-family: var(--font-mono), monospace;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.nb2-profile-logout:hover {
-  background: rgba(255, 71, 87, 0.18);
-  border-color: rgba(255, 71, 87, 0.55);
 }
 
 /* ── SOC Dashboard Animations ────────────────────────────────────────── */
