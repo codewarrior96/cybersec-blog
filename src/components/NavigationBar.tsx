@@ -4,10 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
 interface NavigationBarProps {
-  threatCount?: number
-  warnCount?: number
   currentPath?: string
-  username?: string
   onLogout?: () => void
 }
 
@@ -44,60 +41,6 @@ function SkullImage({ className }: { className?: string }) {
       aria-hidden="true"
       className={`nb2-skull-img${className ? ` ${className}` : ''}`}
     />
-  )
-}
-
-function ProfilePanel({
-  username,
-  threatCount,
-  warnCount,
-  onLogout,
-  onClose,
-}: {
-  username: string
-  threatCount: number
-  warnCount: number
-  onLogout?: () => void
-  onClose: () => void
-}) {
-  return (
-    <div className="nb2-profile-panel">
-      <div className="nb2-profile-header">
-        <div className="nb2-profile-avatar">
-          <SkullImage />
-        </div>
-        <div className="nb2-profile-identity">
-          <span className="nb2-profile-name">{username}</span>
-          <span className="nb2-profile-role">BREACH OPERATOR</span>
-        </div>
-      </div>
-      <div className="nb2-profile-stats">
-        <div className="nb2-profile-stat">
-          <span className="nb2-profile-stat-val nb2-profile-stat-red">{threatCount}</span>
-          <span className="nb2-profile-stat-label">THREATS</span>
-        </div>
-        <div className="nb2-profile-stat">
-          <span className="nb2-profile-stat-val nb2-profile-stat-amber">{warnCount}</span>
-          <span className="nb2-profile-stat-label">WARNS</span>
-        </div>
-        <div className="nb2-profile-stat">
-          <span className="nb2-profile-stat-val nb2-profile-stat-green">ACTIVE</span>
-          <span className="nb2-profile-stat-label">STATUS</span>
-        </div>
-      </div>
-      <div className="nb2-profile-actions">
-        <button
-          type="button"
-          className="nb2-profile-logout"
-          onClick={() => {
-            onLogout?.()
-            onClose()
-          }}
-        >
-          [ TERMINATE SESSION ]
-        </button>
-      </div>
-    </div>
   )
 }
 
@@ -153,14 +96,10 @@ function getDaySegment(hour: number) {
 }
 
 export default function NavigationBar({
-  threatCount = 1,
-  warnCount = 14,
   currentPath = '/',
-  username = 'OPERATOR',
   onLogout,
 }: NavigationBarProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
   const [now, setNow] = useState<Date | null>(null)
   const skullRef = useRef<HTMLDivElement>(null)
 
@@ -194,30 +133,17 @@ export default function NavigationBar({
 
   useEffect(() => {
     setDrawerOpen(false)
-    setProfileOpen(false)
   }, [currentPath])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setDrawerOpen(false)
-        setProfileOpen(false)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
-
-  useEffect(() => {
-    if (!profileOpen) return
-    const handleOutside = (e: MouseEvent) => {
-      if (skullRef.current && !skullRef.current.contains(e.target as Node)) {
-        setProfileOpen(false)
-      }
-    }
-    window.addEventListener('mousedown', handleOutside)
-    return () => window.removeEventListener('mousedown', handleOutside)
-  }, [profileOpen])
 
   useEffect(() => {
     const tick = () => setNow(new Date())
