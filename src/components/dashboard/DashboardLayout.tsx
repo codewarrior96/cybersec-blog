@@ -10,6 +10,7 @@ import CriticalOverlayFx from '@/components/dashboard/CriticalOverlayFx'
 import type { CriticalAlertQueueItem } from '@/components/dashboard/CriticalAlertPanel'
 import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton'
 import TelemetryStreamPanel from '@/components/dashboard/TelemetryStreamPanel'
+import ToastContainer, { type Toast } from '@/components/dashboard/Toast'
 import { THREAT_PROFILES, getThreatFamily, getThreatProfile } from '@/lib/telemetry-rules'
 
 // ============================================================================
@@ -1651,6 +1652,7 @@ export default function DashboardLayout() {
 
   // View State
   const [activeIncidentId, setActiveIncidentId] = useState<string | null>(null)
+  const [toasts, setToasts] = useState<Toast[]>([])
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [mapFilter, setMapFilter] = useState<string | null>(null)
   const [criticalPanelOpen, setCriticalPanelOpen] = useState(false)
@@ -1889,11 +1891,21 @@ export default function DashboardLayout() {
     setSelectedEventId((prev) => (incident.events.includes(prev ?? '') ? null : prev))
   }, [])
 
+  const pushToast = useCallback((kind: Toast['kind'], incidentId: string): void => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    setToasts((prev) => [...prev, { id, kind, incidentId }])
+  }, [])
+
+  const dismissToast = useCallback((id: string): void => {
+    setToasts((prev) => prev.filter((t) => t.id !== id))
+  }, [])
+
   const handleTelemetryPromote = useCallback((event: ThreatEvent): void => {
     const incident = ensureIncidentForEvent(event, 'OPEN')
     setSelectedEventId(null)
     setActiveIncidentId(incident.id)
-  }, [ensureIncidentForEvent])
+    pushToast('promote', incident.id)
+  }, [ensureIncidentForEvent, pushToast])
 
   const handleTelemetryInvestigate = useCallback((event: ThreatEvent): void => {
     const incident = ensureIncidentForEvent(event, 'INVESTIGATING')
@@ -1902,7 +1914,8 @@ export default function DashboardLayout() {
     }
     setSelectedEventId(null)
     setActiveIncidentId(incident.id)
-  }, [ensureIncidentForEvent, handleInvestigate])
+    pushToast('investigate', incident.id)
+  }, [ensureIncidentForEvent, handleInvestigate, pushToast])
 
   const handleTelemetryContain = useCallback((event: ThreatEvent): void => {
     const incident = ensureIncidentForEvent(event, 'INVESTIGATING')
@@ -1911,7 +1924,8 @@ export default function DashboardLayout() {
     }
     setSelectedEventId(null)
     setActiveIncidentId(incident.id)
-  }, [ensureIncidentForEvent, handleIsolate])
+    pushToast('contain', incident.id)
+  }, [ensureIncidentForEvent, handleIsolate, pushToast])
 
   const handleTelemetryResolve = useCallback((event: ThreatEvent): void => {
     const incident = ensureIncidentForEvent(event, 'INVESTIGATING')
@@ -1919,7 +1933,8 @@ export default function DashboardLayout() {
       handleResolve(incident.id)
     }
     setSelectedEventId(null)
-  }, [ensureIncidentForEvent, handleResolve])
+    pushToast('resolve', incident.id)
+  }, [ensureIncidentForEvent, handleResolve, pushToast])
 
   // ==========================================================================
   // DERIVED STATE
@@ -2103,6 +2118,8 @@ export default function DashboardLayout() {
         onDismiss={handleDismissCriticalAlert}
         onClose={handleCloseCriticalPanel}
       />
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
       <AttackReportModal
         incident={reportTarget}
         open={reportModalOpen}
