@@ -100,7 +100,7 @@ export default function ToastContainer({ toasts, onDismiss }: { toasts: Toast[];
   if (toasts.length === 0) return null
 
   return (
-    <div className="fixed top-4 right-4 z-50 pointer-events-none">
+    <div className="fixed top-4 right-4 z-[200] pointer-events-none">
       <div className="flex flex-col gap-2 pointer-events-auto">
         {toasts.map((toast) => (
           <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
