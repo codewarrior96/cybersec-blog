@@ -1450,8 +1450,8 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
           </span>
           <span className="text-rose-300">CRIT {legendSeverityMix.CRITICAL}</span>
           <span className="text-amber-300">HIGH {legendSeverityMix.HIGH}</span>
-          <span className="text-emerald-300">MED {legendSeverityMix.MEDIUM}</span>
-          <span className="text-green-300">LOW {legendSeverityMix.LOW}</span>
+          <span className="text-yellow-300">MED {legendSeverityMix.MEDIUM}</span>
+          <span className="text-slate-300">LOW {legendSeverityMix.LOW}</span>
         </div>
 
         <style jsx>{`
