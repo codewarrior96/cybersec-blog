@@ -1244,7 +1244,7 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
 
         {focusRegion && (
           <div
-            className="absolute right-2 top-12 z-20 w-[min(172px,calc(100%-16px))] rounded-xl border border-[#2d5e42] bg-[linear-gradient(180deg,rgba(6,24,18,0.94),rgba(3,12,10,0.92))] p-2 shadow-[0_0_36px_rgba(24,255,159,0.12)] backdrop-blur-md sm:right-3 sm:top-14 sm:w-[min(240px,calc(100%-24px))] sm:p-3 md:right-4 md:top-16 md:w-[min(260px,calc(100%-32px))]"
+            className="absolute right-2 top-12 z-20 w-[min(172px,calc(100%-16px))] max-h-[calc(100%-56px)] overflow-y-auto custom-scrollbar rounded-xl border border-[#2d5e42] bg-[linear-gradient(180deg,rgba(6,24,18,0.94),rgba(3,12,10,0.92))] p-2 shadow-[0_0_36px_rgba(24,255,159,0.12)] backdrop-blur-md sm:right-3 sm:top-14 sm:max-h-[calc(100%-64px)] sm:w-[min(240px,calc(100%-24px))] sm:p-3 md:right-4 md:top-16 md:max-h-[calc(100%-72px)] md:w-[min(260px,calc(100%-32px))]"
             style={
               compactFocusLayout && compactFocusCardWidth
                 ? { width: `${compactFocusCardWidth}px`, top: '36px' }
