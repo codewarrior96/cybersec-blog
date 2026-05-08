@@ -168,7 +168,7 @@ export default async function BlogPage({
             <kbd className="border border-slate-800 rounded px-1.5 py-0.5 text-slate-600">Ctrl</kbd>
             {' + '}
             <kbd className="border border-slate-800 rounded px-1.5 py-0.5 text-slate-600">K</kbd>
-            {' '}global arama
+            {' '}blog araması
           </div>
         </aside>
       </div>

@@ -47,6 +47,7 @@ export default function AppShellClient({
     pathname === '/reset' ||
     pathname?.startsWith('/reset/')
   const isRootRoute = pathname === '/' || pathname === '/home'
+  const isBlogRoute = pathname === '/blog' || (pathname?.startsWith('/blog/') ?? false)
 
   const isAuthGatewayRoute =
     isLoginRoute || isRegisterRoute || isAuthFlowRoute || (!isAuthed && isRootRoute)
@@ -82,7 +83,7 @@ export default function AppShellClient({
         </PageTransition>
         {showGlobalTools && <Footer />}
       </div>
-      {showGlobalTools && <SearchModal posts={posts} />}
+      {(showGlobalTools || isBlogRoute) && <SearchModal posts={posts} />}
     </>
   )
 }
