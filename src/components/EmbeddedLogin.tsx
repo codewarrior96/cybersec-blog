@@ -860,13 +860,13 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
                 marginBottom: '0.6rem',
               }}
             >
-              Hesabin var ama email henuz dogrulanmamis. Mail kutunu kontrol et veya yeni bir baglanti talep et.
+              Hesabınız var ama e-posta henüz doğrulanmamış. Posta kutunuzu kontrol edin veya yeni bir bağlantı talep edin.
             </p>
             <input
               type="email"
               value={resendEmailInput}
               onChange={(event) => setResendEmailInput(event.target.value)}
-              placeholder="email adresi"
+              placeholder="E-posta adresinizi giriniz"
               autoComplete="email"
               autoCorrect="off"
               autoCapitalize="none"
@@ -913,7 +913,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
                   textAlign: 'center',
                 }}
               >
-                Eger email kayitliysa, yeni dogrulama bagi gonderildi.
+                Eğer e-posta kayıtlıysa, yeni doğrulama bağlantısı gönderildi.
               </p>
             )}
             {resendStatus === 'error' && resendError && (
