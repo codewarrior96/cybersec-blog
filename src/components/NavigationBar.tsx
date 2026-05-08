@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 interface NavigationBarProps {
   currentPath?: string
@@ -102,6 +103,10 @@ export default function NavigationBar({
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [now, setNow] = useState<Date | null>(null)
   const skullRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLElement>(null)
+  const titleId = useId()
+  const handleDrawerClose = useCallback(() => setDrawerOpen(false), [])
+  useFocusTrap(drawerOpen, containerRef, handleDrawerClose)
 
   const timeLabel = now
     ? now.toLocaleTimeString('tr-TR', {
@@ -211,12 +216,18 @@ export default function NavigationBar({
             onClick={() => setDrawerOpen(false)}
           />
 
-          <aside className="nb2-drawer" aria-label="Mobile menu">
+          <aside
+            ref={containerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            className="nb2-drawer"
+          >
             <div className="nb2-drawer-head">
               <div className="nb2-brand nb2-brand-drawer">
                 <ShieldMark size={22} />
                 <div className="nb2-brand-copy">
-                  <span className="nb2-brand-title">BREACH TERMINAL</span>
+                  <span id={titleId} className="nb2-brand-title">BREACH TERMINAL</span>
                 </div>
               </div>
               <button type="button" className="nb2-close" onClick={() => setDrawerOpen(false)} aria-label="Close menu">
