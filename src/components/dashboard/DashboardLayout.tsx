@@ -213,23 +213,6 @@ const generateEvent = (
 const shouldAutoEscalateCriticalIncident = (event: ThreatEvent, pool: Incident[]): boolean => {
   if (event.sev !== 'CRITICAL') return false
 
-  const latestCriticalOpenedAt = pool.reduce((latest, incident) => {
-    if (
-      incident.sev !== 'CRITICAL' ||
-      incident.status === 'RESOLVED'
-    ) {
-      return latest
-    }
-
-    const incidentTime = new Date(incident.time).getTime()
-    if (!Number.isFinite(incidentTime)) return latest
-    return Math.max(latest, incidentTime)
-  }, 0)
-
-  if (latestCriticalOpenedAt > 0 && Date.now() - latestCriticalOpenedAt < CRITICAL_INCIDENT_COOLDOWN_MS) {
-    return false
-  }
-
   return !pool.some(
     (incident) =>
       incident.sev === 'CRITICAL' &&
@@ -275,7 +258,6 @@ const CRITICAL_ALERT_GRACE_PERIOD_MS = 60000
 const INITIAL_BACKGROUND_EVENT_COUNT = 1
 const MALICIOUS_EVENT_PROBABILITY = 0.06
 const CRITICAL_EVENT_PROBABILITY = 0.03
-const CRITICAL_INCIDENT_COOLDOWN_MS = 180000
 const TELEMETRY_EMISSION_PROBABILITY = 0.35
 
 /** Live Telemetry Stream: ekranın geri kalanını sınırsız doldurmasın; içeride kaydır */
@@ -1702,8 +1684,14 @@ export default function DashboardLayout() {
              return next
            })
             
-            const canEscalateToCriticalIncident = Date.now() - simulationStartedAt >= CRITICAL_ALERT_GRACE_PERIOD_MS
-            if (canEscalateToCriticalIncident && shouldAutoEscalateCriticalIncident(newEvent, incidentsRef.current) && incidentsRef.current.length <= 4) {
+            const isCriticalEvent = newEvent.sev === 'CRITICAL'
+            const canEscalateToCriticalIncident = isCriticalEvent || Date.now() - simulationStartedAt >= CRITICAL_ALERT_GRACE_PERIOD_MS
+            const lengthGuardOk = isCriticalEvent ? incidentsRef.current.length <= 10 : incidentsRef.current.length <= 4
+            if (
+              canEscalateToCriticalIncident &&
+              shouldAutoEscalateCriticalIncident(newEvent, incidentsRef.current) &&
+              lengthGuardOk
+            ) {
                setIncidents(prev => {
                  const nextIncident: Incident = {
                    id: `INC-${Math.floor(Math.random() * 90000) + 10000}`,
@@ -1842,7 +1830,7 @@ export default function DashboardLayout() {
       const systemEvent: ThreatEvent = {
         id: `EVT-SYS-${Date.now()}`,
         timestamp: new Date().toISOString(),
-        sev: 'CRITICAL',
+        sev: 'HIGH',
         type: 'ISOLATION PROTOCOL ENGAGED',
         source: 'SYSTEM',
         node: node,
