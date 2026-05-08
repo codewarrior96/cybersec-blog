@@ -1655,6 +1655,7 @@ export default function DashboardLayout() {
   const [reportModalOpen, setReportModalOpen] = useState(false)
   const [reportTarget, setReportTarget] = useState<Incident | null>(null)
   const [acknowledgedCriticalIds, setAcknowledgedCriticalIds] = useState<Set<string>>(new Set())
+  const [pendingCriticalEventIds, setPendingCriticalEventIds] = useState<Set<string>>(new Set())
   const seenCriticalIdsRef = useRef<Set<string>>(new Set())
   const criticalOverlayTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -1702,9 +1703,8 @@ export default function DashboardLayout() {
            })
             
             const canEscalateToCriticalIncident = Date.now() - simulationStartedAt >= CRITICAL_ALERT_GRACE_PERIOD_MS
-            if (canEscalateToCriticalIncident && shouldAutoEscalateCriticalIncident(newEvent, incidentsRef.current)) {
+            if (canEscalateToCriticalIncident && shouldAutoEscalateCriticalIncident(newEvent, incidentsRef.current) && incidentsRef.current.length <= 4) {
                setIncidents(prev => {
-                 if (prev.length > 4) return prev
                  const nextIncident: Incident = {
                    id: `INC-${Math.floor(Math.random() * 90000) + 10000}`,
                    sev: 'CRITICAL',
@@ -1724,6 +1724,11 @@ export default function DashboardLayout() {
                  const next = [nextIncident, ...prev]
                  incidentsRef.current = next
                  return next
+              })
+              setPendingCriticalEventIds(prev => {
+                const next = new Set(prev)
+                next.add(newEvent.id)
+                return next
               })
            }
          }
@@ -1881,6 +1886,15 @@ export default function DashboardLayout() {
       eventsRef.current = next
       return next
     })
+    setPendingCriticalEventIds((prev) => {
+      if (prev.size === 0) return prev
+      const next = new Set(prev)
+      let changed = false
+      incident.events.forEach((eventId) => {
+        if (next.delete(eventId)) changed = true
+      })
+      return changed ? next : prev
+    })
     setActiveIncidentId((prev) => (prev === id ? null : prev))
     setSelectedEventId((prev) => (incident.events.includes(prev ?? '') ? null : prev))
   }, [])
@@ -1977,6 +1991,14 @@ export default function DashboardLayout() {
 
   const handleDismissCriticalAlert = useCallback((id: string): void => {
     stopCriticalOverlay()
+    const incident = incidentsRef.current.find((candidate) => candidate.id === id)
+    if (incident) {
+      setPendingCriticalEventIds((prev) => {
+        const next = new Set(prev)
+        incident.events.forEach((eventId) => next.delete(eventId))
+        return next
+      })
+    }
     setAcknowledgedCriticalIds((prev) => {
       const next = new Set(prev)
       next.add(id)
@@ -1987,6 +2009,7 @@ export default function DashboardLayout() {
 
   const handleCloseCriticalPanel = useCallback((): void => {
     stopCriticalOverlay()
+    setPendingCriticalEventIds(new Set())
     setCriticalPanelOpen(false)
   }, [stopCriticalOverlay])
 
@@ -2007,6 +2030,11 @@ export default function DashboardLayout() {
     if (!incident) return
 
     stopCriticalOverlay()
+    setPendingCriticalEventIds((prev) => {
+      const next = new Set(prev)
+      incident.events.forEach((eventId) => next.delete(eventId))
+      return next
+    })
     handleOpenIncidentReport(incident)
     setAcknowledgedCriticalIds((prev) => {
       const next = new Set(prev)
@@ -2057,10 +2085,10 @@ export default function DashboardLayout() {
   }, [activeIncidents])
 
   const visibleEvents = useMemo(() => {
-    let filtered = events
+    let filtered = events.filter(e => !pendingCriticalEventIds.has(e.id))
     if (mapFilter) filtered = filtered.filter(e => e.region === mapFilter)
     return filtered
-  }, [events, mapFilter])
+  }, [events, mapFilter, pendingCriticalEventIds])
 
   const incidentByEventId = useMemo(() => {
     const linked = new Map<string, Incident>()
