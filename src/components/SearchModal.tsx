@@ -1,12 +1,17 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { PostMeta } from '@/lib/posts';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 export default function SearchModal({ posts }: { posts: PostMeta[] }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const handleClose = useCallback(() => setOpen(false), []);
+  useFocusTrap(open, containerRef, handleClose);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -41,6 +46,10 @@ export default function SearchModal({ posts }: { posts: PostMeta[] }) {
 
   return (
     <div
+      ref={containerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
       className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4"
       onClick={() => setOpen(false)}
     >
@@ -49,6 +58,7 @@ export default function SearchModal({ posts }: { posts: PostMeta[] }) {
         className="relative w-full max-w-xl bg-[#0f0f1a] border border-slate-700 rounded-xl shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
+        <h2 id={titleId} className="sr-only">Blog araması</h2>
         {/* Input */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-800">
           <span className="text-green-400 font-mono text-sm">$</span>
