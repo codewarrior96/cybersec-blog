@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useId, useRef, useState } from 'react'
 import { AlertTriangle, FileText, Shield, X, Zap } from 'lucide-react'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 export interface CriticalAlertQueueItem {
   id: string
@@ -102,6 +103,9 @@ export default function CriticalAlertPanel({
   const [visible, setVisible] = useState(false)
   const [exiting, setExiting] = useState(false)
   const prevOpen = useRef(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useFocusTrap(visible, containerRef, onClose)
 
   useEffect(() => {
     if (open && !prevOpen.current) {
@@ -122,6 +126,10 @@ export default function CriticalAlertPanel({
 
   return (
     <div
+      ref={containerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
       className="fixed inset-0 z-50 flex items-center justify-center font-mono"
       style={{
         background: 'rgba(6,0,15,0.82)',
@@ -166,7 +174,7 @@ export default function CriticalAlertPanel({
             </div>
 
             <div className="flex flex-col">
-              <span className="text-red-400 font-black tracking-[0.2em] text-xs uppercase critical-flicker">
+              <span id={titleId} className="text-red-400 font-black tracking-[0.2em] text-xs uppercase critical-flicker">
                 Critical Security Alert
               </span>
               <span className="text-[10px] text-red-500 tracking-widest uppercase mt-0.5">
