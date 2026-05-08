@@ -1825,26 +1825,9 @@ export default function DashboardLayout() {
 
   const handleIsolate = useCallback((id: string, node: string, source: string): void => {
     setContainedNodes(prev => Array.from(new Set([...prev, node, source])))
-    
-    setEvents(prev => {
-      const systemEvent: ThreatEvent = {
-        id: `EVT-SYS-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        sev: 'HIGH',
-        type: 'ISOLATION PROTOCOL ENGAGED',
-        source: 'SYSTEM',
-        node: node,
-        region: 'GLOBAL',
-        protocol: 'TCP',
-        port: 0
-      }
-      const next: ThreatEvent[] = [systemEvent, ...prev].slice(0, 16)
-      eventsRef.current = next
-      return next
-    })
 
-    setIncidents(prev => prev.map(inc => inc.id === id ? { 
-      ...inc, 
+    setIncidents(prev => prev.map(inc => inc.id === id ? {
+      ...inc,
       status: 'CONTAINED',
       timeline: [...inc.timeline, { id: `tl-iso-${Date.now()}`, time: new Date().toISOString(), desc: 'Network isolation and containment deployed', type: 'CONTAINED' }]
     } : inc))
