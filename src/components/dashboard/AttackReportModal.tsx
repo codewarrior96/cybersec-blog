@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AlertCircle, CheckCircle, FileText, Send, Shield, Tag, X } from 'lucide-react'
 import { dispatchReportsUpdatedEvent } from '@/lib/reports-events'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 interface IncidentTimelineEntry {
   time: string
@@ -348,6 +349,10 @@ function buildDraftSections(incident: AttackReportIncident, profile: AttackProfi
 }
 
 export default function AttackReportModal({ incident, open, onClose }: AttackReportModalProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  useFocusTrap(open, containerRef, onClose)
+
   const [title, setTitle] = useState('')
   const [severity, setSeverity] = useState<'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'>('CRITICAL')
   const [tags, setTags] = useState<string[]>([])
@@ -489,6 +494,10 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
 
   return (
     <div
+      ref={containerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
       className="fixed inset-0 z-[60] flex items-end justify-center p-2 sm:items-center sm:p-4"
       style={{ background: 'rgba(6,0,15,0.85)', backdropFilter: 'blur(6px)' }}
       onClick={(event) => { if (event.target === event.currentTarget) onClose() }}
@@ -504,7 +513,7 @@ export default function AttackReportModal({ incident, open, onClose }: AttackRep
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-route-accent/20 px-3 py-3 sm:items-center sm:px-5">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <FileText className="w-4 h-4 text-route-accent" />
-            <span className="text-[11px] font-bold uppercase tracking-[0.24em] text-route-accent sm:text-xs">
+            <span id={titleId} className="text-[11px] font-bold uppercase tracking-[0.24em] text-route-accent sm:text-xs">
               Saldırı İnceleme Raporu
             </span>
             <div
