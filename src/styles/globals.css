@@ -1755,8 +1755,19 @@
 
   .nb2-root {
     height: calc(56px + env(safe-area-inset-top));
-    padding: env(safe-area-inset-top) 14px 0;
+    padding: env(safe-area-inset-top) 10px 0;
     gap: 0;
+  }
+
+  /* AUDIT-NAV-OVERFLOW: clock + ÇIKIŞ container — let it shrink and tighten
+     spacing so the hamburger stays inside the right edge on mobile. Base
+     rule has flex-shrink: 0 + gap: 16px + margin-right: 12px which forces
+     ~53px overflow at 360px viewport. */
+  .nb2-tools {
+    margin-right: 4px;
+    gap: 8px;
+    flex-shrink: 1;
+    min-width: 0;
   }
 
   .nb2-brand {
@@ -1801,7 +1812,7 @@
   }
 
   .nb2-retro-clock {
-    width: clamp(160px, 44vw, 200px);
+    width: clamp(120px, 38vw, 150px);
   }
 
   .nb2-retro-time {
