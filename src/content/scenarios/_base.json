@@ -64,7 +64,7 @@
                   "linux-commands.txt": {
                     "type": "file",
                     "perms": "-rw-r--r--",
-                    "content": "BASIC LINUX COMMANDS\n\nFILES:   ls -la | cat | grep | find | chmod | chown\nTEXT:    grep | awk | sed | wc | head | tail | sort\nSYSTEM:  ps aux | top | uname -a | id | env | which\nNET:     ifconfig | netstat | ss | ping | curl | wget\nCTF:     strings | xxd | base64 | file | binwalk\n"
+                    "content": "BASIC LINUX COMMANDS\n\nFILES:   ls -la | cat | grep | find | chmod | chown\nTEXT:    grep | awk | sed | wc | head | tail | sort\nSYSTEM:  ps aux | top | uname -a | id | env | which\nNET:     ip | ss | ping | curl | wget   (legacy: ifconfig, netstat)\nCTF:     strings | xxd | base64 | file | binwalk\n"
                   },
                   "ctf-checklist.txt": {
                     "type": "file",

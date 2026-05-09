@@ -383,7 +383,7 @@ export const TRAINING_SETS: TrainingSet[] = [
         title: 'LLMNR/NBT-NS Poisoning',
         description: 'Responder ile NTLM hash yakalama. Pass-the-Hash ve Relay saldırıları.',
         difficulty: 'orta',
-        practiceCmd: 'responder eth0',
+        practiceCmd: 'responder -I eth0',
         duration: 45,
       },
       {
@@ -416,7 +416,7 @@ export const TRAINING_SETS: TrainingSet[] = [
         title: 'Pass-the-Ticket & Golden Ticket',
         description: 'Kerberos bilet manipülasyonu. Impacket araçları ile domain compromise.',
         difficulty: 'zor',
-        practiceCmd: 'netcat 10.10.10.1 445',
+        practiceCmd: 'python3 ticketer.py -nthash NTLM_HASH -domain-sid S-1-5-21-X -domain DOMAIN.LOCAL Administrator',
         duration: 75,
       },
       {
@@ -476,7 +476,7 @@ export const TRAINING_SETS: TrainingSet[] = [
         title: 'GDB ile Dinamik Analiz',
         description: 'Breakpoint, watchpoint, register inceleme. PWNDBG/GEF eklentileri.',
         difficulty: 'orta',
-        practiceCmd: 'r2 /bin/ls',
+        practiceCmd: 'gdb /bin/ls',
         duration: 55,
       },
       {

