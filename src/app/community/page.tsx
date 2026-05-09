@@ -159,6 +159,23 @@ export default function LabPage() {
   // input/history/lines/cwd state survives. Visibility controlled via CSS
   // transform on the .lab-mobile-terminal-sheet wrapper.
   const [mobileTerminalOpen, setMobileTerminalOpen] = useState(false)
+
+  // A11Y-5 — Esc closes the mobile terminal sheet. Focus trap intentionally
+  // omitted: Terminal.tsx Tab handler does preventDefault without
+  // stopPropagation, so a focus-trap Tab cycle would conflict with shell
+  // autocomplete. WCAG SC 2.1.2 (No Keyboard Trap) satisfied via Esc.
+  useEffect(() => {
+    if (!mobileTerminalOpen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setMobileTerminalOpen(false)
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [mobileTerminalOpen])
+
   const [submittedFlags, setSubmittedFlags] = useState<Set<string>>(new Set())
   const [evidenceLog,    setEvidenceLog]    = useState<EvidenceLog>(new RingEvidenceLog())
   const [ctfValidationMessages, setCtfValidationMessages] = useState<Record<number, string>>({})
