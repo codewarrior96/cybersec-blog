@@ -63,9 +63,9 @@ export const TRAINING_SETS: TrainingSet[] = [
         mission: {
           objective: 'Ham logu hedefli sinyale indirgemek.',
           operatorBrief: 'Gerçek operasyonlarda log okumak, bütün dosyayı izlemek değil; gürültü içinden anlamlı paterni çekip almaktır. Bu derste başarısız SSH denemelerini ayıklayacaksın.',
-          task: '`auth.log` içindeki başarısız giriş denemelerini filtrele ve görünür hale getir.',
+          task: '`syslog` içindeki başarısız giriş denemelerini filtrele ve görünür hale getir.',
           evidence: ['Komut zincirinde `grep` kullanılmalı.', 'Çıktı içinde `Failed password` metni yakalanmalı.'],
-          hints: ['Log dosyasını önce gör, sonra filtrele.', '`grep` bir pattern ile çalışır.', '`cat /var/log/auth.log | grep "Failed"` veya `grep "Failed" /var/log/auth.log` beklenen yaklaşımdır.'],
+          hints: ['Log dosyasını önce gör, sonra filtrele.', '`grep` bir pattern ile çalışır.', '`cat /var/log/syslog | grep "Failed"` veya `grep "Failed" /var/log/syslog` beklenen yaklaşımdır.'],
           reflection: 'Bu görev, gözle tarama yerine pattern tabanlı düşünmeyi pekiştirir. Analist refleksi, log kalabalığını küçük bir karar alanına indirebildiği anda olgunlaşır.',
           validation: [
             { id: 'grep-used', label: 'Filtreleme için `grep` kullanıldı', type: 'commandIncludesAny', values: ['grep', 'grep -n'] },
@@ -178,12 +178,12 @@ export const TRAINING_SETS: TrainingSet[] = [
           objective: 'Yüksek riskli yetki yüzeyini exploit etmeden önce okuyup haritalamak.',
           operatorBrief: 'Yetki yükseltme, tek bir sihirli komut değil zemin analizidir. Bu aşamada amaç root almak değil; hangi izin modelinin yükselme fırsatı doğurduğunu brifing formatında ayıklamaktır.',
           task: 'Sudo yetkilerini ve SUID yüzeyini tarayıp kritik bir ipucunu terminalde görünür hale getir.',
-          evidence: ['Komutta `sudo -l` kullanılmalı.', 'Çıktı içinde `NOPASSWD` ya da `/usr/bin/vim` görünmeli.'],
+          evidence: ['Komutta `sudo -l` kullanılmalı.', 'Çıktı içinde `NOPASSWD` ve sömürülebilir bir binary (`/usr/bin/find`) görünmeli.'],
           hints: ['İlk soru: kullanıcı sudo ile ne çalıştırabilir?', 'Sonra SUID yüzeyine bak.', '`sudo -l` ve `find / -perm -4000` kombinasyonu tam brifing verir.'],
           reflection: 'Privilege escalation refleksi, exploit seçmeden önce mekanik avantajları görmekle başlar. Bu görev sana teknik karar vermeden önce yüzeyi okuyup sınıflandırmayı öğretir.',
           validation: [
             { id: 'sudo-list', label: 'Sudo yetki listesi sorgulandı', type: 'commandIncludesAll', values: ['sudo', '-l'] },
-            { id: 'sudo-vim', label: '`NOPASSWD` veya `vim` yüzeyi görüldü?', type: 'outputIncludes', values: ['NOPASSWD', '/usr/bin/vim'] },
+            { id: 'sudo-vim', label: '`NOPASSWD` ile sömürülebilir binary yüzeyi görüldü', type: 'outputIncludes', values: ['NOPASSWD'] },
           ],
         },
       },

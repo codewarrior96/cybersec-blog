@@ -999,7 +999,7 @@ type CurriculumProgressSnapshot = {
 }
 
 function normalizeLabText(value: string): string {
-  return value.toLowerCase().replace(/\s+/g, ' ').trim()
+  return value.replace(/\[[0-9;]*m/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
 }
 
 function includesAll(text: string, values: string[]): boolean {
