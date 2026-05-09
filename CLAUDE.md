@@ -145,3 +145,74 @@ npm run build         # production build
 ```bash
 git push origin main  # Vercel otomatik deploy (~1-2 dk)
 ```
+
+---
+
+## Documentation Hygiene & Out-of-Scope Paths
+
+The following paths exist in this repo but are **NOT** part of the project's authoritative documentation. Do not read them when answering project questions, building context, or producing reports — they will pollute your understanding with personal study material.
+
+- `docs/personal/` — personal exam-preparation notes (Turkish, single-author study material). Out of scope for any agent task.
+
+If a task explicitly directs you to read a personal document (rare), the user will name the file by full path. Do not infer permission from proximity.
+
+---
+
+## Testing & Phase Discipline Protocol
+
+This project is undergoing a 5-phase testing-debt remediation. Coverage is currently ~5% and we are systematically rebuilding it. When operating on test, audit, or quality tasks, follow these rules without exception.
+
+### Phase map
+
+- **Phase 1** — Security & Identity (auth routes, middleware, identity validation, scrypt, rate-limiter)
+- **Phase 2** — Lab Engine (SOC machine, command parser, CTF flag validation, filesystem simulation)
+- **Phase 3** — API & Contracts (CRUD routes, RLS verification, external integrations: CVE/Greynoise/Resend)
+- **Phase 4** — UI & Accessibility (Terminal, Dashboard, mobile drawer, axe-core)
+- **Phase 5** — End-to-end (Playwright user journeys)
+
+Each phase is split into sub-stages: **A (audit) → B (infrastructure) → C (mocks/handlers) → D (test cases)**. You only work on the sub-stage explicitly named in the user's prompt.
+
+### Hard rules
+
+1. **Stop checkpoints are sacred.** When a sub-stage's deliverable is complete, you stop and wait for explicit "Go" review. Never auto-continue to the next sub-stage. Never write the next sub-stage's code "to save time."
+
+2. **No code without plan approval.** For any sub-stage that involves writing code, first produce a written plan listing every file you will create or modify, with rationale. Wait for "Go" before touching files.
+
+3. **Audit sub-stages produce REPORTS ONLY.** When a sub-stage is labeled "audit" or "report," produce written analysis. Do NOT write code, tests, configs, or scaffolding — even helpful scaffolding, even if it seems trivial.
+
+4. **Every non-trivial decision needs both:**
+```
+   // SENIOR ARCHITECT NOTE: [why this approach]
+   // REJECTED ALTERNATIVE: [what I considered and why I rejected it]
+```
+   Applies to code AND to architectural decisions in audit reports.
+
+5. **Determinism is mandatory.** Tests must be hermetic (no real network), idempotent (any order, any count), and produce identical output across local/CI/parallel runs. No `Math.random`, no `Date.now()` without freezing via `vi.useFakeTimers()`, no real timers, no real fetch.
+
+6. **Threat modeling uses OWASP Top 10 as anchor.** When identifying security risks, map each to its OWASP category (A01 Broken Access Control, A02 Cryptographic Failures, A07 Identification & Authentication Failures, A04 Insecure Design, etc.) — not vague labels.
+
+7. **Critique the plan itself.** If the user's roadmap, sub-stage scope, or assumptions look flawed, flag it BEFORE proceeding. Sycophancy is a bug.
+
+8. **No invented context.** If a file or capability you need isn't in the repo, say so explicitly and stop. Do not synthesize plausible-looking code based on what you'd expect to exist.
+
+### Secrets discipline (cybersecurity hard rule)
+
+- **NEVER read `.env`, `.env.local`, `.env.production`, or any `.env*` file** — they contain Supabase service-role key, JWT secrets, API keys.
+- **NEVER print, echo, or include** environment variable values in any output.
+- If a task seems to require knowledge of an env var (e.g. "what database URL is configured"), mark the question as ⚪ UNCLEAR in the report and ask the human. Do not go fetch it.
+- Read `.env.example` only — that file documents variable names without secret values.
+
+### Coding conventions (when code IS written, in later sub-stages)
+
+- TypeScript strict mode, no `any` without justification comment
+- Test files colocated as `*.test.ts` next to the unit under test
+- MSW handlers live in `src/test/msw/handlers/` (one file per domain)
+- Vitest globals enabled (it/expect/describe without imports)
+- Use `vi.useFakeTimers()` for any time-sensitive test
+- Mock filesystem with `memfs` if needed (don't touch real disk)
+
+### Output format
+
+- **Reports:** 1000-1500 words, H2 sections, markdown tables for risk matrices and DoD test lists
+- **Plans:** bullet list of files + rationale, no prose padding
+- **Code:** production-quality, no placeholder comments, all imports resolved
