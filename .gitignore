@@ -32,3 +32,6 @@ test-results/
 
 # Personal study notes — not project documentation
 docs/personal/
+
+# Test coverage output
+coverage/
