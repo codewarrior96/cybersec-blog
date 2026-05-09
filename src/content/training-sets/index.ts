@@ -249,7 +249,7 @@ export const TRAINING_SETS: TrainingSet[] = [
         title: 'Dizin Keşfi — Gobuster',
         description: 'Web dizin ve dosya brute-force. /admin, /backup, /.env gibi hassas dizinleri bul.',
         difficulty: 'kolay',
-        practiceCmd: 'gobuster dir http://10.10.10.1',
+        practiceCmd: 'gobuster dir -u http://10.10.10.1 -w /usr/share/wordlists/dirb/common.txt',
         duration: 25,
       },
       {
@@ -350,7 +350,7 @@ export const TRAINING_SETS: TrainingSet[] = [
         title: 'Hydra ile Kimlik Brute-Force',
         description: 'SSH, FTP, HTTP-form-post servisleri için wordlist saldırısı. RockYou kullanımı.',
         difficulty: 'kolay',
-        practiceCmd: 'hydra 10.10.10.1 ssh',
+        practiceCmd: 'hydra -l admin -P /usr/share/wordlists/rockyou.txt 10.10.10.1 ssh',
         duration: 25,
       },
       {
@@ -366,7 +366,7 @@ export const TRAINING_SETS: TrainingSet[] = [
         title: 'Hash Kırma — Hashcat & John',
         description: 'MD5, NTLM, bcrypt hash türleri. Dictionary attack ve rule-based attack.',
         difficulty: 'kolay',
-        practiceCmd: 'hashcat 5f4dcc3b5aa765d61d8327deb882cf99',
+        practiceCmd: 'hashcat -m 0 hash.txt /usr/share/wordlists/rockyou.txt',
         duration: 30,
       },
       // ── ORTA ───────────────────────────────────────────────────────────────

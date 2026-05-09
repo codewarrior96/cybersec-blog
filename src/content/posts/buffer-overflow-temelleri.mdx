@@ -89,13 +89,13 @@ gdb ./vuln
 (gdb) run < pattern.txt
 # Segfault sonrası EIP değerini not al: 0x41326941
 
-# Offset'i hesapla
+# Offset'i hesapla — kendi GDB çıktınızdaki EIP değerini kullanın
 python3 -c "
 pattern = open('pattern.txt').read()
-eip = 'Ai2A'   # little-endian dönüşümü
+eip = 'Ai2A'   # örnek değer; GDB'deki 0x41326941'i little-endian byte sırasında ASCII olarak yazın
 print(pattern.index(eip))
 "
-# Çıktı: 76 → EIP 76. byte'ta
+# Örnek çıktı: 76 — sizin offset'iniz farklı olabilir
 ```
 
 Alternatif olarak `pwndbg` veya `pwntools`:
