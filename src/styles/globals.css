@@ -1759,15 +1759,22 @@
     gap: 0;
   }
 
-  /* AUDIT-NAV-OVERFLOW: clock + ÇIKIŞ container — let it shrink and tighten
-     spacing so the hamburger stays inside the right edge on mobile. Base
-     rule has flex-shrink: 0 + gap: 16px + margin-right: 12px which forces
-     ~53px overflow at 360px viewport. */
+  /* AUDIT-NAV-OVERFLOW: clock + ÇIKIŞ container — tighten spacing so the
+     hamburger stays inside the right edge on mobile. flex-shrink kept at
+     base 0 (children are fixed-width and would wrap if container shrank). */
   .nb2-tools {
     margin-right: 4px;
     gap: 8px;
-    flex-shrink: 1;
-    min-width: 0;
+  }
+
+  /* AUDIT-NAV-POLISH: ÇIKIŞ button must not wrap "[ ÇIKIŞ ]" → "[ ÇIKIŞ" + "]".
+     flex-shrink: 0 prevents the parent flex container from compressing the
+     button below its content width. min-width: max-content guarantees the
+     intrinsic content size. */
+  .nb2-logout {
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: max-content;
   }
 
   .nb2-brand {
@@ -1812,7 +1819,7 @@
   }
 
   .nb2-retro-clock {
-    width: clamp(120px, 38vw, 150px);
+    width: clamp(110px, 34vw, 130px);
   }
 
   .nb2-retro-time {
@@ -2303,7 +2310,9 @@
 .lab-mobile-terminal-fab {
   position: fixed;
   right: 16px;
-  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  /* AUDIT-NAV-POLISH: bottom-nav (~67px height) + small visual gap.
+     Position FAB just above the nav top edge (~6px clearance). */
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   width: 56px;
   height: 56px;
   border-radius: 50%;

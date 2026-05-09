@@ -182,7 +182,6 @@ export default function NavigationBar({
         <div className="nb2-tools">
           <div className="nb2-retro-clock" role="status" aria-live="polite">
             <div className="nb2-retro-head">
-              <span className="nb2-retro-label">LOCAL TIME</span>
               <span className="nb2-retro-date">{dateLabel}</span>
             </div>
             <div className="nb2-retro-body">
@@ -254,21 +253,6 @@ export default function NavigationBar({
                 )
               })}
             </nav>
-
-            <div className="nb2-drawer-divider" aria-hidden="true" />
-            <div className="nb2-drawer-logout-wrap">
-              <button
-                type="button"
-                className="nb2-drawer-logout-btn"
-                onClick={() => {
-                  onLogout?.()
-                  setDrawerOpen(false)
-                }}
-                aria-label="Çıkış"
-              >
-                [ ÇIKIŞ ]
-              </button>
-            </div>
 
           </aside>
         </>
