@@ -29,7 +29,15 @@ const DEMO_USERS: Array<{
   password: string
 }> = []
 
-const MEMORY_SECRET = process.env.SOC_DEMO_SECRET ?? 'soc-demo-secret'
+const memorySecret = process.env.SOC_DEMO_SECRET
+if (!memorySecret) {
+  throw new Error(
+    '[soc-store-memory] SOC_DEMO_SECRET environment variable must be set. ' +
+    'The hardcoded fallback was removed (R-20 hardening). ' +
+    'Set SOC_DEMO_SECRET in your .env file or deployment environment.'
+  )
+}
+const MEMORY_SECRET = memorySecret
 
 interface InternalUser {
   id: number

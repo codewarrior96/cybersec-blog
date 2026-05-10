@@ -10,8 +10,6 @@
 // T-SEC01 uses dynamic import + vi.resetModules to re-evaluate the memory
 // store with manipulated env, independent of these mocks.
 
-import { createHmac } from 'crypto'
-
 vi.mock('@/lib/soc-store-adapter', () => ({
   findUserByPasswordResetToken: vi.fn(),
   consumePasswordResetToken: vi.fn(),
@@ -90,158 +88,122 @@ beforeEach(() => {
 describe('Cross-cutting / regression-guard tests', () => {
   // ─── T-SEC01: R-20 hardcoded HMAC fallback (memory store) ─────────────────
 
-  describe('R-20 — hardcoded HMAC fallback (memory store)', () => {
-    it('T-SEC01: SOC_DEMO_SECRET unset → memory store falls back to "soc-demo-secret" — tokens forge-able (R-20)', async () => {
-      // SENIOR ARCHITECT NOTE: R-20 (Critical, A02) — LITERAL gap test.
+  describe('R-20 — hardcoded HMAC fallback (memory store) [FIXED Phase 1.5.1]', () => {
+    it('T-SEC01: SOC_DEMO_SECRET unset → soc-store-memory throws at import (R-20 FIXED, regression guard)', async () => {
+      // SENIOR ARCHITECT NOTE: R-20 (Critical, A02) — FIXED in Phase 1.5.1.
       //
-      // Source: src/lib/soc-store-memory.ts L32:
-      //   const MEMORY_SECRET = process.env.SOC_DEMO_SECRET ?? 'soc-demo-secret'
+      // ────────────────────────────────────────────────────────────────────
+      // FIX SUMMARY
+      // ────────────────────────────────────────────────────────────────────
       //
-      // The `??` fallback means: if SOC_DEMO_SECRET is null/undefined,
-      // MEMORY_SECRET defaults to the literal string 'soc-demo-secret'.
-      // This literal is PUBLIC-KNOWABLE — it appears in:
-      //   - The repository source code (visible to anyone with read access)
-      //   - GitHub blame history (visible to anyone who finds the repo)
-      //   - This audit document (visible to anyone reviewing security)
-      //   - Any exception trace that includes the source line
+      // Phase 1.D.20 original gap test (T-SEC01 v1) asserted that the
+      // literal fallback to 'soc-demo-secret' was reachable when
+      // SOC_DEMO_SECRET was unset — proving the R-20 vector. After the
+      // fix in commit <COMMIT_HASH_TBD> (Phase 1.5.1), the module throws
+      // at import time instead of silently falling back. This test was
+      // FLIPPED to assert the throw — now serves as a regression guard
+      // against any future revert of the hardening.
       //
-      // CONCRETE FORGE ATTACK CHAIN (4-step compound exploit):
+      // FIX (src/lib/soc-store-memory.ts L32):
+      //   const memorySecret = process.env.SOC_DEMO_SECRET
+      //   if (!memorySecret) {
+      //     throw new Error(
+      //       '[soc-store-memory] SOC_DEMO_SECRET environment variable must be set. ' +
+      //       'The hardcoded fallback was removed (R-20 hardening). ' +
+      //       'Set SOC_DEMO_SECRET in your .env file or deployment environment.'
+      //     )
+      //   }
+      //   const MEMORY_SECRET = memorySecret
+      //
+      // BEHAVIOR: when SOC_DEMO_SECRET unset, importing the module rejects
+      // with an Error whose message contains 'SOC_DEMO_SECRET' (matches
+      // the new error message template). Production deployment with
+      // missing env crashes at boot with a clear remediation message
+      // instead of silently falling back to a public-knowable HMAC key.
+      //
+      // REGRESSION GUARD: if a future refactor reintroduces the fallback
+      // (adds a default value, wraps the throw in a catch, lazy-defers
+      // the check to first-use, etc.), this test fails — alerting the
+      // reviewer that the R-20 vector has re-opened.
+      //
+      // ────────────────────────────────────────────────────────────────────
+      // HISTORICAL RECORD — original gap analysis (Phase 1.D.20 T-SEC01 v1)
+      // ────────────────────────────────────────────────────────────────────
+      //
+      // The `??` fallback at L32 (now removed) defaulted MEMORY_SECRET to
+      // the literal string 'soc-demo-secret' when SOC_DEMO_SECRET was
+      // null/undefined. This literal was PUBLIC-KNOWABLE — visible in:
+      //   - The repository source code (anyone with read access)
+      //   - GitHub blame history (anyone who finds the repo)
+      //   - This audit document (anyone reviewing security)
+      //   - Any exception trace including the source line
+      //
+      // CONCRETE FORGE ATTACK CHAIN (4-step compound exploit, NOW CLOSED):
       //
       //   1. Production deployment with NODE_ENV='production' AND
-      //      SOC_DEMO_SECRET environment variable UNSET (deployment
-      //      configuration oversight; .env.production missing the key,
-      //      or operator forgot to set it during initial setup).
+      //      SOC_DEMO_SECRET unset (deployment configuration oversight).
       //
-      //   2. R-03 (Critical) memory fallback path activates: the Supabase
-      //      identity store fails (or wasn't configured), the route handler
-      //      falls back to the SQLite store, the SQLite store also fails
-      //      (database connection issue, file-permission error, etc.),
-      //      and `allowCriticalMemoryFallback=true` in production routes
-      //      identity operations to the in-process memory store. (This
-      //      compound with R-03 is critical — see audit Section 2 R-03 for
-      //      the trigger conditions, and Phase 1.D.9 T-AD04/T-AD07 for
-      //      the test coverage.)
+      //   2. R-03 (Critical) memory fallback path activates: Supabase
+      //      identity store fails, SQLite store fails, and
+      //      `allowCriticalMemoryFallback=true` in production routes
+      //      identity operations to the in-process memory store.
       //
-      //   3. With memory store now active, MEMORY_SECRET defaults to the
-      //      hardcoded string 'soc-demo-secret' (this test's literal
-      //      assertion). All session tokens issued by the memory store
-      //      are signed with this public-knowable HMAC key.
+      //   3. With memory store now active, MEMORY_SECRET defaulted to the
+      //      hardcoded string 'soc-demo-secret'. All session tokens
+      //      issued were signed with this public-knowable HMAC key.
       //
-      //   4. Attacker (anyone — no prior compromise needed, just public
-      //      source-code access) computes:
+      //   4. Attacker (anyone with public source-code access) computed
+      //      a forged token externally:
       //        const payload = base64url(JSON.stringify({uid: VICTIM_ID,
       //                                                   exp: Date.now()+3600*1000,
       //                                                   nonce: 'whatever'}))
       //        const signature = createHmac('sha256', 'soc-demo-secret')
       //                          .update(payload).digest('base64url')
       //        const forgedToken = `${payload}.${signature}`
-      //      Submits forgedToken via Cookie: soc_session=<forgedToken>.
-      //      decodeToken (memory-store.ts L429-456) verifies the signature
-      //      using timing-safe comparison; since the attacker used the
-      //      correct fallback secret, the signature MATCHES.
-      //      Token validates; session reconstructed from payload's uid;
-      //      attacker is authenticated as ANY uid they choose, including
-      //      uid=1 (typically admin).
+      //      Submitted as Cookie: soc_session=<forgedToken>. Token
+      //      validated; session reconstructed from payload's uid;
+      //      attacker authenticated as ANY uid, including admin.
       //
-      // R-03 + R-20 COMPOUND:
-      //   R-03 (Critical) silently activates memory fallback in production
-      //   without operator opt-in (NODE_ENV=production alone enables it).
-      //   R-20 (Critical) makes that memory store cryptographically
-      //   forge-able by anyone with public source access. Together: full
-      //   compromise of the authentication system, no prior credential
-      //   leak required, no privilege escalation chain — just a forged
-      //   token submitted as Cookie.
+      // R-03 + R-20 COMPOUND was the full-compromise vector. After the
+      // R-20 fix (this sub-stage, Phase 1.5.1), the compound is
+      // partially severed: even if R-03 activates the memory store, the
+      // module fails to load without SOC_DEMO_SECRET set, so production
+      // crashes at boot rather than silently issuing forge-able tokens.
+      // R-03 itself remains until its own hardening sub-stage.
       //
-      // PHASE 1.5 HARDENING PROPOSAL:
-      //   Replace the `??` fallback at L32 with:
-      //     const MEMORY_SECRET = process.env.SOC_DEMO_SECRET
-      //     if (!MEMORY_SECRET) {
-      //       throw new Error('[soc-store-memory] SOC_DEMO_SECRET must be set')
-      //     }
-      //   FAIL-LOUD at boot vs silent prod compromise. The deployment
-      //   crashes immediately with a clear error message; operator fixes
-      //   env config before service comes up. Refusing to start is the
-      //   correct default for security-critical secrets.
+      // ────────────────────────────────────────────────────────────────────
+      // CURRENT TEST IMPLEMENTATION (post-flip)
+      // ────────────────────────────────────────────────────────────────────
       //
-      //   When this hardening lands, T-SEC01 must FLIP: assert that
-      //   importing soc-store-memory with SOC_DEMO_SECRET unset THROWS,
-      //   not that the literal fallback applies.
-      //
-      // TEST DESIGN — OPTION A (behavioral fallback assertion via re-import):
-      //   1. Save original SOC_DEMO_SECRET (set by setup.ts L12 to
-      //      'test-secret-do-not-use')
-      //   2. delete process.env.SOC_DEMO_SECRET (vi.stubEnv can't unset;
-      //      direct delete is the only way to make `??` see undefined)
-      //   3. vi.resetModules() + dynamic import — re-evaluates the module
-      //      with new env, picking up the fallback path
-      //   4. Call createSession(user, metadata) — exercises signPayload
-      //      internally via encodeToken
-      //   5. Token format per source L426: `${payloadBase64}.${signature}`
-      //   6. Externally compute HMAC with literal 'soc-demo-secret' over
-      //      the same payloadBase64
-      //   7. Assert externally-computed sig == module's sig → PROVES the
-      //      module defaulted to 'soc-demo-secret' literal
-      //   8. finally block: restore env via vi.stubEnv to setup.ts default
-      //      + vi.resetModules to wipe the test's loaded module so
-      //      subsequent test files re-import fresh
-      //
-      // REJECTED ALTERNATIVE (OPTION B): forge token externally → submit
-      // via getSessionByToken → expect session reconstruction. Rejected —
-      // requires deeper module-internal knowledge (revokedTokens Set
-      // semantics, expiresAt validation, payload schema), more brittle.
-      // OPTION A's direct sig comparison is cleaner and probes the same
-      // gap with less surface area.
-      //
-      // REJECTED ALTERNATIVE (text-source assertion): readFileSync the
-      // module source, regex-match the literal `'soc-demo-secret'`.
-      // Rejected — brittle to formatting changes (single vs double quote,
-      // `??` vs `||`, whitespace), doesn't probe behavior. OPTION A
-      // catches both literal-string regressions AND fallback-mechanism
-      // regressions in one assertion.
+      // 1. Save original SOC_DEMO_SECRET (set by setup.ts L12 to
+      //    'test-secret-do-not-use')
+      // 2. delete process.env.SOC_DEMO_SECRET (vi.stubEnv can't unset;
+      //    direct delete is the only way to make `if (!memorySecret)`
+      //    see undefined)
+      // 3. vi.resetModules() to clear cached module
+      // 4. await expect(import(...)).rejects.toThrow(/SOC_DEMO_SECRET/)
+      //    — the dynamic import re-evaluates module-level code, the
+      //    `if (!memorySecret) throw` fires, the import promise rejects
+      //    with an Error whose message matches the regex
+      // 5. finally: restore env via vi.stubEnv + vi.resetModules to wipe
+      //    the test's loaded module so subsequent tests get fresh state
 
-      // Save the env stub setup.ts placed (vi.stubEnv-tracked value)
       const original = process.env.SOC_DEMO_SECRET
 
-      // Direct delete — vi.stubEnv cannot set undefined; the `??` operator
-      // requires actual undefined to trigger the fallback path
+      // Direct delete — vi.stubEnv cannot set undefined; the
+      // `if (!memorySecret)` check requires actual undefined (or empty
+      // string) to trigger the throw
       delete process.env.SOC_DEMO_SECRET
 
       try {
-        // Re-evaluate the memory store with fresh env (MEMORY_SECRET is
-        // computed at module-import time; existing import has the old value)
         vi.resetModules()
-        const memoryStore = await import('@/lib/soc-store-memory')
 
-        // SessionUser shape per soc-types.ts L11-23
-        const user = {
-          id: 999,
-          username: 'forge-test',
-          displayName: 'Forge Test',
-          role: 'viewer' as const,
-          emailVerified: true,
-        }
-        const metadata = { ipAddress: null, userAgent: null }
-
-        // Exercise signPayload via createSession (the public surface that
-        // produces a signed token). Token format per source L426:
-        // `${payloadBase64}.${signature}`
-        const session = await memoryStore.createSession(user, metadata)
-
-        const dotIdx = session.token.lastIndexOf('.')
-        expect(dotIdx).toBeGreaterThan(0)
-        const payloadBase64 = session.token.substring(0, dotIdx)
-        const actualSig = session.token.substring(dotIdx + 1)
-
-        // Externally compute the HMAC using the literal 'soc-demo-secret'
-        // — exactly what an attacker would do given source-code access
-        const expectedSig = createHmac('sha256', 'soc-demo-secret')
-          .update(payloadBase64)
-          .digest('base64url')
-
-        // PROOF: when SOC_DEMO_SECRET is unset, MEMORY_SECRET defaults to
-        // the literal 'soc-demo-secret' — the externally-computed signature
-        // matches the module's signature exactly. R-20 vector confirmed.
-        expect(actualSig).toBe(expectedSig)
+        // The dynamic import must REJECT with an Error whose message
+        // contains 'SOC_DEMO_SECRET' (matches the new error message
+        // template at soc-store-memory.ts L32-L40)
+        await expect(import('@/lib/soc-store-memory')).rejects.toThrow(
+          /SOC_DEMO_SECRET/,
+        )
       } finally {
         // Restore the setup.ts default (or whatever was originally there)
         if (original !== undefined) {
