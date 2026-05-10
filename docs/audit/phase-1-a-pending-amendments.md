@@ -63,4 +63,4 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 
 Audit Section 7 mentions ~140 cases. Actual planned count is now 141+ (will grow with further discoveries during Phase 1.D.6-D.20).
 
-Current Phase 1.D progress: 7/20 files complete (security, rate-limiter, identity-validation, identity-rules, client-ip, auth-shared, email-templates), 73 tests written.
+Current Phase 1.D progress: 8/20 files complete (security, rate-limiter, identity-validation, identity-rules, client-ip, auth-shared, email-templates, api-auth), 79 Phase 1.D tests written, 94 total vitest tests (Phase 1.D + 15 pre-existing infrastructure).
