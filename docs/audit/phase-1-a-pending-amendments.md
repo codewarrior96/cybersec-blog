@@ -40,8 +40,21 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Issue:** Audit Section 5 → identity-validation.ts sub-section refers to `isValidUsername`. Actual export is `isAllowedUsername`. Other API names are correct (isValidPassword, isValidDisplayName, isValidEmail, validateEmail).
 - **Action:** Update Section 5 → identity-validation.ts narrative wherever `isValidUsername` appears → replace with `isAllowedUsername`.
 
+### A-07 — Phase 1.D.6 prompt drift (informational, not an audit error)
+
+- **Discovered in:** Phase 1.D.6 plan review
+- **Issue:** Phase 1.D.6 prompt drafted by mentor used assumed function names (roleAtLeast, canEdit, canDelete, getRoleHierarchy) that did not match audit Section 5 (which correctly specifies hasRoleAtLeast and canWriteAlerts, matching actual source). Agent caught the drift during plan phase.
+- **Action:** NO audit change needed — audit is correct. Entry documents prompt drift for future mentor-prompt hygiene. Lesson: re-read audit Section 5 verbatim when drafting sub-stage prompts.
+
+### A-08 — auth-shared T-AS09 defensive default test (added in Phase 1.D.6)
+
+- **Discovered in:** Phase 1.D.6 plan review (agent observation)
+- **Issue:** hasRoleAtLeast(unknownRole, validRequired) returns false because ROLE_ORDER.indexOf(unknownRole) === -1, and -1 >= validIndex is false. This is correct OWASP A01-aligned defense-in-depth behavior but not in original audit Section 5.
+- **Test added:** T-AS09 (file: src/lib/auth-shared.test.ts).
+- **Action:** Next audit revision — update Section 5 → auth-shared.ts table to include T-AS09. Update Section 1/7 references from 8 to 9.
+
 ## Total test count revision
 
 Audit Section 7 mentions ~140 cases. Actual planned count is now 141+ (will grow with further discoveries during Phase 1.D.6-D.20).
 
-Current Phase 1.D progress: 5/20 files complete (security, rate-limiter, identity-validation, identity-rules, client-ip), 57 tests written.
+Current Phase 1.D progress: 6/20 files complete (security, rate-limiter, identity-validation, identity-rules, client-ip, auth-shared), 66 tests written.
