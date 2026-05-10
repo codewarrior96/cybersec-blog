@@ -59,8 +59,15 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Issue:** Mentor-drafted Phase 1.D.7 prompt drifted from audit Section 5 in three places: (1) param name `displayName` vs actual `username`, (2) R-15 attack model used `vi.stubEnv('NEXT_PUBLIC_APP_URL')` but module does not read this env — URL arrives as direct parameter, (3) T-ET07 prompt premise (trailing-slash handling) has no source-code surface — module performs raw URL interpolation only.
 - **Action:** NO audit change needed — audit Section 5 is correct on all three counts. Entry documents third drift occurrence (after A-07 in Phase 1.D.6, and original prompt drift fixed in T-S09/T-IR02-03/T-CI11 audit corrections). Pattern is now systemic — recommend adding to CLAUDE.md a sub-stage prompt protocol: "When drafting sub-stage prompts, copy audit Section 5 row verbatim. Do not paraphrase from memory."
 
+### A-10 — T-AD07 audit prose drift (Supabase outage vs sqlite outage)
+
+- **Discovered in:** Phase 1.D.9 plan review
+- **Issue:** Audit T-AD07 scenario states "Production + Supabase outage → memory fallback silent (full R-03 reproduction)", and R-03 narrative (Section 2) likewise frames the trigger as "Supabase outage." However, the actual source has NO supabase→memory fallback path — when `useSupabaseIdentityStore=true`, identity functions early-return `supabaseStore.X(...)` with no try/catch (e.g. soc-store-adapter.ts L101-103). A supabase failure propagates to the caller as a thrown error. The real R-03 vector is: production env (auto-enables `allowCriticalMemoryFallback`) + identity store mode set to anything OTHER than 'supabase' (or supabase app state disabled) + `SOC_STORAGE=sqlite` + sqlite call throws → withStore silently routes to memory store with only a console.error log.
+- **Test implementation:** T-AD07 in src/lib/soc-store-adapter.test.ts probes the real vector (production + sqlite outage chain), not the audit-prose-described "Supabase outage." Comments in the test document the prose drift inline.
+- **Action:** Next audit revision — (1) update Section 2 → R-03 description "Supabase outage" → "primary store outage (sqlite or postgres backend failure under non-supabase identity mode)"; (2) update Section 5 → soc-store-adapter table T-AD07 scenario → "Production + sqlite outage → memory fallback silent (full R-03 reproduction)"; (3) consider whether a separate gap-test or future risk entry is needed to document the supabase-throws-no-fallback behavior (likely correct as-is, since fail-loud on identity store outage is preferable to silent memory fallback for supabase-deployed prod environments).
+
 ## Total test count revision
 
 Audit Section 7 mentions ~140 cases. Actual planned count is now 141+ (will grow with further discoveries during Phase 1.D.6-D.20).
 
-Current Phase 1.D progress: 8/20 files complete (security, rate-limiter, identity-validation, identity-rules, client-ip, auth-shared, email-templates, api-auth), 79 Phase 1.D tests written, 94 total vitest tests (Phase 1.D + 15 pre-existing infrastructure).
+Current Phase 1.D progress: 9/20 files complete (security, rate-limiter, identity-validation, identity-rules, client-ip, auth-shared, email-templates, api-auth, soc-store-adapter), 86 Phase 1.D tests written, 101 total vitest tests (Phase 1.D + 15 pre-existing infrastructure).
