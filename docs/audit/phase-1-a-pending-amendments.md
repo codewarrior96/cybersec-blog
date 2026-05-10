@@ -77,8 +77,21 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Test implementation:** T-MW06 in src/middleware.test.ts retains as a regression guard for the documented current behavior (PUBLIC_API_ROUTES bypasses session check on POST /api/auth/logout). Comment block explicitly walks through the corrected narrative + hardening landing if /api/auth/logout is later removed from PUBLIC_API_ROUTES.
 - **Action:** Next audit revision — (1) revise R-16 severity from **Low → Informational** (or remove from risk register entirely, since CSRF check provides full cross-origin mitigation); (2) update R-16 description to acknowledge the CSRF gate fires on PUBLIC_API_ROUTES paths and that logout accepts only POST; (3) note residual surface (same-origin XSS) is out of scope of R-16's PUBLIC_API_ROUTES gap and properly attributable to a future XSS risk class; (4) audit Section 5 T-MW06 "Maps to" column may keep R-16 reference for traceability, but consider downgrading to "—" since the documented behavior is correct-by-design.
 
+### A-12 — register rate-limit double-counts successful requests
+
+- **Discovered in:** Phase 1.D.11 plan review (T-RG09 surface analysis)
+- **Issue:** register/route.ts L71-73 calls recordFailure on EVERY request that passes the rate-limit check (success + validation-fail + storage-success). This is a "force record" pattern that does not differentiate. Result: 10 successful registrations from same IP exhausts the bucket, blocking legitimate retries. Likely intentional (defense against enumeration), but should be documented.
+- **Severity:** Low (intentional defense, side effect is rate-limit accuracy)
+- **Action:** Document in audit Section 2 as informational, OR confirm with maintainers that the design intent is "any contact from this IP counts." If the latter, add note to R-02 (rate-limiter accuracy) discussing this design choice.
+
+### A-13 — R-05 TOCTOU lacks direct concurrent-execution test
+
+- **Discovered in:** Phase 1.D.11 plan review
+- **Issue:** R-05 (TOCTOU race window in register/route.ts L116-126 between readUserByEmailKey and registerUser) is currently tested only indirectly via T-RG12 (storage layer's race-guard returns 'Email already exists'). A direct test would simulate two concurrent register calls and verify storage prevents both from succeeding.
+- **Action:** Add explicit concurrent-execution test to soc-store-adapter.test.ts (Phase 1.D.9 already complete) or create dedicated race-condition test in Phase 2 storage suite. Test would use Promise.all on two register calls with same email.
+
 ## Total test count revision
 
 Audit Section 7 mentions ~140 cases. Actual planned count is now 141+ (will grow with further discoveries during Phase 1.D.6-D.20).
 
-Current Phase 1.D progress: 10/20 files complete (security, rate-limiter, identity-validation, identity-rules, client-ip, auth-shared, email-templates, api-auth, soc-store-adapter, middleware), 97 Phase 1.D tests written, 112 total vitest tests (Phase 1.D + 15 pre-existing infrastructure).
+Current Phase 1.D progress: 11/20 files complete (security, rate-limiter, identity-validation, identity-rules, client-ip, auth-shared, email-templates, api-auth, soc-store-adapter, middleware, register), 110 Phase 1.D tests written, 125 total vitest tests (Phase 1.D + 15 pre-existing infrastructure).
