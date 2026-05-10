@@ -45,7 +45,7 @@ The Phase 1 boundary "Security & Identity" is correct, with three adjustments co
 | R-17 | Medium | A09 | All auth routes via writeAuditLog | `writeAuditLog` failures swallowed silently; critical events (login, password_reset, account_delete) can be lost | Audit log write throws (DB/Storage outage). Catch swallows; security event vanishes from forensic record. No alarm. |
 | R-18 | Medium | A04 | forgot/route.ts | Email-keyed rate limit (3/hour) lets attacker exhaust victim's reset budget if email known | Attacker spams /api/auth/forgot with victim's email. Limit hits 429. Victim's legitimate reset attempts blocked for 1h. |
 | R-19 | High | A07 | soc-store-memory.ts (createSession, deleteSession), production fallback path | Memory store sessions are HMAC-signed self-contained tokens; revoked-tokens Set is instance-bound; logout fails distributed | If R-03 fallback activates: user clicks logout → token added to one instance's revokedTokens. Next request hits different instance → token still valid. Logout effectively no-op across cluster. |
-| R-20 ✅ FIXED | **Critical** | A02 | soc-store-memory.ts | `MEMORY_SECRET = process.env.SOC_DEMO_SECRET ?? 'soc-demo-secret'` — hardcoded HMAC fallback in prod fallback path | If `SOC_DEMO_SECRET` unset in prod env AND R-03 fallback active: tokens signed with public-knowable string. Attacker forges valid session for any uid. Full account takeover, no credentials needed. **STATUS:** FIXED in commit `<COMMIT_HASH_TBD>` (Phase 1.5.1) — `??` fallback replaced with `throw` if env unset. T-SEC01 flipped to regression guard. R-03 + R-20 compound: R-20 leg now closed, R-03 leg pending Phase 1.5.5. |
+| R-20 ✅ FIXED | **Critical** | A02 | soc-store-memory.ts | `MEMORY_SECRET = process.env.SOC_DEMO_SECRET ?? 'soc-demo-secret'` — hardcoded HMAC fallback in prod fallback path | If `SOC_DEMO_SECRET` unset in prod env AND R-03 fallback active: tokens signed with public-knowable string. Attacker forges valid session for any uid. Full account takeover, no credentials needed. **STATUS:** FIXED in commit `7baacac` (Phase 1.5.1) — `??` fallback replaced with `throw` if env unset. T-SEC01 flipped to regression guard. R-03 + R-20 compound: R-20 leg now closed, R-03 leg pending Phase 1.5.5. |
 
 ---
 
@@ -351,7 +351,7 @@ Tests are colocated as `*.test.ts` next to the unit, except route tests which co
 
 | ID | Type | Scenario | Maps to |
 |---|---|---|---|
-| T-SEC01 | Exploit | SOC_DEMO_SECRET unset → memory store falls back to 'soc-demo-secret', tokens forge-able | R-20 |
+| T-SEC01 | Regression | SOC_DEMO_SECRET unset → soc-store-memory throws at import-time (regression guard for R-20 fix in 7baacac) | R-20 |
 | T-AL01 | Edge | writeAuditLog throw → caught silently, route still returns success (documents R-17 gap) | R-17 |
 
 ---

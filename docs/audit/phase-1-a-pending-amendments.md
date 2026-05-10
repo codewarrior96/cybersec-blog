@@ -105,6 +105,23 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Severity:** Same as R-18 (Medium) — vector identical, just second file affected. Same victim-lockout DoS: attacker who knows victim's email can burn through the 3-attempt budget in seconds, locking out victim's legitimate verify-resend requests for ~1 hour.
 - **Action:** Next audit revision — update R-18 → File(s) column to `forgot/route.ts, verify/resend/route.ts`. Hardening proposal (combined IP+email rate-limit, deferred to Phase 1.5 or Phase 3) applies to both files identically. Test guards in place at both T-FG-? (forgot, Phase 1.D.17) and T-VR04 (verify-resend, Phase 1.D.16).
 
+### A-17 — R-20 fix architecture refinement (lazy + boot validation)
+
+- **Status:** candidate (not blocking, future hardening)
+- **Discovered in:** Phase 1.5.1 deploy (CI fail revealed module-load throw fragility)
+- **Source evidence:** Vercel build log 17:23:57.006 — `/community/page.js` chunk import chain triggered eager load of `soc-store-memory` during Next.js "Collecting page data" phase. Throw fired before page data collection completed, breaking build.
+- **Issue:** Current R-20 fix validates `SOC_DEMO_SECRET` at module-top-level scope. This couples Next.js build-phase static generation to runtime env presence. When env unset:
+  - Local `npm run build` fails (developer onboarding friction)
+  - Preview deployments without env-propagation fail
+  - Build pipeline cannot complete even if env will be set at runtime
+- **Empirical scope:** Only `/community/page.tsx` triggers the eager load chain during build. Auth route handlers (login/register/forgot/reset) are runtime-only and unaffected. Refactor blast radius is contained — could be addressed by lazy import in single page, or by full module-level lazy refactor with central boot validation.
+- **Proposed refactor:**
+  - Lazy getter pattern: `function getMemorySecret(): string` called from inside `signPayload`/`verifyPayload`, throws if env unset
+  - Centralized boot validation in Next.js `instrumentation.ts` `register()` hook — validates all critical env vars at server start, fails loud before serving any request
+- **Trade-off preserved:** Lazy module + boot validator achieves identical fail-loud-at-boot semantic as current R-20 design (boot validator throws if env missing), while decoupling module load from env presence. R-20 hardening intent fully maintained.
+- **Action:** Defer to Phase 2 hardening pass or post-Phase-1.5 cleanup commit. Not blocking.
+- **Risk if not addressed:** minor — current Option A (env always set in Vercel Production + Preview) sidesteps the issue operationally. Refinement is design quality improvement, not vulnerability.
+
 ## Total test count revision
 
 Audit Section 7 mentions ~140 cases. Actual planned count is now 141+ (will grow with further discoveries during Phase 1.D.6-D.20).

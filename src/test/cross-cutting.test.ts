@@ -99,7 +99,7 @@ describe('Cross-cutting / regression-guard tests', () => {
       // Phase 1.D.20 original gap test (T-SEC01 v1) asserted that the
       // literal fallback to 'soc-demo-secret' was reachable when
       // SOC_DEMO_SECRET was unset — proving the R-20 vector. After the
-      // fix in commit <COMMIT_HASH_TBD> (Phase 1.5.1), the module throws
+      // fix in commit 7baacac (Phase 1.5.1), the module throws
       // at import time instead of silently falling back. This test was
       // FLIPPED to assert the throw — now serves as a regression guard
       // against any future revert of the hardening.

@@ -95,6 +95,7 @@ DATABASE_URL=                          # Supabase Postgres (Phase 1+)
 SOC_STORAGE=sqlite                     # sqlite | memory
 SOC_IDENTITY_STORE=supabase            # supabase | postgres | disabled
 SOC_ALLOW_CRITICAL_MEMORY_FALLBACK=0
+SOC_DEMO_SECRET=                       # zorunlu (R-20) — generation: bkz .env.example
 GREYNOISE_API_KEY=                     # opsiyonel, yoksa mock data
 ```
 
