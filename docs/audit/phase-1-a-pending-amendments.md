@@ -53,8 +53,14 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Test added:** T-AS09 (file: src/lib/auth-shared.test.ts).
 - **Action:** Next audit revision — update Section 5 → auth-shared.ts table to include T-AS09. Update Section 1/7 references from 8 to 9.
 
+### A-09 — Phase 1.D.7 prompt drift (informational, third occurrence)
+
+- **Discovered in:** Phase 1.D.7 plan review
+- **Issue:** Mentor-drafted Phase 1.D.7 prompt drifted from audit Section 5 in three places: (1) param name `displayName` vs actual `username`, (2) R-15 attack model used `vi.stubEnv('NEXT_PUBLIC_APP_URL')` but module does not read this env — URL arrives as direct parameter, (3) T-ET07 prompt premise (trailing-slash handling) has no source-code surface — module performs raw URL interpolation only.
+- **Action:** NO audit change needed — audit Section 5 is correct on all three counts. Entry documents third drift occurrence (after A-07 in Phase 1.D.6, and original prompt drift fixed in T-S09/T-IR02-03/T-CI11 audit corrections). Pattern is now systemic — recommend adding to CLAUDE.md a sub-stage prompt protocol: "When drafting sub-stage prompts, copy audit Section 5 row verbatim. Do not paraphrase from memory."
+
 ## Total test count revision
 
 Audit Section 7 mentions ~140 cases. Actual planned count is now 141+ (will grow with further discoveries during Phase 1.D.6-D.20).
 
-Current Phase 1.D progress: 6/20 files complete (security, rate-limiter, identity-validation, identity-rules, client-ip, auth-shared), 66 tests written.
+Current Phase 1.D progress: 7/20 files complete (security, rate-limiter, identity-validation, identity-rules, client-ip, auth-shared, email-templates), 73 tests written.
