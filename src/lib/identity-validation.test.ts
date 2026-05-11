@@ -132,7 +132,7 @@ describe('identity-validation', () => {
       expect(isValidDisplayName('a'.repeat(DISPLAY_NAME_MAX_LENGTH + 1))).toBe(false)
     })
 
-    it('T-IV16: displayName <script> rejected (R-13 FIXED in <COMMIT_HASH_TBD>)', () => {
+    it('T-IV16: displayName <script> rejected (R-13 FIXED in 6d78cf1)', () => {
       // FIX EVIDENCE: isValidDisplayName now rejects HTML-injection chars
       // via DISPLAY_NAME_DENYLIST_RE (Phase 1.5.2 R-13 hardening). The
       // payload `<script>alert(1)</script>` contains `<` which triggers
@@ -144,7 +144,7 @@ describe('identity-validation', () => {
       expect(isValidDisplayName('<script>alert(1)</script>')).toBe(false)
     })
 
-    it('T-IV17: displayName <img src=x onerror=alert(1)> rejected (R-13 FIXED in <COMMIT_HASH_TBD>)', () => {
+    it('T-IV17: displayName <img src=x onerror=alert(1)> rejected (R-13 FIXED in 6d78cf1)', () => {
       // FIX EVIDENCE: Same denylist rejection mechanism as T-IV16. The img
       // onerror payload contains `<` and is rejected. Img tags are a more
       // reliably rendered XSS vector than script tags in email clients;

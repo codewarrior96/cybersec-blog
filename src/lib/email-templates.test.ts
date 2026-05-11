@@ -42,7 +42,7 @@ describe('email-templates', () => {
       expect(result.text).toContain('Operator')
     })
 
-    it('T-ET04: username <img src=x onerror=alert(1)> HTML-escaped in verification email (R-13 FIXED in <COMMIT_HASH_TBD>)', () => {
+    it('T-ET04: username <img src=x onerror=alert(1)> HTML-escaped in verification email (R-13 FIXED in 6d78cf1)', () => {
       // FIX EVIDENCE: Phase 1.5.2 R-13 — defense-in-depth HTML injection fix.
       // email-templates.ts now uses escapeHtml (src/lib/html-escape.ts) on the
       // safeName interpolation. The payload `<img src=x onerror=alert(1)>` is
@@ -165,7 +165,7 @@ describe('email-templates', () => {
       expect(result.text).toContain('https://siberlab.dev/reset/xyz789')
     })
 
-    it('T-ET05: username <img src=x onerror=alert(1)> HTML-escaped in password reset email (R-13 FIXED in <COMMIT_HASH_TBD>)', () => {
+    it('T-ET05: username <img src=x onerror=alert(1)> HTML-escaped in password reset email (R-13 FIXED in 6d78cf1)', () => {
       // FIX EVIDENCE: Reset-path twin of T-ET04. Same escapeHtml application
       // in renderPasswordResetEmail. Both render functions must remain guarded;
       // a regression in only one path would leave half the surface exposed.
