@@ -49,7 +49,7 @@ describe('security', () => {
       expect(verifyPassword('', hash)).toBe(false)
     })
 
-    it('T-S09: truncated hashHex rejected by verifyPassword (R-21 FIXED in <COMMIT_HASH_TBD>)', () => {
+    it('T-S09: truncated hashHex rejected by verifyPassword (R-21 FIXED in ed403df)', () => {
       // FIX EVIDENCE: Phase 1.5.4 R-21 — verifyPassword now invokes
       // assertHashFormat(storedHash) as its first action inside the
       // try-block (security.ts read-time guard). A truncated hashHex
@@ -93,7 +93,7 @@ describe('security', () => {
       expect(verifyPassword('somepassword', truncated)).toBe(false)
     })
 
-    it('T-S13: hashPassword output conforms to invariant; verifyPassword rejects multiple malformed shapes (R-21 FIXED in <COMMIT_HASH_TBD>)', () => {
+    it('T-S13: hashPassword output conforms to invariant; verifyPassword rejects multiple malformed shapes (R-21 FIXED in ed403df)', () => {
       // FIX EVIDENCE: Phase 1.5.4 R-21 write-time + read-time invariant
       // probe. Three layers of regression coverage:
       //

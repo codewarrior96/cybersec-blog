@@ -2,7 +2,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 
 const SCRYPT_KEY_LENGTH = 64
 
-// R-21 hardening (Phase 1.5.4 <COMMIT_HASH_TBD>): hash storage integrity
+// R-21 hardening (Phase 1.5.4 ed403df): hash storage integrity
 // invariant. Every stored credential must match this exact shape — 32 hex
 // chars of salt, colon, 128 hex chars of scrypt-derived hash (64 bytes,
 // SCRYPT_KEY_LENGTH). Truncated or malformed storage triggers fail-loud
@@ -76,7 +76,7 @@ export function hashPassword(password: string): string {
   const salt = randomBytes(16)
   const derived = scryptSync(password, salt, SCRYPT_KEY_LENGTH)
   const result = `${salt.toString('hex')}:${derived.toString('hex')}`
-  // R-21 write-time guard (Phase 1.5.4 <COMMIT_HASH_TBD>): self-validate
+  // R-21 write-time guard (Phase 1.5.4 ed403df): self-validate
   // output before return. Tautological in steady state — randomBytes(16)
   // → 32 hex, scryptSync(...64) → 128 hex always — so this assertion
   // cannot fail unless hashPassword's own internals regress. Its job is
@@ -93,7 +93,7 @@ export function verifyPassword(password: string, storedHash: string): boolean {
   if (!saltHex || !hashHex) return false
 
   try {
-    // R-21 read-time guard (Phase 1.5.4 <COMMIT_HASH_TBD>): reject any
+    // R-21 read-time guard (Phase 1.5.4 ed403df): reject any
     // stored hash that doesn't match the canonical
     // /^[0-9a-f]{32}:[0-9a-f]{128}$/ shape BEFORE the scrypt derive
     // step. Without this, a truncated stored hash would let
