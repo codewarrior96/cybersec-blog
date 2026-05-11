@@ -11,7 +11,7 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Issue:** Audit Section 5 → identity-rules.ts table maps T-IR02 (case) and T-IR03 (whitespace) to R-09. This is incorrect — `normalizeIdentityUsername` already applies `trim().toLowerCase()` before Set lookup, so case+whitespace variants ARE detected. These are happy-path tests, not gap tests.
 - **Action:** Update Section 5 → identity-rules.ts table → T-IR02 and T-IR03 rows → "Maps to" column → `—` (empty).
 
-### A-02 — R-21 new risk: truncated hash storage attack
+### A-02 — R-21 new risk: truncated hash storage attack  [RESOLVED in Phase 1.5.4]
 - **Discovered in:** Phase 1.D.1 (security.test.ts T-S09)
 - **Issue:** While documenting the L19 dead-code gap, agent identified a real exploit: an attacker with storage write access can write a truncated hashHex to any user's record. verifyPassword then accepts any password whose first-N-byte scrypt output matches the truncated stored prefix. Requires prior storage compromise, not a remote vector.
 - **Severity:** Low (requires storage write access)
@@ -19,6 +19,7 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **File(s):** security.ts (downstream of L19 dead code)
 - **Related test:** T-S09 currently documents the L19 dead-code gap. R-21 is downstream of that gap.
 - **Action:** Add R-21 to Section 2 risk register. Currently tested by T-S09 indirectly — consider whether a separate explicit T-S10 test is needed (e.g. write truncated hash directly to mock store, attempt login with arbitrary password, verify acceptance).
+- **Resolution:** Phase 1.5.4 commit `<COMMIT_HASH_TBD>` — R-21 added to Section 2 risk register with `✅ FIXED` status from inception (satisfying the original "add to Section 2" action and the fix closure in one commit). Two-layer integrity guard implemented in `src/lib/security.ts`: `HASH_FORMAT_RE = /^[0-9a-f]{32}:[0-9a-f]{128}$/` module constant + `assertHashFormat` helper. `hashPassword` self-validates output before return (write-time, Option β single chokepoint); `verifyPassword` invokes `assertHashFormat(storedHash)` as first action inside try-block, with throw caught → returns false (read-time silent reject). T-S09 corrected from prior R-07 mislabel (Section 5 mapping R-07 → R-21; body flipped from `.toBe(true)` gap-doc to `.toBe(false)` regression guard); T-S13 added as explicit write-time conformance + multi-shape read-time probe. R-04's DUMMY_PASSWORD_HASH format compatible with new invariant — preserved without regen. Test count: 199 → 200 (+1 T-S13). A-02 retained for audit trail (not deleted) — pattern: any amendment resolved by a fix cycle gets RESOLVED marker + Resolution paragraph cross-reference to the commit.
 
 ### A-03 — R-01 scope correction (Vercel-specific → all production)
 - **Discovered in:** Phase 1.D.5 (client-ip.test.ts T-CI11a)

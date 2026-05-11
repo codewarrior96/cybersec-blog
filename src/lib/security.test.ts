@@ -49,27 +49,113 @@ describe('security', () => {
       expect(verifyPassword('', hash)).toBe(false)
     })
 
-    it('T-S09: truncated hashHex passes verification — L19 length guard is dead code (gap, R-07)', () => {
-      // GAP DOCUMENTATION: audit assumed verifyPassword returns false for a truncated
-      // stored hash. Actual behavior: scryptSync(password, salt, expected.length) always
-      // produces exactly expected.length bytes, so actual.length === expected.length always.
-      // L19 (`if (actual.length !== expected.length) return false`) is therefore unreachable
-      // dead code in this implementation.
+    it('T-S09: truncated hashHex rejected by verifyPassword (R-21 FIXED in <COMMIT_HASH_TBD>)', () => {
+      // FIX EVIDENCE: Phase 1.5.4 R-21 — verifyPassword now invokes
+      // assertHashFormat(storedHash) as its first action inside the
+      // try-block (security.ts read-time guard). A truncated hashHex
+      // no longer matches the HASH_FORMAT_RE invariant
+      // /^[0-9a-f]{32}:[0-9a-f]{128}$/, assertHashFormat throws, the
+      // surrounding try-catch returns false. Net behavior: truncated
+      // stored hash → verifyPassword returns false → caller sees
+      // "wrong password" identically to any other auth failure.
       //
-      // Consequence: a truncated hash is accepted as valid — the first N bytes of the scrypt
-      // output match the first N bytes stored. This is a real gap: an attacker who can write
-      // a shortened hash to storage can authenticate with any password whose first-N-byte
-      // scrypt output matches. Requires prior storage write access (not a remote vector), but
-      // is worth tracking for the hardening backlog.
+      // MISLABELING HISTORY: this test was originally tagged "(gap,
+      // R-07)" in its title and mapped to R-07 in audit Section 5
+      // (L98). The test body actually probed R-21's vector —
+      // truncated hash acceptance via the L19 dead-code path — NOT
+      // R-07's scrypt cost parameter (N=16384 vs 32768). The mislabel
+      // was acknowledged in amendment A-02 ("T-S09 currently
+      // documents the L19 dead-code gap. R-21 is downstream").
+      // Section 5 mapping corrected to R-21 during Phase 1.5.4 R-21
+      // fix commit; T-S09 body flipped from gap-documenting
+      // `.toBe(true)` to regression-guard `.toBe(false)`.
       //
-      // This test asserts the CURRENT behavior (true) as a regression guard. If a future
-      // refactor switches to scryptSync(password, salt, SCRYPT_KEY_LENGTH) and then
-      // compares against the stored hash, a length mismatch would correctly return false —
-      // and this test would catch the regression in either direction.
+      // SENIOR ARCHITECT NOTE: the previous test header described the
+      // L19 length comparison as "dead code" — that observation
+      // stands. The R-21 fix does NOT make L19 reachable (scryptSync
+      // still derives output to expected.length, so actual.length
+      // still equals expected.length post-derive). Instead, the new
+      // assertHashFormat call SHORT-CIRCUITS the entire derive step
+      // when the stored hash is malformed — closing R-21 at a
+      // strictly upstream point. L19 remains dead but harmless.
+      //
+      // REJECTED ALTERNATIVE: rewrite verifyPassword to call
+      // scryptSync(password, salt, SCRYPT_KEY_LENGTH) (full length,
+      // not expected.length), then truly compare lengths at L19.
+      // Rejected because it would not protect against a stored hash
+      // that's the WRONG length-but-not-shorter (e.g., extra bytes
+      // appended, valid-but-truncated middle, completely different
+      // encoding). Format-regex assertion catches the broader class
+      // of malformed inputs in one check.
       const hash = hashPassword('somepassword')
       const [saltHex, hashHex] = hash.split(':')
       const truncated = `${saltHex}:${hashHex.slice(0, -8)}`
-      expect(verifyPassword('somepassword', truncated)).toBe(true) // gap: should be false
+      expect(verifyPassword('somepassword', truncated)).toBe(false)
+    })
+
+    it('T-S13: hashPassword output conforms to invariant; verifyPassword rejects multiple malformed shapes (R-21 FIXED in <COMMIT_HASH_TBD>)', () => {
+      // FIX EVIDENCE: Phase 1.5.4 R-21 write-time + read-time invariant
+      // probe. Three layers of regression coverage:
+      //
+      //   Probe 1 — hashPassword output ALWAYS matches HASH_FORMAT_RE.
+      //   Tautological by construction (randomBytes(16) → 32 hex,
+      //   scryptSync(...64) → 128 hex) but tripwires any future
+      //   regression that alters hashPassword's output shape.
+      //
+      //   Probe 2 — 10 varying inputs all conform. Confirms randomBytes
+      //   doesn't drift outside the invariant across iterations.
+      //
+      //   Probe 3 — multiple malformed storedHash shapes all route to
+      //   verifyPassword false-return. Covers shapes that DON'T fail
+      //   the pre-existing L48 `!saltHex || !hashHex` short-circuit
+      //   (which already caught missing-colon / empty-halves), but
+      //   DO fail the new HASH_FORMAT_RE assertion.
+      //
+      // R-04 two-layer test architecture pattern (T-LG12 route shape +
+      // T-S12 library timing): now T-S09 read-time regression guard +
+      // T-S13 write-time conformance + multi-shape read-time guard.
+      //
+      // SENIOR ARCHITECT NOTE: assertHashFormat is deliberately NOT
+      // exported (it's a security.ts-internal helper). This test
+      // probes its contract INDIRECTLY via hashPassword's
+      // self-validation (smoke probes 1+2) and verifyPassword's
+      // false-return on malformed input (probe 3). Indirect testing
+      // proves the SAME function instance is enforcing the invariant
+      // in both hashPassword and verifyPassword call paths — a single
+      // chokepoint contract.
+      //
+      // REJECTED ALTERNATIVE: export assertHashFormat for direct unit
+      // testing. Rejected because exposing it would invite external
+      // caller-side validation drift (callers should never need to
+      // validate hashes — they get them from hashPassword
+      // self-validated or read them from storage where verifyPassword
+      // performs the validation).
+
+      // Probe 1: hashPassword output matches the invariant.
+      const output = hashPassword('any-test-password')
+      expect(output).toMatch(/^[0-9a-f]{32}:[0-9a-f]{128}$/)
+
+      // Probe 2: 10 varying inputs all conform.
+      for (let i = 0; i < 10; i++) {
+        expect(hashPassword(`probe-${i}`)).toMatch(/^[0-9a-f]{32}:[0-9a-f]{128}$/)
+      }
+
+      // Probe 3: deliberately-malformed storedHash shapes route to
+      // verifyPassword false-return. Each probe targets a DIFFERENT
+      // class of malformation that survives the pre-existing L48
+      // short-circuit but is caught by the new assertHashFormat.
+      const validSalt = '0'.repeat(32)
+      const validHash = '0'.repeat(128)
+      // 3a: uppercase hex (Buffer.from accepts but invariant requires lowercase)
+      expect(verifyPassword('any', `ABCDEF1234567890ABCDEF1234567890:${validHash}`)).toBe(false)
+      // 3b: salt correct length, hash truncated (the R-21 vector itself)
+      expect(verifyPassword('any', `${validSalt}:${'0'.repeat(120)}`)).toBe(false)
+      // 3c: salt wrong length (too short), hash correct length
+      expect(verifyPassword('any', `${'0'.repeat(24)}:${validHash}`)).toBe(false)
+      // 3d: non-hex char in hashHex
+      expect(verifyPassword('any', `${validSalt}:${'x'.repeat(128)}`)).toBe(false)
+      // 3e: extra bytes appended to hashHex (not a truncation, but still malformed)
+      expect(verifyPassword('any', `${validSalt}:${validHash}00`)).toBe(false)
     })
   })
 
