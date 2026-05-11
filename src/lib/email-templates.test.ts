@@ -42,43 +42,28 @@ describe('email-templates', () => {
       expect(result.text).toContain('Operator')
     })
 
-    it('T-ET04: username <img src=x onerror=alert(1)> renders literally in HTML — gap (R-13)', () => {
-      // SENIOR ARCHITECT NOTE: R-13 (HTML injection) — DOWNSTREAM half of
-      // the two-layer documentation pattern paired with T-IV16/T-IV17
-      // (Phase 1.D.3, upstream identity-validation gap).
+    it('T-ET04: username <img src=x onerror=alert(1)> HTML-escaped in verification email (R-13 FIXED in <COMMIT_HASH_TBD>)', () => {
+      // FIX EVIDENCE: Phase 1.5.2 R-13 — defense-in-depth HTML injection fix.
+      // email-templates.ts now uses escapeHtml (src/lib/html-escape.ts) on the
+      // safeName interpolation. The payload `<img src=x onerror=alert(1)>` is
+      // transformed to `&lt;img src=x onerror=alert(1)&gt;` in the rendered HTML.
       //
-      // Why upstream validator does not reject: isValidDisplayName performs
-      // a length-only check (2-120 chars). It does NOT filter HTML tags,
-      // attributes, or event handlers. A malicious displayName flows into
-      // the email template's username field via register/profile-update
-      // routes (the field rename does not sanitize).
+      // Defense-in-depth: validator layer (T-IV16/T-IV17) ALSO rejects this
+      // payload at register/profile-update — but template-layer escape protects
+      // any future code path that bypasses the validator (e.g. legacy DB data,
+      // future surfaces, or admin tools).
       //
-      // Downstream consequence: rendered email body contains literal `<img>`
-      // markup with `onerror` JavaScript. Outlook desktop and many third-
-      // party clients render HTML emails verbatim — the `<img>` payload
-      // triggers on image-loading retry. Self-XSS in the recipient's own
-      // verification email and broader stored-XSS risk wherever displayName
-      // surfaces in admin UI without escape (Phase 3 audit).
-      //
-      // Cross-reference upstream: T-IV16, T-IV17 (Phase 1.D.3, identity-
-      // validation.test.ts) — both document the validator-layer gap.
-      //
-      // REJECTED ALTERNATIVE: only test at validator OR template layer.
-      // Rejected — a fix that escapes at one layer but not the other still
-      // leaves a partial gap (e.g. legacy data already in the database with
-      // unescaped payloads would render unsafely if only the validator is
-      // patched). Defense-in-depth requires both layers guarded.
-      //
-      // Hardening landing: when this file adds HTML escaping (likely via
-      // `he` package or a sanitizer), this assertion will fail. At that
-      // point flip to assert the payload is HTML-encoded (e.g. result.html
-      // does NOT contain raw `<img`, but contains `&lt;img`).
+      // Twin assertion: raw payload absent AND escaped form present. Both
+      // required — passing only the absent check could mask a different bug
+      // where the payload is silently stripped instead of escaped.
       const payload = '<img src=x onerror=alert(1)>'
+      const escaped = '&lt;img src=x onerror=alert(1)&gt;'
       const result = renderVerificationEmail({
         username: payload,
         verifyUrl: 'https://siberlab.dev/verify/abc',
       })
-      expect(result.html).toContain(payload)
+      expect(result.html).not.toContain(payload)
+      expect(result.html).toContain(escaped)
     })
 
     it('T-ET06: username with CRLF produces literal \\r\\n in plain text body — gap (R-14)', () => {
@@ -180,28 +165,18 @@ describe('email-templates', () => {
       expect(result.text).toContain('https://siberlab.dev/reset/xyz789')
     })
 
-    it('T-ET05: username <img src=x onerror=alert(1)> renders literally in reset HTML — gap (R-13)', () => {
-      // SENIOR ARCHITECT NOTE: R-13 reset-path twin of T-ET04. Same
-      // template-literal interpolation pattern in renderPasswordResetEmail's
-      // bodyHtml (email-templates.ts L176). Both render functions must be
-      // guarded because a single-function fix would leave the other path
-      // vulnerable — and the reset path is arguably MORE sensitive (an
-      // unverified user receiving a reset email with embedded XSS could
-      // trigger the payload before the account is even confirmed).
-      //
-      // Cross-reference: T-ET04 (verify path twin), T-IV16/T-IV17 (Phase
-      // 1.D.3 upstream validator gap).
-      //
-      // Hardening landing: same as T-ET04 — flip to expect HTML-encoded
-      // payload when template adds escape. The reset-path test must flip
-      // in lockstep with the verify-path test; otherwise the fix is
-      // incomplete.
+    it('T-ET05: username <img src=x onerror=alert(1)> HTML-escaped in password reset email (R-13 FIXED in <COMMIT_HASH_TBD>)', () => {
+      // FIX EVIDENCE: Reset-path twin of T-ET04. Same escapeHtml application
+      // in renderPasswordResetEmail. Both render functions must remain guarded;
+      // a regression in only one path would leave half the surface exposed.
       const payload = '<img src=x onerror=alert(1)>'
+      const escaped = '&lt;img src=x onerror=alert(1)&gt;'
       const result = renderPasswordResetEmail({
         username: payload,
         resetUrl: 'https://siberlab.dev/reset/xyz',
       })
-      expect(result.html).toContain(payload)
+      expect(result.html).not.toContain(payload)
+      expect(result.html).toContain(escaped)
     })
   })
 })

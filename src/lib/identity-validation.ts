@@ -13,6 +13,13 @@ const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/
 // authoritative validity check is whether the verification email arrives.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
+// R-13 hardening (Phase 1.5.2): denylist HTML-injection-relevant characters.
+// Apostrophe (') intentionally allowed — legitimate name pattern (O'Brien);
+// HTML escape at template layer handles it safely.
+// CR/LF (\r\n) intentionally NOT blocked — that is R-14's territory, separate
+// future fix cycle. T-IV18/T-IV19 remain as documented gap tests.
+const DISPLAY_NAME_DENYLIST_RE = /[<>&"]/
+
 export function isAllowedUsername(username: string): boolean {
   return USERNAME_RE.test(username)
 }
@@ -22,7 +29,7 @@ export function getUsernameFormatError(): string {
 }
 
 export function getDisplayNameError(): string {
-  return `Gorunen ad ${DISPLAY_NAME_MIN_LENGTH}-${DISPLAY_NAME_MAX_LENGTH} karakter arasi olmali.`
+  return `Gorunen ad ${DISPLAY_NAME_MIN_LENGTH}-${DISPLAY_NAME_MAX_LENGTH} karakter arasi olmali ve <, >, &, " karakterlerini icermemeli.`
 }
 
 export function getPasswordError(): string {
@@ -34,7 +41,13 @@ export function getEmailFormatError(): string {
 }
 
 export function isValidDisplayName(value: string): boolean {
-  return value.length >= DISPLAY_NAME_MIN_LENGTH && value.length <= DISPLAY_NAME_MAX_LENGTH
+  if (value.length < DISPLAY_NAME_MIN_LENGTH || value.length > DISPLAY_NAME_MAX_LENGTH) {
+    return false
+  }
+  if (DISPLAY_NAME_DENYLIST_RE.test(value)) {
+    return false
+  }
+  return true
 }
 
 export function isValidPassword(value: string): boolean {

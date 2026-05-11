@@ -30,6 +30,8 @@
  *    independently of the per-email content above it.
  */
 
+import { escapeHtml } from './html-escape'
+
 interface VerificationEmailParams {
   username: string
   verifyUrl: string
@@ -125,7 +127,7 @@ export function renderVerificationEmail(
   ].join('\n')
   const bodyHtml = `
 <h1 style="margin:0 0 16px;font-family:${FONT_SANS};font-size:22px;font-weight:600;color:#f8fafc;letter-spacing:0.01em;">Email adresini doğrula</h1>
-<p style="margin:0 0 14px;font-family:${FONT_SANS};font-size:14px;line-height:1.6;color:#cbd5e1;">Merhaba ${safeName}, siberlab hesabını oluşturdun. Aşağıdaki bağlantıya tıklayarak email adresini doğrula:</p>
+<p style="margin:0 0 14px;font-family:${FONT_SANS};font-size:14px;line-height:1.6;color:#cbd5e1;">Merhaba ${escapeHtml(safeName)}, siberlab hesabını oluşturdun. Aşağıdaki bağlantıya tıklayarak email adresini doğrula:</p>
 <p style="margin:24px 0;text-align:center;">
   <a href="${params.verifyUrl}" style="display:inline-block;background:#00ff41;color:#000;padding:12px 24px;border-radius:8px;font-family:${FONT_MONO};font-size:13px;font-weight:700;text-decoration:none;letter-spacing:0.12em;text-transform:uppercase;">Email adresini doğrula</a>
 </p>
@@ -173,7 +175,7 @@ export function renderPasswordResetEmail(
   ].join('\n')
   const bodyHtml = `
 <h1 style="margin:0 0 16px;font-family:${FONT_SANS};font-size:22px;font-weight:600;color:#f8fafc;letter-spacing:0.01em;">Şifre sıfırlama</h1>
-<p style="margin:0 0 14px;font-family:${FONT_SANS};font-size:14px;line-height:1.6;color:#cbd5e1;">Merhaba ${safeName}, siberlab hesabın için şifre sıfırlama talebi aldık. Yeni bir şifre belirlemek için aşağıdaki bağlantıya tıkla:</p>
+<p style="margin:0 0 14px;font-family:${FONT_SANS};font-size:14px;line-height:1.6;color:#cbd5e1;">Merhaba ${escapeHtml(safeName)}, siberlab hesabın için şifre sıfırlama talebi aldık. Yeni bir şifre belirlemek için aşağıdaki bağlantıya tıkla:</p>
 <p style="margin:24px 0;text-align:center;">
   <a href="${params.resetUrl}" style="display:inline-block;background:#00ff41;color:#000;padding:12px 24px;border-radius:8px;font-family:${FONT_MONO};font-size:13px;font-weight:700;text-decoration:none;letter-spacing:0.12em;text-transform:uppercase;">Yeni şifre belirle</a>
 </p>

@@ -38,7 +38,7 @@ The Phase 1 boundary "Security & Identity" is correct, with three adjustments co
 | R-10 | Low | A04 | identity-validation.ts | `displayName` length-only check; Unicode unrestricted; homoglyph possible | User sets `displayName` to `аdmin` (Cyrillic а). Visually indistinguishable from admin in attribution. |
 | R-11 | Low | A05 | reset/validate/route.ts | Unauthenticated token-validity oracle; no rate limit | Token leak via log/phishing → attacker probes validity at scale. Practical impact bounded by 256-bit entropy. |
 | R-12 | Low | A08 | email.ts, forgot/route.ts | Email dispatch failures swallowed; no retry queue | Resend transient 503 → token persisted, email lost. User retries; second token issued. **Mitigated:** `setPasswordResetToken` is upsert (verified), so only one valid token at a time. |
-| R-13 | High | A03 | email-templates.ts, identity-validation.ts | `displayName` HTML-escape missing in email templates; saldırgan-controlled HTML/script in rendered email body | User registers with `displayName: "<img src=x onerror=alert(1)>"`. Verification email body contains literal payload. Outlook desktop and many 3rd-party clients render. Self-XSS during own verify; broader stored-XSS risk if displayName surfaces in admin UI without escape (Phase 3 audit). |
+| R-13 ✅ FIXED | High | A03 | email-templates.ts, identity-validation.ts | `displayName` HTML-escape missing in email templates; saldırgan-controlled HTML/script in rendered email body | User registers with `displayName: "<img src=x onerror=alert(1)>"`. Verification email body contains literal payload. Outlook desktop and many 3rd-party clients render. Self-XSS during own verify; broader stored-XSS risk if displayName surfaces in admin UI without escape (Phase 3 audit). **STATUS:** FIXED in commit `<COMMIT_HASH_TBD>` (Phase 1.5.2) — defense-in-depth: validator denylist `/[<>&"]/` (identity-validation.ts) + template HTML escape via new src/lib/html-escape.ts (email-templates.ts). T-IV16/17 + T-ET04/05 flipped to regression guards (Type: Exploit → Regression). R-14 (CRLF) and R-15 (URL substrate) remain open — separate Phase 1.5.X fix cycles. |
 | R-14 | Medium | A03 | email-templates.ts, identity-validation.ts | `displayName` CRLF injection into plain-text email body; phishing assist | `displayName: "Mehmet\r\n\r\n[siberlab security] hesabın askıya alındı: evil.com"`. Plain-text reader sees fake siberlab footer/instructions interleaved with legitimate content. |
 | R-15 | Medium | A05 | email-templates.ts, register/forgot/verify-resend routes | `verifyUrl` / `resetUrl` substrate trust; env misconfig poisons every email | `NEXT_PUBLIC_APP_URL=javascript:alert(1)//` or Host header injection in dev → rendered `<a href="...">` becomes attacker-controlled. |
 | R-16 | Low | A04 | middleware.ts | Logout endpoint in PUBLIC_API_ROUTES; CSRF-able logout possible | Attacker iframes/links to /api/auth/logout via cross-site form; victim's session terminated. Damage = nuisance only (no privilege gained). |
@@ -130,8 +130,8 @@ Tests are colocated as `*.test.ts` next to the unit, except route tests which co
 | T-IV13 | Edge | Password 257 chars invalid | — |
 | T-IV14 | Edge | displayName Cyrillic accepted (homoglyph gap) | R-10 |
 | T-IV15 | Edge | displayName 2/120 valid; 121 invalid | — |
-| T-IV16 | Exploit | displayName `<script>` accepted (gap, regression guard) | R-13 |
-| T-IV17 | Exploit | displayName `<img src=x onerror=alert(1)>` accepted (gap) | R-13 |
+| T-IV16 | Regression | displayName `<script>...` rejected by denylist `/[<>&"]/` (regression guard for R-13 fix in `<COMMIT_HASH_TBD>`) | R-13 |
+| T-IV17 | Regression | displayName `<img src=x onerror=alert(1)>` rejected by denylist (R-13 fix in `<COMMIT_HASH_TBD>`) | R-13 |
 | T-IV18 | Exploit | displayName containing `\n` accepted (gap) | R-14 |
 | T-IV19 | Exploit | displayName `Foo\r\nBar` accepted (gap) | R-14 |
 
@@ -180,8 +180,8 @@ Tests are colocated as `*.test.ts` next to the unit, except route tests which co
 | T-ET01 | Happy | renderVerificationEmail returns subject/html/text containing username + verifyUrl | — |
 | T-ET02 | Happy | renderPasswordResetEmail same | — |
 | T-ET03 | Edge | username '' → fallback 'Operator' | — |
-| T-ET04 | Exploit | username `<img src=x onerror=alert(1)>` rendered literally in HTML (gap) | R-13 |
-| T-ET05 | Exploit | same for renderPasswordResetEmail | R-13 |
+| T-ET04 | Regression | username `<img src=x onerror=alert(1)>` HTML-escaped to `&lt;img src=x onerror=alert(1)&gt;` in verification HTML (regression guard for R-13 fix in `<COMMIT_HASH_TBD>`) | R-13 |
+| T-ET05 | Regression | same for renderPasswordResetEmail (R-13 fix in `<COMMIT_HASH_TBD>`) | R-13 |
 | T-ET06 | Exploit | username `Foo\r\nBar` produces 2 lines in plain text (gap) | R-14 |
 | T-ET07 | Exploit | verifyUrl `javascript:alert(1)` rendered as href (gap) | R-15 |
 

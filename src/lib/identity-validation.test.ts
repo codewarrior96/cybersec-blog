@@ -132,32 +132,24 @@ describe('identity-validation', () => {
       expect(isValidDisplayName('a'.repeat(DISPLAY_NAME_MAX_LENGTH + 1))).toBe(false)
     })
 
-    it('T-IV16: displayName <script> accepted — gap (R-13)', () => {
-      // GAP DOCUMENTATION: isValidDisplayName performs length-only validation.
-      // The payload `<script>alert(1)</script>` (27 chars) is within the 2-120
-      // range and is therefore accepted.
+    it('T-IV16: displayName <script> rejected (R-13 FIXED in <COMMIT_HASH_TBD>)', () => {
+      // FIX EVIDENCE: isValidDisplayName now rejects HTML-injection chars
+      // via DISPLAY_NAME_DENYLIST_RE (Phase 1.5.2 R-13 hardening). The
+      // payload `<script>alert(1)</script>` contains `<` which triggers
+      // denylist rejection. This regression-guards against any future
+      // revert of the validator hardening.
       //
-      // R-13 downstream risk: email-templates.ts interpolates displayName directly
-      // into the HTML email body without HTML-escaping. An attacker who registers
-      // with this displayName receives a verification email whose HTML body contains
-      // the literal script tag. Outlook desktop and many 3rd-party email clients
-      // render HTML; this enables self-XSS during own verify flow and stored-XSS
-      // risk if displayName surfaces in admin UI (Phase 3 audit).
-      //
-      // This test asserts CURRENT behavior (accepted). It will fail intentionally
-      // when the validator is hardened to strip/reject HTML chars — that failure
-      // is the expected regression signal.
-      expect(isValidDisplayName('<script>alert(1)</script>')).toBe(true) // gap: R-13
+      // Cross-reference downstream: T-ET04 (email-templates.test.ts)
+      // verifies template-layer HTML escape — defense-in-depth.
+      expect(isValidDisplayName('<script>alert(1)</script>')).toBe(false)
     })
 
-    it('T-IV17: displayName <img src=x onerror=alert(1)> accepted — gap (R-13)', () => {
-      // GAP DOCUMENTATION: Same root cause as T-IV16. An img onerror payload
-      // (32 chars) is within the 2-120 length range and is accepted unchanged.
-      //
-      // R-13: Outlook desktop and many mobile clients auto-render img tags.
-      // The onerror handler fires when `src=x` fails to load. This is a more
-      // reliably rendered vector than a script tag (which many clients strip).
-      expect(isValidDisplayName('<img src=x onerror=alert(1)>')).toBe(true) // gap: R-13
+    it('T-IV17: displayName <img src=x onerror=alert(1)> rejected (R-13 FIXED in <COMMIT_HASH_TBD>)', () => {
+      // FIX EVIDENCE: Same denylist rejection mechanism as T-IV16. The img
+      // onerror payload contains `<` and is rejected. Img tags are a more
+      // reliably rendered XSS vector than script tags in email clients;
+      // this test guards the higher-impact path.
+      expect(isValidDisplayName('<img src=x onerror=alert(1)>')).toBe(false)
     })
 
     it('T-IV18: displayName containing \\n accepted — gap (R-14)', () => {
