@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { isReservedUsername } from '@/lib/identity-rules'
-import { verifyPassword } from '@/lib/security'
+import { DUMMY_PASSWORD_HASH, verifyPassword } from '@/lib/security'
 import type { RequestMetadata, SessionRecord, UserWorkload } from '@/lib/soc-store-memory'
 import { isSupabaseAppStateEnabled } from '@/lib/supabase-app-state'
 import { getSupabaseProductDbClient } from '@/lib/supabase-product-db'
@@ -145,7 +145,13 @@ export async function cleanupExpiredSessions() {
 
 export async function authenticateUser(username: string, password: string): Promise<SessionUser | null> {
   const user = await readActiveUserByUsername(username)
-  if (!user) return null
+  if (!user) {
+    // R-04 timing equalization (Phase 1.5.3 <COMMIT_HASH_TBD>) — see
+    // security.ts DUMMY_PASSWORD_HASH note. Forces the unknown-user
+    // branch through the same scrypt cost as the matched-user branch.
+    verifyPassword(password, DUMMY_PASSWORD_HASH)
+    return null
+  }
   if (!verifyPassword(password, user.password_hash)) return null
 
   await syncIdentityShadowUser(user)

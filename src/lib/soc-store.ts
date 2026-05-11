@@ -1,7 +1,7 @@
 ﻿import { randomUUID } from 'crypto'
 import { getDb } from '@/lib/db'
 import { isReservedUsername } from '@/lib/identity-rules'
-import { verifyPassword } from '@/lib/security'
+import { DUMMY_PASSWORD_HASH, verifyPassword } from '@/lib/security'
 import { dedupeStringList, getPortfolioSeedForUser } from '@/lib/portfolio-profile'
 import { mapAttackTypeToTag, priorityWeight, severityToPriority } from '@/lib/soc-attack-utils'
 import type {
@@ -389,7 +389,13 @@ export async function authenticateUser(username: string, password: string): Prom
     usernameKey,
   )
 
-  if (!row || row.is_active !== 1) return null
+  if (!row || row.is_active !== 1) {
+    // R-04 timing equalization (Phase 1.5.3 <COMMIT_HASH_TBD>) — see
+    // security.ts DUMMY_PASSWORD_HASH note. Forces the unknown-user
+    // branch through the same scrypt cost as the matched-user branch.
+    verifyPassword(password, DUMMY_PASSWORD_HASH)
+    return null
+  }
   if (!verifyPassword(password, row.password_hash)) return null
 
   return {

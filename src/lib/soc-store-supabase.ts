@@ -1,6 +1,6 @@
 ﻿import { randomUUID } from 'crypto'
 import { isReservedUsername } from '@/lib/identity-rules'
-import { hashPassword, verifyPassword } from '@/lib/security'
+import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from '@/lib/security'
 import { dedupeStringList, getPortfolioSeedForUser } from '@/lib/portfolio-profile'
 import {
   deleteObject,
@@ -690,7 +690,13 @@ export async function cleanupExpiredSessions() {
 export async function authenticateUser(username: string, password: string): Promise<SessionUser | null> {
   await ensureSeedUsers()
   const user = await readUserByUsername(username)
-  if (!user || !user.isActive) return null
+  if (!user || !user.isActive) {
+    // R-04 timing equalization (Phase 1.5.3 <COMMIT_HASH_TBD>) — see
+    // security.ts DUMMY_PASSWORD_HASH note. Forces the unknown-user
+    // branch through the same scrypt cost as the matched-user branch.
+    verifyPassword(password, DUMMY_PASSWORD_HASH)
+    return null
+  }
   if (!verifyPassword(password, user.passwordHash)) return null
   return toSessionUser(user)
 }

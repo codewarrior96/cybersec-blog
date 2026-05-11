@@ -1,6 +1,6 @@
 ﻿import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
 import { isReservedUsername } from '@/lib/identity-rules'
-import { hashPassword, verifyPassword } from '@/lib/security'
+import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from '@/lib/security'
 import { dedupeStringList, getPortfolioSeedForUser } from '@/lib/portfolio-profile'
 import type { AlertPriority, AlertStatus, AttackSeverity, ReportStatus, SessionUser, UserRole } from '@/lib/soc-types'
 import { mapAttackTypeToTag, priorityWeight, severityToPriority } from '@/lib/soc-attack-utils'
@@ -709,7 +709,14 @@ export async function cleanupExpiredSessions() {
 
 export async function authenticateUser(username: string, password: string): Promise<SessionUser | null> {
   const user = findActiveUserByUsername(username)
-  if (!user) return null
+  if (!user) {
+    // R-04 timing equalization (Phase 1.5.3 <COMMIT_HASH_TBD>): run scrypt
+    // against DUMMY_PASSWORD_HASH so the unknown-user branch consumes
+    // the same ~50ms CPU cost as the matched-user branch below.
+    // Result discarded — the null return is the API contract.
+    verifyPassword(password, DUMMY_PASSWORD_HASH)
+    return null
+  }
   if (!verifyPassword(password, user.passwordHash)) return null
   return toSessionUser(user)
 }

@@ -105,6 +105,15 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Severity:** Same as R-18 (Medium) — vector identical, just second file affected. Same victim-lockout DoS: attacker who knows victim's email can burn through the 3-attempt budget in seconds, locking out victim's legitimate verify-resend requests for ~1 hour.
 - **Action:** Next audit revision — update R-18 → File(s) column to `forgot/route.ts, verify/resend/route.ts`. Hardening proposal (combined IP+email rate-limit, deferred to Phase 1.5 or Phase 3) applies to both files identically. Test guards in place at both T-FG-? (forgot, Phase 1.D.17) and T-VR04 (verify-resend, Phase 1.D.16).
 
+### A-18 — R-04 fix surface expansion (postgres + sqlite stores)
+
+- **Discovered in:** Phase 1.5.3 state gathering (R-04 fix scope verification)
+- **Source evidence:** `grep authenticateUser src/lib/soc-store*.ts` returned 4 implementations: `soc-store-memory.ts:710`, `soc-store-supabase.ts:690`, `soc-store-supabase-postgres.ts:146`, `soc-store.ts:372`. All 4 share the identical `if (!user) return null; if (!verifyPassword(...)) return null` shape — the unknown-user early-return skips scrypt in all 4. The audit's R-04 row File(s) column listed only memory + supabase, understating the surface by 2 implementations.
+- **Issue:** R-04 was confirmed High because of the leak in memory + supabase; the postgres (Phase 1+) and sqlite (legacy local) stores carried the identical leak and were not flagged in the audit. Defense-in-depth fix per Phase 1.5.3 brief Section 1 #5 ("Fix in BOTH store implementations (memory + Supabase) if they exist as parallel paths. Single-store fix = partial closure.") extends naturally to all 4 — applying DUMMY_PASSWORD_HASH compare on the unknown-user branch in each.
+- **Action taken in 1.5.3 fix commit:** R-04 row File(s) updated to list all 4 stores. Fix applied to all 4 in the same commit (atomic).
+- **Risk if not addressed:** R-04 would remain exploitable on any deployment using SOC_IDENTITY_STORE=postgres (Phase 2 migration target) or SOC_STORAGE=sqlite (dev/legacy mode). Single-store-only fix would leave the leak open on every code path that doesn't route through the supabase or memory store.
+- **OWASP:** A07 (same as R-04 parent).
+
 ### A-17 — R-20 fix architecture refinement (lazy + boot validation)
 
 - **Status:** candidate (not blocking, future hardening)

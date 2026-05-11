@@ -1,4 +1,4 @@
-import { hashPassword, verifyPassword } from './security'
+import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from './security'
 
 describe('security', () => {
   describe('hashPassword', () => {
@@ -70,6 +70,106 @@ describe('security', () => {
       const [saltHex, hashHex] = hash.split(':')
       const truncated = `${saltHex}:${hashHex.slice(0, -8)}`
       expect(verifyPassword('somepassword', truncated)).toBe(true) // gap: should be false
+    })
+  })
+
+  // ─── DUMMY_PASSWORD_HASH (R-04 timing equalization) ─────────────────────────
+
+  describe('DUMMY_PASSWORD_HASH (R-04 FIXED in <COMMIT_HASH_TBD>)', () => {
+    it('T-S10: DUMMY_PASSWORD_HASH is a parseable salt:hash hex pair', () => {
+      // FIX EVIDENCE: Phase 1.5.3 R-04 — store authenticateUser
+      // implementations route the unknown-user branch through
+      // verifyPassword(input, DUMMY_PASSWORD_HASH) to equalize scrypt
+      // cost. The constant MUST be a valid stored-hash shape (salt:hash,
+      // both hex, both non-empty) — otherwise verifyPassword's L13
+      // short-circuit `if (!saltHex || !hashHex) return false` would
+      // bypass the scrypt invocation and R-04 would remain exploitable
+      // (unknown-user branch returns in ~0ms vs ~50ms for matched).
+      const [saltHex, hashHex] = DUMMY_PASSWORD_HASH.split(':')
+      expect(saltHex).toMatch(/^[0-9a-f]+$/)
+      expect(hashHex).toMatch(/^[0-9a-f]+$/)
+      expect(saltHex.length).toBe(32) // 16 bytes hex-encoded
+      expect(hashHex.length).toBe(128) // SCRYPT_KEY_LENGTH (64) hex-encoded
+    })
+
+    it('T-S11: verifyPassword against DUMMY_PASSWORD_HASH returns false for arbitrary attacker input', () => {
+      // FIX EVIDENCE: the dummy hash exists for timing equalization,
+      // not authentication. By construction, the salt-derivation path
+      // for any real user record uses randomBytes(16) (hashPassword L6),
+      // so no real user's stored hash collides with DUMMY_PASSWORD_HASH
+      // (zero salt + sentinel derived). Probing the dummy with arbitrary
+      // attacker-controlled inputs MUST return false — guards against a
+      // regression where the dummy mechanism accidentally accepts user
+      // input as a valid credential.
+      //
+      // NOTE: we deliberately do NOT probe with the sentinel password
+      // 'siberlab-r04-dummy-password'. That value IS reachable as a
+      // verify-true case (input === sentinel, salt === DUMMY_SALT →
+      // scrypt output matches DUMMY_DERIVED by construction). This is
+      // benign in practice because (a) the sentinel is not exposed via
+      // any user-facing surface, (b) the unknown-user branch in
+      // authenticateUser discards the verify result and always returns
+      // null, and (c) DUMMY_PASSWORD_HASH is never assigned to a real
+      // user record. Asserting false on the sentinel would be a
+      // misleading invariant.
+      expect(verifyPassword('attacker', DUMMY_PASSWORD_HASH)).toBe(false)
+      expect(verifyPassword('', DUMMY_PASSWORD_HASH)).toBe(false)
+      expect(verifyPassword('correctpassword', DUMMY_PASSWORD_HASH)).toBe(false)
+    })
+
+    it('T-S12: verifyPassword timing parity — DUMMY_PASSWORD_HASH ≈ real hash (R-04 regression guard)', () => {
+      // FIX EVIDENCE: Phase 1.5.3 R-04 — the dummy hash MUST consume the
+      // same ~50ms scrypt CPU cost as a real stored hash, otherwise the
+      // unknown-user branch in authenticateUser still leaks timing.
+      //
+      // Statistical design (per Phase 1.5.3 brief Section 1 #3):
+      //   - N=20 iterations per arm to absorb scrypt jitter
+      //   - Median (not mean) — robust to GC stalls / OS scheduling
+      //     outliers
+      //   - Threshold: max(20ms, 0.3 * avg_arm_time) — loose enough for
+      //     CI stability per mentor's explicit "threshold chosen for CI
+      //     stability not theoretical tightness" guidance.
+      //
+      // SENIOR ARCHITECT NOTE: this test exercises REAL scrypt (no mocks
+      // at this layer) so the timing measurement is meaningful.
+      // Comparing the mock-resolution latency in route.test.ts T-LG12
+      // would not be — that's why T-LG12 stays a response-shape guard
+      // (route-level enumeration vector) and the library-level timing
+      // invariant lives here. Defense-in-depth: two distinct invariants,
+      // two distinct tests.
+      //
+      // REJECTED ALTERNATIVE: assert absolute timing (e.g., both >40ms).
+      // Rejected because absolute thresholds drift across CI runner
+      // specs (slow runners: 70ms; fast: 30ms). Relative parity is the
+      // invariant that closes R-04, regardless of absolute scrypt cost.
+      //
+      // REJECTED ALTERNATIVE: smaller N (e.g., N=5). Rejected because
+      // scrypt single-call jitter is ~5-10ms on a typical machine; with
+      // N=5 the median is dominated by outliers. N=20 puts the median
+      // in a stable bucket. Cost: ~2s of CPU per test run (40 scrypts ×
+      // ~50ms each). Acceptable for a once-per-suite regression guard.
+      const N = 20
+      const realHash = hashPassword('correctpassword')
+      const realTimes: number[] = []
+      const dummyTimes: number[] = []
+      // Interleave the arms so any monotonic drift (CPU thermal
+      // throttle, GC pressure ramp) hits both arms symmetrically.
+      for (let i = 0; i < N; i++) {
+        const t1 = performance.now()
+        verifyPassword('attacker-pwd', realHash)
+        realTimes.push(performance.now() - t1)
+        const t2 = performance.now()
+        verifyPassword('attacker-pwd', DUMMY_PASSWORD_HASH)
+        dummyTimes.push(performance.now() - t2)
+      }
+      realTimes.sort((a, b) => a - b)
+      dummyTimes.sort((a, b) => a - b)
+      const realMedian = realTimes[Math.floor(N / 2)]
+      const dummyMedian = dummyTimes[Math.floor(N / 2)]
+      const avgArmTime = (realMedian + dummyMedian) / 2
+      const threshold = Math.max(20, 0.3 * avgArmTime)
+      const delta = Math.abs(realMedian - dummyMedian)
+      expect(delta).toBeLessThan(threshold)
     })
   })
 })

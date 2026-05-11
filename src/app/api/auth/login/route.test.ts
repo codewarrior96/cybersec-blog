@@ -407,52 +407,39 @@ describe('login/route POST', () => {
 
   describe('R-04 timing leak (route-level surface)', () => {
     it('T-LG12: Unknown username and wrong password produce IDENTICAL response (no enumeration via shape)', async () => {
-      // SENIOR ARCHITECT NOTE: R-04 (High, A07) — username harvesting via
-      // timing analysis. The actual leak is INSIDE authenticateUser at the
-      // store layer (memory + supabase implementations both early-return
-      // null on missing user without invoking scrypt; ~50ms gap between
-      // known-username and unknown-username responses).
+      // SENIOR ARCHITECT NOTE: R-04 (High, A07) — username enumeration.
+      // FIXED at the store layer in Phase 1.5.3 (commit
+      // <COMMIT_HASH_TBD>) via DUMMY_PASSWORD_HASH in security.ts. All 4
+      // authenticateUser implementations (memory, supabase,
+      // supabase-postgres, sqlite) now invoke verifyPassword(input,
+      // DUMMY_PASSWORD_HASH) on the unknown-user branch, equalizing
+      // scrypt CPU cost (~50ms) with the matched-user branch. Username
+      // harvesting via response-time differential is no longer feasible.
       //
-      // ROUTE-LEVEL invariant tested here: the login route does NOT add an
-      // enumeration vector via response shape. Both "user not found" and
-      // "wrong password" cases collapse to authenticateUser returning null
-      // (route.ts L57), and the route emits IDENTICAL 401 responses — same
-      // status, same body. A regression that adds distinct error messages
-      // (e.g., 404 'Kullanici bulunamadi' for missing user vs 401 'Hatali
-      // sifre' for wrong pwd) would WORSEN R-04 by giving attackers an
-      // instant oracle without timing.
+      // THIS test guards a SEPARATE, route-level enumeration vector:
+      // response-shape parity. Both "user not found" and "wrong
+      // password" must collapse to authenticateUser returning null AND
+      // the route must emit IDENTICAL 401 responses (same status, same
+      // body). A regression that adds distinct error messages (e.g.,
+      // 404 'Kullanici bulunamadi' for missing user vs 401 'Hatali
+      // sifre' for wrong pwd) would re-open R-04 via an instant shape
+      // oracle — independent of timing.
       //
-      // What the route DOESN'T do that would close R-04:
-      //   - No timing equalization (e.g., dummy hashPassword call when user
-      //     not found to match the ~50ms scrypt cost)
-      //   - No fixed-delay per response
-      //   - No constant-time comparison
+      // Library-level timing equalization is covered by T-S10/T-S11/T-S12
+      // in src/lib/security.test.ts. T-S12 specifically asserts the
+      // verifyPassword timing parity invariant (N=20 median, |delta| <
+      // max(20ms, 0.3 * avg_arm_time)) — the actual R-04 regression
+      // guard. Real scrypt fires there because authenticateUser is NOT
+      // mocked at the security primitive layer.
       //
-      // The leak survives at integration level. PHASE 5 / INTEGRATION TEST
-      // SUITE will measure REAL timing via performance.now() with non-mocked
-      // authenticateUser (OPTION A from Phase 1.D.12 plan):
-      //
-      //   const t1 = performance.now()
-      //   await POST(unknownUserReq)
-      //   const missingTime = performance.now() - t1
-      //   const t2 = performance.now()
-      //   await POST(wrongPwdReq)
-      //   const wrongPwdTime = performance.now() - t2
-      //   expect(missingTime).toBeLessThan(wrongPwdTime / 2)  // ~50ms gap
-      //
-      // That measurement requires real scrypt CPU and a populated test
-      // store — out of Phase 1 scope (route-level mocked tests). When
-      // Phase 1.5 hardening adds timing equalization (dummy hashPassword
-      // call for missing user), the Phase 5 integration test gets flipped:
-      //   expect(missingTime).toBeCloseTo(wrongPwdTime, -1)  // within 10ms
-      //
-      // REJECTED ALTERNATIVE (OPTION A here): real timing comparison via
-      // performance.now() in this test. Rejected — flaky on CI under load
-      // (shared runners, ~10ms scrypt jitter), and not meaningful when
-      // authenticateUser is mocked (we'd be measuring the mock's resolution
-      // latency, not real scrypt). Mock-based behavioral check (OPTION B,
-      // this test) is deterministic; the timing measurement belongs in
-      // Phase 5 integration test.
+      // REJECTED ALTERNATIVE: real timing comparison via performance.now()
+      // in this test. Rejected — flaky on CI under load (shared runners,
+      // ~10ms scrypt jitter), and not meaningful when authenticateUser
+      // is mocked (we'd be measuring the mock's resolution latency, not
+      // real scrypt). The route-level shape invariant (this test) and
+      // the library-level timing invariant (T-S12) are complementary,
+      // not duplicative — defense-in-depth: two distinct enumeration
+      // vectors, two distinct guards.
       vi.mocked(authenticateUser).mockResolvedValue(null)
 
       const r1 = await POST(makePostRequest({ username: 'unknownuser', password: 'whatever' }))
