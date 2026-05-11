@@ -75,7 +75,7 @@ describe('security', () => {
 
   // ─── DUMMY_PASSWORD_HASH (R-04 timing equalization) ─────────────────────────
 
-  describe('DUMMY_PASSWORD_HASH (R-04 FIXED in <COMMIT_HASH_TBD>)', () => {
+  describe('DUMMY_PASSWORD_HASH (R-04 FIXED in 9b36288)', () => {
     it('T-S10: DUMMY_PASSWORD_HASH is a parseable salt:hash hex pair', () => {
       // FIX EVIDENCE: Phase 1.5.3 R-04 — store authenticateUser
       // implementations route the unknown-user branch through

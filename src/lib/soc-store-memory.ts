@@ -710,7 +710,7 @@ export async function cleanupExpiredSessions() {
 export async function authenticateUser(username: string, password: string): Promise<SessionUser | null> {
   const user = findActiveUserByUsername(username)
   if (!user) {
-    // R-04 timing equalization (Phase 1.5.3 <COMMIT_HASH_TBD>): run scrypt
+    // R-04 timing equalization (Phase 1.5.3 9b36288): run scrypt
     // against DUMMY_PASSWORD_HASH so the unknown-user branch consumes
     // the same ~50ms CPU cost as the matched-user branch below.
     // Result discarded — the null return is the API contract.

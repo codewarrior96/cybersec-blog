@@ -146,7 +146,7 @@ export async function cleanupExpiredSessions() {
 export async function authenticateUser(username: string, password: string): Promise<SessionUser | null> {
   const user = await readActiveUserByUsername(username)
   if (!user) {
-    // R-04 timing equalization (Phase 1.5.3 <COMMIT_HASH_TBD>) — see
+    // R-04 timing equalization (Phase 1.5.3 9b36288) — see
     // security.ts DUMMY_PASSWORD_HASH note. Forces the unknown-user
     // branch through the same scrypt cost as the matched-user branch.
     verifyPassword(password, DUMMY_PASSWORD_HASH)

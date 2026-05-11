@@ -409,7 +409,7 @@ describe('login/route POST', () => {
     it('T-LG12: Unknown username and wrong password produce IDENTICAL response (no enumeration via shape)', async () => {
       // SENIOR ARCHITECT NOTE: R-04 (High, A07) — username enumeration.
       // FIXED at the store layer in Phase 1.5.3 (commit
-      // <COMMIT_HASH_TBD>) via DUMMY_PASSWORD_HASH in security.ts. All 4
+      // 9b36288) via DUMMY_PASSWORD_HASH in security.ts. All 4
       // authenticateUser implementations (memory, supabase,
       // supabase-postgres, sqlite) now invoke verifyPassword(input,
       // DUMMY_PASSWORD_HASH) on the unknown-user branch, equalizing
