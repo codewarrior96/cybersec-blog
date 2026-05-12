@@ -265,37 +265,50 @@ describe('soc-store-adapter', () => {
       errorSpy.mockRestore()
     })
 
-    it('T-AD07: production + sqlite outage → memory fallback silent (full R-03 reproduction)', async () => {
-      // SENIOR ARCHITECT NOTE: R-03 (Critical, A05) — full integration probe.
-      // This is the production attack surface: NODE_ENV=production auto-enables
-      // allowCriticalMemoryFallback (no operator opt-in), and any failure of
-      // the primary store (sqlite call rejects) silently routes to the memory
-      // store. The caller receives a successful result — there is no thrown
-      // error, no thrown exception, no signal except a single console.error log.
+    it('T-AD07: production + sqlite outage → memory fallback for read (R-03 Path γ FIXED in <COMMIT_HASH_TBD>, read path preserved)', async () => {
+      // FIX EVIDENCE: Phase 1.5.7 R-03 Path γ closure. authenticateUser is
+      // a READ operation (verifies credentials without writing). Path γ
+      // intentionally preserves read fallback during sqlite outage — this
+      // is the "degraded availability" design choice (logins continue to
+      // function against memory-seeded user state even when sqlite is
+      // down, accepting that data writes will fail-loud via 503). This
+      // test now documents the INTENDED read-permissive behavior of Path γ.
       //
-      // AUDIT-PROSE DRIFT (documented as A-10): audit T-AD07 says "Supabase
-      // outage". The actual source path has NO supabase→memory fallback —
-      // when useSupabaseIdentityStore=true, the call is `return supabaseStore.X(...)`
+      // PRIOR GAP-DOCUMENTATION HISTORY (A-10 RESOLVED):
+      // T-AD07's original incarnation (Phase 1.D.9) probed this same
+      // scenario as a GAP test, asserting silent fallback as an exploit
+      // surface. Comment header included a "Phase 1.5 hardening proposal:
+      // replace silent console.error fallback with thrown error" — the
+      // proposal aligned with Path α (remove fallback entirely) or Path β
+      // (require explicit opt-in). Path γ chose a narrower hardening:
+      // block WRITES, preserve READS. authenticateUser falls in the read
+      // category, so its fallback behavior remains permissive. The
+      // write-block regression guard now lives at T-AD08; the read-allow
+      // semantic mirror at T-AD09 (which uses listAlerts as a Class 3
+      // probe).
+      //
+      // AUDIT-PROSE DRIFT (A-10 historical context, now RESOLVED):
+      // Audit T-AD07 row originally said "Supabase outage" trigger. The
+      // actual source has NO supabase→memory fallback path — when
+      // useSupabaseIdentityStore=true, calls are `return supabaseStore.X(...)`
       // with no try/catch. Supabase failures propagate to the caller. The
-      // real R-03 vector is non-supabase identity store mode + sqlite outage
-      // under production env. Test interprets audit prose accordingly.
+      // real R-03 vector was always non-supabase identity store mode +
+      // sqlite outage under production env. A-10 amendment documented
+      // this drift in Phase 1.D.9; Phase 1.5.7 R-03 fix commit resolves
+      // A-10 with audit row revision + this comment refresh.
       //
-      // ASSERTIONS (per Phase 1.D.9 prompt requirement):
-      //  (1) await does NOT throw — direct await, no try/catch — proves silence
-      //  (2) memory mock's return value reaches caller — proves fallback worked
-      //  (3) console.error was called — proves the only operational signal exists
-      //  (4) the error log content is the only forensic trace
+      // ASSERTIONS (read-fallback regression guard):
+      //  (1) await does NOT throw — read fallback succeeds
+      //  (2) memory mock's return value reaches caller — fallback delivered
+      //  (3) console.error called — Path γ retains observability signal
+      //  (4) error log content includes "Falling back to memory store for read"
       //
-      // PHASE 1.5 HARDENING PROPOSAL: replace the silent console.error fallback
-      // with a thrown error in production mode. When that hardening lands,
-      // assertion (1) flips: `await expect(adapter.authenticateUser(...)).rejects.toThrow()`,
-      // and assertions (2)/(3) become regression-guards on the previous behavior.
-      // The test then documents both the pre- and post-fix contracts.
-      //
-      // REJECTED ALTERNATIVE: wrap the call in try/catch — rejected, that
-      // would mask a bug where the function unexpectedly throws. The test
-      // explicitly asserts NO throw via direct await; if the implementation
-      // ever throws (intentionally or not), the test fails loudly.
+      // SENIOR ARCHITECT NOTE: Class 1 identity-ops in current production
+      // config (SOC_IDENTITY_STORE=supabase) bypass this entire path —
+      // authenticateUser goes directly to supabaseStore with no fallback.
+      // This test exercises the legacy/dev fallback path (SOC_IDENTITY_STORE=
+      // disabled), which retains its degraded-mode read behavior under
+      // Path γ. See A-21 amendment for Class 1/2/3 routing canonical reference.
       const memoryAuth = vi.fn().mockResolvedValue({ source: 'memory-fallback' })
       const sqliteAuth = vi.fn().mockRejectedValue(new Error('sqlite outage'))
 
@@ -325,6 +338,135 @@ describe('soc-store-adapter', () => {
       // (4) verify the chain ran in the expected order
       expect(sqliteAuth).toHaveBeenCalledOnce()
       expect(memoryAuth).toHaveBeenCalledOnce()
+
+      errorSpy.mockRestore()
+    })
+  })
+
+  // ─── R-03 Path γ write-block (R-03 FIXED in <COMMIT_HASH_TBD>) ─────────────
+
+  describe('R-03 Path γ write-block (R-03 FIXED in <COMMIT_HASH_TBD>)', () => {
+    it('T-AD08: production + sqlite outage + Class 3 write → MemoryFallbackBlockedError throws (R-03 Path γ regression guard)', async () => {
+      // FIX EVIDENCE: Phase 1.5.7 R-03 Path γ — Class 3 write operations
+      // (createAlert, patchAlert, purgeOldAttackEvents, recordAttackEvent)
+      // now pass `isWrite: true` to withStore. When sqlite primary fails
+      // and allowCriticalMemoryFallback=true (production auto-enable),
+      // withStore throws MemoryFallbackBlockedError instead of silently
+      // routing the write to in-memory state. The caller (route handler)
+      // catches and returns 503 to the API consumer.
+      //
+      // Before Path γ (pre-1.5.7): same scenario silently fell back →
+      // alert written to in-memory store → instance recycle loses data →
+      // no operator signal. This was the actual R-03 exploit surface
+      // (A-10 corrected framing).
+      //
+      // After Path γ: write fails fast with typed error → operator sees
+      // 503s in monitoring → fail-loud signal triggers ops investigation.
+      // Data integrity preserved (write doesn't land in volatile state).
+      //
+      // SENIOR ARCHITECT NOTE: this test uses createAlert as the Class 3
+      // write probe; identical semantics hold for patchAlert,
+      // purgeOldAttackEvents, recordAttackEvent. Class 2 writes
+      // (writeAuditLog, createReport, deleteUserCascade, all portfolio
+      // writes) inherit Path γ semantics when useSupabaseJsonDomains=
+      // false (i.e., SUPABASE_APP_STATE_BUCKET unset / SOC_IDENTITY_STORE=
+      // disabled). Class 1 identity ops are NOT touched — already
+      // fail-loud via direct supabaseStore routing in production config.
+      //
+      // REJECTED ALTERNATIVE: use recordAttackEvent for the probe.
+      // Rejected because recordAttackEvent has a secondary Supabase
+      // attack-store call after the primary; mocking that surface adds
+      // test noise without changing the primary-store-write semantic
+      // being probed.
+      const memoryCreate = vi.fn().mockResolvedValue({ id: 99 })
+      const sqliteCreate = vi.fn().mockRejectedValue(new Error('sqlite outage'))
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const adapter = await importAdapter({
+        nodeEnv: 'production',
+        socStorage: 'sqlite',
+        socIdentityStore: 'disabled',
+        // SOC_ALLOW_CRITICAL_MEMORY_FALLBACK NOT set — derived from
+        // NODE_ENV=production alone (R-03 trigger path).
+        memory: { createAlert: memoryCreate },
+        sqlite: { createAlert: sqliteCreate },
+      })
+
+      // Path γ assertion: createAlert (Class 3 write) throws typed error
+      // instead of silently falling back to memory.
+      await expect(adapter.createAlert({} as never)).rejects.toThrow(
+        adapter.MemoryFallbackBlockedError,
+      )
+
+      // sqlite was attempted (one call before throw)
+      expect(sqliteCreate).toHaveBeenCalledOnce()
+      // memory was NEVER reached for the write — Path γ blocks it before
+      // the in-memory mutation happens
+      expect(memoryCreate).not.toHaveBeenCalled()
+      // console.error fired with the write-block diagnostic
+      expect(errorSpy).toHaveBeenCalled()
+      expect(errorSpy.mock.calls[0][0]).toContain('Write blocked')
+
+      errorSpy.mockRestore()
+    })
+
+    it('T-AD09: production + sqlite outage + Class 3 read → memory fallback succeeds (Path γ read-permissive regression guard)', async () => {
+      // FIX EVIDENCE: Phase 1.5.7 R-03 Path γ — read operations remain
+      // permissive during sqlite outage to preserve degraded availability.
+      // listAlerts (Class 3 read) has NO isWrite flag → default false →
+      // withStore catch block routes to memoryStore.listAlerts as
+      // pre-Path-γ behavior.
+      //
+      // This test pairs with T-AD08 as the "Path γ duality" probe:
+      //   - T-AD08: same env, write call → throws
+      //   - T-AD09: same env, read call → succeeds via memory fallback
+      // Together they document the read/write asymmetry Path γ
+      // intentionally introduces.
+      //
+      // SENIOR ARCHITECT NOTE: the operational tradeoff is explicit —
+      // read availability preserved (dashboard alert list, live metrics
+      // continue working against memory-seeded state during sqlite
+      // outage) at the cost of degraded data freshness (memory state
+      // may be empty or stale). Operator monitors via the console.error
+      // log + 503s from write attempts. This is the R-03 Path γ "fail
+      // partial, not fail entire" design philosophy.
+      //
+      // REJECTED ALTERNATIVE: T-AD09 could probe getLiveMetrics instead
+      // of listAlerts. Rejected because listAlerts has the simpler
+      // return-shape mock (just an alert list) — clearer test focus.
+      // Both methods share identical fallback behavior under Path γ.
+      const memoryListAlerts = vi.fn().mockResolvedValue({
+        alerts: [],
+        total: 0,
+        activeTotal: 0,
+        resolvedTotal: 0,
+      })
+      const sqliteListAlerts = vi.fn().mockRejectedValue(new Error('sqlite outage'))
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const adapter = await importAdapter({
+        nodeEnv: 'production',
+        socStorage: 'sqlite',
+        socIdentityStore: 'disabled',
+        memory: { listAlerts: memoryListAlerts },
+        sqlite: { listAlerts: sqliteListAlerts },
+      })
+
+      // Path γ assertion: listAlerts (Class 3 read) succeeds via memory
+      // fallback after sqlite throws — read-permissive contract preserved.
+      const result = await adapter.listAlerts({} as never)
+      expect(result).toEqual({ alerts: [], total: 0, activeTotal: 0, resolvedTotal: 0 })
+
+      // sqlite attempted, memory served as fallback
+      expect(sqliteListAlerts).toHaveBeenCalledOnce()
+      expect(memoryListAlerts).toHaveBeenCalledOnce()
+      // console.error fired with the read-fallback diagnostic (different
+      // message than write-block — Path γ's two diagnostic strings let
+      // operators distinguish the two paths in log analysis)
+      expect(errorSpy).toHaveBeenCalled()
+      expect(errorSpy.mock.calls[0][0]).toContain('Falling back to memory store for read')
 
       errorSpy.mockRestore()
     })
