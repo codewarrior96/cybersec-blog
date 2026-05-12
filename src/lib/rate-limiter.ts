@@ -6,7 +6,7 @@ import {
   recordFailureToSupabase,
 } from './supabase-rate-limits'
 
-// R-02 hardening (Phase 1.5.9 <COMMIT_HASH_TBD>): rate-limiter dispatches to
+// R-02 hardening (Phase 1.5.9 6e677c0): rate-limiter dispatches to
 // Supabase Postgres (public.rate_limits) for cross-instance-coherent shared
 // state when SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY are configured.
 // Closes R-02 (per-process globalThis Map → Supabase Postgres).
@@ -135,7 +135,7 @@ export async function clearAttempts(key: string, bucketName: string): Promise<vo
 }
 
 export async function __resetAllForTests(): Promise<void> {
-  // R-08 closure (Phase 1.5.9 <COMMIT_HASH_TBD>): production NODE_ENV guard.
+  // R-08 closure (Phase 1.5.9 6e677c0): production NODE_ENV guard.
   // Export retained for test consumers (test/setup.ts global afterEach +
   // rate-limiter.test.ts per-test beforeEach). Production calls throw to
   // prevent supply-chain-compromise abuse — an attacker with code-execution

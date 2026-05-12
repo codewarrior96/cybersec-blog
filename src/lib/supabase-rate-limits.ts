@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-// R-02 hardening (Phase 1.5.9 <COMMIT_HASH_TBD>): Supabase Postgres shared
+// R-02 hardening (Phase 1.5.9 6e677c0): Supabase Postgres shared
 // state for rate-limit counters. Backs the rate-limiter.ts dispatcher when
 // SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY are configured. Closes R-02 by
 // replacing per-process globalThis Map with cross-instance-coherent state

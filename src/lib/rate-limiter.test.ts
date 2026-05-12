@@ -158,7 +158,7 @@ describe('rate-limiter', () => {
   })
 
   describe('__resetAllForTests R-08 NODE_ENV guard', () => {
-    it('T-R09: __resetAllForTests throws in production (R-08 ✅ FIXED in <COMMIT_HASH_TBD>)', async () => {
+    it('T-R09: __resetAllForTests throws in production (R-08 ✅ FIXED in 6e677c0)', async () => {
       // FIX EVIDENCE: Phase 1.5.9 R-08 closure. The export is retained
       // (test consumers still need it for cleanup), but production
       // invocation throws. An attacker with supply-chain code-execution
@@ -195,7 +195,7 @@ describe('rate-limiter', () => {
     })
   })
 
-  describe('Supabase dispatcher (R-02 ✅ FIXED in <COMMIT_HASH_TBD>)', () => {
+  describe('Supabase dispatcher (R-02 ✅ FIXED in 6e677c0)', () => {
     it('T-R10: When Supabase enabled, recordFailure + checkRateLimit dispatch to Supabase backend (cross-instance shared state simulation)', async () => {
       // FIX EVIDENCE: Phase 1.5.9 R-02 closure. The rate-limiter's
       // dispatcher routes calls to supabase-rate-limits.ts module when
