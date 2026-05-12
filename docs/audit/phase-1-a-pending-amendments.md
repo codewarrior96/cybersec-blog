@@ -125,6 +125,32 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Action:** Add T-S10/T-S11/T-S12 rows to Section 5 `security.ts` subsection.
 - **Resolution:** Phase 1.5.5 commit `bb11ae6` — three rows added to Section 5 `security.ts` subsection alongside the R-01 audit work. Bundled per atomic-where-mental-model-aligns discipline (audit completeness ≈ audit completeness, same mental model + same physical table edit area). Pattern mirror: R-21 cycle's A-02 "add R-21 to Section 2 risk register" was satisfied + resolved in the same commit (R-21/A-02 pattern); A-19 follows the same shape.
 
+### A-20 — R-02 + R-19 + R-03 architectural cluster (deferral context)
+
+- **Discovered in:** Phase 1.5.6 state gathering (compound exploitability analysis)
+- **Status:** Active deferral marker — R-02 + R-19 DEFERRED, R-03 next priority (Phase 1.5.7)
+- **Issue:** Three risks share architectural root cause: in-process state binding in memory store + per-process state in rate-limiter. Compound exploitability:
+
+| Risk | Single-instance dev | Vercel multi-instance, Supabase healthy | Vercel multi-instance, R-03 fallback active |
+|------|---------------------|------------------------------------------|---------------------------------------------|
+| R-02 | not exploitable | exploitable (per-process Map across N instances) | exploitable (compounded) |
+| R-19 | not exploitable | not exploitable (Supabase routing handles logout) | exploitable (memory store activates, Set instance-bound) |
+| R-03 | not exploitable | not exploitable (Supabase routing) | active (data loss, broken auth — Critical) |
+
+- **Architectural surface:**
+  - R-02: `src/lib/rate-limiter.ts` standalone module, `globalThis[GLOBAL_KEY]` Map, no Supabase backing exists
+  - R-19: `src/lib/soc-store-memory.ts` `revokedTokens` Set in deleteSession/getSessionByToken
+  - R-03: `src/lib/soc-store-adapter.ts` fallback gate (`SOC_ALLOW_CRITICAL_MEMORY_FALLBACK=1` auto-enables in production)
+- **Deferral rationale (Phase 1.5.6 mentor decision):**
+  1. R-03 is the underlying enabler for R-19 compound case. Fixing R-19 without R-03 = partial closure, audit-credibility risk.
+  2. R-02 standalone fix (Supabase migration) requires latency budget analysis + failure-mode policy. These decisions are downstream of R-03 fix (which determines fallback semantics framework).
+  3. R-03 closure first allows R-02 + R-19 to be revisited with informed architectural context.
+- **Compound resolution path (not yet executed):**
+  1. Phase 1.5.7: R-03 fix — fallback policy + alerting + retry strategy. May remove memory fallback entirely (R-19 inapplicable) or retain with new policy (R-19 fix scope determined).
+  2. Phase 1.5.8+: R-02 Path β decision in post-R-03 framework — Supabase rate_limits table vs alternative backend (Vercel KV / Upstash Redis noted as out-of-audit-scope future improvement).
+  3. R-19 final closure either as inapplicable (memory fallback removed) or with shared-state primitives matching R-02 resolution.
+- **Action:** No code action in Phase 1.5.6. Section 2 rows marked ⏳ DEFERRED in commit `<COMMIT_HASH_TBD>`. A-20 stays OPEN until full cluster resolution (R-03 + R-02 + R-19 all closed).
+
 ### A-17 — R-20 fix architecture refinement (lazy + boot validation)
 
 - **Status:** candidate (not blocking, future hardening)
