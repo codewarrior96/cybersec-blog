@@ -21,10 +21,11 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Action:** Add R-21 to Section 2 risk register. Currently tested by T-S09 indirectly — consider whether a separate explicit T-S10 test is needed (e.g. write truncated hash directly to mock store, attempt login with arbitrary password, verify acceptance).
 - **Resolution:** Phase 1.5.4 commit `ed403df` — R-21 added to Section 2 risk register with `✅ FIXED` status from inception (satisfying the original "add to Section 2" action and the fix closure in one commit). Two-layer integrity guard implemented in `src/lib/security.ts`: `HASH_FORMAT_RE = /^[0-9a-f]{32}:[0-9a-f]{128}$/` module constant + `assertHashFormat` helper. `hashPassword` self-validates output before return (write-time, Option β single chokepoint); `verifyPassword` invokes `assertHashFormat(storedHash)` as first action inside try-block, with throw caught → returns false (read-time silent reject). T-S09 corrected from prior R-07 mislabel (Section 5 mapping R-07 → R-21; body flipped from `.toBe(true)` gap-doc to `.toBe(false)` regression guard); T-S13 added as explicit write-time conformance + multi-shape read-time probe. R-04's DUMMY_PASSWORD_HASH format compatible with new invariant — preserved without regen. Test count: 199 → 200 (+1 T-S13). A-02 retained for audit trail (not deleted) — pattern: any amendment resolved by a fix cycle gets RESOLVED marker + Resolution paragraph cross-reference to the commit.
 
-### A-03 — R-01 scope correction (Vercel-specific → all production)
+### A-03 — R-01 scope correction (Vercel-specific → all production)  [RESOLVED in Phase 1.5.5]
 - **Discovered in:** Phase 1.D.5 (client-ip.test.ts T-CI11a)
 - **Issue:** Audit R-01 description focuses on "Vercel multi-instance dispatch." Actual code at client-ip.ts L24: `return process.env.VERCEL === '1' || process.env.NODE_ENV === 'production'`. NODE_ENV=production alone triggers trustProxy=true. R-01 affects every production deployment (AWS, DigitalOcean, VPS, bare-metal, self-hosted), not just Vercel.
 - **Action:** Update Section 2 → R-01 row → File(s) and Risk columns to reflect broader scope. Consider whether severity should escalate to Critical given the wider attack surface.
+- **Resolution:** Phase 1.5.5 commit `<COMMIT_HASH_TBD>` — A-03's scope-broadening concern resolved in the same commit as the R-01 trust-gating fix. `trustProxy()` refactored to require explicit `TRUST_PROXY_HEADERS=1` opt-in; both the implicit `VERCEL=1` and `NODE_ENV=production` fallbacks removed. R-01 Section 2 row updated to reflect the all-production scope + ✅ FIXED status. Severity-escalation question (Critical?) is now moot — the fix closes the broader scope directly. R-01 remains at High severity for the documented opt-in-with-known-limitation case (residual sub-vector 2: chain extraction returns spoofable first-token even when operator opts in; T-CI04 + T-LG11 retain gap status). Path X 3-commit deploy-safe ordering used to mitigate R-20-deploy-fail-risk pattern — Phase 1.5.5.0 (commit `3630057`) documented `TRUST_PROXY_HEADERS` in `.env.example` + `CLAUDE.md`, operator set the env in Vercel Production+Preview, then this fix landed.
 
 ### A-04 — Test count update for client-ip.test.ts
 - **Discovered in:** Phase 1.D.5
@@ -114,6 +115,15 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Action taken in 1.5.3 fix commit:** R-04 row File(s) updated to list all 4 stores. Fix applied to all 4 in the same commit (atomic).
 - **Risk if not addressed:** R-04 would remain exploitable on any deployment using SOC_IDENTITY_STORE=postgres (Phase 2 migration target) or SOC_STORAGE=sqlite (dev/legacy mode). Single-store-only fix would leave the leak open on every code path that doesn't route through the supabase or memory store.
 - **OWASP:** A07 (same as R-04 parent).
+
+### A-19 — R-04 audit completeness gap: T-S10/T-S11/T-S12 missing from Section 5  [RESOLVED in Phase 1.5.5]
+
+- **Discovered in:** Phase 1.5.4 R-21 commit Group C work (out-of-scope observation surfaced in final report). Re-confirmed during Phase 1.5.5 state gathering.
+- **Issue:** Phase 1.5.3 R-04 cycle added T-S10 (`DUMMY_PASSWORD_HASH` constant shape), T-S11 (verifyPassword returns false for arbitrary input), and T-S12 (timing parity regression guard) to `src/lib/security.test.ts`, but did not add corresponding rows to `docs/audit/phase-1-a-final.md` Section 5 `security.ts` subsection. The R-04 cycle audit updates touched the R-04 risk row in Section 2 and the T-LG12 row in the login-route Section 5 subsection, but the security.ts subsection was missed. Audit Section 5 ended at T-S08, then jumped to T-S09 (R-21 added by Phase 1.5.4) and T-S13 (R-21 added by Phase 1.5.4) — silently skipping T-S10/T-S11/T-S12.
+- **Severity:** Audit-doc completeness gap (no security vector); test coverage exists in source, only Section 5 mapping was missing. Not a vulnerability.
+- **OWASP:** N/A (process gap, not a security risk).
+- **Action:** Add T-S10/T-S11/T-S12 rows to Section 5 `security.ts` subsection.
+- **Resolution:** Phase 1.5.5 commit `<COMMIT_HASH_TBD>` — three rows added to Section 5 `security.ts` subsection alongside the R-01 audit work. Bundled per atomic-where-mental-model-aligns discipline (audit completeness ≈ audit completeness, same mental model + same physical table edit area). Pattern mirror: R-21 cycle's A-02 "add R-21 to Section 2 risk register" was satisfied + resolved in the same commit (R-21/A-02 pattern); A-19 follows the same shape.
 
 ### A-17 — R-20 fix architecture refinement (lazy + boot validation)
 

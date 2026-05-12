@@ -107,31 +107,42 @@ describe('client-ip', () => {
   // ─── trustProxy() decision matrix (R-01) ─────────────────────────────────────
 
   describe('trustProxy decision matrix (R-01)', () => {
-    it('T-CI11a: NODE_ENV=production, VERCEL unset, flag unset → trustProxy=true — gap (R-01 broader scope)', () => {
-      // GAP DOCUMENTATION (R-01 — BROADER THAN AUDIT ASSUMED):
-      // The audit described T-CI11 as "trustProxy false" for the non-Vercel production
-      // case, implying self-hosted prod would be safe. Actual code (L24):
-      //   return process.env.VERCEL === '1' || process.env.NODE_ENV === 'production'
-      // NODE_ENV=production ALONE triggers trustProxy=true — no VERCEL flag needed.
+    it('T-CI11a: NODE_ENV=production, VERCEL unset, flag unset → trustProxy=false (R-01 FIXED in <COMMIT_HASH_TBD>)', () => {
+      // FIX EVIDENCE: Phase 1.5.5 R-01 trust-gating sub-vector closure.
+      // trustProxy() now returns true ONLY when TRUST_PROXY_HEADERS is
+      // explicitly set to '1' or 'true' (client-ip.ts post-fix). The
+      // prior implicit fallback (`VERCEL === '1' || NODE_ENV ===
+      // 'production'`) has been removed. NODE_ENV=production alone no
+      // longer auto-trusts proxy headers — every deployment must opt
+      // in via TRUST_PROXY_HEADERS=1.
       //
-      // Impact: every production deployment (AWS, DigitalOcean, VPS, bare-metal) that
-      // sets NODE_ENV=production (the conventional standard) auto-trusts proxy headers
-      // without any explicit opt-in. R-01 is not Vercel-specific; it affects every
-      // production environment.
+      // HISTORICAL CONTEXT (A-03 RESOLVED): the original audit framed
+      // R-01 as "Vercel-specific multi-instance dispatch." Phase 1.D.5
+      // analysis of client-ip.ts (then-current) discovered the
+      // NODE_ENV=production implicit-trust branch — broadening R-01's
+      // scope to every production deployment (AWS, DigitalOcean, VPS,
+      // bare-metal, self-hosted). A-03 documented the scope correction;
+      // Phase 1.5.5 R-01 fix closes both the original (Vercel) and
+      // broadened (all-production) scope by making trust strictly
+      // explicit-opt-in.
       //
-      // Phase 1.5 hardening recommendation: remove NODE_ENV=production from the
-      // fallback. Make trustProxy default=false; opt-in only via TRUST_PROXY_HEADERS=1
-      // or VERCEL=1. Operators who run behind a trusted reverse proxy must opt in
-      // explicitly. This is the "secure default" principle.
+      // SENIOR ARCHITECT NOTE: x-forwarded-for header is still present
+      // in the request, but trustProxy()=false routes getClientIp
+      // through the request.ip / 'unknown' fallback path, ignoring the
+      // header entirely. The spoof attempt (`9.9.9.9` in
+      // x-forwarded-for) is invisible to downstream consumers
+      // (rate-limiter, audit log, abuse attribution).
       //
-      // This test asserts CURRENT behavior (trustProxy=true, spoof succeeds). It will
-      // fail intentionally when the NODE_ENV branch is removed — that failure is the
-      // regression signal confirming R-01 is fixed for self-hosted deployments.
+      // REJECTED ALTERNATIVE: keep NODE_ENV=production auto-trust but
+      // gate by a list of trusted reverse-proxy IPs. Rejected — adds
+      // significant config complexity (operator must enumerate proxy
+      // IPs), and the same outcome is achievable with a single
+      // explicit env flag that is auditable from a glance.
       vi.stubEnv('TRUST_PROXY_HEADERS', '')
       vi.stubEnv('VERCEL', '')
       vi.stubEnv('NODE_ENV', 'production')
       const req = makeReq({ 'x-forwarded-for': '9.9.9.9' })
-      expect(getClientIp(req)).toBe('9.9.9.9') // gap: R-01, trustProxy=true in all prod
+      expect(getClientIp(req)).toBe('unknown')
     })
 
     it('T-CI11b: NODE_ENV=test, VERCEL unset, flag unset → trustProxy=false — safe baseline', () => {
@@ -146,17 +157,40 @@ describe('client-ip', () => {
       expect(getClientIp(req)).toBe('unknown')
     })
 
-    it('T-CI12: VERCEL=1, flag unset → trustProxy=true (intended Vercel behavior)', () => {
-      // When VERCEL=1, trusting x-forwarded-for is intentional — Vercel's edge
-      // network guarantees the header chain integrity. This is the expected path.
-      // The risk (R-01) is that an attacker can still prepend their own IP to the
-      // chain before Vercel appends the real one; first-token extraction returns
-      // the attacker's value. This is the same gap as T-CI04, surfaced via the
-      // trustProxy auto-detection path rather than the explicit flag path.
+    it('T-CI12: VERCEL=1, flag unset → trustProxy=false (R-01 FIXED in <COMMIT_HASH_TBD>; Vercel deploy now requires explicit TRUST_PROXY_HEADERS=1)', () => {
+      // FIX EVIDENCE: Phase 1.5.5 R-01 — the VERCEL=1 implicit-trust
+      // fallback was removed from trustProxy() alongside the
+      // NODE_ENV=production fallback (T-CI11a above). Vercel
+      // deployments now MUST set TRUST_PROXY_HEADERS=1 explicitly in
+      // Production+Preview env to retain proxy-header trust.
+      //
+      // DEPLOYMENT ORDERING (Path X 3-commit deploy-safe pattern):
+      // Phase 1.5.5.0 (commit 3630057) documented TRUST_PROXY_HEADERS
+      // in .env.example + CLAUDE.md as a Vercel-required env. Operator
+      // set TRUST_PROXY_HEADERS=1 in Vercel Production + Preview env
+      // BEFORE this fix's deploy. Without the env-set, getClientIp
+      // would fall through to request.ip — on Vercel this surfaces
+      // the edge node's IP rather than the actual client IP, and
+      // per-IP rate-limit buckets would collapse to a single shared
+      // bucket (effectively disabling brute-force protection at the
+      // IP layer). R-20 deploy-fail-risk pattern mitigation.
+      //
+      // SENIOR ARCHITECT NOTE: the previous "VERCEL=1 → trustProxy
+      // true" auto-detection was a convenience but undermined the
+      // security boundary by allowing two distinct trust paths
+      // (explicit flag OR auto-detect). Explicit-only is uniformly
+      // auditable from a single env variable.
+      //
+      // REJECTED ALTERNATIVE: retain VERCEL=1 auto-trust as a Vercel-
+      // platform-specific convenience. Rejected because it leaves a
+      // hidden trust path active — operators reading the source
+      // couldn't determine trust state from TRUST_PROXY_HEADERS alone.
+      // The cost of "set one extra env var on Vercel" is trivially
+      // less than the benefit of single-source-of-truth auditing.
       vi.stubEnv('TRUST_PROXY_HEADERS', '')
       vi.stubEnv('VERCEL', '1')
       const req = makeReq({ 'x-forwarded-for': '1.2.3.4' })
-      expect(getClientIp(req)).toBe('1.2.3.4')
+      expect(getClientIp(req)).toBe('unknown')
     })
   })
 })
