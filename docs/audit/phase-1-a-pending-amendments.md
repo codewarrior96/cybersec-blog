@@ -149,7 +149,7 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
   1. Phase 1.5.7: R-03 fix — fallback policy + alerting + retry strategy. May remove memory fallback entirely (R-19 inapplicable) or retain with new policy (R-19 fix scope determined).
   2. Phase 1.5.8+: R-02 Path β decision in post-R-03 framework — Supabase rate_limits table vs alternative backend (Vercel KV / Upstash Redis noted as out-of-audit-scope future improvement).
   3. R-19 final closure either as inapplicable (memory fallback removed) or with shared-state primitives matching R-02 resolution.
-- **Action:** No code action in Phase 1.5.6. Section 2 rows marked ⏳ DEFERRED in commit `<COMMIT_HASH_TBD>`. A-20 stays OPEN until full cluster resolution (R-03 + R-02 + R-19 all closed).
+- **Action:** No code action in Phase 1.5.6. Section 2 rows marked ⏳ DEFERRED in commit `4deb361`. A-20 stays OPEN until full cluster resolution (R-03 + R-02 + R-19 all closed).
 
 ### A-17 — R-20 fix architecture refinement (lazy + boot validation)
 
