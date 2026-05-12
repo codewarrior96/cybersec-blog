@@ -70,7 +70,7 @@ const validBody = { token: 'token-xyz', newPassword: 'newpass1234' }
 beforeEach(() => {
   vi.mocked(getClientIp).mockReturnValue('127.0.0.1')
   vi.mocked(getRequestMetadata).mockReturnValue({ ipAddress: '127.0.0.1', userAgent: 'test' })
-  vi.mocked(checkRateLimit).mockReturnValue({
+  vi.mocked(checkRateLimit).mockResolvedValue({
     limited: false,
     remaining: 9,
     resetAt: Date.now() + 5 * 60 * 1000,
@@ -404,7 +404,7 @@ describe('reset/route POST', () => {
       // also helps). The compound is too complex to probe at unit
       // level — Phase 5 integration territory.
       const resetAt = Date.now() + 60_000
-      vi.mocked(checkRateLimit).mockReturnValueOnce({
+      vi.mocked(checkRateLimit).mockResolvedValueOnce({
         limited: true,
         remaining: 0,
         resetAt,

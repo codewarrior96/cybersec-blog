@@ -59,7 +59,7 @@ const MAX_TOKEN_LENGTH = 256
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request)
 
-  const rate = checkRateLimit(ip, RESET_RATE_LIMIT)
+  const rate = await checkRateLimit(ip, RESET_RATE_LIMIT)
   if (rate.limited) {
     return NextResponse.json(
       { ok: false, error: 'RATE_LIMITED', message: 'Çok fazla deneme. Birkaç dakika sonra tekrar dene.' },
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
   const newPassword = typeof body.newPassword === 'string' ? body.newPassword : ''
 
   if (!token || token.length > MAX_TOKEN_LENGTH) {
-    recordFailure(ip, RESET_RATE_LIMIT)
+    await recordFailure(ip, RESET_RATE_LIMIT)
     return NextResponse.json(
       { ok: false, error: 'TOKEN_INVALID', message: 'Geçersiz bağlantı. Yeniden talep et.' },
       { status: 400 },
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
   // expensive and we don't want attackers triggering it on every
   // junk-password attempt.
   if (!isValidPassword(newPassword)) {
-    recordFailure(ip, RESET_RATE_LIMIT)
+    await recordFailure(ip, RESET_RATE_LIMIT)
     return NextResponse.json(
       { ok: false, error: 'WEAK_PASSWORD', message: getPasswordError() },
       { status: 400 },
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await findUserByPasswordResetToken(token)
     if (!user) {
-      recordFailure(ip, RESET_RATE_LIMIT)
+      await recordFailure(ip, RESET_RATE_LIMIT)
       return NextResponse.json(
         { ok: false, error: 'TOKEN_INVALID', message: 'Geçersiz bağlantı. Yeniden talep et.' },
         { status: 400 },
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user.passwordResetTokenExpiresAt) {
-      recordFailure(ip, RESET_RATE_LIMIT)
+      await recordFailure(ip, RESET_RATE_LIMIT)
       return NextResponse.json(
         { ok: false, error: 'TOKEN_INVALID', message: 'Geçersiz bağlantı. Yeniden talep et.' },
         { status: 400 },
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
 
     const expiresAt = Date.parse(user.passwordResetTokenExpiresAt)
     if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-      recordFailure(ip, RESET_RATE_LIMIT)
+      await recordFailure(ip, RESET_RATE_LIMIT)
       return NextResponse.json(
         { ok: false, error: 'TOKEN_EXPIRED', message: 'Bu bağlantı süresi dolmuş. Yeni bir bağlantı talep et.' },
         { status: 400 },

@@ -55,7 +55,7 @@ function appBaseUrl(request: NextRequest): string {
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request)
 
-  const rate = checkRateLimit(ip, REGISTER_RATE_LIMIT)
+  const rate = await checkRateLimit(ip, REGISTER_RATE_LIMIT)
   if (rate.limited) {
     return NextResponse.json(
       { error: 'Cok fazla kayit denemesi. Lutfen 5 dakika bekleyin.' },
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
   // Count every register POST toward the bucket — short-circuits before
   // password hashing so scrypt CPU is never invoked on a throttled IP.
-  recordFailure(ip, REGISTER_RATE_LIMIT)
+  await recordFailure(ip, REGISTER_RATE_LIMIT)
 
   const body = (await request.json().catch(() => ({}))) as RegisterBody
   const username = typeof body.username === 'string' ? body.username.trim() : ''

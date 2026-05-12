@@ -62,7 +62,7 @@ beforeEach(() => {
   // mockReturnValueOnce / mockResolvedValueOnce / mockRejectedValueOnce.
   vi.mocked(getClientIp).mockReturnValue('127.0.0.1')
   vi.mocked(getRequestMetadata).mockReturnValue({ ipAddress: '127.0.0.1', userAgent: 'test' })
-  vi.mocked(checkRateLimit).mockReturnValue({
+  vi.mocked(checkRateLimit).mockResolvedValue({
     limited: false,
     remaining: 9,
     resetAt: Date.now() + 5 * 60 * 1000,
@@ -224,7 +224,7 @@ describe('register/route POST', () => {
       // the response shape, the header presence, and the absence of
       // downstream side effects.
       const resetAt = Date.now() + 60_000
-      vi.mocked(checkRateLimit).mockReturnValueOnce({
+      vi.mocked(checkRateLimit).mockResolvedValueOnce({
         limited: true,
         remaining: 0,
         resetAt,

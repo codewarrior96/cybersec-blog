@@ -91,7 +91,7 @@ beforeEach(() => {
   // / mockResolvedValueOnce / mockRejectedValueOnce.
   vi.mocked(getClientIp).mockReturnValue('127.0.0.1')
   vi.mocked(getRequestMetadata).mockReturnValue({ ipAddress: '127.0.0.1', userAgent: 'test' })
-  vi.mocked(checkRateLimit).mockReturnValue({
+  vi.mocked(checkRateLimit).mockResolvedValue({
     limited: false,
     remaining: 9,
     resetAt: Date.now() + 5 * 60 * 1000,
@@ -311,7 +311,7 @@ describe('login/route POST', () => {
   describe('rate limiting (R-01/R-02)', () => {
     it('T-LG04: 11th failed attempt → 429 with Retry-After header', async () => {
       const resetAt = Date.now() + 60_000
-      vi.mocked(checkRateLimit).mockReturnValueOnce({
+      vi.mocked(checkRateLimit).mockResolvedValueOnce({
         limited: true,
         remaining: 0,
         resetAt,

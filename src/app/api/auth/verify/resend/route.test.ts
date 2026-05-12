@@ -55,7 +55,7 @@ const GENERIC_OK = 'Eger email kayitliysa, yeni dogrulama bagi gonderildi.'
 beforeEach(() => {
   // Baseline: rate-limit ok, user found+unverified+active, store + email
   // dispatch both succeed.
-  vi.mocked(checkRateLimit).mockReturnValue({
+  vi.mocked(checkRateLimit).mockResolvedValue({
     limited: false,
     remaining: 2,
     resetAt: Date.now() + 60 * 60 * 1000,
@@ -251,7 +251,7 @@ describe('verify/resend/route POST', () => {
       // creates a different victim-lockout (one ISP CGNAT user blocks
       // their entire network from resending).
       const resetAt = Date.now() + 60 * 60 * 1000
-      vi.mocked(checkRateLimit).mockReturnValueOnce({
+      vi.mocked(checkRateLimit).mockResolvedValueOnce({
         limited: true,
         remaining: 0,
         resetAt,

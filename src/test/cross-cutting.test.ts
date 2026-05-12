@@ -73,7 +73,7 @@ beforeEach(() => {
   // Reset-route happy-path baseline (T-AL01 baseline; T-SEC01 unaffected)
   vi.mocked(getClientIp).mockReturnValue('127.0.0.1')
   vi.mocked(getRequestMetadata).mockReturnValue({ ipAddress: '127.0.0.1', userAgent: 'test' })
-  vi.mocked(checkRateLimit).mockReturnValue({
+  vi.mocked(checkRateLimit).mockResolvedValue({
     limited: false,
     remaining: 9,
     resetAt: Date.now() + 5 * 60 * 1000,

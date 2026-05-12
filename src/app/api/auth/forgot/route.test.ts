@@ -53,7 +53,7 @@ const updatedUser = {
 const GENERIC_OK = 'Eğer bu email kayıtlıysa, şifre sıfırlama bağlantısı gönderildi.'
 
 beforeEach(() => {
-  vi.mocked(checkRateLimit).mockReturnValue({
+  vi.mocked(checkRateLimit).mockResolvedValue({
     limited: false,
     remaining: 2,
     resetAt: Date.now() + 60 * 60 * 1000,
@@ -224,7 +224,7 @@ describe('forgot/route POST', () => {
       // email-keyed, so the victim-lockout DoS would no longer apply).
       // Splitting the assertions catches the silent regression.
       const resetAt = Date.now() + 60 * 60 * 1000
-      vi.mocked(checkRateLimit).mockReturnValueOnce({
+      vi.mocked(checkRateLimit).mockResolvedValueOnce({
         limited: true,
         remaining: 0,
         resetAt,

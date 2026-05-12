@@ -26,7 +26,7 @@ const MAX_PASSWORD_LENGTH = 256
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request)
 
-  const rate = checkRateLimit(ip, LOGIN_RATE_LIMIT)
+  const rate = await checkRateLimit(ip, LOGIN_RATE_LIMIT)
   if (rate.limited) {
     return NextResponse.json(
       { error: 'Cok fazla basarisiz deneme. Lutfen 5 dakika bekleyin.' },
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await authenticateUser(username, password)
     if (!user) {
-      recordFailure(ip, LOGIN_RATE_LIMIT)
+      await recordFailure(ip, LOGIN_RATE_LIMIT)
       return NextResponse.json({ error: 'Hatali kullanici adi veya sifre.' }, { status: 401 })
     }
 
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     // of whether we ultimately mint a session below. Brute-force protection
     // is about wrong-password volume; the right-password-but-unverified path
     // shouldn't be punished by a stale rate-limit window.
-    clearAttempts(ip, LOGIN_RATE_LIMIT.bucket)
+    await clearAttempts(ip, LOGIN_RATE_LIMIT.bucket)
 
     // ─── Phase 4.5 gate: verification before session ─────────────────────
     // Auth Flow Refactor moves the email-verified gate from the edge

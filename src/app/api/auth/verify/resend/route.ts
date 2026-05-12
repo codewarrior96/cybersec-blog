@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
   // Rate limit by emailKey (not IP) — per spec "3 attempts per email per
   // hour". A real attacker could rotate IPs but rotating emails is
   // pointless (they'd have to control each address).
-  const rate = checkRateLimit(emailKey, RESEND_RATE_LIMIT)
+  const rate = await checkRateLimit(emailKey, RESEND_RATE_LIMIT)
   if (rate.limited) {
     return NextResponse.json(
       { ok: false, error: 'RATE_LIMITED' },
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     )
   }
   // Count this attempt regardless of outcome so abuse can't iterate.
-  recordFailure(emailKey, RESEND_RATE_LIMIT)
+  await recordFailure(emailKey, RESEND_RATE_LIMIT)
 
   try {
     const user = await readUserByEmailKey(emailKey)

@@ -20,9 +20,24 @@ beforeAll(() => {
   server.listen({ onUnhandledRequest: 'error' })
 })
 
-afterEach(() => {
+afterEach(async () => {
   server.resetHandlers()
-  __resetAllForTests()
+  // SENIOR ARCHITECT NOTE: __resetAllForTests has an R-08 NODE_ENV guard
+  // (Phase 1.5.9 hardening — throws when NODE_ENV=production). Some tests
+  // transiently stub NODE_ENV=production (e.g., T-AD07/T-AD08/T-AD09 R-03
+  // Path γ tests). The stub is restored by Vitest's restoreMocks: true AFTER
+  // this afterEach runs, so at this point NODE_ENV may still be 'production'.
+  // Cleanup is best-effort — swallow the guard's throw to keep test
+  // isolation robust. Tests that legitimately verify the guard (T-R09)
+  // assert the throw directly within their test body.
+  try {
+    await __resetAllForTests()
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('prohibited in production')) {
+      return
+    }
+    throw err
+  }
 })
 
 afterAll(() => {

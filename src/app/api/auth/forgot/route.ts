@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
   }
   const emailKey = emailResult.value
 
-  const rate = checkRateLimit(emailKey, FORGOT_RATE_LIMIT)
+  const rate = await checkRateLimit(emailKey, FORGOT_RATE_LIMIT)
   if (rate.limited) {
     return NextResponse.json(
       { ok: false, error: 'RATE_LIMITED' },
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     )
   }
   // Count this attempt regardless of outcome so abuse can't iterate.
-  recordFailure(emailKey, FORGOT_RATE_LIMIT)
+  await recordFailure(emailKey, FORGOT_RATE_LIMIT)
 
   try {
     const user = await readUserByEmailKey(emailKey)

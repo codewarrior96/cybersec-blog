@@ -1,3 +1,36 @@
+import {
+  __resetAllInSupabaseForTests,
+  checkRateLimitFromSupabase,
+  clearAttemptsInSupabase,
+  isSupabaseRateLimitsEnabled,
+  recordFailureToSupabase,
+} from './supabase-rate-limits'
+
+// R-02 hardening (Phase 1.5.9 <COMMIT_HASH_TBD>): rate-limiter dispatches to
+// Supabase Postgres (public.rate_limits) for cross-instance-coherent shared
+// state when SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY are configured.
+// Closes R-02 (per-process globalThis Map → Supabase Postgres).
+//
+// Fallback: when Supabase env unset (local dev, test env without remote
+// backend), retains globalThis Map for single-instance correctness. The
+// fallback path preserves backward compatibility with existing test
+// infrastructure and offline development workflows.
+//
+// R-08 closure (this commit): __resetAllForTests now guards against
+// production execution via NODE_ENV check at entry. The export is retained
+// (no signature change for test consumers); production calls throw an
+// explicit Error rather than silently wiping rate-limit state.
+//
+// API change: all public functions are async (Promise<...> return type).
+// Callers (5 route handlers + 1 setup file) updated to await.
+// Test mocks (6 files, ~50 sites) updated to mockResolvedValue.
+//
+// SENIOR ARCHITECT NOTE: dispatcher evaluates isSupabaseRateLimitsEnabled()
+// per call (not module-load-cached). This lets tests dynamically swap
+// behavior via vi.mock without re-importing the module. The env-read
+// inside isSupabaseRateLimitsEnabled() is itself cached at supabase-
+// rate-limits.ts module-load, so the per-call cost is one boolean check.
+
 interface RateLimitEntry {
   count: number
   resetAt: number
@@ -43,7 +76,14 @@ export interface RateLimitResult {
   resetAt: number
 }
 
-export function checkRateLimit(key: string, options: RateLimitOptions): RateLimitResult {
+export async function checkRateLimit(
+  key: string,
+  options: RateLimitOptions,
+): Promise<RateLimitResult> {
+  if (isSupabaseRateLimitsEnabled()) {
+    return checkRateLimitFromSupabase(options.bucket, key, options.max)
+  }
+  // Fallback: globalThis Map (local dev + test env without Supabase)
   const { store } = getBucket(options.bucket)
   const now = Date.now()
   const entry = store.get(key)
@@ -59,7 +99,14 @@ export function checkRateLimit(key: string, options: RateLimitOptions): RateLimi
   }
 }
 
-export function recordFailure(key: string, options: RateLimitOptions): RateLimitResult {
+export async function recordFailure(
+  key: string,
+  options: RateLimitOptions,
+): Promise<RateLimitResult> {
+  if (isSupabaseRateLimitsEnabled()) {
+    return recordFailureToSupabase(options.bucket, key, options.max, options.windowMs)
+  }
+  // Fallback: globalThis Map
   const { store } = getBucket(options.bucket)
   const now = Date.now()
   const entry = store.get(key)
@@ -78,11 +125,34 @@ export function recordFailure(key: string, options: RateLimitOptions): RateLimit
   }
 }
 
-export function clearAttempts(key: string, bucketName: string): void {
+export async function clearAttempts(key: string, bucketName: string): Promise<void> {
+  if (isSupabaseRateLimitsEnabled()) {
+    await clearAttemptsInSupabase(bucketName, key)
+    return
+  }
+  // Fallback: globalThis Map
   getBucket(bucketName).store.delete(key)
 }
 
-export function __resetAllForTests(): void {
+export async function __resetAllForTests(): Promise<void> {
+  // R-08 closure (Phase 1.5.9 <COMMIT_HASH_TBD>): production NODE_ENV guard.
+  // Export retained for test consumers (test/setup.ts global afterEach +
+  // rate-limiter.test.ts per-test beforeEach). Production calls throw to
+  // prevent supply-chain-compromise abuse — an attacker with code-execution
+  // capability can no longer call this to wipe rate-limit state silently.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('__resetAllForTests prohibited in production (R-08 guard)')
+  }
+
+  // Clear Supabase state (if configured) — handles cross-instance shared
+  // state cleanup so tests are hermetic across module reloads.
+  if (isSupabaseRateLimitsEnabled()) {
+    await __resetAllInSupabaseForTests()
+  }
+
+  // Always clear globalThis Map fallback (test isolation independent of
+  // Supabase availability; setup.ts afterEach relies on this for test
+  // hermeticity in both Supabase-enabled and -disabled paths).
   const g = globalThis as Globals
   g[GLOBAL_KEY] = new Map()
 }
