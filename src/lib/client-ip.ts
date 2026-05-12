@@ -18,7 +18,7 @@ function isValidIp(value: string): boolean {
 }
 
 function trustProxy(): boolean {
-  // R-01 hardening (Phase 1.5.5 <COMMIT_HASH_TBD>): explicit-opt-in only.
+  // R-01 hardening (Phase 1.5.5 bb11ae6): explicit-opt-in only.
   // Previously this returned true when VERCEL=1 OR NODE_ENV=production —
   // an implicit auto-trust that exposed every production deployment (AWS,
   // DigitalOcean, VPS, bare-metal, self-hosted) to X-Forwarded-For

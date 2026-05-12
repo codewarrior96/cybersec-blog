@@ -107,7 +107,7 @@ describe('client-ip', () => {
   // ─── trustProxy() decision matrix (R-01) ─────────────────────────────────────
 
   describe('trustProxy decision matrix (R-01)', () => {
-    it('T-CI11a: NODE_ENV=production, VERCEL unset, flag unset → trustProxy=false (R-01 FIXED in <COMMIT_HASH_TBD>)', () => {
+    it('T-CI11a: NODE_ENV=production, VERCEL unset, flag unset → trustProxy=false (R-01 FIXED in bb11ae6)', () => {
       // FIX EVIDENCE: Phase 1.5.5 R-01 trust-gating sub-vector closure.
       // trustProxy() now returns true ONLY when TRUST_PROXY_HEADERS is
       // explicitly set to '1' or 'true' (client-ip.ts post-fix). The
@@ -157,7 +157,7 @@ describe('client-ip', () => {
       expect(getClientIp(req)).toBe('unknown')
     })
 
-    it('T-CI12: VERCEL=1, flag unset → trustProxy=false (R-01 FIXED in <COMMIT_HASH_TBD>; Vercel deploy now requires explicit TRUST_PROXY_HEADERS=1)', () => {
+    it('T-CI12: VERCEL=1, flag unset → trustProxy=false (R-01 FIXED in bb11ae6; Vercel deploy now requires explicit TRUST_PROXY_HEADERS=1)', () => {
       // FIX EVIDENCE: Phase 1.5.5 R-01 — the VERCEL=1 implicit-trust
       // fallback was removed from trustProxy() alongside the
       // NODE_ENV=production fallback (T-CI11a above). Vercel
