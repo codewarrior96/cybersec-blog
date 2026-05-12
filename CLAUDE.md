@@ -96,6 +96,7 @@ SOC_STORAGE=sqlite                     # sqlite | memory
 SOC_IDENTITY_STORE=supabase            # supabase | postgres | disabled
 SOC_ALLOW_CRITICAL_MEMORY_FALLBACK=0
 SOC_DEMO_SECRET=                       # zorunlu (R-20) — generation: bkz .env.example
+TRUST_PROXY_HEADERS=                   # Vercel için zorunlu — see .env.example
 GREYNOISE_API_KEY=                     # opsiyonel, yoksa mock data
 ```
 
