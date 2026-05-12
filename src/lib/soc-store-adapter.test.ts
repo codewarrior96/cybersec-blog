@@ -265,7 +265,7 @@ describe('soc-store-adapter', () => {
       errorSpy.mockRestore()
     })
 
-    it('T-AD07: production + sqlite outage → memory fallback for read (R-03 Path γ FIXED in <COMMIT_HASH_TBD>, read path preserved)', async () => {
+    it('T-AD07: production + sqlite outage → memory fallback for read (R-03 Path γ FIXED in 9e16fbe, read path preserved)', async () => {
       // FIX EVIDENCE: Phase 1.5.7 R-03 Path γ closure. authenticateUser is
       // a READ operation (verifies credentials without writing). Path γ
       // intentionally preserves read fallback during sqlite outage — this
@@ -343,9 +343,9 @@ describe('soc-store-adapter', () => {
     })
   })
 
-  // ─── R-03 Path γ write-block (R-03 FIXED in <COMMIT_HASH_TBD>) ─────────────
+  // ─── R-03 Path γ write-block (R-03 FIXED in 9e16fbe) ─────────────
 
-  describe('R-03 Path γ write-block (R-03 FIXED in <COMMIT_HASH_TBD>)', () => {
+  describe('R-03 Path γ write-block (R-03 FIXED in 9e16fbe)', () => {
     it('T-AD08: production + sqlite outage + Class 3 write → MemoryFallbackBlockedError throws (R-03 Path γ regression guard)', async () => {
       // FIX EVIDENCE: Phase 1.5.7 R-03 Path γ — Class 3 write operations
       // (createAlert, patchAlert, purgeOldAttackEvents, recordAttackEvent)

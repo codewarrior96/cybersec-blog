@@ -10,7 +10,7 @@ type StoreModule = typeof import('@/lib/soc-store-memory')
 type StorageMode = 'memory' | 'sqlite'
 type StoreOptions = {
   allowMemoryFallback?: boolean
-  // R-03 hardening (Phase 1.5.7 <COMMIT_HASH_TBD>): Path γ — when isWrite=true
+  // R-03 hardening (Phase 1.5.7 9e16fbe): Path γ — when isWrite=true
   // AND the call has reached the memory-fallback path (sqlite failure under
   // production env), throw MemoryFallbackBlockedError instead of silently
   // routing the write to in-memory state (which would lose data on instance
