@@ -103,7 +103,7 @@ export async function sendPasswordResetEmail(params: {
   // header injection). Return the discriminated-union failure shape so
   // existing route-handler `{ ok: false }` paths log + skip the send.
   //
-  // R-12 hardening (Phase 1.5.11 <COMMIT_HASH_TBD>): write audit log
+  // R-12 hardening (Phase 1.5.11 db48dfd): write audit log
   // before returning the failure shape. Action 'email.failure' +
   // entityType 'email' + entityId='password_reset' purpose tag.
   // recipient_hash (16-char SHA-256 prefix of normalized email) preserves
@@ -174,7 +174,7 @@ export async function sendVerificationEmail(params: {
 }): Promise<SendEmailResult> {
   // R-15 Layer 2 (Phase 1.5.10): catch EmailUrlValidationError. See
   // sendPasswordResetEmail above for rationale.
-  // R-12 hardening (Phase 1.5.11 <COMMIT_HASH_TBD>): audit log on both
+  // R-12 hardening (Phase 1.5.11 db48dfd): audit log on both
   // URL validation failure AND Resend send failure paths. See
   // sendPasswordResetEmail above for action/details shape rationale.
   let rendered: { subject: string; html: string; text: string }

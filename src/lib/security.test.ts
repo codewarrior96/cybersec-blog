@@ -213,7 +213,7 @@ describe('security', () => {
       //   - Median (not mean) — robust to GC stalls / OS scheduling
       //     outliers
       //   - Threshold: max(40ms, 0.35 * avg_arm_time) — widened in Phase
-      //     1.5.11 (R-07 commit <COMMIT_HASH_TBD>) for SCRYPT_N=32768
+      //     1.5.11 (R-07 commit db48dfd) for SCRYPT_N=32768
       //     2× cost. Doubling absolute scrypt CPU time roughly doubles
       //     jitter window per call; threshold ratchet absorbs the
       //     amplification without compromising parity-regression-guard
@@ -267,7 +267,7 @@ describe('security', () => {
       expect(delta).toBeLessThan(threshold)
     })
 
-    it('T-S15: SCRYPT_N >= 32768 (R-07 cost-parameter regression guard, FIXED in <COMMIT_HASH_TBD>)', () => {
+    it('T-S15: SCRYPT_N >= 32768 (R-07 cost-parameter regression guard, FIXED in db48dfd)', () => {
       // FIX EVIDENCE: Phase 1.5.11 R-07 — scrypt cost parameter bumped
       // from Node default N=16384 to OWASP 2024+ recommended N=32768.
       // This test guards against future downgrade — if SCRYPT_N is ever

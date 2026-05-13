@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
   const rate = await checkRateLimit(ip, LOGIN_RATE_LIMIT)
   if (rate.limited) {
-    // R-06 hardening (Phase 1.5.11 <COMMIT_HASH_TBD>): audit log on 429.
+    // R-06 hardening (Phase 1.5.11 db48dfd): audit log on 429.
     // Privacy: full IP never logged (keyPreview hashes to 8-char prefix).
     // Rotation patterns detectable via distinct key_preview counts in log
     // aggregation. writeAuditLogSafely wraps in try/catch — if audit log

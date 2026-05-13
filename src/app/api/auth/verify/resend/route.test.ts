@@ -279,7 +279,7 @@ describe('verify/resend/route POST', () => {
       expect(sendVerificationEmail).not.toHaveBeenCalled()
     })
 
-    it('T-VR08: 429 emits rate_limit.exceeded audit log entry (R-06 FIXED in <COMMIT_HASH_TBD>)', async () => {
+    it('T-VR08: 429 emits rate_limit.exceeded audit log entry (R-06 FIXED in db48dfd)', async () => {
       // FIX EVIDENCE: Phase 1.5.11 R-06 — see login/route.test.ts T-LG13.
       // Verify-resend bucket is emailKey-keyed
       // (RESEND_RATE_LIMIT.bucket = 'auth.verify.resend').

@@ -2,7 +2,7 @@ import { createHash } from 'crypto'
 import { writeAuditLog } from '@/lib/soc-store-adapter'
 import type { RequestMetadata } from '@/lib/soc-store-memory'
 
-// Phase 1.5.11 (<COMMIT_HASH_TBD>): centralized audit-log privacy helpers
+// Phase 1.5.11 (db48dfd): centralized audit-log privacy helpers
 // + safe-wrap wrapper. Shared between R-06 (rate-limit observability,
 // route handlers) and R-12 (email failure observability, email.ts).
 //

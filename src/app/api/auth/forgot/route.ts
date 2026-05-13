@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
   const rate = await checkRateLimit(emailKey, FORGOT_RATE_LIMIT)
   if (rate.limited) {
-    // R-06 hardening (Phase 1.5.11 <COMMIT_HASH_TBD>): see login/route.ts.
+    // R-06 hardening (Phase 1.5.11 db48dfd): see login/route.ts.
     // emailKey-keyed bucket; key_preview hashes the emailKey (not IP).
     await writeAuditLogSafely({
       actorUserId: null,

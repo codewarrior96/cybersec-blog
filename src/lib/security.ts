@@ -2,7 +2,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 
 const SCRYPT_KEY_LENGTH = 64
 
-// R-07 hardening (Phase 1.5.11 <COMMIT_HASH_TBD>): scrypt cost parameter
+// R-07 hardening (Phase 1.5.11 db48dfd): scrypt cost parameter
 // bump from Node default N=16384 to OWASP 2024+ recommended N=32768.
 // Doubles CPU + memory cost per scrypt invocation, doubles GPU cracking
 // difficulty under DB-compromise scenarios. The conditional R-07 exploit

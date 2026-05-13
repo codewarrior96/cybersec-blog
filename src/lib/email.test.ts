@@ -38,7 +38,7 @@ beforeEach(() => {
 })
 
 describe('email — R-12 audit log on failure', () => {
-  it('T-EM01: verification email Resend send failure → email.failure audit log (R-12 FIXED in <COMMIT_HASH_TBD>)', async () => {
+  it('T-EM01: verification email Resend send failure → email.failure audit log (R-12 FIXED in db48dfd)', async () => {
     // FIX EVIDENCE: Phase 1.5.11 R-12 — when Resend SDK returns an error
     // response, sendVerificationEmail returns { ok: false, error } AND
     // writes an audit log entry with action='email.failure',
@@ -79,7 +79,7 @@ describe('email — R-12 audit log on failure', () => {
     expect(JSON.stringify(call.details)).not.toContain('victim@example.com')
   })
 
-  it('T-EM02: password reset email Resend send failure → email.failure audit log (R-12 FIXED in <COMMIT_HASH_TBD>)', async () => {
+  it('T-EM02: password reset email Resend send failure → email.failure audit log (R-12 FIXED in db48dfd)', async () => {
     // FIX EVIDENCE: Phase 1.5.11 R-12 — twin of T-EM01 for the password
     // reset email path. Same audit log shape; entityId='password_reset'
     // + details.purpose='password_reset'.
@@ -106,7 +106,7 @@ describe('email — R-12 audit log on failure', () => {
     expect(JSON.stringify(call.details)).not.toContain('user@example.com')
   })
 
-  it('T-EM03: verification email URL validation failure → email.failure audit log (R-12 + R-15 integration, FIXED in <COMMIT_HASH_TBD>)', async () => {
+  it('T-EM03: verification email URL validation failure → email.failure audit log (R-12 + R-15 integration, FIXED in db48dfd)', async () => {
     // FIX EVIDENCE: Phase 1.5.11 R-12 — when assertSafeUrl rejects a
     // poisoned URL (e.g., javascript: scheme), renderVerificationEmail
     // throws EmailUrlValidationError. sendVerificationEmail catches +

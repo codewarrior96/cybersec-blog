@@ -428,7 +428,7 @@ describe('reset/route POST', () => {
       expect(consumePasswordResetToken).not.toHaveBeenCalled()
     })
 
-    it('T-RS12: 429 emits rate_limit.exceeded audit log entry (R-06 FIXED in <COMMIT_HASH_TBD>)', async () => {
+    it('T-RS12: 429 emits rate_limit.exceeded audit log entry (R-06 FIXED in db48dfd)', async () => {
       // FIX EVIDENCE: Phase 1.5.11 R-06 — see login/route.test.ts T-LG13.
       // Reset bucket is IP-keyed (RESET_RATE_LIMIT.bucket = 'auth.reset').
       const resetAt = Date.now() + 60_000

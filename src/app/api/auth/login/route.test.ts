@@ -333,7 +333,7 @@ describe('login/route POST', () => {
       expect(createSession).not.toHaveBeenCalled()
     })
 
-    it('T-LG13: 429 emits rate_limit.exceeded audit log entry (R-06 FIXED in <COMMIT_HASH_TBD>)', async () => {
+    it('T-LG13: 429 emits rate_limit.exceeded audit log entry (R-06 FIXED in db48dfd)', async () => {
       // FIX EVIDENCE: Phase 1.5.11 R-06 — rate-limit exhaustion no longer
       // emits silent 429s. The route now calls writeAuditLogSafely with
       // action='rate_limit.exceeded', entityId=bucket, details containing
