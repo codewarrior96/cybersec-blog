@@ -27,10 +27,11 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Action:** Update Section 2 → R-01 row → File(s) and Risk columns to reflect broader scope. Consider whether severity should escalate to Critical given the wider attack surface.
 - **Resolution:** Phase 1.5.5 commit `bb11ae6` — A-03's scope-broadening concern resolved in the same commit as the R-01 trust-gating fix. `trustProxy()` refactored to require explicit `TRUST_PROXY_HEADERS=1` opt-in; both the implicit `VERCEL=1` and `NODE_ENV=production` fallbacks removed. R-01 Section 2 row updated to reflect the all-production scope + ✅ FIXED status. Severity-escalation question (Critical?) is now moot — the fix closes the broader scope directly. R-01 remains at High severity for the documented opt-in-with-known-limitation case (residual sub-vector 2: chain extraction returns spoofable first-token even when operator opts in; T-CI04 + T-LG11 retain gap status). Path X 3-commit deploy-safe ordering used to mitigate R-20-deploy-fail-risk pattern — Phase 1.5.5.0 (commit `3630057`) documented `TRUST_PROXY_HEADERS` in `.env.example` + `CLAUDE.md`, operator set the env in Vercel Production+Preview, then this fix landed.
 
-### A-04 — Test count update for client-ip.test.ts
+### A-04 — Test count update for client-ip.test.ts  [RESOLVED in Phase 1.5.12]
 - **Discovered in:** Phase 1.D.5
 - **Issue:** Audit Section 5 → client-ip.ts table lists T-CI11 as single test. Phase 1.D.5 split it into T-CI11a (production gap, R-01 broader scope) and T-CI11b (safe baseline). File now has 13 tests, not 12.
 - **Action:** Update Section 5 → client-ip.ts table to add T-CI11a and T-CI11b rows. Update Section 1 / Section 7 if test counts referenced.
+- **Resolution:** Phase 1.5.12 commit `<COMMIT_HASH_TBD>` — Section 5 `client-ip.ts` table T-CI11 row split into T-CI11a + T-CI11b distinct rows, each mapped to the corresponding `it()` block at `src/lib/client-ip.test.ts` L110 (T-CI11a — production gap regression guard) and L148 (T-CI11b — non-prod safe baseline). Both rows retain `R-01 ✅ FIXED` mapping (R-01 closed in Phase 1.5.5 `bb11ae6`); the split is audit-doc consistency hygiene only — no code/test logic change. Section 1 / Section 7 test count references were not affected (those reference vitest totals which already reflect both T-CI11a and T-CI11b).
 
 ### A-05 — T-IV06 consecutive dots gap (R-09 broader)
 - **Discovered in:** Phase 1.D.3 (identity-validation.test.ts)
@@ -108,6 +109,10 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Severity:** Same as R-18 (Medium) — vector identical, just second file affected. Same victim-lockout DoS: attacker who knows victim's email can burn through the 3-attempt budget in seconds, locking out victim's legitimate verify-resend requests for ~1 hour.
 - **Action:** Next audit revision — update R-18 → File(s) column to `forgot/route.ts, verify/resend/route.ts`. Hardening proposal (combined IP+email rate-limit, deferred to Phase 1.5 or Phase 3) applies to both files identically. Test guards in place at both T-FG-? (forgot, Phase 1.D.17) and T-VR04 (verify-resend, Phase 1.D.16).
 
+### A-16 — [RESERVED, NEVER USED]
+
+Numbering gap. A-16 number reserved during audit drafting but never assigned to a tracked amendment. Documented here in Phase 1.5.12 (commit `<COMMIT_HASH_TBD>`) for register completeness. No action.
+
 ### A-18 — R-04 fix surface expansion (postgres + sqlite stores)
 
 - **Discovered in:** Phase 1.5.3 state gathering (R-04 fix scope verification)
@@ -170,7 +175,7 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Action:** No code action — this amendment IS the documentation artifact. Resolves R-03 fix's "no silent omissions" discipline (Phase 1.5.3 R-04 lesson) by formalizing the routing analysis that informed Path γ's scope decision.
 - **Resolution:** Phase 1.5.7 commit `9e16fbe` — A-21 added as canonical reference alongside R-03 fix. Status RESOLVED from inception (same-commit add+resolve, R-21/A-02 + A-19 lineage pattern). Future cycles (Phase 1.5.8 R-19 revisit, Phase 1.5.9 R-02 Path β) should cross-reference A-21 when discussing adapter routing decisions.
 
-### A-17 — R-20 fix architecture refinement (lazy + boot validation)
+### A-17 — R-20 fix architecture refinement (lazy + boot validation)  [DEFERRED-TO-PHASE-2 in Phase 1.5.12]
 
 - **Status:** candidate (not blocking, future hardening)
 - **Discovered in:** Phase 1.5.1 deploy (CI fail revealed module-load throw fragility)
@@ -186,6 +191,7 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Trade-off preserved:** Lazy module + boot validator achieves identical fail-loud-at-boot semantic as current R-20 design (boot validator throws if env missing), while decoupling module load from env presence. R-20 hardening intent fully maintained.
 - **Action:** Defer to Phase 2 hardening pass or post-Phase-1.5 cleanup commit. Not blocking.
 - **Risk if not addressed:** minor — current Option A (env always set in Vercel Production + Preview) sidesteps the issue operationally. Refinement is design quality improvement, not vulnerability.
+- **Deferral:** Phase 1.5.12 commit `<COMMIT_HASH_TBD>` — formally deferred to Phase 2 hardening pass following A-20 deferral pattern lineage. Rationale: A-17 proposes a code-level refactor (lazy getter pattern for `getMemorySecret()` + Next.js `instrumentation.ts` `register()` boot validator) that is out of scope for Phase 1.5.12 (audit-doc-only closure cycle, ABSOLUTE NO CODE per cycle yasaklar). A-17's own Action explicitly directs Phase 2 deferral; this commit honors that direction with a formal marker. R-20 itself remains ✅ FIXED in Phase 1.5.1 `7baacac` — A-17 is a refinement quality concern (initialization timing + boot-validation design pattern), NOT a vulnerability. Compensating control is operationally active: `SOC_DEMO_SECRET` is set in Vercel Production + Preview env per operator confirmation, which sidesteps the lazy-init module-load fragility issue practically. Phase 2 backlog target alongside the 11 remaining OPEN amendments (A-01, A-05, A-06, A-07 informational, A-08, A-09 informational, A-11, A-12, A-13, A-14, A-15, A-18 substantively-done-needs-late-marker).
 
 ## Total test count revision
 
