@@ -427,6 +427,34 @@ describe('reset/route POST', () => {
       expect(findUserByPasswordResetToken).not.toHaveBeenCalled()
       expect(consumePasswordResetToken).not.toHaveBeenCalled()
     })
+
+    it('T-RS12: 429 emits rate_limit.exceeded audit log entry (R-06 FIXED in <COMMIT_HASH_TBD>)', async () => {
+      // FIX EVIDENCE: Phase 1.5.11 R-06 — see login/route.test.ts T-LG13.
+      // Reset bucket is IP-keyed (RESET_RATE_LIMIT.bucket = 'auth.reset').
+      const resetAt = Date.now() + 60_000
+      vi.mocked(checkRateLimit).mockResolvedValueOnce({
+        limited: true,
+        remaining: 0,
+        resetAt,
+      })
+
+      await POST(
+        new NextRequest('https://localhost/api/auth/reset', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ token: 'whatever', newPassword: 'whatever' }),
+        }),
+      )
+
+      expect(writeAuditLog).toHaveBeenCalled()
+      const call = vi.mocked(writeAuditLog).mock.calls[0][0]
+      expect(call.action).toBe('rate_limit.exceeded')
+      expect(call.entityType).toBe('rate_limit')
+      expect(call.entityId).toBe('auth.reset')
+      expect(call.details?.bucket).toBe('auth.reset')
+      expect(call.details?.key_preview).toMatch(/^[0-9a-f]{8}$/)
+      expect(call.details?.resetAt).toBe(resetAt)
+    })
   })
 
   // ─── Scrypt DoS guard ──────────────────────────────────────────────────────

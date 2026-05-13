@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { keyPreview, writeAuditLogSafely } from '@/lib/audit-helpers'
 import { getPasswordError, isValidPassword } from '@/lib/identity-validation'
 import { checkRateLimit, recordFailure } from '@/lib/rate-limiter'
 import { hashPassword } from '@/lib/security'
@@ -61,6 +62,20 @@ export async function POST(request: NextRequest) {
 
   const rate = await checkRateLimit(ip, RESET_RATE_LIMIT)
   if (rate.limited) {
+    // R-06 hardening (Phase 1.5.11 <COMMIT_HASH_TBD>): see login/route.ts.
+    await writeAuditLogSafely({
+      actorUserId: null,
+      action: 'rate_limit.exceeded',
+      entityType: 'rate_limit',
+      entityId: RESET_RATE_LIMIT.bucket,
+      details: {
+        bucket: RESET_RATE_LIMIT.bucket,
+        key_preview: keyPreview(ip),
+        remaining: 0,
+        resetAt: rate.resetAt,
+      },
+      metadata: getRequestMetadata(request),
+    })
     return NextResponse.json(
       { ok: false, error: 'RATE_LIMITED', message: 'Çok fazla deneme. Birkaç dakika sonra tekrar dene.' },
       {

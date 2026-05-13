@@ -15,6 +15,7 @@ import { NextRequest } from 'next/server'
 vi.mock('@/lib/soc-store-adapter', () => ({
   readUserByEmailKey: vi.fn(),
   registerUser: vi.fn(),
+  writeAuditLog: vi.fn(),
 }))
 vi.mock('@/lib/security', () => ({
   hashPassword: vi.fn(),
@@ -33,7 +34,7 @@ vi.mock('@/lib/auth-server', () => ({
   getRequestMetadata: vi.fn(),
 }))
 
-import { readUserByEmailKey, registerUser } from '@/lib/soc-store-adapter'
+import { readUserByEmailKey, registerUser, writeAuditLog } from '@/lib/soc-store-adapter'
 import { hashPassword } from '@/lib/security'
 import { checkRateLimit, recordFailure } from '@/lib/rate-limiter'
 import { sendVerificationEmail } from '@/lib/email'
@@ -246,6 +247,32 @@ describe('register/route POST', () => {
       expect(hashPassword).not.toHaveBeenCalled()
       expect(registerUser).not.toHaveBeenCalled()
       expect(sendVerificationEmail).not.toHaveBeenCalled()
+    })
+
+    it('T-RG14: 429 emits rate_limit.exceeded audit log entry (R-06 FIXED in <COMMIT_HASH_TBD>)', async () => {
+      // FIX EVIDENCE: Phase 1.5.11 R-06 — see login/route.test.ts T-LG13
+      // for full rationale. Register bucket is IP-keyed
+      // (REGISTER_RATE_LIMIT.bucket = 'auth.register'); key_preview hashes
+      // the client IP via SHA-256 (8-char prefix).
+      const resetAt = Date.now() + 60_000
+      vi.mocked(checkRateLimit).mockResolvedValueOnce({
+        limited: true,
+        remaining: 0,
+        resetAt,
+      })
+
+      await POST(makePostRequest(validBody))
+
+      expect(writeAuditLog).toHaveBeenCalled()
+      const call = vi.mocked(writeAuditLog).mock.calls[0][0]
+      expect(call.action).toBe('rate_limit.exceeded')
+      expect(call.entityType).toBe('rate_limit')
+      expect(call.entityId).toBe('auth.register')
+      expect(call.actorUserId).toBeNull()
+      expect(call.details?.bucket).toBe('auth.register')
+      expect(call.details?.key_preview).toMatch(/^[0-9a-f]{8}$/)
+      expect(call.details?.remaining).toBe(0)
+      expect(call.details?.resetAt).toBe(resetAt)
     })
   })
 

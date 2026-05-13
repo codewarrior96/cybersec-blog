@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { keyPreview, writeAuditLogSafely } from '@/lib/audit-helpers'
 import { SESSION_COOKIE_MAX_AGE_SECONDS, SESSION_COOKIE_NAME } from '@/lib/auth-shared'
 import { getRequestMetadata } from '@/lib/auth-server'
 import { getClientIp } from '@/lib/client-ip'
@@ -28,6 +29,25 @@ export async function POST(request: NextRequest) {
 
   const rate = await checkRateLimit(ip, LOGIN_RATE_LIMIT)
   if (rate.limited) {
+    // R-06 hardening (Phase 1.5.11 <COMMIT_HASH_TBD>): audit log on 429.
+    // Privacy: full IP never logged (keyPreview hashes to 8-char prefix).
+    // Rotation patterns detectable via distinct key_preview counts in log
+    // aggregation. writeAuditLogSafely wraps in try/catch — if audit log
+    // fails (Supabase down), 429 response still returned (audit log
+    // supplementary, not blocking).
+    await writeAuditLogSafely({
+      actorUserId: null,
+      action: 'rate_limit.exceeded',
+      entityType: 'rate_limit',
+      entityId: LOGIN_RATE_LIMIT.bucket,
+      details: {
+        bucket: LOGIN_RATE_LIMIT.bucket,
+        key_preview: keyPreview(ip),
+        remaining: 0,
+        resetAt: rate.resetAt,
+      },
+      metadata: getRequestMetadata(request),
+    })
     return NextResponse.json(
       { error: 'Cok fazla basarisiz deneme. Lutfen 5 dakika bekleyin.' },
       {

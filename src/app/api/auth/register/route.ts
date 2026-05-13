@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
+import { keyPreview, writeAuditLogSafely } from '@/lib/audit-helpers'
 import { getRequestMetadata } from '@/lib/auth-server'
 import { getClientIp } from '@/lib/client-ip'
 import { sendVerificationEmail } from '@/lib/email'
@@ -57,6 +58,20 @@ export async function POST(request: NextRequest) {
 
   const rate = await checkRateLimit(ip, REGISTER_RATE_LIMIT)
   if (rate.limited) {
+    // R-06 hardening (Phase 1.5.11 <COMMIT_HASH_TBD>): see login/route.ts.
+    await writeAuditLogSafely({
+      actorUserId: null,
+      action: 'rate_limit.exceeded',
+      entityType: 'rate_limit',
+      entityId: REGISTER_RATE_LIMIT.bucket,
+      details: {
+        bucket: REGISTER_RATE_LIMIT.bucket,
+        key_preview: keyPreview(ip),
+        remaining: 0,
+        resetAt: rate.resetAt,
+      },
+      metadata: getRequestMetadata(request),
+    })
     return NextResponse.json(
       { error: 'Cok fazla kayit denemesi. Lutfen 5 dakika bekleyin.' },
       {

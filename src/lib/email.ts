@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { recipientHash, sanitizeErrorMessage, writeAuditLogSafely } from '@/lib/audit-helpers'
 import { EmailUrlValidationError, renderPasswordResetEmail, renderVerificationEmail } from '@/lib/email-templates'
 
 /**
@@ -101,8 +102,17 @@ export async function sendPasswordResetEmail(params: {
   // deployment-level URL misconfig (poisoned NEXT_PUBLIC_APP_URL or Host
   // header injection). Return the discriminated-union failure shape so
   // existing route-handler `{ ok: false }` paths log + skip the send.
-  // R-12 audit log integration on URL validation failure deferred to
-  // Phase 1.5.11 — matches the existing console.warn pattern at callers.
+  //
+  // R-12 hardening (Phase 1.5.11 <COMMIT_HASH_TBD>): write audit log
+  // before returning the failure shape. Action 'email.failure' +
+  // entityType 'email' + entityId='password_reset' purpose tag.
+  // recipient_hash (16-char SHA-256 prefix of normalized email) preserves
+  // recipient identity for forensic correlation while keeping full email
+  // out of the log. sanitizeErrorMessage allowlists known-safe error
+  // patterns; unknown messages collapse to 'unknown' to prevent PII
+  // disclosure via novel error paths. writeAuditLogSafely wraps the
+  // call in try/catch to prevent audit-log cascade failure in
+  // already-error-state path.
   let rendered: { subject: string; html: string; text: string }
   try {
     rendered = renderPasswordResetEmail({
@@ -111,11 +121,36 @@ export async function sendPasswordResetEmail(params: {
     })
   } catch (err) {
     if (err instanceof EmailUrlValidationError) {
+      await writeAuditLogSafely({
+        actorUserId: null,
+        action: 'email.failure',
+        entityType: 'email',
+        entityId: 'password_reset',
+        details: {
+          purpose: 'password_reset',
+          recipient_hash: recipientHash(params.to),
+          error_message: sanitizeErrorMessage(err),
+        },
+      })
       return { ok: false, error: err.message }
     }
     throw err
   }
-  return sendEmail({ to: params.to, subject: rendered.subject, html: rendered.html, text: rendered.text })
+  const result = await sendEmail({ to: params.to, subject: rendered.subject, html: rendered.html, text: rendered.text })
+  if (!result.ok) {
+    await writeAuditLogSafely({
+      actorUserId: null,
+      action: 'email.failure',
+      entityType: 'email',
+      entityId: 'password_reset',
+      details: {
+        purpose: 'password_reset',
+        recipient_hash: recipientHash(params.to),
+        error_message: sanitizeErrorMessage(result.error),
+      },
+    })
+  }
+  return result
 }
 
 /**
@@ -139,6 +174,9 @@ export async function sendVerificationEmail(params: {
 }): Promise<SendEmailResult> {
   // R-15 Layer 2 (Phase 1.5.10): catch EmailUrlValidationError. See
   // sendPasswordResetEmail above for rationale.
+  // R-12 hardening (Phase 1.5.11 <COMMIT_HASH_TBD>): audit log on both
+  // URL validation failure AND Resend send failure paths. See
+  // sendPasswordResetEmail above for action/details shape rationale.
   let rendered: { subject: string; html: string; text: string }
   try {
     rendered = renderVerificationEmail({
@@ -147,9 +185,34 @@ export async function sendVerificationEmail(params: {
     })
   } catch (err) {
     if (err instanceof EmailUrlValidationError) {
+      await writeAuditLogSafely({
+        actorUserId: null,
+        action: 'email.failure',
+        entityType: 'email',
+        entityId: 'verification',
+        details: {
+          purpose: 'verification',
+          recipient_hash: recipientHash(params.to),
+          error_message: sanitizeErrorMessage(err),
+        },
+      })
       return { ok: false, error: err.message }
     }
     throw err
   }
-  return sendEmail({ to: params.to, subject: rendered.subject, html: rendered.html, text: rendered.text })
+  const result = await sendEmail({ to: params.to, subject: rendered.subject, html: rendered.html, text: rendered.text })
+  if (!result.ok) {
+    await writeAuditLogSafely({
+      actorUserId: null,
+      action: 'email.failure',
+      entityType: 'email',
+      entityId: 'verification',
+      details: {
+        purpose: 'verification',
+        recipient_hash: recipientHash(params.to),
+        error_message: sanitizeErrorMessage(result.error),
+      },
+    })
+  }
+  return result
 }

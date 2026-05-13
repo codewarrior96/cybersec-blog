@@ -333,6 +333,45 @@ describe('login/route POST', () => {
       expect(createSession).not.toHaveBeenCalled()
     })
 
+    it('T-LG13: 429 emits rate_limit.exceeded audit log entry (R-06 FIXED in <COMMIT_HASH_TBD>)', async () => {
+      // FIX EVIDENCE: Phase 1.5.11 R-06 — rate-limit exhaustion no longer
+      // emits silent 429s. The route now calls writeAuditLogSafely with
+      // action='rate_limit.exceeded', entityId=bucket, details containing
+      // bucket name, key_preview (8-char SHA-256 hex prefix of the client
+      // IP, not the full IP — R-06 privacy primitive), remaining=0, and
+      // resetAt epoch ms.
+      //
+      // SENIOR ARCHITECT NOTE: writeAuditLog is mocked at module boundary
+      // via vi.mock('@/lib/soc-store-adapter'). The audit-helpers module
+      // calls writeAuditLog internally via writeAuditLogSafely, which is
+      // NOT mocked — its try/catch wraps the (mocked) writeAuditLog call.
+      // Test asserts on writeAuditLog (mocked) directly to verify the
+      // call shape that audit-helpers produces.
+      //
+      // Privacy assertion: details.key_preview must be an 8-char hex
+      // string, NEVER the raw IP. Catches regression where a future
+      // refactor accidentally logs the raw IP.
+      const resetAt = Date.now() + 60_000
+      vi.mocked(checkRateLimit).mockResolvedValueOnce({
+        limited: true,
+        remaining: 0,
+        resetAt,
+      })
+
+      await POST(makePostRequest(validBody))
+
+      expect(writeAuditLog).toHaveBeenCalled()
+      const call = vi.mocked(writeAuditLog).mock.calls[0][0]
+      expect(call.action).toBe('rate_limit.exceeded')
+      expect(call.entityType).toBe('rate_limit')
+      expect(call.entityId).toBe('auth.login')
+      expect(call.actorUserId).toBeNull()
+      expect(call.details?.bucket).toBe('auth.login')
+      expect(call.details?.key_preview).toMatch(/^[0-9a-f]{8}$/)
+      expect(call.details?.remaining).toBe(0)
+      expect(call.details?.resetAt).toBe(resetAt)
+    })
+
     it('T-LG11: x-forwarded-for spoof bypasses rate limit (R-01 integration)', async () => {
       // SENIOR ARCHITECT NOTE: R-01 (High, A07) integration probe. The
       // attack: rotate x-forwarded-for header per request → getClientIp

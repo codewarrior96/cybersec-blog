@@ -2,6 +2,36 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 
 const SCRYPT_KEY_LENGTH = 64
 
+// R-07 hardening (Phase 1.5.11 <COMMIT_HASH_TBD>): scrypt cost parameter
+// bump from Node default N=16384 to OWASP 2024+ recommended N=32768.
+// Doubles CPU + memory cost per scrypt invocation, doubles GPU cracking
+// difficulty under DB-compromise scenarios. The conditional R-07 exploit
+// (DB dump → offline cracking) is now 2× slower at attacker side.
+//
+// SENIOR ARCHITECT NOTE: SCRYPT_MAXMEM raised to 64 MB to accommodate
+// N=32768's memory footprint. Default Node maxmem = 32 MB; for N=32768,
+// r=8, p=1: 128 * N * r * (memCostFactor ≈ 1.5) ≈ 50 MB. 64 MB ceiling
+// provides headroom without runaway allocation under extreme parameter
+// drift (regression guard against future N escalation that exceeds the
+// ceiling would surface as a deterministic scryptSync throw rather
+// than silent OOM in production).
+//
+// REJECTED ALTERNATIVE: N=16384 retained with OWASP escape note.
+// Rejected because the cost-bump fix is mechanically trivial (one
+// options-object addition × 3 call sites), the compatibility risk is
+// nil (R-21 HASH_FORMAT_RE only constrains output shape, not N), and
+// OWASP 2024+ recommendation is now operational standard — staying
+// at the Node default carries audit-credibility risk in any external
+// review.
+//
+// REJECTED ALTERNATIVE: N=65536 (2× OWASP minimum). Rejected because
+// per-request latency doubles to ~200ms on typical hardware. The
+// university-demo + portfolio scale tolerates ~100ms; ~200ms hits
+// UX threshold. N=32768 is the OWASP minimum that closes the audit
+// without overshooting operational budget.
+const SCRYPT_N = 32768
+const SCRYPT_MAXMEM = 64 * 1024 * 1024
+
 // R-21 hardening (Phase 1.5.4 ed403df): hash storage integrity
 // invariant. Every stored credential must match this exact shape — 32 hex
 // chars of salt, colon, 128 hex chars of scrypt-derived hash (64 bytes,
@@ -67,14 +97,20 @@ const DUMMY_DERIVED = scryptSync(
   'siberlab-r04-dummy-password',
   DUMMY_SALT,
   SCRYPT_KEY_LENGTH,
+  { N: SCRYPT_N, maxmem: SCRYPT_MAXMEM },
 )
 export const DUMMY_PASSWORD_HASH = `${DUMMY_SALT.toString(
   'hex',
 )}:${DUMMY_DERIVED.toString('hex')}`
 
+// R-07 regression-guard export — T-S15 asserts >= 32768 (prevents
+// future downgrade). Module-level export keeps the constant testable
+// without exposing it via a getter function.
+export { SCRYPT_N }
+
 export function hashPassword(password: string): string {
   const salt = randomBytes(16)
-  const derived = scryptSync(password, salt, SCRYPT_KEY_LENGTH)
+  const derived = scryptSync(password, salt, SCRYPT_KEY_LENGTH, { N: SCRYPT_N, maxmem: SCRYPT_MAXMEM })
   const result = `${salt.toString('hex')}:${derived.toString('hex')}`
   // R-21 write-time guard (Phase 1.5.4 ed403df): self-validate
   // output before return. Tautological in steady state — randomBytes(16)
@@ -112,7 +148,7 @@ export function verifyPassword(password: string, storedHash: string): boolean {
     assertHashFormat(storedHash)
     const salt = Buffer.from(saltHex, 'hex')
     const expected = Buffer.from(hashHex, 'hex')
-    const actual = scryptSync(password, salt, expected.length)
+    const actual = scryptSync(password, salt, expected.length, { N: SCRYPT_N, maxmem: SCRYPT_MAXMEM })
     if (actual.length !== expected.length) return false
     return timingSafeEqual(actual, expected)
   } catch {

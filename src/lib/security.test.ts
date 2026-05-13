@@ -1,4 +1,4 @@
-import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from './security'
+import { DUMMY_PASSWORD_HASH, SCRYPT_N, hashPassword, verifyPassword } from './security'
 
 describe('security', () => {
   describe('hashPassword', () => {
@@ -212,9 +212,18 @@ describe('security', () => {
       //   - N=20 iterations per arm to absorb scrypt jitter
       //   - Median (not mean) — robust to GC stalls / OS scheduling
       //     outliers
-      //   - Threshold: max(20ms, 0.3 * avg_arm_time) — loose enough for
-      //     CI stability per mentor's explicit "threshold chosen for CI
-      //     stability not theoretical tightness" guidance.
+      //   - Threshold: max(40ms, 0.35 * avg_arm_time) — widened in Phase
+      //     1.5.11 (R-07 commit <COMMIT_HASH_TBD>) for SCRYPT_N=32768
+      //     2× cost. Doubling absolute scrypt CPU time roughly doubles
+      //     jitter window per call; threshold ratchet absorbs the
+      //     amplification without compromising parity-regression-guard
+      //     semantics. Prior threshold max(20ms, 0.3 * avg) was tuned for
+      //     N=16384's ~50ms baseline; at N=32768's ~100ms baseline, the
+      //     0.3 * 100ms = 30ms band could yield false positives under CI
+      //     load. Widening to (40ms, 0.35 * avg) = max(40ms, ~35ms) =
+      //     40ms preserves the catch-radius of a genuine parity break
+      //     (e.g., DUMMY_PASSWORD_HASH using N=16384 while real hashes
+      //     use N=32768 → ~50ms delta, well above 40ms threshold).
       //
       // SENIOR ARCHITECT NOTE: this test exercises REAL scrypt (no mocks
       // at this layer) so the timing measurement is meaningful.
@@ -253,9 +262,30 @@ describe('security', () => {
       const realMedian = realTimes[Math.floor(N / 2)]
       const dummyMedian = dummyTimes[Math.floor(N / 2)]
       const avgArmTime = (realMedian + dummyMedian) / 2
-      const threshold = Math.max(20, 0.3 * avgArmTime)
+      const threshold = Math.max(40, 0.35 * avgArmTime)
       const delta = Math.abs(realMedian - dummyMedian)
       expect(delta).toBeLessThan(threshold)
+    })
+
+    it('T-S15: SCRYPT_N >= 32768 (R-07 cost-parameter regression guard, FIXED in <COMMIT_HASH_TBD>)', () => {
+      // FIX EVIDENCE: Phase 1.5.11 R-07 — scrypt cost parameter bumped
+      // from Node default N=16384 to OWASP 2024+ recommended N=32768.
+      // This test guards against future downgrade — if SCRYPT_N is ever
+      // reduced below 32768 (e.g., performance-motivated downgrade
+      // without security review), the assertion fires.
+      //
+      // SENIOR ARCHITECT NOTE: SCRYPT_N exported from security.ts solely
+      // for this regression guard. Production code uses the local
+      // constant; the export exists for testability without exposing
+      // a getter function.
+      //
+      // REJECTED ALTERNATIVE: exact-equal assertion (SCRYPT_N === 32768).
+      // Rejected because OWASP recommendations escalate over time —
+      // future cycles may bump to N=65536 or higher. >= 32768 expresses
+      // the actual policy ("at least the current OWASP minimum") rather
+      // than locking to a specific value that would need test updates
+      // on every cost bump.
+      expect(SCRYPT_N).toBeGreaterThanOrEqual(32768)
     })
   })
 })

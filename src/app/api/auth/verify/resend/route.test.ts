@@ -10,6 +10,7 @@
 vi.mock('@/lib/soc-store-adapter', () => ({
   readUserByEmailKey: vi.fn(),
   setEmailVerifyToken: vi.fn(),
+  writeAuditLog: vi.fn(),
 }))
 vi.mock('@/lib/rate-limiter', () => ({
   checkRateLimit: vi.fn(),
@@ -20,7 +21,7 @@ vi.mock('@/lib/email', () => ({
 }))
 
 import { NextRequest } from 'next/server'
-import { readUserByEmailKey, setEmailVerifyToken } from '@/lib/soc-store-adapter'
+import { readUserByEmailKey, setEmailVerifyToken, writeAuditLog } from '@/lib/soc-store-adapter'
 import { checkRateLimit, recordFailure } from '@/lib/rate-limiter'
 import { sendVerificationEmail } from '@/lib/email'
 import { POST } from './route'
@@ -269,12 +270,38 @@ describe('verify/resend/route POST', () => {
       expect(Number(retryAfter)).toBeGreaterThan(0)
       expect(Number(retryAfter)).toBeLessThanOrEqual(60 * 60)
 
+      // T-VR08 below also exercises this 429 path to assert audit log.
       // Short-circuit: nothing downstream runs (no token write, no email
       // dispatch, no recordFailure — recordFailure is post-rate-limit).
       expect(recordFailure).not.toHaveBeenCalled()
       expect(readUserByEmailKey).not.toHaveBeenCalled()
       expect(setEmailVerifyToken).not.toHaveBeenCalled()
       expect(sendVerificationEmail).not.toHaveBeenCalled()
+    })
+
+    it('T-VR08: 429 emits rate_limit.exceeded audit log entry (R-06 FIXED in <COMMIT_HASH_TBD>)', async () => {
+      // FIX EVIDENCE: Phase 1.5.11 R-06 — see login/route.test.ts T-LG13.
+      // Verify-resend bucket is emailKey-keyed
+      // (RESEND_RATE_LIMIT.bucket = 'auth.verify.resend').
+      const resetAt = Date.now() + 60 * 60 * 1000
+      vi.mocked(checkRateLimit).mockResolvedValueOnce({
+        limited: true,
+        remaining: 0,
+        resetAt,
+      })
+
+      await POST(makePostRequest({ email: 'victim@example.com' }))
+
+      expect(writeAuditLog).toHaveBeenCalled()
+      const call = vi.mocked(writeAuditLog).mock.calls[0][0]
+      expect(call.action).toBe('rate_limit.exceeded')
+      expect(call.entityType).toBe('rate_limit')
+      expect(call.entityId).toBe('auth.verify.resend')
+      expect(call.details?.bucket).toBe('auth.verify.resend')
+      expect(call.details?.key_preview).toMatch(/^[0-9a-f]{8}$/)
+      // Privacy: full email NEVER in details
+      expect(JSON.stringify(call.details)).not.toContain('victim@example.com')
+      expect(call.details?.resetAt).toBe(resetAt)
     })
   })
 
