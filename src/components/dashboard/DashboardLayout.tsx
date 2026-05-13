@@ -12,6 +12,12 @@ import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton'
 import TelemetryStreamPanel from '@/components/dashboard/TelemetryStreamPanel'
 import ToastContainer, { type Toast } from '@/components/dashboard/Toast'
 import { THREAT_PROFILES, getThreatFamily, getThreatProfile } from '@/lib/telemetry-rules'
+import {
+  TELEMETRY_SIM_INTERVAL_MS,
+  TELEMETRY_EMISSION_PROBABILITY,
+  MALICIOUS_EVENT_PROBABILITY,
+  CRITICAL_EVENT_PROBABILITY,
+} from './demo-tuning-constants'
 
 // ============================================================================
 // TYPES & CONSTANTS 
@@ -252,13 +258,10 @@ const Frame = ({ title, children, rightAction, dim = false, className = '', head
 // MEMOIZED SUB-COMPONENTS
 // ============================================================================
 
-/** Demo: yeni telemetry olayı üretim aralığı (SLA sayacı da buna göre azalır) */
-const TELEMETRY_SIM_INTERVAL_MS = 18000
+// Phase 1.5.14 — demo cadence emission constants extracted to
+// ./demo-tuning-constants.ts (see file header for rationale).
 const CRITICAL_ALERT_GRACE_PERIOD_MS = 60000
 const INITIAL_BACKGROUND_EVENT_COUNT = 1
-const MALICIOUS_EVENT_PROBABILITY = 0.06
-const CRITICAL_EVENT_PROBABILITY = 0.03
-const TELEMETRY_EMISSION_PROBABILITY = 0.35
 
 /** Live Telemetry Stream: ekranın geri kalanını sınırsız doldurmasın; içeride kaydır */
 const TELEMETRY_PANEL_HEIGHT_CLASS = 'h-auto min-h-[520px] lg:h-[min(60vh,700px)] xl:h-[min(560px,48vh)]'
