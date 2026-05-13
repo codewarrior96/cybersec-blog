@@ -16,9 +16,25 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 // R-13 hardening (Phase 1.5.2): denylist HTML-injection-relevant characters.
 // Apostrophe (') intentionally allowed — legitimate name pattern (O'Brien);
 // HTML escape at template layer handles it safely.
-// CR/LF (\r\n) intentionally NOT blocked — that is R-14's territory, separate
-// future fix cycle. T-IV18/T-IV19 remain as documented gap tests.
-const DISPLAY_NAME_DENYLIST_RE = /[<>&"]/
+//
+// R-14 hardening (Phase 1.5.10 <COMMIT_HASH_TBD>): CR/LF (\r\n) now blocked.
+// displayName flows downstream into email-templates.ts plain-text body
+// (`Merhaba ${safeName},` template literal). CR/LF in displayName would
+// fracture the rendered email across multiple lines — phishing-assist
+// where attacker injects fake siberlab footer/instructions interleaved
+// with legitimate copy ("Mehmet\r\n\r\n[siberlab] Hesabın askıya alındı:
+// evil.com" → plain-text reader sees fabricated footer as if part of
+// legitimate template body). Blocked at validator entry; template-layer
+// defensive cleanup (R-14 Layer 2 in email-templates.ts) provides
+// bypass-resilient defense-in-depth.
+//
+// SENIOR ARCHITECT NOTE: regex enforces validator-entry rejection. The
+// pragmatic name domain (Turkish/English/multi-script personal names)
+// has no legitimate use case for embedded CR/LF — these are control
+// characters, not part of any natural-name script. R-13 family closure:
+// validator now covers HTML-injection (R-13) + CRLF-injection (R-14)
+// surface in one regex.
+const DISPLAY_NAME_DENYLIST_RE = /[<>&"\r\n]/
 
 export function isAllowedUsername(username: string): boolean {
   return USERNAME_RE.test(username)
@@ -29,7 +45,7 @@ export function getUsernameFormatError(): string {
 }
 
 export function getDisplayNameError(): string {
-  return `Gorunen ad ${DISPLAY_NAME_MIN_LENGTH}-${DISPLAY_NAME_MAX_LENGTH} karakter arasi olmali ve <, >, &, " karakterlerini icermemeli.`
+  return `Gorunen ad ${DISPLAY_NAME_MIN_LENGTH}-${DISPLAY_NAME_MAX_LENGTH} karakter arasi olmali ve <, >, &, ", satır sonu (CR/LF) karakterlerini icermemeli.`
 }
 
 export function getPasswordError(): string {

@@ -1,5 +1,5 @@
 import { Resend } from 'resend'
-import { renderPasswordResetEmail, renderVerificationEmail } from '@/lib/email-templates'
+import { EmailUrlValidationError, renderPasswordResetEmail, renderVerificationEmail } from '@/lib/email-templates'
 
 /**
  * Centralized From address. Uses the verified `siberlab.dev` domain
@@ -96,11 +96,26 @@ export async function sendPasswordResetEmail(params: {
   resetUrl: string
   username: string
 }): Promise<SendEmailResult> {
-  const { subject, html, text } = renderPasswordResetEmail({
-    username: params.username,
-    resetUrl: params.resetUrl,
-  })
-  return sendEmail({ to: params.to, subject, html, text })
+  // R-15 Layer 2 (Phase 1.5.10): catch EmailUrlValidationError from
+  // renderPasswordResetEmail's assertSafeUrl call. The error indicates a
+  // deployment-level URL misconfig (poisoned NEXT_PUBLIC_APP_URL or Host
+  // header injection). Return the discriminated-union failure shape so
+  // existing route-handler `{ ok: false }` paths log + skip the send.
+  // R-12 audit log integration on URL validation failure deferred to
+  // Phase 1.5.11 — matches the existing console.warn pattern at callers.
+  let rendered: { subject: string; html: string; text: string }
+  try {
+    rendered = renderPasswordResetEmail({
+      username: params.username,
+      resetUrl: params.resetUrl,
+    })
+  } catch (err) {
+    if (err instanceof EmailUrlValidationError) {
+      return { ok: false, error: err.message }
+    }
+    throw err
+  }
+  return sendEmail({ to: params.to, subject: rendered.subject, html: rendered.html, text: rendered.text })
 }
 
 /**
@@ -122,9 +137,19 @@ export async function sendVerificationEmail(params: {
   verifyUrl: string
   username: string
 }): Promise<SendEmailResult> {
-  const { subject, html, text } = renderVerificationEmail({
-    username: params.username,
-    verifyUrl: params.verifyUrl,
-  })
-  return sendEmail({ to: params.to, subject, html, text })
+  // R-15 Layer 2 (Phase 1.5.10): catch EmailUrlValidationError. See
+  // sendPasswordResetEmail above for rationale.
+  let rendered: { subject: string; html: string; text: string }
+  try {
+    rendered = renderVerificationEmail({
+      username: params.username,
+      verifyUrl: params.verifyUrl,
+    })
+  } catch (err) {
+    if (err instanceof EmailUrlValidationError) {
+      return { ok: false, error: err.message }
+    }
+    throw err
+  }
+  return sendEmail({ to: params.to, subject: rendered.subject, html: rendered.html, text: rendered.text })
 }

@@ -66,84 +66,118 @@ describe('email-templates', () => {
       expect(result.html).toContain(escaped)
     })
 
-    it('T-ET06: username with CRLF produces literal \\r\\n in plain text body — gap (R-14)', () => {
-      // SENIOR ARCHITECT NOTE: R-14 (CRLF injection) — DOWNSTREAM half
-      // paired with T-IV18/T-IV19 (Phase 1.D.3 upstream gap).
+    it('T-ET06: username with CRLF stripped to space in plain text body (R-14 FIXED in <COMMIT_HASH_TBD>)', () => {
+      // FIX EVIDENCE: Phase 1.5.10 R-14 Layer 2 — email-templates.ts now
+      // applies stripCrlf() (.replace(/[\r\n]+/g, ' ')) to displayName
+      // BEFORE interpolation. Even if the validator-layer R-14 fix
+      // (DISPLAY_NAME_DENYLIST_RE) is bypassed by an admin tool, legacy
+      // data, or future surface, the template-layer scrub still strips
+      // CR/LF before the rendered output.
       //
-      // Why upstream validator does not reject: isValidDisplayName accepts
-      // any characters within the 2-120 length window — `\r` and `\n` are
-      // not filtered. Identity-validation has no control-character scan.
+      // Defense-in-depth duality:
+      //   Layer 1 (validator, identity-validation.ts T-IV18/T-IV19):
+      //     rejects \r\n at registration entry. Validator-layer gate.
+      //   Layer 2 (template, this test): defensive scrub on render.
+      //     Bypass-resilience for code paths that skip the validator.
       //
-      // Downstream consequence: text body uses `Merhaba ${safeName},`
-      // template literal (email-templates.ts L116). With safeName containing
-      // CRLF, the rendered text fractures across multiple lines:
-      // `Merhaba Foo\r\nBar,` — phishing assist where attacker injects fake
-      // siberlab footer/instructions interleaved with legitimate copy.
-      // Plain-text email readers (CLI mail, accessibility tools, some
-      // mobile previews) render exactly what they receive — the attacker-
-      // controlled second line appears as if it were part of the
-      // legitimate template body.
+      // Both required (R-13 pattern lineage). Validator alone leaves
+      // pre-existing or admin-injected CRLF data exposed; template
+      // alone could be skipped by a refactor that interpolates the raw
+      // displayName field directly.
       //
-      // Cross-reference upstream: T-IV18, T-IV19 (Phase 1.D.3) — document
-      // that the validator accepts both bare \n and CRLF \r\n in
-      // displayName.
+      // SENIOR ARCHITECT NOTE: stripCrlf collapses runs of CR/LF into a
+      // single space. "Foo\r\nBar" → "Foo Bar" (visually contiguous
+      // name preserved). "Foo\n\r\nBar" → "Foo Bar" (multi-char
+      // sequences collapsed to one space, no double-spaces leaked).
       //
-      // REJECTED ALTERNATIVE: assert split('\n').length > N. Rejected
-      // because the text template already contains intentional newlines
-      // from the array.join('\n') pattern (L115-125), so a line-count
-      // assertion is brittle and noise-prone. Direct substring check on
-      // the raw CRLF survival is the precise gap signal.
-      //
-      // Hardening landing: when validator strips control chars OR template
-      // sanitizes safeName before interpolation, this assertion will fail.
-      // Flip to assert the CRLF is absent from text output (e.g.
-      // expect(result.text).not.toContain('\r\n') for the user portion, or
-      // assert safeName is replaced with a sanitized variant).
+      // REJECTED ALTERNATIVE: drop the displayName entirely if it
+      // contains CR/LF. Rejected because the template falls back to
+      // 'Operator' only when username is empty — silent-drop would
+      // surprise legitimate users whose name accidentally contained
+      // a control character (rare but possible via copy-paste edge cases).
       const result = renderVerificationEmail({
         username: 'Foo\r\nBar',
         verifyUrl: 'https://siberlab.dev/verify/abc',
       })
-      expect(result.text).toContain('Foo\r\nBar')
+      // Raw CRLF in the user-portion of plain text body must be stripped.
+      // The template's own array.join('\n') still produces newlines
+      // between lines — those are intentional structure, not user input.
+      expect(result.text).not.toContain('Foo\r\nBar')
+      expect(result.text).toContain('Foo Bar') // CRLF collapsed to space
     })
 
-    it('T-ET07: verifyUrl javascript:alert(1) rendered as href verbatim — gap (R-15)', () => {
-      // SENIOR ARCHITECT NOTE: R-15 (URL substrate trust) — CONFIGURATION-
-      // level gap. Email template performs raw `<a href="${verifyUrl}">`
-      // interpolation (email-templates.ts L130) with no scheme allowlist
-      // or URL parser validation.
+    it('T-ET07: verifyUrl javascript:alert(1) rejected by assertSafeUrl (R-15 FIXED in <COMMIT_HASH_TBD>)', () => {
+      // FIX EVIDENCE: Phase 1.5.10 R-15 Layer 1 — renderVerificationEmail
+      // now invokes assertSafeUrl(verifyUrl, 'verifyUrl') BEFORE any
+      // template interpolation. The helper:
+      //   1. new URL(url) — parses (TypeError on malformed)
+      //   2. Scheme allowlist check:
+      //      - production: ['https:'] only
+      //      - dev/test: ['https:', 'http:']
+      //   3. Throws EmailUrlValidationError on either failure mode
       //
-      // Attack vector: NEXT_PUBLIC_APP_URL env misconfig (or Host header
-      // injection in dev) → upstream route handler constructs verifyUrl
-      // using the poisoned base → template renders `<a href="javascript:
-      // alert(1)">`. Recipient clicks the verification button → JavaScript
-      // executes in their email client's context (where supported, e.g.
-      // older webmail clients) or the link silently fails. Even when
-      // execution is blocked, the poisoned href has already passed all
-      // server-side checks and is now in the recipient's inbox forever.
+      // The previous gap (raw `<a href="${verifyUrl}">` interpolation
+      // with no scheme validation) allowed javascript:, data:, file:,
+      // and other dangerous schemes through to the recipient's inbox.
+      // Now: render throws before any HTML produced.
       //
-      // Note: `process.env.NEXT_PUBLIC_APP_URL` is NOT read in this module
-      // — the URL arrives as a direct function parameter. R-15 is therefore
-      // testable here without env stubbing: pass a poisoned verifyUrl
-      // directly. The route-level R-15 (env trust at URL construction
-      // site) is a separate test that belongs in route-handler test files
-      // (Phase 3 territory).
+      // SENIOR ARCHITECT NOTE: caller catch (email.ts
+      // sendVerificationEmail) handles the throw, returns
+      // { ok: false, error } — route handlers log console.warn + skip
+      // email send. Anti-enumeration response shape preserved at route
+      // layer (T-FG02/T-VR02 still return generic-200 for unknown
+      // emails; URL validation failure caught upstream of send).
       //
-      // REJECTED ALTERNATIVE: vi.stubEnv('NEXT_PUBLIC_APP_URL', '...').
-      // Rejected because this module does not read process.env. Stubbing
-      // has no effect on the rendered output. Direct parameter injection
-      // is the precise template-layer test for R-15.
-      //
-      // Hardening landing: when the template (or its caller) adds URL
-      // scheme validation (e.g. require https:// only, or allowlist match
-      // against a configured origin), this assertion will fail. Flip to
-      // assert either an exception is thrown OR a safe-default href (e.g.
-      // about:blank, or the configured fallback origin) replaces the
-      // poisoned scheme.
+      // REJECTED ALTERNATIVE: rewrite javascript: → https:// silently.
+      // Rejected because silent rewriting masks deployment-level misconfig
+      // (poisoned NEXT_PUBLIC_APP_URL) and produces a working-but-wrong
+      // email link. Throwing surfaces the operator error and (when R-12
+      // audit log integration lands in Phase 1.5.11) creates a forensic
+      // record.
+      expect(() =>
+        renderVerificationEmail({
+          username: 'salim',
+          verifyUrl: 'javascript:alert(1)',
+        }),
+      ).toThrow(/scheme.*not in allowlist|scheme "javascript:"/i)
+    })
+
+    it('T-ET07b: verifyUrl HTTPS rendered correctly (R-15 happy-path positive control)', () => {
+      // FIX EVIDENCE: positive-control pair for T-ET07. Verifies the
+      // canonical production URL shape passes assertSafeUrl without
+      // throwing. Pairs T-ET07 (reject malicious) + T-ET07b (accept
+      // legitimate) to fully document the new contract.
       const result = renderVerificationEmail({
         username: 'salim',
-        verifyUrl: 'javascript:alert(1)',
+        verifyUrl: 'https://siberlab.dev/verify/abc123',
       })
-      expect(result.html).toContain('href="javascript:alert(1)"')
+      expect(result.html).toContain('href="https://siberlab.dev/verify/abc123"')
+      expect(result.text).toContain('https://siberlab.dev/verify/abc123')
+    })
+
+    it('T-ET07c: verifyUrl HTTP accepted in test/dev env (env-gated allowlist)', () => {
+      // FIX EVIDENCE: assertSafeUrl's allowlist is env-gated.
+      // Production (NODE_ENV=production): ['https:'] only — canonical
+      // siberlab.dev always HTTPS. Dev/test (NODE_ENV=test as set in
+      // setup.ts): ['https:', 'http:'] — local dev runs on
+      // http://localhost:3000.
+      //
+      // This test confirms the dev/test path. Production-only HTTPS
+      // enforcement is covered indirectly by T-ET07 (any non-https
+      // scheme rejected in production) and would need vi.stubEnv
+      // NODE_ENV=production to test directly — out of scope for the
+      // template-layer test (production NODE_ENV stubbing has
+      // R-08-guard cleanup interaction we already deal with in
+      // T-AD07-09).
+      //
+      // SENIOR ARCHITECT NOTE: baseline NODE_ENV is 'test' from
+      // setup.ts. The http:// URL below must succeed without
+      // assertSafeUrl throwing.
+      const result = renderVerificationEmail({
+        username: 'salim',
+        verifyUrl: 'http://localhost:3000/verify/abc123',
+      })
+      expect(result.html).toContain('href="http://localhost:3000/verify/abc123"')
     })
   })
 

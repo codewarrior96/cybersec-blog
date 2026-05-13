@@ -152,28 +152,41 @@ describe('identity-validation', () => {
       expect(isValidDisplayName('<img src=x onerror=alert(1)>')).toBe(false)
     })
 
-    it('T-IV18: displayName containing \\n accepted — gap (R-14)', () => {
-      // GAP DOCUMENTATION: isValidDisplayName is length-only; newline characters
-      // count as 1 towards length and are not rejected.
+    it('T-IV18: displayName containing \\n rejected (R-14 FIXED in <COMMIT_HASH_TBD>)', () => {
+      // FIX EVIDENCE: Phase 1.5.10 R-14 — isValidDisplayName now rejects
+      // CR/LF via DISPLAY_NAME_DENYLIST_RE extended to /[<>&"\r\n]/.
+      // The LF character is now in the denylist, validator rejects at
+      // registration time.
       //
-      // R-14 downstream risk: email-templates.ts interpolates displayName into the
-      // plain-text email body. A LF character splits the plain-text into two lines.
-      // An attacker can inject fake siberlab-branded footer text after their name:
+      // R-14 downstream risk (now closed at upstream): email-templates.ts
+      // interpolated displayName into plain-text email body. A LF
+      // character would split the plain-text into two lines, enabling
+      // phishing-assist where attacker injects fake siberlab-branded
+      // footer text after their name:
       //   displayName = "Mehmet\n\n[siberlab] Hesabın askıya alındı: evil.com"
-      // Plain-text readers see the fabricated footer interleaved with legitimate content.
-      expect(isValidDisplayName('Mehmet\nEvil')).toBe(true) // gap: R-14
+      // Plain-text readers would see the fabricated footer interleaved
+      // with legitimate content. Defense-in-depth: email-templates.ts
+      // ALSO applies stripCrlf() defensive cleanup as Layer 2
+      // (bypass-resilience for admin tools, legacy data, future surfaces).
+      //
+      // Cross-reference downstream: T-ET06 (email-templates.test.ts)
+      // verifies template-layer defensive cleanup.
+      expect(isValidDisplayName('Mehmet\nEvil')).toBe(false)
     })
 
-    it('T-IV19: displayName Foo\\r\\nBar accepted — gap (R-14)', () => {
-      // GAP DOCUMENTATION: CRLF sequence is the canonical line-ending in email
-      // headers (RFC 2822). While displayName appears in the email body (not
-      // headers) in current templates, CRLF injection is a wider risk if
-      // displayName is ever surfaced in a mail header (e.g. From: display name).
-      // The validator accepts CRLF because length is the only constraint.
+    it('T-IV19: displayName Foo\\r\\nBar rejected (R-14 FIXED in <COMMIT_HASH_TBD>)', () => {
+      // FIX EVIDENCE: Same denylist rejection mechanism as T-IV18. CRLF
+      // sequence (canonical line-ending per RFC 2822) is now rejected
+      // at validator entry. Img-onerror-style payloads with CR/LF
+      // smuggling (e.g., for header injection if displayName ever
+      // surfaces in a From: display name) cannot pass the validator.
       //
-      // R-14: same phishing-assist vector as T-IV18, with CRLF for Windows/email
-      // clients that normalize LF to CRLF or expect CRLF line endings.
-      expect(isValidDisplayName('Foo\r\nBar')).toBe(true) // gap: R-14
+      // SENIOR ARCHITECT NOTE: regex /[\r\n]/ in the denylist matches
+      // both bare \r, bare \n, and \r\n sequences (any single
+      // occurrence triggers rejection). Email-header CRLF injection
+      // (RFC 2822 \r\n) and Unix-style LF-only injection both
+      // closed.
+      expect(isValidDisplayName('Foo\r\nBar')).toBe(false)
     })
   })
 })

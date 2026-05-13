@@ -48,6 +48,81 @@ interface RenderedEmail {
   text: string
 }
 
+// R-15 hardening (Phase 1.5.10 <COMMIT_HASH_TBD>): URL substrate trust closure.
+// verifyUrl + resetUrl are constructed upstream from NEXT_PUBLIC_APP_URL env
+// (or request host fallback) — both are operator/upstream inputs that could
+// arrive poisoned (env misconfig: NEXT_PUBLIC_APP_URL=javascript:alert(1)//,
+// or dev-environment Host header injection). Without scheme validation, the
+// raw `<a href="${verifyUrl}">` interpolation lets javascript:/data:/file:
+// schemes through to the recipient's inbox, where older webmail clients may
+// execute them on click.
+//
+// Defense-in-depth two-layer (R-13 lineage pattern):
+//   Layer 1 (this module): assertSafeUrl rejects malformed + non-allowlisted
+//     schemes. Throws EmailUrlValidationError so callers can catch + skip
+//     the send (preserves anti-enumeration response shape at route layer).
+//   Layer 2 (route handlers): try/catch around render call. On
+//     EmailUrlValidationError, console.warn + skip email send.
+//
+// Scheme allowlist:
+//   - Production (NODE_ENV=production): https: only — emails always
+//     reference the canonical siberlab.dev domain over HTTPS
+//   - Dev/test: https: + http: — local dev runs on http://localhost
+//
+// SENIOR ARCHITECT NOTE: appBaseUrl helpers in register/forgot/verify-resend
+// routes remain duplicated (3 identical functions, ~5 lines each). NOT in
+// scope this cycle — substrate trust closure happens at the template layer
+// (final consumer); route-layer dedup is a separate refactor concern.
+//
+// REJECTED ALTERNATIVE: Sanitize the URL (rewrite javascript: → https://)
+// instead of throwing. Rejected because silent rewriting masks the env
+// misconfig and may produce a working-but-wrong link (recipient clicks,
+// goes nowhere or to attacker's URL). Throwing surfaces the operator
+// error immediately + audit log capture (Phase 1.5.11 R-12 integration).
+export class EmailUrlValidationError extends Error {
+  constructor(public readonly context: 'verifyUrl' | 'resetUrl', public readonly reason: string) {
+    super(`[email-templates] ${context} validation failed: ${reason}`)
+    this.name = 'EmailUrlValidationError'
+  }
+}
+
+function assertSafeUrl(url: string, context: 'verifyUrl' | 'resetUrl'): URL {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new EmailUrlValidationError(context, `malformed URL: "${url.slice(0, 64)}"`)
+  }
+  // Scheme allowlist — env-gated. Production: HTTPS only. Dev/test: HTTPS + HTTP.
+  const allowedSchemes =
+    process.env.NODE_ENV === 'production' ? new Set(['https:']) : new Set(['https:', 'http:'])
+  if (!allowedSchemes.has(parsed.protocol)) {
+    throw new EmailUrlValidationError(
+      context,
+      `scheme "${parsed.protocol}" not in allowlist (NODE_ENV=${process.env.NODE_ENV ?? 'unset'}, allowed: ${Array.from(allowedSchemes).join(', ')})`,
+    )
+  }
+  return parsed
+}
+
+// R-14 hardening (Phase 1.5.10 <COMMIT_HASH_TBD>): defensive CRLF cleanup
+// on displayName references in email body interpolation. Layer 2 of the
+// validator + template defense-in-depth pair (Layer 1 in
+// identity-validation.ts DISPLAY_NAME_DENYLIST_RE now blocks \r\n).
+//
+// Bypass-resilience: if a future code path stores a displayName that
+// bypasses the validator (e.g., direct DB write, admin tool, legacy data),
+// this template-layer scrub still strips CR/LF before interpolation. Pair
+// with R-13 escapeHtml: validator-then-template double-layer.
+//
+// SENIOR ARCHITECT NOTE: replace(/[\r\n]+/g, ' ') collapses one-or-more
+// CR/LF sequences into a single space. This preserves visual continuity
+// of the displayName (no double-spaces from "Foo\r\n\nBar" → "Foo Bar")
+// while ensuring no line break survives into the rendered output.
+function stripCrlf(input: string): string {
+  return input.replace(/[\r\n]+/g, ' ')
+}
+
 // Inline brand mark — chevron + underscore in neon green (#00ff41).
 // Mirrors public/icon.svg shape; sized down to 28×28 for in-email
 // header use. Inlined so no remote asset request happens at render
@@ -111,7 +186,16 @@ function renderShell({
 export function renderVerificationEmail(
   params: VerificationEmailParams,
 ): RenderedEmail {
-  const safeName = params.username || 'Operator'
+  // R-15 (Phase 1.5.10): validate URL substrate BEFORE any rendering work.
+  // Throws EmailUrlValidationError if scheme is not in allowlist or URL is
+  // malformed. Caller (route handler) catches + skips email send.
+  assertSafeUrl(params.verifyUrl, 'verifyUrl')
+
+  // R-14 Layer 2 (Phase 1.5.10): defensive CRLF cleanup on displayName.
+  // Validator (identity-validation.ts) already rejects \r\n at registration
+  // time, but template-layer scrub protects bypass paths (admin tools,
+  // legacy data, future surfaces).
+  const safeName = stripCrlf(params.username || 'Operator')
   const subject = 'siberlab — Email adresini doğrula'
   const preheader = 'Hesabını aktive etmek için email adresini doğrula.'
   const text = [
@@ -157,7 +241,11 @@ export function renderVerificationEmail(
 export function renderPasswordResetEmail(
   params: PasswordResetEmailParams,
 ): RenderedEmail {
-  const safeName = params.username || 'Operator'
+  // R-15 (Phase 1.5.10): URL substrate validation. Throws on bad URL.
+  assertSafeUrl(params.resetUrl, 'resetUrl')
+
+  // R-14 Layer 2 (Phase 1.5.10): defensive CRLF cleanup on displayName.
+  const safeName = stripCrlf(params.username || 'Operator')
   const subject = 'siberlab — Şifre sıfırlama'
   const preheader = 'Şifre sıfırlama bağlantın hazır. 1 saat geçerli.'
   const text = [
