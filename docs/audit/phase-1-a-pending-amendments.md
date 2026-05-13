@@ -31,7 +31,7 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Discovered in:** Phase 1.D.5
 - **Issue:** Audit Section 5 → client-ip.ts table lists T-CI11 as single test. Phase 1.D.5 split it into T-CI11a (production gap, R-01 broader scope) and T-CI11b (safe baseline). File now has 13 tests, not 12.
 - **Action:** Update Section 5 → client-ip.ts table to add T-CI11a and T-CI11b rows. Update Section 1 / Section 7 if test counts referenced.
-- **Resolution:** Phase 1.5.12 commit `<COMMIT_HASH_TBD>` — Section 5 `client-ip.ts` table T-CI11 row split into T-CI11a + T-CI11b distinct rows, each mapped to the corresponding `it()` block at `src/lib/client-ip.test.ts` L110 (T-CI11a — production gap regression guard) and L148 (T-CI11b — non-prod safe baseline). Both rows retain `R-01 ✅ FIXED` mapping (R-01 closed in Phase 1.5.5 `bb11ae6`); the split is audit-doc consistency hygiene only — no code/test logic change. Section 1 / Section 7 test count references were not affected (those reference vitest totals which already reflect both T-CI11a and T-CI11b).
+- **Resolution:** Phase 1.5.12 commit `61e8492` — Section 5 `client-ip.ts` table T-CI11 row split into T-CI11a + T-CI11b distinct rows, each mapped to the corresponding `it()` block at `src/lib/client-ip.test.ts` L110 (T-CI11a — production gap regression guard) and L148 (T-CI11b — non-prod safe baseline). Both rows retain `R-01 ✅ FIXED` mapping (R-01 closed in Phase 1.5.5 `bb11ae6`); the split is audit-doc consistency hygiene only — no code/test logic change. Section 1 / Section 7 test count references were not affected (those reference vitest totals which already reflect both T-CI11a and T-CI11b).
 
 ### A-05 — T-IV06 consecutive dots gap (R-09 broader)
 - **Discovered in:** Phase 1.D.3 (identity-validation.test.ts)
@@ -111,7 +111,7 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 
 ### A-16 — [RESERVED, NEVER USED]
 
-Numbering gap. A-16 number reserved during audit drafting but never assigned to a tracked amendment. Documented here in Phase 1.5.12 (commit `<COMMIT_HASH_TBD>`) for register completeness. No action.
+Numbering gap. A-16 number reserved during audit drafting but never assigned to a tracked amendment. Documented here in Phase 1.5.12 (commit `61e8492`) for register completeness. No action.
 
 ### A-18 — R-04 fix surface expansion (postgres + sqlite stores)
 
@@ -191,7 +191,7 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
 - **Trade-off preserved:** Lazy module + boot validator achieves identical fail-loud-at-boot semantic as current R-20 design (boot validator throws if env missing), while decoupling module load from env presence. R-20 hardening intent fully maintained.
 - **Action:** Defer to Phase 2 hardening pass or post-Phase-1.5 cleanup commit. Not blocking.
 - **Risk if not addressed:** minor — current Option A (env always set in Vercel Production + Preview) sidesteps the issue operationally. Refinement is design quality improvement, not vulnerability.
-- **Deferral:** Phase 1.5.12 commit `<COMMIT_HASH_TBD>` — formally deferred to Phase 2 hardening pass following A-20 deferral pattern lineage. Rationale: A-17 proposes a code-level refactor (lazy getter pattern for `getMemorySecret()` + Next.js `instrumentation.ts` `register()` boot validator) that is out of scope for Phase 1.5.12 (audit-doc-only closure cycle, ABSOLUTE NO CODE per cycle yasaklar). A-17's own Action explicitly directs Phase 2 deferral; this commit honors that direction with a formal marker. R-20 itself remains ✅ FIXED in Phase 1.5.1 `7baacac` — A-17 is a refinement quality concern (initialization timing + boot-validation design pattern), NOT a vulnerability. Compensating control is operationally active: `SOC_DEMO_SECRET` is set in Vercel Production + Preview env per operator confirmation, which sidesteps the lazy-init module-load fragility issue practically. Phase 2 backlog target alongside the 11 remaining OPEN amendments (A-01, A-05, A-06, A-07 informational, A-08, A-09 informational, A-11, A-12, A-13, A-14, A-15, A-18 substantively-done-needs-late-marker).
+- **Deferral:** Phase 1.5.12 commit `61e8492` — formally deferred to Phase 2 hardening pass following A-20 deferral pattern lineage. Rationale: A-17 proposes a code-level refactor (lazy getter pattern for `getMemorySecret()` + Next.js `instrumentation.ts` `register()` boot validator) that is out of scope for Phase 1.5.12 (audit-doc-only closure cycle, ABSOLUTE NO CODE per cycle yasaklar). A-17's own Action explicitly directs Phase 2 deferral; this commit honors that direction with a formal marker. R-20 itself remains ✅ FIXED in Phase 1.5.1 `7baacac` — A-17 is a refinement quality concern (initialization timing + boot-validation design pattern), NOT a vulnerability. Compensating control is operationally active: `SOC_DEMO_SECRET` is set in Vercel Production + Preview env per operator confirmation, which sidesteps the lazy-init module-load fragility issue practically. Phase 2 backlog target alongside the 11 remaining OPEN amendments (A-01, A-05, A-06, A-07 informational, A-08, A-09 informational, A-11, A-12, A-13, A-14, A-15, A-18 substantively-done-needs-late-marker).
 
 ## Total test count revision
 

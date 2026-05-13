@@ -171,7 +171,7 @@ Tests are colocated as `*.test.ts` next to the unit, except route tests which co
 | T-CI09 | Edge | Valid IPv6 accepted | — |
 | T-CI10 | Edge | Malformed IPv4 (octet > 255) rejected | — |
 | T-CI11a | Regression | NODE_ENV=production, VERCEL unset, flag unset → trustProxy=false (R-01 trust-gating regression guard; flipped from gap-doc to regression in Phase 1.5.5 `bb11ae6`; A-03 closure — NODE_ENV=production no longer auto-trusts proxy headers, `TRUST_PROXY_HEADERS=1` explicit opt-in required) | R-01 ✅ FIXED |
-| T-CI11b | Regression | NODE_ENV=test, VERCEL unset, flag unset → trustProxy=false — safe baseline (reads alongside T-CI11a as "safe in non-prod, unsafe in prod" illustration of R-01 pre-fix High severity; A-04 split applied in Phase 1.5.12 `<COMMIT_HASH_TBD>`) | R-01 ✅ FIXED |
+| T-CI11b | Regression | NODE_ENV=test, VERCEL unset, flag unset → trustProxy=false — safe baseline (reads alongside T-CI11a as "safe in non-prod, unsafe in prod" illustration of R-01 pre-fix High severity; A-04 split applied in Phase 1.5.12 `61e8492`) | R-01 ✅ FIXED |
 | T-CI12 | Regression | VERCEL=1, flag unset → trustProxy=false (Vercel deploy now requires explicit TRUST_PROXY_HEADERS=1; R-01 trust-gating regression guard) | R-01 ✅ FIXED |
 
 ### auth-shared.ts
