@@ -1,11 +1,11 @@
-// Phase 1.5.14 — dashboard demo-tuning constants regression guards.
+// Phase 1.5.14.1 — dashboard demo-tuning constants regression guards.
 //
 // SENIOR ARCHITECT NOTE: Bug 2 reported by operator was rooted in emission
 // probabilities tuned for a production-realistic sparse-event SOC scenario,
-// not for a 5–30 min demo window. The four constants below were tuned to
-// surface ~1 stream event per ~4.7s, ~1 malicious per ~19s, and ~1 CRITICAL
-// pop-up per ~94s — making a 3-min demo window produce all three signal
-// classes (~38 stream / ~9 malicious / ~1-2 critical).
+// not for a demo window. Phase 1.5.14 (a1fa2b5) tuned aggressive demo
+// values; operator then observed deployment and asked for calm SOC
+// professional cadence (critical pop-up every ~5 min, not every ~1.5 min).
+// Phase 1.5.14.1 recalibrates: ~25s/stream, ~83s/malicious, ~298s/critical.
 //
 // These tests lock the exact tuned values. State gathering noted ~7 recent
 // commits in DashboardLayout.tsx with stability-focused subjects (BUG-005
@@ -13,10 +13,14 @@
 // drift of these constants during future iteration would re-introduce
 // Bug 2 without an obvious bisect signal. Regression guards prevent that.
 //
-// REJECTED ALTERNATIVE: assert tolerance bands (e.g. INTERVAL_MS between
-// 2000 and 6000). Rejected — exact-value assertions force a deliberate
-// test update whenever someone tunes the constants, surfacing the intent
-// review at PR-time. Tolerance bands would let drift happen quietly.
+// REJECTED ALTERNATIVE: assert wider tolerance bands on T-DT01..T-DT04
+// (e.g. INTERVAL_MS between 5000 and 15000). Rejected — exact-value
+// assertions force a deliberate test update whenever someone tunes the
+// constants, surfacing the intent review at PR-time. Tolerance bands
+// would let drift happen quietly. T-DT05 uses a band on the integrated
+// metric (critical interval) where ±10% absorbs floating-point precision,
+// NOT where it permits drift — any single-constant change pushes the
+// derived interval outside the band.
 
 import {
   TELEMETRY_SIM_INTERVAL_MS,
@@ -25,48 +29,54 @@ import {
   CRITICAL_EVENT_PROBABILITY,
 } from './demo-tuning-constants'
 
-describe('dashboard demo-tuning — emission rate constants (Phase 1.5.14)', () => {
-  it('T-DT01: TELEMETRY_SIM_INTERVAL_MS === 4000 (4-second simulation tick)', () => {
-    // 4 seconds per tick gives ~15 ticks/min, fast enough to feel live
-    // without saturating the event ring buffer (16-entry cap in
-    // DashboardLayout.tsx).
-    expect(TELEMETRY_SIM_INTERVAL_MS).toBe(4000)
+describe('dashboard demo-tuning — emission rate constants (Phase 1.5.14.1, calm SOC cadence)', () => {
+  it('T-DT01: TELEMETRY_SIM_INTERVAL_MS === 10000 (10-second simulation tick)', () => {
+    // 10 seconds per tick gives ~6 ticks/min. Combined with 0.40 emission
+    // probability → stream event every ~25s on average. Calm SOC tape feel.
+    expect(TELEMETRY_SIM_INTERVAL_MS).toBe(10000)
   })
 
-  it('T-DT02: TELEMETRY_EMISSION_PROBABILITY === 0.85 (most ticks emit)', () => {
-    // 0.85 → ~5.9s wait per emission given the 4s tick. Effective stream
-    // cadence: ~1 event per 4.7s.
-    expect(TELEMETRY_EMISSION_PROBABILITY).toBe(0.85)
+  it('T-DT02: TELEMETRY_EMISSION_PROBABILITY === 0.40 (calm SOC emission cadence)', () => {
+    // 0.40 → ~25s wait per emission given the 10s tick. Effective stream
+    // cadence: ~1 event per 25 seconds. Continuous flow without saturation.
+    expect(TELEMETRY_EMISSION_PROBABILITY).toBe(0.40)
   })
 
-  it('T-DT03: MALICIOUS_EVENT_PROBABILITY === 0.25 (1 in 4 events malicious)', () => {
-    // 0.25 → malicious event every ~19s on average. Demo-cadence threat
-    // density without saturating the threat-focus UI.
-    expect(MALICIOUS_EVENT_PROBABILITY).toBe(0.25)
+  it('T-DT03: MALICIOUS_EVENT_PROBABILITY === 0.30 (~1 malicious per 83s)', () => {
+    // 0.30 → malicious event every ~83s on average (~1.4 min). Threat
+    // density realistic for SOC monitoring; doesn't saturate threat-focus UI.
+    expect(MALICIOUS_EVENT_PROBABILITY).toBe(0.30)
   })
 
-  it('T-DT04: CRITICAL_EVENT_PROBABILITY === 0.20 (1 in 5 malicious events critical)', () => {
-    // 0.20 → CRITICAL event every ~94s on average. P1 modal pop-up + scan
-    // overlay fires roughly once every 1.5 min during active demo.
-    expect(CRITICAL_EVENT_PROBABILITY).toBe(0.20)
+  it('T-DT04: CRITICAL_EVENT_PROBABILITY === 0.28 (critical pop-up ~5 min)', () => {
+    // 0.28 → CRITICAL event every ~298s on average (~5 min). P1 modal
+    // pop-up + scan overlay becomes a deliberate operator-attention event
+    // rather than background noise. Matches operator preference target.
+    expect(CRITICAL_EVENT_PROBABILITY).toBe(0.28)
   })
 
-  it('T-DT05: combined emission rate matches demo target (~0.21 events/sec)', () => {
+  it('T-DT05: integrated critical-event interval ∈ [270s, 330s] (~5 min ±10%)', () => {
     // SENIOR ARCHITECT NOTE: this is the "integrated metric" guard — if a
-    // future tuning shifts any single constant, the combined rate diverges
-    // from the demo target and this test catches the cumulative drift.
+    // future tuning shifts any single constant, the combined critical
+    // interval diverges from the 5-min target and this test catches the
+    // cumulative drift.
     //
-    // Expected events per second:
-    //   (1 / TELEMETRY_SIM_INTERVAL_MS_in_seconds) * TELEMETRY_EMISSION_PROBABILITY
-    //   = (1 / 4) * 0.85
-    //   = 0.2125 events/sec
+    // Expected critical interval:
+    //   stream_rate    = (1 / 10s) * 0.40 = 0.04   events/sec
+    //   malicious_rate = 0.04 * 0.30      = 0.012  /sec
+    //   critical_rate  = 0.012 * 0.28     = 0.00336/sec
+    //   critical_interval = 1 / 0.00336   ≈ 298s
     //
-    // Tolerance: ±5% to absorb floating-point precision on the
-    // multiplication, NOT to permit drift. Any constant change shifts
-    // this number out of the tolerance band.
+    // Tolerance: ±10% around the operator-target 300s (≈ 270s..330s) to
+    // absorb floating-point precision on the multiplication chain, NOT
+    // to permit drift. Any single-constant change pushes the derived
+    // interval outside the band.
     const intervalSec = TELEMETRY_SIM_INTERVAL_MS / 1000
-    const eventsPerSec = (1 / intervalSec) * TELEMETRY_EMISSION_PROBABILITY
-    const target = 0.2125
-    expect(Math.abs(eventsPerSec - target)).toBeLessThan(target * 0.05)
+    const streamRate = (1 / intervalSec) * TELEMETRY_EMISSION_PROBABILITY
+    const maliciousRate = streamRate * MALICIOUS_EVENT_PROBABILITY
+    const criticalRate = maliciousRate * CRITICAL_EVENT_PROBABILITY
+    const criticalIntervalSec = 1 / criticalRate
+    expect(criticalIntervalSec).toBeGreaterThan(270)
+    expect(criticalIntervalSec).toBeLessThan(330)
   })
 })
