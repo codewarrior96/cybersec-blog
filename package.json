@@ -22,6 +22,7 @@
     "lucide-react": "^0.577.0",
     "next": "^14.2.0",
     "next-mdx-remote": "^6.0.0",
+    "prism-react-renderer": "^2.4.1",
     "react": "^18",
     "react-dom": "^18",
     "react-simple-maps": "^3.0.0",

@@ -1,8 +1,19 @@
 import type { MDXComponents } from 'mdx/types';
 import Link from 'next/link';
 import CodeBlock from './CodeBlock';
+import EncodedCodeBlock, { type EncodedCodeBlockProps } from './EncodedCodeBlock';
+import PayloadDisclaimer from './PayloadDisclaimer';
 
 const components: MDXComponents = {
+  // Phase 1.5.13 — payload-bearing blocks ship as base64 inside
+  // <EncodedCodeBlock data="..." language="..." />; decoded client-side
+  // to neutralize AV ML false-positives on the repo ZIP. Regular fenced
+  // code blocks (the `pre` override below) continue to use the
+  // rehype-pretty-code (shiki) pipeline unchanged.
+  EncodedCodeBlock: (props: unknown) => (
+    <EncodedCodeBlock {...(props as EncodedCodeBlockProps)} />
+  ),
+  PayloadDisclaimer: () => <PayloadDisclaimer />,
   h1: ({ children }) => (
     <h1 className="text-3xl font-bold text-slate-100 mt-10 mb-4">{children}</h1>
   ),

