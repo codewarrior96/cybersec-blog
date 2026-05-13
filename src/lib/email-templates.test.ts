@@ -66,7 +66,7 @@ describe('email-templates', () => {
       expect(result.html).toContain(escaped)
     })
 
-    it('T-ET06: username with CRLF stripped to space in plain text body (R-14 FIXED in <COMMIT_HASH_TBD>)', () => {
+    it('T-ET06: username with CRLF stripped to space in plain text body (R-14 FIXED in 5d2f6cc)', () => {
       // FIX EVIDENCE: Phase 1.5.10 R-14 Layer 2 — email-templates.ts now
       // applies stripCrlf() (.replace(/[\r\n]+/g, ' ')) to displayName
       // BEFORE interpolation. Even if the validator-layer R-14 fix
@@ -106,7 +106,7 @@ describe('email-templates', () => {
       expect(result.text).toContain('Foo Bar') // CRLF collapsed to space
     })
 
-    it('T-ET07: verifyUrl javascript:alert(1) rejected by assertSafeUrl (R-15 FIXED in <COMMIT_HASH_TBD>)', () => {
+    it('T-ET07: verifyUrl javascript:alert(1) rejected by assertSafeUrl (R-15 FIXED in 5d2f6cc)', () => {
       // FIX EVIDENCE: Phase 1.5.10 R-15 Layer 1 — renderVerificationEmail
       // now invokes assertSafeUrl(verifyUrl, 'verifyUrl') BEFORE any
       // template interpolation. The helper:

@@ -152,7 +152,7 @@ describe('identity-validation', () => {
       expect(isValidDisplayName('<img src=x onerror=alert(1)>')).toBe(false)
     })
 
-    it('T-IV18: displayName containing \\n rejected (R-14 FIXED in <COMMIT_HASH_TBD>)', () => {
+    it('T-IV18: displayName containing \\n rejected (R-14 FIXED in 5d2f6cc)', () => {
       // FIX EVIDENCE: Phase 1.5.10 R-14 — isValidDisplayName now rejects
       // CR/LF via DISPLAY_NAME_DENYLIST_RE extended to /[<>&"\r\n]/.
       // The LF character is now in the denylist, validator rejects at
@@ -174,7 +174,7 @@ describe('identity-validation', () => {
       expect(isValidDisplayName('Mehmet\nEvil')).toBe(false)
     })
 
-    it('T-IV19: displayName Foo\\r\\nBar rejected (R-14 FIXED in <COMMIT_HASH_TBD>)', () => {
+    it('T-IV19: displayName Foo\\r\\nBar rejected (R-14 FIXED in 5d2f6cc)', () => {
       // FIX EVIDENCE: Same denylist rejection mechanism as T-IV18. CRLF
       // sequence (canonical line-ending per RFC 2822) is now rejected
       // at validator entry. Img-onerror-style payloads with CR/LF

@@ -17,7 +17,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 // Apostrophe (') intentionally allowed — legitimate name pattern (O'Brien);
 // HTML escape at template layer handles it safely.
 //
-// R-14 hardening (Phase 1.5.10 <COMMIT_HASH_TBD>): CR/LF (\r\n) now blocked.
+// R-14 hardening (Phase 1.5.10 5d2f6cc): CR/LF (\r\n) now blocked.
 // displayName flows downstream into email-templates.ts plain-text body
 // (`Merhaba ${safeName},` template literal). CR/LF in displayName would
 // fracture the rendered email across multiple lines — phishing-assist

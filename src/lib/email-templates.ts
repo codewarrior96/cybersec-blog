@@ -48,7 +48,7 @@ interface RenderedEmail {
   text: string
 }
 
-// R-15 hardening (Phase 1.5.10 <COMMIT_HASH_TBD>): URL substrate trust closure.
+// R-15 hardening (Phase 1.5.10 5d2f6cc): URL substrate trust closure.
 // verifyUrl + resetUrl are constructed upstream from NEXT_PUBLIC_APP_URL env
 // (or request host fallback) — both are operator/upstream inputs that could
 // arrive poisoned (env misconfig: NEXT_PUBLIC_APP_URL=javascript:alert(1)//,
@@ -105,7 +105,7 @@ function assertSafeUrl(url: string, context: 'verifyUrl' | 'resetUrl'): URL {
   return parsed
 }
 
-// R-14 hardening (Phase 1.5.10 <COMMIT_HASH_TBD>): defensive CRLF cleanup
+// R-14 hardening (Phase 1.5.10 5d2f6cc): defensive CRLF cleanup
 // on displayName references in email body interpolation. Layer 2 of the
 // validator + template defense-in-depth pair (Layer 1 in
 // identity-validation.ts DISPLAY_NAME_DENYLIST_RE now blocks \r\n).
