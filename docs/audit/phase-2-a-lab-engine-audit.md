@@ -63,12 +63,12 @@ Phase 2 adopts a new `R-LAB-XX` namespace to avoid collision with Phase 1's R-01
 
 | ID | Severity | OWASP / Category | File(s) | Risk | Exploit / failure scenario |
 |---|---|---|---|---|---|
-| R-LAB-01 | **High** | A04 Insecure Design | `validation/contracts.ts`, `engine.ts` | **CTF flag exposure in client bundle**: `VALID_FLAGS` (engine.ts L50-57) is a module-load `Set<string>` enumerating all 6 challenge flag strings as literals. The 6 challenge contracts in `contracts.ts` also embed flag strings as `expectedFlag` and inside `flag_submitted` primitives. All literals are bundled into the client JS chunk served by `/community`. Inspect-element / View-source / `grep` of the deployed JS reveals every flag. | Demo-context risk: any visitor with browser DevTools can extract flags without solving challenges. The educational pretense (operator works through commands to discover the flag) is bypassed. Severity High because it directly undermines the product's primary educational mechanic. Mitigated by: (a) deployment context is a personal portfolio, not a graded CTF; (b) commands still need to be learned to satisfy contract evidence in `hybrid` mode (flag-only is `legacy_flag_only`). **Hardening proposal** (NOT Phase 2.D scope; future architectural cycle): move flag validation server-side via API route, store flags hashed (SHA-256) in client bundle, validate via constant-time compare on server. |
+| R-LAB-01 | Medium | A04 Insecure Design | `validation/contracts.ts`, `engine.ts` | **CTF flag exposure in client bundle**: `VALID_FLAGS` (engine.ts L50-57) is a module-load `Set<string>` enumerating all 6 challenge flag strings as literals. The 6 challenge contracts in `contracts.ts` also embed flag strings as `expectedFlag` and inside `flag_submitted` primitives. All literals are bundled into the client JS chunk served by `/community`. Inspect-element / View-source / `grep` of the deployed JS reveals every flag. | Demo-context risk: any visitor with browser DevTools can extract flags without solving challenges. **Severity adjusted High → Medium in Phase 2.D (mentor Z.1 decision):** portfolio-demo context downgrades the educational-integrity threat. The deployment is a personal portfolio, not a graded competition; flag-viewable status is acceptable. Mitigations preserved: (a) `hybrid` mode still requires evidence beyond the flag string; (b) panel-driven submission (validateChallengeWithMode) goes through the contract evaluator. **Hardening proposal** (NOT Phase 2.D scope; future architectural cycle if context shifts): move flag validation server-side via API route, store flags hashed (SHA-256) in client bundle, validate via constant-time compare on server. |
 | R-LAB-02 | **High** | A04 Insecure Design | `reveal/detector.ts`, `engine.ts:runRevealCheck` | **Reveal-detector start-cursor logic is multi-state-complex**: detector branches on `alreadyRevealed` (Set), `startedAtEventId` (number / undefined / -1 sentinel / +Infinity sentinel), `sufficientMet` (boolean), `blockingMissing` (filtered list excluding `flag_submitted`), plus contract `forbidden` and `temporalFailures`. Five-axis branch matrix. Existing test covers happy-path + 2 negative cases (before-start + legacy sentinel), but doesn't exhaustively cross-product the axes. | A logic regression in this surface causes one of: (a) early reveal — banner fires before the user actually solves (educational integrity loss), (b) silent no-reveal — banner suppressed despite solution (UX breakage, hard to debug), (c) cross-context bleed — Curriculum lesson events satisfying a CTF level's contract from the prior session. The `startedAtEventId: number === undefined ? +Infinity : entry` branch in `engine.ts:runRevealCheck` L467-471 is particularly subtle (treating "level not started" as `+Infinity` cursor means no event id can clear the gate — correct intent, fragile code). |
 | R-LAB-03 | **High** | A04 Insecure Design | `validation/contract.ts`, `validation/contracts.ts` | **Validation contract evaluator + temporal clauses are correctness-critical**: `validateContract` (contract.ts) filters log by `sinceEventId`, then checks `required` (all present), `forbidden` (none present), `sufficient` (≥1 group satisfied), `requiresBeforeReading` (temporal ordering before flag submit). 6 contracts × 4 clause types × event-id ordering = combinatorial surface. | A regression in temporal ordering (e.g., a refactor that breaks `latestFlagSubmitEventId`'s `Number.POSITIVE_INFINITY` default when no submit exists) silently passes contracts. False-positive reveals = R-LAB-02 outcome. Existing CTF regression test exercises happy paths only; **negative temporal scenarios are untested** (e.g., flag submitted before required `file_read` is recorded → must fail; never tested). |
 | R-LAB-04 | Medium | A04 Insecure Design | `mutation/operations.ts` | **Protected-prefix enforcement** (`PROTECTED_PREFIXES = ['/etc', '/usr', '/var', '/proc', '/sys', '/root', '/boot']`) gates 6 mutation ops (touch/mkdir/rm/mv/chmod/write). `isProtected(path)` uses `path === prefix \|\| path.startsWith(prefix+'/')`. Path normalization is the caller's responsibility — `engine.ts` resolves via `resolvePath` first, but if a future caller invokes `applyMutation` with a non-normalized path (e.g., `/etc/../tmp/x` raw), `startsWith('/etc/')` returns true and denies legitimate `/tmp/x` work, or worse — `'/etc'.startsWith('/etc')` is true but `'/etcd'.startsWith('/etc/')` is false (correct), yet `'/etca'.startsWith('/etc')` is true (incorrect — non-existent edge case but illustrates pattern brittleness). | Realistic: educational user attempts `chmod +x /etc/passwd` → permission denied (correct). Edge: user constructs path with `~`/`..` segments that bypass intent. Severity Medium because mutation only affects in-memory mutable FS clone (no actual host damage), but a bypass would corrupt the educational experience (showing root-owned files writable to operator user). |
 | R-LAB-05 | Medium | A04 Insecure Design | `mutation/state.ts` | **Mutation state singleton** (`let currentMutableFs: MutableFsNode \| null = null` at module scope) — single-process-global. `initMutableFs()` returns the same instance to every caller until `resetMutableFs()` is invoked. In a multi-tab browser session, both tabs share this singleton (same JS module instance per origin). In production Vercel runtime, server-side rendering paths share the same module instance across concurrent SSR requests if the singleton ever escapes the client boundary. | Educational issue: state from one tab visible in another (could be intended for some scenarios, surprising for others). Per-test isolation issue: vitest tests that touch mutation state must explicitly `resetMutableFs()` before each test or risk cross-test bleed; existing tests use `createMutableFs(ROOT)` per-test which is correct, but a future test that calls `initMutableFs()` directly would inherit. Severity Medium because Lab Engine is client-side and Next.js dynamic-import boundary mostly prevents SSR coupling, but the pattern is fragile. |
-| R-LAB-06 | Medium | A04 Insecure Design | `mutation/operations.ts:applyChmodMode` | **chmod mode parser** supports numeric (`755`, `0755`, `644`) and symbolic (`+x`, `u+x`, `g-w`, `a=r`, `+rx`) modes. Multiple branches: numeric three-digit interpretation, leading-zero stripping, symbolic regex `/^([ugoa]*)([+\-=])([rwx]+)$/`. Mode `=r` (set scope to r only, drop w+x) is implemented via `op === '+' \|\| op === '='` branch — `=` shares the "+" code path but should additionally clear unmentioned bits. Surface: untested today. | A user types `chmod 077 file` (numeric, valid) — parser sets owner=---, group=rwx, other=rwx. Correct. A user types `chmod g=r file` (symbolic, `=` op) — parser adds `r` to group bits via `+`-style codepath but does NOT clear group `w`+`x`. The expected POSIX semantics is "set group to r only (clear w+x)". This is a soft semantic-correctness bug; impact is educational fidelity (user observes deviation from real shell behavior). Severity Medium because mutation operations are foundational to L2 (perms) challenge. |
+| R-LAB-06 | Medium | A04 Insecure Design | `mutation/operations.ts:applyChmodMode` | **chmod mode parser** supports numeric (`755`, `0755`, `644`) and symbolic (`+x`, `u+x`, `g-w`, `a=r`, `+rx`) modes. Multiple branches: numeric three-digit interpretation, leading-zero stripping, symbolic regex `/^([ugoa]*)([+\-=])([rwx]+)$/`. Mode `=r` (set scope to r only, drop w+x) is implemented via `op === '+' \|\| op === '='` branch — `=` shares the "+" code path but should additionally clear unmentioned bits. Surface: untested today. | A user types `chmod 077 file` (numeric, valid) — parser sets owner=---, group=rwx, other=rwx. Correct. A user types `chmod g=r file` (symbolic, `=` op) — parser adds `r` to group bits via `+`-style codepath but does NOT clear group `w`+`x`. The expected POSIX semantics is "set group to r only (clear w+x)". This is a soft semantic-correctness bug; impact is educational fidelity (user observes deviation from real shell behavior). Severity Medium because mutation operations are foundational to L2 (perms) challenge. **Phase 2.D ships T-MO-CHMOD-EQ-GAP gap-test** (R-21 Phase 1 lineage pattern) locking current deviant behavior as regression guard. Future R-LAB-06 closure cycle: implement POSIX `=` semantics in `applyChmodMode`, replace gap-test with T-MO-CHMOD-EQ01 asserting POSIX behavior, flip R-LAB-06 row to ✅ FIXED. |
 | R-LAB-07 | Medium | A04 Insecure Design | `evidence/log.ts` | **Ring buffer silent truncation**: `RingEvidenceLog` enforces `MAX_EVIDENCE_EVENTS = 200` via `slice(-MAX)`. When a user accumulates >200 events (long Curriculum session before opening CTF), earlier events fall off. The detector's `startedAtEventId` cursor can outlive its event: if `startedAtEventId = 50` was captured, then events 0-150 were emitted and the ring trimmed to events 51-150, the cursor is still 50 but no event with id 50 exists in the log. `filterLogSince(log, 50)` returns events with `id >= 50` — all of 51-150 are visible (correct behavior since they're all after the start gate). But contracts that require evidence from BEFORE the cursor (none today, but `hasBefore` semantic exists) would fail unexpectedly. | Current contracts don't exploit this, but the latent risk is real. Severity Medium because it's a correctness invariant that depends on contract authors avoiding cursor-relative pre-event references. |
 | R-LAB-08 | Medium | A04 Insecure Design | `engine.ts:tokenize`, `splitPipeline`, `stripQuotes` | **Shell-like parser correctness**: `tokenize` uses regex `/(?:[^\s"']+\|"[^"]*"\|'[^']*')+/g` — handles double-quote + single-quote string literals + bare tokens. Does NOT handle escape sequences (`\"`, `\'`, `\\`), backtick-substitution, `$()` substitution, glob `*`/`?`/`[]`, or `>` redirects (echo handler has its own ad-hoc redirect parsing). `splitPipeline` walks chars looking for `|` outside quotes — also no escape handling. Quote-state tracker uses single `quote` variable. | A user types `echo "hello | world"` → `tokenize` returns 1 token (correct because the `|` is inside `"`). A user types `echo 'hello \' world'` → tokenize regex `'[^']*'` matches `'hello \'` (terminator is the first single quote inside, not the escaped one). Result: token boundaries surprise the user. Severity Medium because educational fidelity. Real shells handle this; the simulator doesn't claim to be a real shell but the gap is undocumented. |
 | R-LAB-09 | Low | A04 Insecure Design | `commands/index.ts:registerAll` (module-load side effect) | **Module-load side effect**: `commands/index.ts` at module load (a) calls `registerAll([...5 handlers])` and (b) in non-production environments, dynamically imports `__verify__.ts` and invokes `verifyRegistry()` whose throws are caught by `.catch(err => { console.error(...); throw err })` — the `throw err` inside a `.catch` is **fire-and-forget** because it rejects the promise but isn't awaited at module scope. Net effect: verifier failures are visible only via `console.error`, not via test-runner failure. | Educational risk: a dev breaks the registry shape (e.g., changes `clear` sentinel `__CLEAR__` → `__CLR__`), `verifyRegistry` throws, the throw lands in unhandled rejection. Tests pass because the rejection is async + unawaited. Compounding: `commands/registry.ts:registerCommand` throws synchronously on duplicate registration — that surfaces correctly. The async verifier is the weak link. Severity Low because verifier is dev-only and only checks shape invariants. |
@@ -79,7 +79,7 @@ Phase 2 adopts a new `R-LAB-XX` namespace to avoid collision with Phase 1's R-01
 | R-LAB-14 | Low | A04 Insecure Design | `evidence/normalize.ts:normalizeArgs` | **Short-flag expansion**: `if (/^-[a-zA-Z]{2,}$/.test(arg) && !arg.startsWith('--'))` expands `-la` → `['-l', '-a']`. Heuristic: anything matching `-AAA` where each char is alphabetic. Edge: `-rf` (rm recursive force) expands to `['-r', '-f']`. But `-9` (kill signal style) doesn't match the regex (digit), so it stays as `-9`. Subtle: `-Pn` (nmap-style) expands to `['-P', '-n']` which is semantically wrong for nmap (where `-Pn` is one flag meaning "no ping"). | Evidence matchers comparing args with `subset_unordered` mode will count `-P` and `-n` separately — a contract requiring `-Pn` literal would never match. Today's contracts.ts doesn't depend on this, but it's a foot-gun for future contract authors. Severity Low. |
 | R-LAB-15 | Informational | A04 Insecure Design | `validation/contract.ts:filterLogSince`, `evidence/log.ts:RingEvidenceLog` | **Sentinel cursor semantics**: `sinceEventId === -1` (legacy migration completion sentinel) and `sinceEventId === +Infinity` (level-not-started sentinel) are both handled, but their domain is "magic numbers". Documentation lives in comments; no type-level enforcement. A type alias `type EventCursor = number \| 'legacy-completed' \| 'not-started'` would surface the magic-number trap to readers. | Pure refactor-readiness concern. No exploit. Informational severity. |
 
-**Summary by severity:** High = 3 (R-LAB-01, R-LAB-02, R-LAB-03); Medium = 5 (R-LAB-04..R-LAB-08); Low = 6 (R-LAB-09..R-LAB-14); Informational = 1 (R-LAB-15). Total = 15.
+**Summary by severity (post-Phase-2.D adjustment per Z.1):** High = 2 (R-LAB-02, R-LAB-03); Medium = 6 (R-LAB-01 *adjusted*, R-LAB-04..R-LAB-08); Low = 6 (R-LAB-09..R-LAB-14); Informational = 1 (R-LAB-15). Total = 15.
 
 **No Critical entries.** Lab Engine is a pure-logic client-side educational simulation; the threat model is correctness + integrity of the educational experience, not classic auth/data-confidentiality risk. Phase 1's Critical R-03 + R-20 had no analog in this surface.
 
@@ -96,9 +96,28 @@ Two test files in `src/lib/lab/__tests__/`. Test counts inside each file:
 
 **Test ID renaming convention (Phase 2 lineage):** existing tests have no T-XX labels in source — only describe-block titles. Phase 2.D should formalize T-CCB01..T-CCB03 + T-CTFR01..T-CTFR06 in `it()` titles for traceability with this audit (Phase 1 lineage pattern from R-21 T-S09/T-S13).
 
-**Total Lab Engine test count today:** 9.
+**Total Lab Engine test count pre-Phase-2.D:** 9.
 
-**Risk coverage observation:** existing tests cover R-LAB-02 partial (happy-path detector + 2 negative branches; full 5-axis matrix not exercised) and R-LAB-03 happy-path (6 levels × 1 canonical solution each; no negative temporal-clause cases). All other R-LAB-XX risks have **zero direct coverage**.
+**Risk coverage observation (pre-Phase-2.D):** existing tests cover R-LAB-02 partial (happy-path detector + 2 negative branches; full 5-axis matrix not exercised) and R-LAB-03 happy-path (6 levels × 1 canonical solution each; no negative temporal-clause cases). All other R-LAB-XX risks have **zero direct coverage**.
+
+### Phase 2.D test expansion (this audit's surgical recommendation, IMPLEMENTED)
+
+Phase 2.D commit `<COMMIT_HASH_TBD>` ships 3 new test files implementing the Top-3 surgical scope from Section 5:
+
+| File | Test count | Coverage target | Maps to |
+|---|---|---|---|
+| `validation-contract.test.ts` | 25 | `validateContract` 4-clause matrix + 6-contract shape + sinceEventId scoping (incl. -1 / +Infinity / undefined / 0 / N) | T-VC01..T-VC25 → R-LAB-03 (High) |
+| `reveal-detector.test.ts` | 20 | `detectRevealEvent` 5-axis branch matrix (alreadyRevealed × startedAtEventId variants × forbidden × temporal × blockingMissing) + happy-path RevealEvent shape | T-RD01..T-RD20 → R-LAB-02 (High) |
+| `mutation-operations.test.ts` | 31 | 6 ops × happy-path × protected-prefix denial × chmod parser (numeric + symbolic) + `=` operator gap-test | T-MO01..T-MO30 + T-MO-CHMOD-EQ-GAP → R-LAB-04 + R-LAB-06 (Medium) |
+
+**Total Lab Engine test count post-Phase-2.D:** 9 (existing) + 76 (new) = **85**.
+
+R-LAB risk coverage state post-Phase-2.D:
+- R-LAB-02 (High): test-coverage gap CLOSED via T-RD01..T-RD20 (20 tests across 5-axis matrix)
+- R-LAB-03 (High): test-coverage gap CLOSED via T-VC01..T-VC25 (negative temporal cases + scoping cursor + shape verification)
+- R-LAB-04 (Medium): test-coverage gap CLOSED via T-MO01-30 protected-prefix denial × 6 ops
+- R-LAB-06 (Medium): gap-test (T-MO-CHMOD-EQ-GAP) ships; underlying POSIX deviation NOT fixed (regression guard locks current behavior; future closure cycle implements POSIX `=`)
+- R-LAB-01, R-LAB-05, R-LAB-07..R-LAB-15: untouched (intentional surgical scope — Phase 2.D does NOT chase all 15 risks; only Top-3 high-leverage modules per Section 5 ranking)
 
 ---
 
@@ -195,6 +214,17 @@ R-LAB-08 surface is broad (227 LOC, 12 matchers, 3-mode dispatcher). Full covera
 
 Engine is 2556 LOC of which ~80% is per-command implementations (cmdLs, cmdGrep, cmdNmap...) — testing each is high boilerplate, low invariant density per test (each command has ~3-5 testable behaviors). The 20% of engine that IS high-leverage (runRevealCheck, pipeline runner, tokenize/splitPipeline) is reachable via Target #2 (through runCommand end-to-end). **Phase 2.D explicitly does NOT target per-command engine.ts coverage** — that's a multi-phase-D effort if ever undertaken.
 
+### Phase 2.D commit cross-reference
+
+**Phase 2.D commit `<COMMIT_HASH_TBD>` implements this surgical scope.** Three new test files landed:
+- `src/lib/lab/__tests__/validation-contract.test.ts` — T-VC01..T-VC25 (25 tests)
+- `src/lib/lab/__tests__/reveal-detector.test.ts` — T-RD01..T-RD20 (20 tests)
+- `src/lib/lab/__tests__/mutation-operations.test.ts` — T-MO01..T-MO30 + T-MO-CHMOD-EQ-GAP (31 tests)
+
+Test ID prefixes per Z.5 lock: T-VC / T-RD / T-MO. Each `it(...)` title begins with the T-XX ID for audit traceability. Total baseline shift: 239 → 315 (+76 net).
+
+Phase 2.B + 2.C explicitly SKIPPED per Section 6 + 7 assessment (skip rationale documented in Phase 2.D commit message).
+
 ---
 
 ## 6. Phase 2.B Infrastructure Needs
@@ -286,11 +316,15 @@ Phase 2 end is **not in the threshold ladder** — Phase 1 author treated Phase 
 
 CTF flag exposure (Section 2) is rated **High** based on the educational-integrity threat model. Mentor may downgrade to **Medium** or **Informational** if the operator's framing is "the lab is a portfolio demo, not a graded competition; flags being viewable is acceptable". Decision affects whether a future hardening cycle (server-side flag validation) is justified.
 
+**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — R-LAB-01 downgraded from High to Medium. Portfolio-demo context downgrades the educational-integrity threat; flag-viewable status is acceptable for a personal portfolio. Section 2 row updated to reflect new severity + Phase 2.D adjustment note. Future hardening cycle (server-side validation) NOT triggered.
+
 ### Z.2 — Phase 2.B + Phase 2.C skip confirmation
 
 Sections 6 + 7 recommend skipping infra + mocks. CLAUDE.md L175 says *"Each phase is split into sub-stages: A (audit) → B (infrastructure) → C (mocks/handlers) → D (test cases)"* — strict sequential interpretation would still run B + C as audit deliverables (e.g., "Phase 2.B confirmed minimal"). Loose interpretation: skip directly from 2.A to 2.D since 2.B + 2.C have no deliverable.
 
 **Agent recommendation:** loose — go 2.A → 2.D, skipping 2.B + 2.C. Adds one cycle-skip note in the Phase 2.D mega-prompt as documentation.
+
+**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — Phase 2.B + 2.C SKIPPED. Lab Engine has zero external dependencies warranting infra/mock cycles (per Sections 6 + 7 assessment). Phase 2.D mega-prompt documented the skip explicitly. Phase 2 effective cycle chain: A (audit) → D (tests). Phase 2 CLOSED after this commit + cleanup.
 
 ### Z.3 — Phase 2.D scope (Section 5 ranking)
 
@@ -300,6 +334,8 @@ Section 5 recommends 3 targets: validation/contract + validation/contracts (Targ
 - (c) Loosen to top 4 (add evidence/match → R-LAB-08 closure).
 - (d) Reorder or substitute.
 
+**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — option (a) accepted. All three targets shipped. Actual test counts: T-VC = 25, T-RD = 20, T-MO = 30 + T-MO-CHMOD-EQ-GAP = 1 gap-test → total 76 new tests (slightly above the 50-65 estimate, within tolerance). Baseline 239 → 315.
+
 ### Z.4 — `applyChmodMode` `=` operator behavior (R-LAB-06)
 
 The current implementation of `applyChmodMode` treats `=` operator like `+` for the named bits — does NOT clear unmentioned bits. POSIX semantics is "set scope to exactly these bits, clear others". Phase 2.D could:
@@ -308,6 +344,8 @@ The current implementation of `applyChmodMode` treats `=` operator like `+` for 
 - (c) **Treat as not-a-bug** (educational sim doesn't claim POSIX fidelity).
 
 Mentor decision required.
+
+**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — option (a) selected. T-MO-CHMOD-EQ-GAP ships as regression guard locking current deviant behavior (R-21 Phase 1 lineage). R-LAB-06 stays OPEN in audit register with documented future-closure path. No fix to `applyChmodMode` in this cycle. Section 2 R-LAB-06 row updated with gap-test reference.
 
 ### Z.5 — Test ID naming convention
 
@@ -320,6 +358,8 @@ Existing tests are untitled in source. Phase 2.D should assign:
 
 Or alternative consistent scheme. Mentor lock the prefix style before Phase 2.D writes assertions.
 
+**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — proposed prefixes (T-CCB / T-CTFR / T-VC / T-RD / T-MO) accepted and applied. Each new test's `it(...)` title begins with `T-XX —` prefix (em-dash separator). Existing test files NOT renamed this cycle (mentor decision: pure-cosmetic rename inflates diff; deferred to a future housekeeping cycle). Phase 2.A audit doc cross-references existing tests by their assigned T-CCB / T-CTFR IDs already.
+
 ### Z.6 — Lab Engine "no new product" constraint mapping
 
 Phase 2.D writes NEW test files but touches NO product code in `src/lib/lab/*.ts`. Mapping to operator constraint:
@@ -328,13 +368,19 @@ Phase 2.D writes NEW test files but touches NO product code in `src/lib/lab/*.ts
 
 Agent reads constraint as satisfied. Mentor confirms.
 
+**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — constraint satisfied. Phase 2.D verification step `git diff src/lib/lab/ -- ':!src/lib/lab/__tests__/'` returns empty diff (zero changes to product code). New test files added under existing `src/lib/lab/__tests__/` (flat structure preserved). No new src/lib/lab/ modules, no new commands, no new contracts, no new scenarios.
+
 ### Z.7 — Off-by-one count drift in prior commit messages
 
 Phase 1.5.12 + Phase 1.5.15 commit messages stated "11 OPEN amendments". Actual is **12 OPEN** (A-01, A-05, A-06, A-07, A-08, A-09, A-11, A-12, A-13, A-14, A-15, A-18). Phase 2.A surfaces but does NOT correct (per mega-prompt SECTION 1). Mentor decides whether a paired Phase 2.A.1 housekeeping commit corrects the drift in the audit doc + a future commit message.
 
+**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — absorbed into Phase 2.D commit message. Phase 2.A doc Section 0 already states the corrected 12-OPEN count. No separate housekeeping commit. Future commit messages reference 12 OPEN.
+
 ### Z.8 — R-LAB-11 `submit` cmd visual-bypass severity
 
 `cmdSubmit` validates flag string against `VALID_FLAGS` (R-LAB-01 surface) and returns a "FLAG ACCEPTED" banner without emitting `flag_submitted` evidence (the panel-side path emits this separately). Severity Low because (a) no state mutation, (b) doesn't fire the contract-driven reveal banner, (c) shares root cause with R-LAB-01 (flags client-side). Mentor may upgrade if the visual confirmation is considered misleading enough; or downgrade if it's a feature (user knows they "got" the right flag string).
+
+**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — Low confirmed. No severity change. R-LAB-11 stays in audit register at current Low rating.
 
 ### Z.9 — Where this audit doc commit fits in Phase 2 commit chain
 
@@ -345,6 +391,8 @@ Phase 2.A produces this audit doc. Subsequent cycles (per CLAUDE.md sub-stage di
 
 Mentor confirms Phase 2 cadence: do 2.A.1 housekeeping (Z.7) first, or proceed direct to Phase 2.D after this audit lands?
 
+**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — proceed direct to Phase 2.D. No intermediate housekeeping cycle. A-07, A-09, A-18 amendment housekeeping deferred to a later cycle. Phase 2 cycle chain after this commit pair (2.D fix + 2.D.1 cleanup): Phase 2 CLOSED. Next: Phase 3.A audit (API & Contracts) per mentor direction.
+
 ---
 
-**End of Phase 2.A audit. Awaiting mentor decision on Z.1-Z.9 before Phase 2.D mega-prompt.**
+**End of Phase 2.A audit. All Z.1-Z.9 RESOLVED in Phase 2.D commit `<COMMIT_HASH_TBD>`.**
