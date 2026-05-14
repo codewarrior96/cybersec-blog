@@ -102,7 +102,7 @@ Two test files in `src/lib/lab/__tests__/`. Test counts inside each file:
 
 ### Phase 2.D test expansion (this audit's surgical recommendation, IMPLEMENTED)
 
-Phase 2.D commit `<COMMIT_HASH_TBD>` ships 3 new test files implementing the Top-3 surgical scope from Section 5:
+Phase 2.D commit `cf89d96` ships 3 new test files implementing the Top-3 surgical scope from Section 5:
 
 | File | Test count | Coverage target | Maps to |
 |---|---|---|---|
@@ -216,7 +216,7 @@ Engine is 2556 LOC of which ~80% is per-command implementations (cmdLs, cmdGrep,
 
 ### Phase 2.D commit cross-reference
 
-**Phase 2.D commit `<COMMIT_HASH_TBD>` implements this surgical scope.** Three new test files landed:
+**Phase 2.D commit `cf89d96` implements this surgical scope.** Three new test files landed:
 - `src/lib/lab/__tests__/validation-contract.test.ts` — T-VC01..T-VC25 (25 tests)
 - `src/lib/lab/__tests__/reveal-detector.test.ts` — T-RD01..T-RD20 (20 tests)
 - `src/lib/lab/__tests__/mutation-operations.test.ts` — T-MO01..T-MO30 + T-MO-CHMOD-EQ-GAP (31 tests)
@@ -316,7 +316,7 @@ Phase 2 end is **not in the threshold ladder** — Phase 1 author treated Phase 
 
 CTF flag exposure (Section 2) is rated **High** based on the educational-integrity threat model. Mentor may downgrade to **Medium** or **Informational** if the operator's framing is "the lab is a portfolio demo, not a graded competition; flags being viewable is acceptable". Decision affects whether a future hardening cycle (server-side flag validation) is justified.
 
-**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — R-LAB-01 downgraded from High to Medium. Portfolio-demo context downgrades the educational-integrity threat; flag-viewable status is acceptable for a personal portfolio. Section 2 row updated to reflect new severity + Phase 2.D adjustment note. Future hardening cycle (server-side validation) NOT triggered.
+**Resolution (Phase 2.D commit `cf89d96`):** RESOLVED — R-LAB-01 downgraded from High to Medium. Portfolio-demo context downgrades the educational-integrity threat; flag-viewable status is acceptable for a personal portfolio. Section 2 row updated to reflect new severity + Phase 2.D adjustment note. Future hardening cycle (server-side validation) NOT triggered.
 
 ### Z.2 — Phase 2.B + Phase 2.C skip confirmation
 
@@ -324,7 +324,7 @@ Sections 6 + 7 recommend skipping infra + mocks. CLAUDE.md L175 says *"Each phas
 
 **Agent recommendation:** loose — go 2.A → 2.D, skipping 2.B + 2.C. Adds one cycle-skip note in the Phase 2.D mega-prompt as documentation.
 
-**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — Phase 2.B + 2.C SKIPPED. Lab Engine has zero external dependencies warranting infra/mock cycles (per Sections 6 + 7 assessment). Phase 2.D mega-prompt documented the skip explicitly. Phase 2 effective cycle chain: A (audit) → D (tests). Phase 2 CLOSED after this commit + cleanup.
+**Resolution (Phase 2.D commit `cf89d96`):** RESOLVED — Phase 2.B + 2.C SKIPPED. Lab Engine has zero external dependencies warranting infra/mock cycles (per Sections 6 + 7 assessment). Phase 2.D mega-prompt documented the skip explicitly. Phase 2 effective cycle chain: A (audit) → D (tests). Phase 2 CLOSED after this commit + cleanup.
 
 ### Z.3 — Phase 2.D scope (Section 5 ranking)
 
@@ -334,7 +334,7 @@ Section 5 recommends 3 targets: validation/contract + validation/contracts (Targ
 - (c) Loosen to top 4 (add evidence/match → R-LAB-08 closure).
 - (d) Reorder or substitute.
 
-**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — option (a) accepted. All three targets shipped. Actual test counts: T-VC = 25, T-RD = 20, T-MO = 30 + T-MO-CHMOD-EQ-GAP = 1 gap-test → total 76 new tests (slightly above the 50-65 estimate, within tolerance). Baseline 239 → 315.
+**Resolution (Phase 2.D commit `cf89d96`):** RESOLVED — option (a) accepted. All three targets shipped. Actual test counts: T-VC = 25, T-RD = 20, T-MO = 30 + T-MO-CHMOD-EQ-GAP = 1 gap-test → total 76 new tests (slightly above the 50-65 estimate, within tolerance). Baseline 239 → 315.
 
 ### Z.4 — `applyChmodMode` `=` operator behavior (R-LAB-06)
 
@@ -345,7 +345,7 @@ The current implementation of `applyChmodMode` treats `=` operator like `+` for 
 
 Mentor decision required.
 
-**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — option (a) selected. T-MO-CHMOD-EQ-GAP ships as regression guard locking current deviant behavior (R-21 Phase 1 lineage). R-LAB-06 stays OPEN in audit register with documented future-closure path. No fix to `applyChmodMode` in this cycle. Section 2 R-LAB-06 row updated with gap-test reference.
+**Resolution (Phase 2.D commit `cf89d96`):** RESOLVED — option (a) selected. T-MO-CHMOD-EQ-GAP ships as regression guard locking current deviant behavior (R-21 Phase 1 lineage). R-LAB-06 stays OPEN in audit register with documented future-closure path. No fix to `applyChmodMode` in this cycle. Section 2 R-LAB-06 row updated with gap-test reference.
 
 ### Z.5 — Test ID naming convention
 
@@ -358,7 +358,7 @@ Existing tests are untitled in source. Phase 2.D should assign:
 
 Or alternative consistent scheme. Mentor lock the prefix style before Phase 2.D writes assertions.
 
-**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — proposed prefixes (T-CCB / T-CTFR / T-VC / T-RD / T-MO) accepted and applied. Each new test's `it(...)` title begins with `T-XX —` prefix (em-dash separator). Existing test files NOT renamed this cycle (mentor decision: pure-cosmetic rename inflates diff; deferred to a future housekeeping cycle). Phase 2.A audit doc cross-references existing tests by their assigned T-CCB / T-CTFR IDs already.
+**Resolution (Phase 2.D commit `cf89d96`):** RESOLVED — proposed prefixes (T-CCB / T-CTFR / T-VC / T-RD / T-MO) accepted and applied. Each new test's `it(...)` title begins with `T-XX —` prefix (em-dash separator). Existing test files NOT renamed this cycle (mentor decision: pure-cosmetic rename inflates diff; deferred to a future housekeeping cycle). Phase 2.A audit doc cross-references existing tests by their assigned T-CCB / T-CTFR IDs already.
 
 ### Z.6 — Lab Engine "no new product" constraint mapping
 
@@ -368,19 +368,19 @@ Phase 2.D writes NEW test files but touches NO product code in `src/lib/lab/*.ts
 
 Agent reads constraint as satisfied. Mentor confirms.
 
-**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — constraint satisfied. Phase 2.D verification step `git diff src/lib/lab/ -- ':!src/lib/lab/__tests__/'` returns empty diff (zero changes to product code). New test files added under existing `src/lib/lab/__tests__/` (flat structure preserved). No new src/lib/lab/ modules, no new commands, no new contracts, no new scenarios.
+**Resolution (Phase 2.D commit `cf89d96`):** RESOLVED — constraint satisfied. Phase 2.D verification step `git diff src/lib/lab/ -- ':!src/lib/lab/__tests__/'` returns empty diff (zero changes to product code). New test files added under existing `src/lib/lab/__tests__/` (flat structure preserved). No new src/lib/lab/ modules, no new commands, no new contracts, no new scenarios.
 
 ### Z.7 — Off-by-one count drift in prior commit messages
 
 Phase 1.5.12 + Phase 1.5.15 commit messages stated "11 OPEN amendments". Actual is **12 OPEN** (A-01, A-05, A-06, A-07, A-08, A-09, A-11, A-12, A-13, A-14, A-15, A-18). Phase 2.A surfaces but does NOT correct (per mega-prompt SECTION 1). Mentor decides whether a paired Phase 2.A.1 housekeeping commit corrects the drift in the audit doc + a future commit message.
 
-**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — absorbed into Phase 2.D commit message. Phase 2.A doc Section 0 already states the corrected 12-OPEN count. No separate housekeeping commit. Future commit messages reference 12 OPEN.
+**Resolution (Phase 2.D commit `cf89d96`):** RESOLVED — absorbed into Phase 2.D commit message. Phase 2.A doc Section 0 already states the corrected 12-OPEN count. No separate housekeeping commit. Future commit messages reference 12 OPEN.
 
 ### Z.8 — R-LAB-11 `submit` cmd visual-bypass severity
 
 `cmdSubmit` validates flag string against `VALID_FLAGS` (R-LAB-01 surface) and returns a "FLAG ACCEPTED" banner without emitting `flag_submitted` evidence (the panel-side path emits this separately). Severity Low because (a) no state mutation, (b) doesn't fire the contract-driven reveal banner, (c) shares root cause with R-LAB-01 (flags client-side). Mentor may upgrade if the visual confirmation is considered misleading enough; or downgrade if it's a feature (user knows they "got" the right flag string).
 
-**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — Low confirmed. No severity change. R-LAB-11 stays in audit register at current Low rating.
+**Resolution (Phase 2.D commit `cf89d96`):** RESOLVED — Low confirmed. No severity change. R-LAB-11 stays in audit register at current Low rating.
 
 ### Z.9 — Where this audit doc commit fits in Phase 2 commit chain
 
@@ -391,8 +391,8 @@ Phase 2.A produces this audit doc. Subsequent cycles (per CLAUDE.md sub-stage di
 
 Mentor confirms Phase 2 cadence: do 2.A.1 housekeeping (Z.7) first, or proceed direct to Phase 2.D after this audit lands?
 
-**Resolution (Phase 2.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — proceed direct to Phase 2.D. No intermediate housekeeping cycle. A-07, A-09, A-18 amendment housekeeping deferred to a later cycle. Phase 2 cycle chain after this commit pair (2.D fix + 2.D.1 cleanup): Phase 2 CLOSED. Next: Phase 3.A audit (API & Contracts) per mentor direction.
+**Resolution (Phase 2.D commit `cf89d96`):** RESOLVED — proceed direct to Phase 2.D. No intermediate housekeeping cycle. A-07, A-09, A-18 amendment housekeeping deferred to a later cycle. Phase 2 cycle chain after this commit pair (2.D fix + 2.D.1 cleanup): Phase 2 CLOSED. Next: Phase 3.A audit (API & Contracts) per mentor direction.
 
 ---
 
-**End of Phase 2.A audit. All Z.1-Z.9 RESOLVED in Phase 2.D commit `<COMMIT_HASH_TBD>`.**
+**End of Phase 2.A audit. All Z.1-Z.9 RESOLVED in Phase 2.D commit `cf89d96`.**
