@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { requireSession } from '@/lib/api-auth'
 import { getRequestMetadata } from '@/lib/auth-server'
+import { sanitizeReportContent } from '@/lib/sanitize'
 import { archiveReport, createReport, listReports } from '@/lib/soc-store-adapter'
 import type { ReportStatus } from '@/lib/soc-types'
 
@@ -112,9 +113,17 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // R-API-05 closure (Phase 3.D) — defense-in-depth Layer 1: strip known
+  // XSS vectors (<script>, javascript: URLs, on* event handlers, etc.)
+  // before storage. Layer 2 is React/MDX safe-text default at render
+  // time. 5th instance of the defense-in-depth two-layer pattern
+  // (R-13 / R-21 / R-15 / A-17 lineage). See src/lib/sanitize.ts header
+  // for the full pattern catalog rationale.
+  const sanitizedContent = sanitizeReportContent(content)
+
   const report = await createReport({
     title,
-    content,
+    content: sanitizedContent,
     severity,
     tags,
     actor: guard.session.user,

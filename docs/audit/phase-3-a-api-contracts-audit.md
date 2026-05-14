@@ -72,9 +72,9 @@ Phase 3 adopts new namespace **R-API-XX** alongside Phase 1 (R-01..R-22) and Pha
 |---|---|---|---|---|---|
 | R-API-01 | **High** | A01 Broken Access Control | `src/app/api/profile/certifications/[id]/route.ts` (PATCH/DELETE), `assets/[id]/route.ts` (GET) | **IDOR via numeric certification IDs**: PATCH gate at L36-39 reads `existing = getPortfolioCertificationById(certificationId)` then checks `existing.userId !== guard.session.user.id` — returns 404 (existence-mask). DELETE at L112 passes `userId` to `deletePortfolioCertification(id, userId, ...)` — adapter is expected to enforce userId. assets/[id] GET at L45-50 returns explicit 403 on userId mismatch. Three different idioms; race vulnerable if adapter's ownership check is anywhere weaker than route's check (TOCTOU between getPortfolioCertificationById read at PATCH L36 and updatePortfolioCertification write at L69). | Attacker enumerates certification IDs (numeric, sequential), constructs PATCH request for victim's cert id. Race: between owner-check read and update write, a deletion-and-replacement could land foreign content. Realistic attack chain: low-priv user A registers → certification id=42 created for user B (another user) → user A PATCHes /api/profile/certifications/42 with payload claiming new content + asset → if adapter's `userId` arg isn't strictly enforced, user A's content overwrites user B's. Severity High because (a) IDOR is a primary access-control failure, (b) sequential IDs make enumeration trivial, (c) education/[id] PATCH would have the same shape if not similarly guarded. |
 | R-API-02 | **High** | A01 Broken Access Control | `src/app/api/alerts/route.ts`, `alerts/[id]/route.ts` | **Role gate `analyst` for write** is correct, but the `requireRole` middleware (`src/lib/api-auth.ts:25`) only checks RBAC at route entry — does NOT cross-check that the assignee in POST body (or the role being mutated in PATCH) makes sense. An analyst can assign an alert to admin's user-id, or PATCH an alert to claim/resolve regardless of original assignee. Compare to Phase 1.5.8 R-19 routing analysis. | Analyst A claims an alert assigned to admin B. The PATCH at `/api/alerts/[id]` accepts `{claim: true}` payload without verifying current assignee or whether claim transfers ownership semantically. Server-side ownership semantics live entirely in `patchAlert` adapter (`src/lib/soc-store-adapter.ts:213`); route layer doesn't audit-log the claim transition for analyst-to-admin escalation. Severity High because RBAC pass + business-logic gap = silent privilege escalation in operational data. |
-| R-API-03 | **High** | A02 Cryptographic Failures + A05 Security Misconfiguration | `supabase/platform-backbone-v1.sql` (21 tables across identity/platform/content/learning/operations namespaces) | **No RLS on platform-backbone tables**. `attack-events.sql` + `rate-limits.sql` enable RLS with deny-by-default policies. `platform-backbone-v1.sql` has zero `enable row level security` + zero `create policy` statements across 299 lines / 21 tables. Reliance on app-layer access control alone — if Supabase service-role key leaks OR an authenticated client (e.g., via supabase-js anon client) reaches Postgres directly, all platform-backbone tables are fully readable/writable. | Concrete attack chain: (1) attacker obtains a logged-in user's session OR Supabase anon JWT (via XSS or leaked-from-browser-storage), (2) constructs `supabase.from('identity.users').select('*')` query, (3) attempt succeeds because no RLS gate. Defense-in-depth gap. Note: production currently uses service-role from server-side adapter only; this risk activates if architecture ever exposes Supabase REST/PostgREST to authenticated clients. Severity High because configuration error rather than code error — easier to miss in review, broad blast radius. |
+| R-API-03 🟡 RECLASSIFIED | **High** | A02 Cryptographic Failures + A05 Security Misconfiguration | `supabase/platform-backbone-v1.sql` (21 tables across identity/platform/content/learning/operations namespaces) | **No RLS on platform-backbone tables**. `attack-events.sql` + `rate-limits.sql` enable RLS with deny-by-default policies. `platform-backbone-v1.sql` has zero `enable row level security` + zero `create policy` statements across 299 lines / 21 tables. Reliance on app-layer access control alone — if Supabase service-role key leaks OR an authenticated client (e.g., via supabase-js anon client) reaches Postgres directly, all platform-backbone tables are fully readable/writable. | Concrete attack chain: (1) attacker obtains a logged-in user's session OR Supabase anon JWT (via XSS or leaked-from-browser-storage), (2) constructs `supabase.from('identity.users').select('*')` query, (3) attempt succeeds because no RLS gate. Defense-in-depth gap. Note: production currently uses service-role from server-side adapter only; this risk activates if architecture ever exposes Supabase REST/PostgREST to authenticated clients. Severity High because configuration error rather than code error — easier to miss in review, broad blast radius. **STATUS (Phase 3.D revision commit `<COMMIT_HASH_TBD>`):** RECLASSIFIED — operator verification via `information_schema` query revealed the 21 platform-backbone tables exist in `supabase/platform-backbone-v1.sql` BLUEPRINT but were **never applied to production Supabase**. Actual production state: `public.attack_events` + `public.rate_limits` + `auth.*` (Supabase built-in). RLS migration cannot target non-existent tables. Risk reclassified as preparatory work pending production deployment of `platform-backbone-v1.sql` itself; severity remains High but currently non-actionable. Future cycle that deploys the 21 tables MUST ALSO ship RLS migration in same operation. See Section 9 Z.10 for full production-vs-blueprint divergence narrative + pattern lesson for Phase 4.A+ state gathering. |
 | R-API-04 | **High** | A09 Security Logging & Monitoring Failures | `src/app/api/users/me/route.ts` (DELETE) | **Account self-delete cascade** (`deleteUserCascade`) performs irreversible deletion of: sessions, reports, certifications + asset binaries, educations, avatar binaries, profile, indexes. The route comments document banking-grade safety (password re-auth + 'DELETE' literal confirm). Both gates present. BUT: cascade triggers `writeAuditLog` inside adapter; comment at L107-111 says `AUDIT_LOG_FAILED` aborts cascade and returns 500. Means: if audit log surface is down (Supabase outage scenario, R-03 fallback active), legitimate self-delete fails — but that's the intended Phase 1.5.7 Path γ semantics. Inverse risk: if audit log surface fires successfully BUT cascade partially fails mid-operation (asset delete throws between users-row delete and session-purge), audit log records "deleted" while user data remains orphaned. | Attacker / unhappy user requests self-delete during transient asset-store outage. Audit log records the intent + counts; physical delete partial. Orphan sessions remain valid for some time (deleteAllSessionsForUser is inside cascade, ordering matters). Severity High because account-deletion semantics is high-trust UX. Note Phase 1.5.7 R-03 closed silent-fallback writes; this is a *partial-failure* path not covered by R-03's binary block-or-allow. |
-| R-API-05 | Medium | A03 Injection | `src/app/api/reports/route.ts` (POST `content` field, 50,000 char limit) | **Stored-XSS via report content**: `createReport` accepts `content` up to MAX_CONTENT_LENGTH = 50_000 chars after trim. `hasBrokenEncoding` filters `�`. No HTML-escape, no markdown sanitization. If reports are ever rendered as HTML in admin UI without escape, attacker creates a report with `<script>` payload that fires when an analyst opens the report. R-13 fixed `displayName` injection in email-templates; here `content` is the analog field for reports surface. | Phase 1.A R-13 row L41 already noted: "stored-XSS risk if displayName surfaces in admin UI without escape (Phase 3 audit)." Reports surface is the Phase 3 audit predicted. `archiveReport` doesn't change content; `deleteReport` removes it. The XSS surface is the read path (`listReports` returns full content to client). No HTML-escape applied server-side. UI render path (`src/app/zafiyet-taramasi/`) NOT in Phase 3 scope; the *server contract* is the audit target. Severity Medium because requires UI render-path complicity. |
+| R-API-05 ✅ FIXED | Medium | A03 Injection | `src/app/api/reports/route.ts` (POST `content` field, 50,000 char limit) | **Stored-XSS via report content**: `createReport` accepts `content` up to MAX_CONTENT_LENGTH = 50_000 chars after trim. `hasBrokenEncoding` filters `�`. No HTML-escape, no markdown sanitization. If reports are ever rendered as HTML in admin UI without escape, attacker creates a report with `<script>` payload that fires when an analyst opens the report. R-13 fixed `displayName` injection in email-templates; here `content` is the analog field for reports surface. | Phase 1.A R-13 row L41 already noted: "stored-XSS risk if displayName surfaces in admin UI without escape (Phase 3 audit)." Reports surface is the Phase 3 audit predicted. `archiveReport` doesn't change content; `deleteReport` removes it. The XSS surface is the read path (`listReports` returns full content to client). No HTML-escape applied server-side. UI render path (`src/app/zafiyet-taramasi/`) NOT in Phase 3 scope; the *server contract* is the audit target. Severity Medium because requires UI render-path complicity. **STATUS:** FIXED in Phase 3.D commit `<COMMIT_HASH_TBD>` via defense-in-depth two-layer (5th instance of the pattern — R-13/R-21/R-15/A-17 lineage): **Layer 1 (input sanitization)** new `src/lib/sanitize.ts` exports `sanitizeReportContent()` — regex strip of `<script>`/`<iframe>`/`<object>`/`<embed>`/`<link>`/`<meta>`/`<form>` tags + `javascript:`/`vbscript:`/`data:text/html` URI schemes + `on*` event handlers (quoted + unquoted variants). Server-safe (no DOM dep). Reports route POST invokes before storage. **Layer 2 (output escape)** preserved — React/MDX default text rendering is XSS-safe (HTML interpolation requires opt-in via dangerouslySetInnerHTML, absent in current UI path). T-RP07-13 lock the input strip; T-RP12 verifies benign markdown-like content preserved. |
 | R-API-06 | Medium | A01 Broken Access Control | `src/app/api/users/route.ts` (GET) | **`listAssignableUsers` GET at L22-28 requires only `requireSession`** — any authenticated user (viewer/analyst/admin) can list all assignable users. Compared to PRIVILEGED POST which uses `requireRole('admin')`. The GET returns user enumeration: id, username, displayName, role per user. A viewer-role user can enumerate all admins + analysts in the system. | Viewer-role attacker (e.g., compromised viewer account) hits GET /api/users → returns complete user list with roles. Output then drives username harvesting + role-targeted password spray. Severity Medium because (a) requires existing low-priv compromise, (b) `listAssignableUsers` exposes username only (no email), (c) the function name implies "users I can assign things to" — a UX feature, not a security boundary. But the design lacks the principle-of-least-privilege constraint. |
 | R-API-07 | Medium | A04 Insecure Design | `src/app/api/profile/certifications/route.ts` (POST), `src/lib/portfolio-assets.ts:saveCertificationAsset` | **File upload validation**: `assertMagicMatches` (portfolio-assets.ts L70) checks magic bytes for JPEG/PNG/WEBP/PDF. MAX_CERTIFICATION_ASSET_BYTES = 10 MB. Filename sanitization replaces `[^a-zA-Z0-9._-]` with `-`. BUT: no quota per user — a single user can upload 1000s of certifications, each up to 10 MB, accumulating storage. No content-type sniff beyond magic bytes (file could be valid PDF wrapper containing JS). No virus scanning. | Storage exhaustion: attacker creates account, uploads 1000 × 10 MB PDFs. 10 GB consumed before any cap fires. Supabase Storage bucket fills. Severity Medium because (a) requires authenticated user, (b) Supabase bucket sizing operational issue, (c) realistic in demo context with no monitoring. Also: PDF content not scanned (a real PDF can carry JavaScript that executes when an admin downloads + opens via desktop viewer). |
 | R-API-08 | Medium | A06 Vulnerable & Outdated Components | `src/app/api/cybernews/route.ts` (5 RSS feeds, regex-based XML parser) | **Custom XML parsing via regex** (cybernews route L37-49 `extractTag` uses `RegExp` with hand-rolled CDATA handling). Regex-based XML parsing is a known anti-pattern: external feed content can include nested tags, malformed CDATA, or unicode that breaks parser assumptions. The 5 feeds (THN, Krebs, BleepingComputer, SANS ISC, SecurityWeek) are public RSS aggregators; if one feed is compromised + serves malicious XML, parser behavior is undefined. Additional risk: `cleanText` decodes HTML entities including `<` and `>` from feed content — combined with feed.description copied into client UI, a malicious feed could embed scripts that round-trip through the parser-decoder. | Compromise scenario: attacker MITM's one of the 5 feed URLs (e.g., via DNS hijack of feedburner.com), serves malicious RSS. The cleanText decoder + 220-char-truncated description ends up in the UI. If UI renders descriptions as HTML, stored-XSS via aggregator content. Severity Medium because (a) requires upstream feed compromise, (b) UI render path determines exploit (not in Phase 3 scope), (c) Phase 1 R-13 closed the email side of similar threat — UI surface deferred to Phase 4 (UI & Accessibility) per CLAUDE.md L172. |
@@ -86,7 +86,7 @@ Phase 3 adopts new namespace **R-API-XX** alongside Phase 1 (R-01..R-22) and Pha
 | R-API-14 | Low | A04 Insecure Design | `src/app/api/profile/certifications/[id]/route.ts` (DELETE), `education/[id]/route.ts` (DELETE) | **DELETE permanently removes records** — no archive intermediate state. Compare with `reports/[id]/route.ts:14-19` two-stage delete (archive then permanent). Certifications + educations: one-click delete is irreversible. UX inconsistency + accidental-delete risk. | User clicks "delete cert" → record gone, asset binary deleted from Supabase Storage. No recovery. Severity Low because (a) intentional UX choice (per code comment absent), (b) no security implication, (c) educational portfolio context tolerates this. Noted as design-consistency observation, not bug. |
 | R-API-15 | Informational | A05 Security Misconfiguration | `src/lib/portfolio-assets.ts` (asset upload path normalization) | **Asset path sanitization** uses `sanitizePathSegment` (`[^a-zA-Z0-9-_]` → `-`) and `sanitizeFileName` (`[^a-zA-Z0-9._-]` → `-`) at portfolio-assets.ts L90-95. No explicit `..` (parent-dir) check beyond the regex. Both functions correctly strip slashes; the regex `[^a-zA-Z0-9._-]` blocks `..` because `.` is allowed but not `/`. However: a filename like `....pdf` becomes `....pdf` (4 dots, no path traversal — POSIX parent-dir resolver only triggers on `..` segments between slashes). Defense is correct but defensive comment absent. | Pure refactor-readiness concern. Path traversal not exploitable given the sanitization shape; informational note that the defense is structural, not explicit. |
 
-**Summary by severity:** High = 4 (R-API-01, R-API-02, R-API-03, R-API-04); Medium = 6 (R-API-05..R-API-10); Low = 4 (R-API-11..R-API-14); Informational = 1 (R-API-15). **Total = 15.**
+**Summary by severity (Phase 3.D revision updates marked):** High = 4 (R-API-01 test-coverage gap CLOSED via T-PC01-20, R-API-02 test-coverage gap CLOSED via T-AL01-20, **R-API-03 🟡 RECLASSIFIED** — RLS migration deferred per production-state truth, see Z.10, R-API-04 test-coverage gap PARTIAL via T-RP25-30 two-stage delete); Medium = 6 (**R-API-05 ✅ FIXED** via sanitize.ts + T-RP07-13, R-API-06..R-API-10 untouched); Low = 4 (R-API-11..R-API-14 untouched); Informational = 1 (R-API-15 untouched). **Total = 15.**
 
 **No Critical entries.** Phase 1 closed all Critical issues (R-03 Path γ, R-20 boot validator + lazy getter). Phase 3's high-severity surface is concentrated in **access control (IDOR + RBAC business-logic gaps)** and **defense-in-depth (RLS asymmetry)** — both production-realistic threats with bounded blast radius.
 
@@ -139,7 +139,30 @@ Phase 3 adopts new namespace **R-API-XX** alongside Phase 1 (R-01..R-22) and Pha
 | R-API-14 (cert/education one-click delete) | none |
 | R-API-15 (path traversal defense) | none |
 
-**Total Phase 3 surface test count today:** 0 route-level tests on 19 routes. Storage adapter has T-AD01-09 (9 tests, exercise Class 1/2/3 routing via `vi.mock`).
+**Total Phase 3 surface test count pre-Phase-3.D:** 0 route-level tests on 19 routes. Storage adapter has T-AD01-09 (9 tests, exercise Class 1/2/3 routing via `vi.mock`).
+
+### Phase 3.D test expansion (this audit's surgical recommendation, IMPLEMENTED)
+
+Phase 3.D **revision** commit `<COMMIT_HASH_TBD>` ships 3 new test files implementing the Top-3 surgical scope from Section 5, plus the A-13 closure test and the R-API-05 defense-in-depth Layer 1 helper. R-API-03 RLS migration was authored in prior Phase 3.D attempt but RECLASSIFIED after operator verification revealed production-vs-blueprint divergence — see Z.10:
+
+| File | Tests | Coverage target | Maps to |
+|---|---|---|---|
+| `src/app/api/profile/certifications/__tests__/certifications.test.ts` | 20 | PATCH/DELETE 3-idiom IDOR closure + assets GET signed-URL + adapter compensating action | T-PC01-T-PC20 → R-API-01 (High) |
+| `src/app/api/alerts/__tests__/alerts.test.ts` | 21 | PATCH RBAC + input validation + business-logic transitions + status code map + actor identity + **T-AL-A13** (A-13 closure, R-05 TOCTOU concurrent register-call test) | T-AL01-T-AL20 + T-AL-A13 → R-API-02 (High) + A-13 |
+| `src/app/api/reports/__tests__/reports.test.ts` | 30 | POST input validation + R-API-05 sanitization (Layer 1) + tags filtering + broken-encoding + PATCH archive + DELETE two-stage gate | T-RP01-T-RP30 → R-API-04 (partial) + R-API-05 (full) |
+
+**Total Lab Engine + API test count post-Phase-3.D-revision:** 9 (Lab existing) + 76 (Phase 2.D) + 71 (this commit) + 9 storage adapter (T-AD01-09) + 0 (no auth-route changes) + remaining lib tests = baseline 315 → **386 / 37 files**.
+
+R-LAB + R-API risk coverage state post-Phase-3.D-revision:
+- **R-API-01 (High)**: test-coverage gap CLOSED via T-PC01-20 (20 tests across 3 ownership-check idioms)
+- **R-API-02 (High)**: test-coverage gap CLOSED via T-AL01-20 (20 tests across RBAC + business-logic + actor mass-assignment)
+- **R-API-03 (High)**: 🟡 RECLASSIFIED — RLS migration deferred until production deployment of `platform-backbone-v1.sql` blueprint. Future cycle that deploys the 21 tables MUST ALSO ship RLS migration in same operation. See Z.10.
+- **R-API-04 (High)**: test-coverage gap PARTIAL via T-RP25-30 (two-stage delete + cross-owner forbidden + status code map; full cascade partial-failure test deferred per Section 5 "Why not Target #4" rationale)
+- **R-API-05 (Medium)**: ✅ FIXED via defense-in-depth two-layer (`src/lib/sanitize.ts` Layer 1 + React/MDX safe-text Layer 2 preserved); 7 tests T-RP07-13 lock the sanitization contract
+- **A-13 (amendment)**: RESOLVED via T-AL-A13 (Promise.all concurrent registerUser race assertion against storage layer's race-guard)
+- **A-15 (amendment)**: RESOLVED via audit-doc File(s) update on R-18 row (verify-resend same-vector confirmation; rate-limit hardening already applied in Phase 1.5)
+
+R-API-06..R-API-15 untouched (intentional surgical scope — Phase 3.D does NOT chase all 15 risks; only Top-3 high-leverage routes per Section 5 ranking + R-API-05 defense-in-depth closure; R-API-03 RLS reclassified per Z.10).
 
 ---
 
@@ -252,6 +275,20 @@ R-API-08 (RSS XML parser) and R-API-09 (rate limit on external calls) are Medium
 
 R-API-03 (no RLS on platform-backbone) is High severity but **cannot be unit-tested** — requires actual Postgres instance with RLS policies applied. Per Phase 1.5.9 R-02 T-R11 comment: "true E2E Postgres testing is Phase 5 scope." Phase 3.D **documents** the gap; Phase 5 E2E (Playwright + real-Supabase environment) closes it. Phase 3.A audit doc Section 9 surfaces this as a mentor decision point.
 
+### Phase 3.D commit cross-reference
+
+**Phase 3.D revision commit `<COMMIT_HASH_TBD>` implements this surgical scope (R-API-01/02/04/05 + A-13 + A-15).** R-API-03 reclassified per Section 9 Z.10 — production-vs-blueprint divergence discovered during manual RLS apply attempt. Three new test files + 1 sanitize helper + 1 route mod:
+
+- `src/app/api/profile/certifications/__tests__/certifications.test.ts` — T-PC01-T-PC20 (20 tests)
+- `src/app/api/alerts/__tests__/alerts.test.ts` — T-AL01-T-AL20 + T-AL-A13 (21 tests)
+- `src/app/api/reports/__tests__/reports.test.ts` — T-RP01-T-RP30 (30 tests)
+- `src/lib/sanitize.ts` — defense-in-depth Layer 1 (R-API-05 closure, 5th instance of the pattern)
+- `src/app/api/reports/route.ts` — invokes `sanitizeReportContent` in POST handler before adapter call
+
+**NOT shipped (reclassified):** `supabase/platform-backbone-rls.sql` was authored in prior Phase 3.D attempt but DELETED in revision after `information_schema` query confirmed the 21 platform-backbone tables exist only as blueprint, not as production tables. RLS migration is preparatory work pending production deployment of `platform-backbone-v1.sql` itself. See Z.10 for forward-iteration lineage (Phase 1.5.14.1 mentor-error correction protocol).
+
+Phase 3.B + 3.C explicitly SKIPPED per Section 6 + 7 assessment (Top 3 scope uses vi.mock at adapter boundary; no external-API surface touched, no MSW handlers needed).
+
 ---
 
 ## 6. Phase 3.B Infrastructure Needs
@@ -363,6 +400,8 @@ Mentor may:
 - (c) Loosen to Top 4 (add users/me DELETE for R-API-04 full closure — ~15-20 additional tests).
 - (d) Add external-call routes (R-API-08/09 — requires Phase 3.C MSW handler scaffolding, ~15-25 additional tests).
 
+**Resolution (Phase 3.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — option (a) accepted. All three targets shipped. Actual test counts: T-PC = 20, T-AL = 20 + T-AL-A13 = 21, T-RP = 30 → total 71 new tests (matches mid-estimate). Baseline 315 → 386.
+
 ### Z.2 — Phase 3.B + 3.C cycle deliverables
 
 Section 6 + 7 recommend SKIPPING Phase 3.B + 3.C entirely if Phase 3.D restricts to Targets 1-3 (Section 5). Adapter-boundary `vi.mock` is sufficient.
@@ -370,6 +409,8 @@ Section 6 + 7 recommend SKIPPING Phase 3.B + 3.C entirely if Phase 3.D restricts
 Loosened option: ship `package.json` `scripts` addition (`test:unit` + `test:routes` split per `phase-1-a-final.md:66`) as minimal Phase 3.B deliverable. No test logic change.
 
 Mentor decides: skip both, or ship minimal 3.B (scripts split) + skip 3.C.
+
+**Resolution (Phase 3.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — both SKIPPED. Top 3 scope uses vi.mock at adapter boundary throughout (login route lineage). No external-API surface touched; no MSW handlers needed. `package.json` test:unit/test:routes split deferred to a future housekeeping cycle (not blocking). Phase 3 effective cycle chain: A (audit, 6a55431) → D (tests + RLS migration, this commit). Phase 3 CLOSED after this commit + cleanup.
 
 ### Z.3 — R-API-03 RLS asymmetry
 
@@ -381,6 +422,8 @@ Phase 3.A surfaces critical defense-in-depth gap: 21 platform-backbone tables la
 
 Agent leans (a) because the fix is small and symmetry matters for review hygiene. Mentor confirms.
 
+**Resolution (Phase 3.D revision commit `<COMMIT_HASH_TBD>`):** RECLASSIFIED — option (a) was attempted in prior Phase 3.D commit (now soft-reset) but operator manual-apply revealed production-vs-blueprint divergence: the 21 platform-backbone tables exist in `supabase/platform-backbone-v1.sql` BLUEPRINT but were never applied to production Supabase. RLS migration cannot target non-existent tables. Risk reclassified as preparatory work pending production deployment of `platform-backbone-v1.sql` itself; severity remains High but currently non-actionable. Future cycle that deploys the 21 tables MUST ALSO ship RLS migration in the same operation. The authored `supabase/platform-backbone-rls.sql` was DELETED from the working tree in the revision cycle. See Z.10 for full production-vs-blueprint divergence narrative + pattern lesson for Phase 4.A+ state gathering.
+
 ### Z.4 — A-13 closure timing
 
 A-13 storage adapter race-condition test was re-mapped from Phase 2 to Phase 3 per Phase 2.A. Phase 3.A confirms Phase 3 candidacy.
@@ -390,11 +433,15 @@ Mentor decides:
 - (b) Phase 3.D Target #4 dedicated single-test scope.
 - (c) Defer to a focused A-13 housekeeping cycle.
 
+**Resolution (Phase 3.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — option (a) shipped. T-AL-A13 added to Target #2 test file (`src/app/api/alerts/__tests__/alerts.test.ts`) as its own bottom-of-file describe block. Imports `soc-store-memory` directly (NOT via adapter — bypasses dispatcher to isolate race semantics to the storage module's race-guard). Promise.all on two concurrent `registerUser` calls with identical username; asserts at most one succeeds, rejected branch carries 'already exists' message. A-13 entry in `pending-amendments.md` title flipped to `[RESOLVED in Phase 3.D]` + Resolution paragraph cross-references this commit hash.
+
 ### Z.5 — A-15 closure timing
 
 A-15 is audit-doc-only (R-18 File(s) column update). Phase 3.A recommends absorbing into Phase 3.D commit message body (similar to Phase 2.A Z.7 count-drift absorption pattern).
 
 Mentor confirms or holds for separate cycle.
+
+**Resolution (Phase 3.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — absorbed into this commit. A-15 entry in `pending-amendments.md` title flipped to `[RESOLVED in Phase 3.D]` + File(s) line on R-18 row of `phase-1-a-final.md` confirmed to already include both `forgot/route.ts` and `verify/resend/route.ts` (per Phase 1.5.4 rate-limit hardening commit that landed Phase 1 R-18 mitigation across both surfaces). Audit-doc-only change; no test work needed.
 
 ### Z.6 — Severity taxonomy normalization (R-API-12)
 
@@ -403,6 +450,8 @@ Three parallel taxonomies (reports UPPERCASE 4-level, attack_events lowercase 3-
 Phase 3.D does NOT close this — would require either (a) unifying taxonomies across SQL + TypeScript types (significant cross-cutting change) or (b) introducing normalization helper. Both are beyond surgical Phase 3.D scope.
 
 **Phase 3.A recommendation:** document as Phase 4+ candidate when dashboard wiring to backend events becomes Phase 3 follow-up work. Mentor confirms.
+
+**Resolution (Phase 3.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — deferred to Phase 4+ per Phase 3.A recommendation. R-API-12 stays OPEN in Phase 3.A risk register with documented Phase 4 candidacy (dashboard wiring follow-up work).
 
 ### Z.7 — Test ID convention for Phase 3.D
 
@@ -417,6 +466,8 @@ Each `it(...)` title begins with `T-XX —` (em-dash separator, matches Phase 2.
 
 Mentor confirms before Phase 3.D writes assertions.
 
+**Resolution (Phase 3.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — proposed prefixes (T-PC / T-AL / T-RP) accepted and applied. Each new test's `it(...)` title begins with `T-XX —` prefix (em-dash separator). A-13 closure test uses suffix variant `T-AL-A13` to distinguish from regular T-AL01-20 sequence.
+
 ### Z.8 — R-API-05 + R-API-13 forward (HTML-escape on report content + profile bio)
 
 Both risks are stored-XSS surface that activates only if UI renders the content as HTML without escape. Phase 4 (UI & Accessibility per CLAUDE.md L172) is the natural closure phase for the render-side. Phase 3.D **could** ship preventive HTML-escape on the server contract (Phase 1.5.2 R-13 pattern: validator denylist + escape helper).
@@ -425,6 +476,8 @@ Mentor decides:
 - (a) Phase 3.D adds preventive HTML-escape to `createReport` content + `updatePortfolioProfile` bio — closes the surface server-side regardless of UI.
 - (b) Defer to Phase 4 (UI surface is the render point; server contract is currently un-rendered-as-HTML).
 - (c) Document as risk-accepted (operational context — no admin UI render path today).
+
+**Resolution (Phase 3.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — option (a) shipped for R-API-05 (reports content); R-API-13 (profile bio) deferred to Phase 4 since `validateProfilePayload` already provides field-level validation hooks that can absorb the sanitization in a future cycle without re-touching this surface. Defense-in-depth two-layer **5th instance** (R-13/R-21/R-15/A-17 lineage): `src/lib/sanitize.ts` `sanitizeReportContent()` NEW — regex strip of dangerous tags/URIs/event handlers. Server-safe (no DOM dep). Invoked from `src/app/api/reports/route.ts` POST before adapter call. T-RP07-13 (7 tests) lock the sanitization contract; T-RP12 verifies benign markdown-like content (bold, italic, links, paragraphs) preserved.
 
 ### Z.9 — Phase 3 cadence after Phase 3.A
 
@@ -436,6 +489,35 @@ Standard cadence options:
 
 Agent recommends (a). Mentor decides.
 
+**Resolution (Phase 3.D revision commit `<COMMIT_HASH_TBD>`):** RESOLVED — option (a) executed. Phase 3.A audit (6a55431) → Phase 3.D this commit. Phase 3.B + 3.C skipped per Z.2. No intermediate housekeeping cycle. A-13 + A-15 absorbed into Phase 3.D commit body per Z.4 + Z.5. Phase 3 effectively CLOSED after this commit pair (3.D revision + 3.D.1 cleanup).
+
+### Z.10 — Production state divergence from migration blueprint (added Phase 3.D revision)
+
+Phase 3.A audit doc enumerated 21 platform-backbone tables based on verbatim reading of `supabase/platform-backbone-v1.sql`. Phase 3.D production verification via `information_schema` query (operator-executed during manual RLS migration apply attempt) revealed those tables were never applied to Supabase production.
+
+**Actual production state (post-Phase-3.D verification):**
+- `public.attack_events` (real, in use)
+- `public.rate_limits` (real, in use)
+- `auth.*` (Supabase built-in, not project-owned)
+
+The 21 platform-backbone tables are BLUEPRINT in `supabase/platform-backbone-v1.sql`, never applied. RLS migration authored against the blueprint assumption cannot target non-existent tables.
+
+**Implication for R-API-03:** Risk remains real (RLS asymmetry would exist IF tables were deployed) but is currently non-actionable. Reclassified pending production deployment of `platform-backbone-v1.sql` itself.
+
+**Implication for application correctness:** Application code referencing `platform`/`identity`/`learning`/`operations`/`content` schema tables would either (a) fail at runtime, OR (b) be using in-memory fallback via `soc-store-adapter` Class 1/2/3 routing. State gathering for Phase 4.A should verify which path is exercised.
+
+**Pattern lesson for Phase 4.A+ state gathering:** Audit doc MUST verify Supabase production state via `information_schema` query at state-gathering time. Migration file presence in repo ≠ applied to production. This becomes a mandatory state-gathering step for any future phase that touches Supabase schema assumptions.
+
+**Mentor-error correction protocol applied (Phase 1.5.14.1 lineage):**
+- Phase 3.D LOCAL commits (prior `9fe4a24` + `5b09550`) were UNPUSHED at discovery time — no force push needed.
+- Soft reset (`git reset --soft HEAD~2`) safely uncommitted both, preserving working tree.
+- `supabase/platform-backbone-rls.sql` deleted from working tree (won't be recreated until tables exist).
+- Phase 3.A audit doc reclassified R-API-03 honestly (Section 2 + Section 3 + Section 5 + Z.3 + this Z.10).
+- Phase 1.5.14.1 forward-iteration lineage preserved (no force push, no history rewriting on pushed commits).
+- Resolution: single revised Phase 3.D commit replaces both prior LOCAL commits; Phase 3.D.1 cleanup resolves new hash placeholders.
+
+**Resolution (Phase 3.D revision commit `<COMMIT_HASH_TBD>`):** RESOLVED — this Z.10 entry IS the resolution. R-API-03 RECLASSIFIED, deferred to future cycle alongside platform-backbone-v1.sql production deployment. Pattern lesson documented for downstream phases.
+
 ---
 
-**End of Phase 3.A audit. All Z.1-Z.9 awaiting mentor decisions before Phase 3.D mega-prompt drafts.**
+**End of Phase 3.A audit. All Z.1-Z.9 RESOLVED + Z.10 RECLASSIFICATION RESOLVED in Phase 3.D revision commit `<COMMIT_HASH_TBD>`.**
