@@ -29,15 +29,63 @@ const DEMO_USERS: Array<{
   password: string
 }> = []
 
-const memorySecret = process.env.SOC_DEMO_SECRET
-if (!memorySecret) {
-  throw new Error(
-    '[soc-store-memory] SOC_DEMO_SECRET environment variable must be set. ' +
-    'The hardcoded fallback was removed (R-20 hardening). ' +
-    'Set SOC_DEMO_SECRET in your .env file or deployment environment.'
-  )
+// Phase 1.5.15 — A-17 closure: lazy getter pattern replaces module-load throw.
+//
+// SENIOR ARCHITECT NOTE: previous shape (Phase 1.5.1 R-20 fix) validated
+// SOC_DEMO_SECRET at module-top-level scope. This coupled Next.js build's
+// "Collecting page data" phase to runtime env presence — `npm run build`
+// failed when env unset, even though build doesn't need the secret. Three
+// consecutive cycles (Phase 1.5.13, 1.5.14, 1.5.14.1) required
+// `SOC_DEMO_SECRET="placeholder"` workaround to verify production builds.
+//
+// New shape (defense-in-depth two-layer with src/instrumentation.ts):
+//   - Layer 1 (boot validator): instrumentation.register() throws fail-loud
+//     at server start before any request handling, when env unset.
+//   - Layer 2 (this file): lazy getter throws if Layer 1 was bypassed
+//     (e.g., test runtime, edge runtime, non-standard host).
+//
+// R-20 hardening intent preserved — secret remains REQUIRED, throw still
+// fires when env unset. Only the *timing* changed: module-load → first-use.
+//
+// REJECTED ALTERNATIVE: keep module-load throw + add try/catch wrapper. Rejected
+// — wrapper would have to swallow or rethrow, both bad: swallow re-opens R-20
+// (silent fallback), rethrow doesn't fix the build fragility A-17 documents.
+//
+// REJECTED ALTERNATIVE: throw inline at signPayload site without cache. Rejected
+// — every call would hit process.env access (~50ns) and string comparison.
+// Cache pattern (`let cachedSecret`) matches email.ts:getResendClient idiom;
+// process.env read once per process lifetime.
+
+let cachedSecret: string | null = null
+
+function getMemorySecret(): string {
+  if (cachedSecret !== null) return cachedSecret
+  const v = process.env.SOC_DEMO_SECRET
+  if (!v) {
+    throw new Error(
+      '[soc-store-memory] SOC_DEMO_SECRET environment variable must be set. ' +
+      'The hardcoded fallback was removed (R-20 hardening; A-17 refined). ' +
+      'Set SOC_DEMO_SECRET in your .env file or deployment environment.'
+    )
+  }
+  cachedSecret = v
+  return cachedSecret
 }
-const MEMORY_SECRET = memorySecret
+
+/**
+ * R-08-lineage test helper. Clears the cached secret so test cases can
+ * re-evaluate getMemorySecret() with a stubbed env. NODE_ENV-guarded so
+ * a supply-chain compromise cannot wipe the cache in production.
+ *
+ * SENIOR ARCHITECT NOTE: mirrors rate-limiter.__resetAllForTests pattern
+ * (R-08 hardening, Phase 1.5.9 commit `6e677c0`).
+ */
+export function __resetSecretCacheForTests(): void {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('__resetSecretCacheForTests prohibited in production')
+  }
+  cachedSecret = null
+}
 
 interface InternalUser {
   id: number
@@ -425,7 +473,7 @@ function findActiveUserByUsername(username: string): InternalUser | null {
 }
 
 function signPayload(payloadBase64: string) {
-  return createHmac('sha256', MEMORY_SECRET).update(payloadBase64).digest('base64url')
+  return createHmac('sha256', getMemorySecret()).update(payloadBase64).digest('base64url')
 }
 
 function encodeToken(payload: SessionTokenPayload) {
