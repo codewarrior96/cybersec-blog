@@ -1,6 +1,101 @@
-import { beforeAll, afterEach, afterAll } from 'vitest'
+import { beforeAll, afterEach, afterAll, expect } from 'vitest'
 import { server } from './msw/server'
 import { __resetAllForTests } from '@/lib/rate-limiter'
+
+// Phase 4.B — DOM testing matchers + a11y matcher registration.
+// SENIOR ARCHITECT NOTE: these imports are safe in pure-node test runs.
+// @testing-library/jest-dom/vitest only attaches matchers to expect; the
+// matchers themselves are no-op until used. vitest-axe matcher exposes
+// toHaveNoViolations which Phase 4.D component tests will use.
+// REJECTED ALTERNATIVE: gate imports behind typeof window check — adds
+// dynamic import complexity for zero runtime savings. Module-load is fine.
+import '@testing-library/jest-dom/vitest'
+import { toHaveNoViolations } from 'vitest-axe/matchers'
+import * as axeMatchers from 'vitest-axe/matchers'
+
+expect.extend(axeMatchers)
+
+// Phase 4.B — RTL cleanup. SENIOR ARCHITECT NOTE: dynamic-import @testing-
+// library/react inside afterEach so pure-node tests don't pay the import
+// cost. cleanup() is jsdom-only (no-op equivalent in node would throw on
+// missing document) so guard with `typeof document !== 'undefined'`.
+// REJECTED ALTERNATIVE: top-level import — pulls in DOM-dependent code
+// into the 386 node-env tests' setup unnecessarily.
+afterEach(async () => {
+  if (typeof document !== 'undefined') {
+    const { cleanup } = await import('@testing-library/react')
+    cleanup()
+  }
+})
+
+// Phase 4.B — Browser API stubs. SENIOR ARCHITECT NOTE: jsdom does not
+// natively provide matchMedia / ResizeObserver / IntersectionObserver.
+// Components that call these throw at render time without stubs. Stubs
+// are conditional on `typeof window !== 'undefined'` — pure-node tests
+// hit the false branch and skip the entire block.
+// REJECTED ALTERNATIVE: jsdom-environment.ts setup file — splits config
+// surface; single setup.ts with guards is simpler.
+if (typeof window !== 'undefined') {
+  // window.matchMedia — Tailwind responsive utilities may call this.
+  if (!window.matchMedia) {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: (query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      }),
+    })
+  }
+
+  // ResizeObserver — DashboardLayout panel sizing (R-UI-03/05 surface).
+  if (!('ResizeObserver' in globalThis)) {
+    ;(globalThis as { ResizeObserver?: unknown }).ResizeObserver = class ResizeObserverStub {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    }
+  }
+
+  // IntersectionObserver — defensive (not directly used in audited Top-3
+  // but RTL convention for any scroll-aware component).
+  if (!('IntersectionObserver' in globalThis)) {
+    ;(globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = class IntersectionObserverStub {
+      readonly root: Element | null = null
+      readonly rootMargin: string = ''
+      readonly thresholds: ReadonlyArray<number> = []
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+      takeRecords(): unknown[] {
+        return []
+      }
+    }
+  }
+
+  // requestAnimationFrame / cancelAnimationFrame — CriticalOverlayFx +
+  // Toast + DashboardLayout globe rotation rely on rAF. jsdom 26+
+  // typically provides this, but we polyfill defensively for older
+  // jsdom versions and for forced sync test mode.
+  if (typeof window.requestAnimationFrame !== 'function') {
+    window.requestAnimationFrame = (cb: FrameRequestCallback) => window.setTimeout(() => cb(Date.now()), 16) as unknown as number
+  }
+  if (typeof window.cancelAnimationFrame !== 'function') {
+    window.cancelAnimationFrame = (handle: number) => window.clearTimeout(handle)
+  }
+}
+
+// Re-export so future setup additions can use the matcher in custom
+// helpers without re-importing. SENIOR ARCHITECT NOTE: vitest-axe ships
+// toHaveNoViolations as a type-only declaration (it's a matcher signature,
+// not a value), so `export type` is required under isolatedModules.
+export type { toHaveNoViolations }
 
 // SENIOR ARCHITECT NOTE: vi.stubEnv (not direct process.env assignment) so
 // restoreMocks: true (already in vitest.config) automatically restores between tests.

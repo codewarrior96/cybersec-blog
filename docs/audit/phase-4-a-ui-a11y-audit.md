@@ -262,6 +262,8 @@ Phase 4.D commit `<COMMIT_HASH_TBD>` will implement Targets #1-3 above. Specific
 
 ## 6. Phase 4.B Infrastructure Needs
 
+**Status (Phase 4.B):** SHIPPED in commit `<COMMIT_HASH_TBD>` — `jsdom@^29.1.1` + `@testing-library/react@^16.3.2` + `@testing-library/jest-dom@^6.9.1` + `@testing-library/user-event@^14.6.1` + `axe-core@^4.11.4` + `vitest-axe@^0.1.0` installed (devDependencies); `@vitejs/plugin-react@^6.0.2` added alongside (required because tsconfig `jsx: "preserve"` defers JSX transform to Next, leaving vitest with no transformer otherwise); `vitest.config.ts` widened to `include: ['src/**/*.test.{ts,tsx}']` with default `environment: 'node'` preserved (per-file `// @vitest-environment jsdom` opt-in for Phase 4.D component test files); `src/test/setup.ts` extended with `@testing-library/jest-dom/vitest` matcher import, `vitest-axe/matchers` extension (`toHaveNoViolations`), RTL `cleanup()` afterEach (jsdom-guarded via `typeof document !== 'undefined'`), and browser API stubs (`window.matchMedia`, `ResizeObserver`, `IntersectionObserver`, `requestAnimationFrame`/`cancelAnimationFrame` polyfill — all `typeof window !== 'undefined'` guarded so pure-node tests pay zero cost). Smoke-tested via temporary `src/test/__phase-4-b-smoke__.test.tsx` (3 assertions: RTL render, axe deliberate violation, axe clean-pass; all green) then DELETED before commit. **Baseline 386 / 37 preserved.** Phase 4.D unblocked.
+
 **Assessment: SUBSTANTIAL — unlike Phase 2.B (skipped) and Phase 3.B (skipped).** Phase 4.B is the first non-trivial infrastructure cycle since Phase 1.B.
 
 ### 6.1 — Dependencies (Phase 4.B adds)
