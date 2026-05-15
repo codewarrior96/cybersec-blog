@@ -88,8 +88,8 @@ Phase 4 adopts a new `R-UI-XX` namespace to avoid collision with Phase 1's R-01.
 
 | Risk | Severity | OWASP / WCAG | Source surface | Description | Why severe |
 |---|---|---|---|---|---|
-| R-UI-01 | **High** | WCAG 2.1.1 Keyboard | `components/lab/Terminal.tsx` (xterm-like surface, 861 LOC) | **Terminal accessibility surface untested.** Custom prompt input (not a real `<input>` per se — there IS an `inputRef` so likely a focused text input, but the scroll-back history, tab-completion, history-up/down, and ANSI-coded output rendering pattern is unique and a11y-untested). Phase 2.A explicitly deferred Terminal/AnsiText to Phase 4 (`phase-2-a-lab-engine-audit.md:53-54`). Tab-completion + Ctrl-key composition + scroll-back behavior under screen reader is unverified. | Terminal is the **primary user surface for the Community / Breach Lab** — central demo feature. Keyboard-only navigation + screen-reader announcement of new lines (ANSI-stripped) + focus retention after WebSocket reconnect are all unverified. Severity High because (a) it's the flagship UX, (b) the surface is large enough that regression is plausible, (c) Phase 2.A explicit deferral makes this Phase 4's first responsibility. |
-| R-UI-02 | **High** | WCAG 2.4.3 Focus Order + 2.1.2 No Keyboard Trap | `components/dashboard/AttackReportModal.tsx` (705 LOC), `components/dashboard/CriticalAlertPanel.tsx` (328 LOC), `components/SearchModal.tsx` (127 LOC), `components/NavigationBar.tsx` drawer (lines 209-259), `components/portfolio/DeleteAccountModal.tsx` (LOC tbd) | **5 modal surfaces use the shared `useFocusTrap` hook** (`src/hooks/useFocusTrap.ts`, 76 LOC) but the hook itself has zero direct tests. Single shared primitive → single point of failure across 5 critical UX surfaces. Hook documents WCAG 2.1 AA modal pattern in header but no automated assertion holds the contract. If hook regresses (e.g., Tab handling, Shift-Tab, Escape, focus restoration on close), all 5 modals break simultaneously. | Concrete failure modes: (a) Tab outside trap on Shift-Tab from first element, (b) Escape handler not preventing default (parent dialog catches it), (c) focus restoration to wrong element after close (`previouslyFocused?.focus?.()` on line 72), (d) `offsetParent !== null` filter (line 48) — `display: none` elements correctly excluded but `visibility: hidden` ones may slip through. Severity High because **single primitive ownership of 5 critical UX surfaces** = test ROI very high. |
+| R-UI-01 🟡 PARTIAL | **High** | WCAG 2.1.1 Keyboard | `components/lab/Terminal.tsx` (xterm-like surface, 861 LOC) | **Terminal accessibility surface untested.** Custom prompt input (not a real `<input>` per se — there IS an `inputRef` so likely a focused text input, but the scroll-back history, tab-completion, history-up/down, and ANSI-coded output rendering pattern is unique and a11y-untested). Phase 2.A explicitly deferred Terminal/AnsiText to Phase 4 (`phase-2-a-lab-engine-audit.md:53-54`). Tab-completion + Ctrl-key composition + scroll-back behavior under screen reader is unverified. | Terminal is the **primary user surface for the Community / Breach Lab** — central demo feature. Keyboard-only navigation + screen-reader announcement of new lines (ANSI-stripped) + focus retention after WebSocket reconnect are all unverified. Severity High because (a) it's the flagship UX, (b) the surface is large enough that regression is plausible, (c) Phase 2.A explicit deferral makes this Phase 4's first responsibility. **STATUS (Phase 4.D commit `<COMMIT_HASH_TBD>`):** PARTIAL CLOSURE — `AnsiText.tsx` pure parser surface covered via 16 tests (T-AT01-16) locking current ANSI color/bold/dim/reset semantics + escape positioning + accumulation + axe smoke. `Terminal.tsx` itself (861 LOC, xterm-like surface) intentionally NOT unit-tested per Phase 4.A Section 5 rationale; routed to Phase 5 E2E (Playwright) for full keyboard + screen-reader coverage. |
+| R-UI-02 ✅ RESOLVED | **High** | WCAG 2.4.3 Focus Order + 2.1.2 No Keyboard Trap | `components/dashboard/AttackReportModal.tsx` (705 LOC), `components/dashboard/CriticalAlertPanel.tsx` (328 LOC), `components/SearchModal.tsx` (127 LOC), `components/NavigationBar.tsx` drawer (lines 209-259), `components/portfolio/DeleteAccountModal.tsx` (LOC tbd) | **5 modal surfaces use the shared `useFocusTrap` hook** (`src/hooks/useFocusTrap.ts`, 76 LOC) but the hook itself has zero direct tests. Single shared primitive → single point of failure across 5 critical UX surfaces. Hook documents WCAG 2.1 AA modal pattern in header but no automated assertion holds the contract. If hook regresses (e.g., Tab handling, Shift-Tab, Escape, focus restoration on close), all 5 modals break simultaneously. | Concrete failure modes: (a) Tab outside trap on Shift-Tab from first element, (b) Escape handler not preventing default (parent dialog catches it), (c) focus restoration to wrong element after close (`previouslyFocused?.focus?.()` on line 72), (d) `offsetParent !== null` filter (line 48) — `display: none` elements correctly excluded but `visibility: hidden` ones may slip through. Severity High because **single primitive ownership of 5 critical UX surfaces** = test ROI very high. **STATUS (Phase 4.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — 13 tests (T-FT01-13) lock the hook contract: activation focus, Tab/Shift+Tab boundary wrap, disabled/tabindex=-1/display:none wrap-target filtering, Escape callback invocation + preventDefault, previous focus restoration on deactivation, rapid toggle stability, cleanup unbind verification. Transitively secures all 5 modal surfaces (NavigationBar drawer, AttackReportModal, CriticalAlertPanel, SearchModal, DeleteAccountModal). T-SM10 in SearchModal test file additionally verifies the integration at the consumer side. |
 | R-UI-03 | **High** | WCAG 1.4.3 Contrast (Minimum) + WCAG 2.4.7 Focus Visible | `components/dashboard/DashboardLayout.tsx` (2165 LOC, hacker-themed `#000000` + `#00ff88` neon + `#00d4ff` cyan palette per CLAUDE.md) | **Color contrast not verified against WCAG AA.** Dashboard uses hacker/breach palette with neon foregrounds on near-black backgrounds; some accent colors (e.g., `text-cyan-900` on `bg-[#000102]` in `HomePageClient.tsx:95-97` — "Authenticating" spinner label) may fail 4.5:1 normal-text or 3:1 large-text contrast. No automated check exists; axe-core not installed. | Demo-critical UX — Dashboard is the centerpiece on `/home`. WCAG AA failure means: (a) operator with mild color-vision deficiency can't read critical alerts, (b) accessibility-compliance claims unsupportable. Severity High because it's invisible to sighted-developer testing, easy to introduce in Tailwind class refactors, and demo-critical surface. |
 | R-UI-04 | **High** | A04 Insecure Design + WCAG 4.1.2 Name/Role/Value | `components/dashboard/CriticalAlertPanel.tsx` (lines 44-52, `getIncidentIcon`) | **Emoji used as status icons without `aria-label`/`role="img"` annotation.** `getIncidentIcon` returns raw emoji strings (`💀`, `🔓`, `🔑`, `⚡`, `📤`, `🛰`, `⚠`) for ransomware / SQL / auth / flood / exfil / C2 / generic. Screen readers may announce as Unicode codepoint names (e.g., "skull and crossbones, padlock") or skip entirely depending on UA. Sighted users see decoration; non-sighted users get inconsistent (and sometimes meaningless) audio. | This is the **critical incident alert panel** — when CRITICAL fires, the panel pops with `role="dialog" aria-modal="true"` and the operator has to triage. Emoji-without-label means a blind operator can't quickly distinguish ransomware (skull) from generic warning (triangle). Severity High because critical-incident triage UX has zero room for ambiguity. |
 | R-UI-05 | Medium | WCAG 1.3.1 Info & Relationships + WCAG 2.4.6 Headings & Labels | `components/dashboard/TelemetryStreamPanel.tsx` (820 LOC), `components/dashboard/DashboardLayout.tsx` panels | **Dashboard panels lack heading hierarchy + landmark regions.** TelemetryStreamPanel renders rows of events; Phase 4.D needs to verify that panels expose `<h2>` / `<h3>` for screen-reader navigation (heading map), `<section aria-labelledby=...>` for landmarks, and that the global threat map is reachable via `role="region"` (or skipped via `aria-hidden` + alternative text representation if purely decorative). | Screen-reader operators navigate by headings. Without a heading map, the Dashboard becomes an undifferentiated wall of `<div>`s. Severity Medium because (a) sighted UX is unaffected, (b) the Dashboard surfaces tabular data which can be linearized, (c) audit doc surfaces the gap — Phase 4.D verifies. |
@@ -104,7 +104,7 @@ Phase 4 adopts a new `R-UI-XX` namespace to avoid collision with Phase 1's R-01.
 | R-UI-14 | Low | A07 ID&A Failures | `components/dashboard/Toast.tsx` (line 117 — `createPortal(..., document.body)`) | **Toast portal target is `document.body` unconditionally.** In SSR (Next.js App Router server components) the component is `'use client'` + `mounted` state-gated (lines 101-107) → safe. But the gating relies on `useEffect` running before portal render. Race risk negligible but the pattern depends on React's commit-phase ordering. Phase 4.D test could verify with mocked `createPortal`. | Pure correctness concern. Severity Low. |
 | R-UI-15 | Informational | — | `components/OperatorSidebar.tsx` (10 LOC) | **Dead code — component returns `null` unconditionally.** Comment confirms "intentionally disabled in V3." Imported + rendered in `AppShellClient.tsx:73`. No runtime cost, but presence in the bundle + import graph is dead weight. | Pure code-hygiene note. Could be deleted + import removed, or repurposed for V4 sidebar. No security or correctness implication. |
 
-**Summary by severity:** High = 4 (R-UI-01 Terminal a11y, R-UI-02 focus-trap shared primitive, R-UI-03 contrast, R-UI-04 emoji-as-icon); Medium = 7 (R-UI-05..R-UI-11); Low = 3 (R-UI-12..R-UI-14); Informational = 1 (R-UI-15). **Total = 15.**
+**Summary by severity (Phase 4.D updates marked):** High = 4 (R-UI-01 🟡 PARTIAL — AnsiText covered via T-AT01-16; Terminal.tsx → Phase 5 E2E; **R-UI-02 ✅ RESOLVED** via T-FT01-13 hook tests + T-SM10 consumer integration; R-UI-03 contrast untouched; R-UI-04 emoji-as-icon deferred per Z.7 housekeeping); Medium = 7 (R-UI-05..R-UI-11 untouched — intentional surgical scope); Low = 3 (R-UI-12..R-UI-14 untouched); Informational = 1 (R-UI-15 deferred per Z.6 housekeeping). **Total = 15.**
 
 **No Critical entries.** Critical UI risks would be exploit-level (script injection via uncontrolled `dangerouslySetInnerHTML`, etc.) — sample-checked at file-read time and not observed in the audited surface. The Phase 4 risk profile is concentrated in **accessibility + test-infrastructure debt** — both surfaces where prevention through testing is cheaper than after-the-fact remediation.
 
@@ -127,6 +127,23 @@ Phase 4 adopts a new `R-UI-XX` namespace to avoid collision with Phase 1's R-01.
 | Reports + alerts | `src/app/api/{reports,alerts}/__tests__/*.test.ts` (Phase 3.D — T-AL + T-RP, 51 tests). No UI render coverage. |
 
 **Total transitive coverage:** 386 tests / 37 files (post-Phase-3.D-revision baseline) exercise business logic; **zero exercise UI render path.** Every Phase 4.D test will be net-new coverage.
+
+### Phase 4.D test expansion (this audit's surgical recommendation, IMPLEMENTED)
+
+Phase 4.D commit `<COMMIT_HASH_TBD>` ships 3 new component test files implementing the Top-3 surgical scope from Section 5:
+
+| File | Tests | Coverage target | Maps to |
+|---|---|---|---|
+| `src/hooks/__tests__/useFocusTrap.test.tsx` | 13 | activation focus + Tab/Shift+Tab boundary wrap + filtering (disabled/tabindex=-1/hidden) + Escape callback + previous-focus restore + cleanup verification | T-FT01-T-FT13 → R-UI-02 (High) full closure |
+| `src/components/lab/__tests__/AnsiText.test.tsx` | 16 | ANSI parser: plain text + 4 foreground colors + bold + dim + reset + combined sequence + bright variants + unknown code + escape position + accumulation + axe smoke | T-AT01-T-AT16 → R-UI-01 (High) partial closure |
+| `src/components/__tests__/SearchModal.test.tsx` | 12 | open/close lifecycle (Ctrl-K, Cmd-K, Escape) + backdrop click + inner-click stopPropagation + auto-focus + title-filter + tag-filter + no-match state + axe smoke | T-SM01-T-SM12 → R-UI-02 (transitive) + filter + keyboard |
+
+**Total Phase 4.D test count:** 13 + 16 + 12 = **41 net new tests**. Baseline 386 → **427 / 40 files**.
+
+R-UI risk coverage state post-Phase-4.D:
+- **R-UI-01 (High)**: 🟡 PARTIAL via T-AT01-16 (AnsiText covered; Terminal.tsx → Phase 5 E2E per Section 5 out-of-scope rationale)
+- **R-UI-02 (High)**: ✅ RESOLVED via T-FT01-13 + T-SM10 transitive (single hook test secures 5 modal surfaces)
+- **R-UI-03..R-UI-15**: Untouched (intentional surgical scope — Phase 4.D doesn't chase all 15 risks; only Top-3 per Section 5 ranking)
 
 ### 3.1 — Test infrastructure gap inventory
 
@@ -256,7 +273,13 @@ If Phase 4.B + 4.C land cleanly (high confidence — patterns are well-establish
 
 ### Phase 4.D commit cross-reference
 
-Phase 4.D commit `<COMMIT_HASH_TBD>` will implement Targets #1-3 above. Specific test IDs and file paths locked per Section 9 Z.X decisions.
+**Phase 4.D commit `<COMMIT_HASH_TBD>` implements this surgical scope.** Three new test files, 41 net new tests, zero product code changes:
+
+- `src/hooks/__tests__/useFocusTrap.test.tsx` — T-FT01-T-FT13 (13 tests, R-UI-02 closure)
+- `src/components/lab/__tests__/AnsiText.test.tsx` — T-AT01-T-AT16 (16 tests including T-AT16 axe smoke, R-UI-01 partial closure)
+- `src/components/__tests__/SearchModal.test.tsx` — T-SM01-T-SM12 (12 tests including T-SM12 axe smoke, R-UI-02 transitive)
+
+Baseline 386 → 427 / 40 files. Phase 4 cycle now: A (audit) + B (infra, commits `d36b1f0` + `2ea4e60`) + D (this commit). C absorbed into B per Z.9. **Phase 4 effectively CLOSED.**
 
 ---
 
@@ -427,6 +450,8 @@ Phase 4.A Section 5 recommends Targets #1-3: useFocusTrap, AnsiText, SearchModal
 
 Agent recommends (a). Top-3 is the "tight scope wins" pattern from Phase 2.D + 3.D. Stretch goals (Toast / NavigationBar) absorb into Phase 4.D commit if velocity allows.
 
+**Resolution (Phase 4.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — option (a) shipped exactly as recommended. 13 + 16 + 12 = 41 net new tests across the Top 3 targets. Stretch goals (Toast, NavigationBar drawer) NOT bundled — kept commit surgical. Test delta 386 → 427 / 40 files.
+
 ### Z.2 — Phase 4.B + 4.C cycle deliverables
 
 Phase 4.B requires REAL deliverables (unlike Phase 2.B / 3.B which were SKIPPED). Mentor decides:
@@ -454,6 +479,8 @@ Phase 4.D test design has 2 axe-core integration approaches:
 
 Agent recommends (a). Targeted assertions tie to specific test contexts and fail close to the cause. (c) sounds nice but loses signal locality (a violation in Modal X surfaces as "axe failed in axe.test.tsx").
 
+**Resolution (Phase 4.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — option (a) shipped. T-AT16 (AnsiText final test) + T-SM12 (SearchModal final test) each end with `expect(await axe(container)).toHaveNoViolations()`. useFocusTrap test file has no axe smoke (hook has no DOM tree of its own — axe applies to render output). Signal locality preserved per recommendation.
+
 ### Z.5 — Test ID convention for Phase 4.D
 
 Phase 2.D adopted `T-VC / T-RD / T-MO`. Phase 3.D adopted `T-PC / T-AL / T-RP`. Phase 4.A proposes:
@@ -465,6 +492,8 @@ Phase 2.D adopted `T-VC / T-RD / T-MO`. Phase 3.D adopted `T-PC / T-AL / T-RP`. 
 Each `it(...)` title begins with `T-XX —` (em-dash separator). Matches Phase 2.D + 3.D convention.
 
 Mentor confirms before Phase 4.D writes assertions.
+
+**Resolution (Phase 4.D commit `<COMMIT_HASH_TBD>`):** RESOLVED — proposed prefixes accepted and applied verbatim. T-FT01-T-FT13 (13 tests), T-AT01-T-AT16 (16 tests), T-SM01-T-SM12 (12 tests). Each `it(...)` title begins with `T-XX — ` (em-dash separator), matching Phase 2.D + 3.D convention. Stretch goals (T-TS Toast, T-NB NavigationBar) NOT executed per Z.1 surgical scope.
 
 ### Z.6 — R-UI-15 (OperatorSidebar dead code) handling
 

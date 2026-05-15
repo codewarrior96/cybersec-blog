@@ -10,10 +10,28 @@ import { __resetAllForTests } from '@/lib/rate-limiter'
 // REJECTED ALTERNATIVE: gate imports behind typeof window check — adds
 // dynamic import complexity for zero runtime savings. Module-load is fine.
 import '@testing-library/jest-dom/vitest'
-import { toHaveNoViolations } from 'vitest-axe/matchers'
 import * as axeMatchers from 'vitest-axe/matchers'
+import type { AxeMatchers } from 'vitest-axe/matchers'
 
 expect.extend(axeMatchers)
+
+// SENIOR ARCHITECT NOTE: vitest-axe ships matchers as runtime helpers
+// but their types must be augmented onto vitest's Assertion interface
+// for tsc to know `expect(...).toHaveNoViolations()` is valid. Without
+// this, .test.tsx files using the matcher fail tsc with TS2339.
+// REJECTED ALTERNATIVE: per-test-file `// @ts-expect-error` comments —
+// silences the error but loses real type checking on the matcher's
+// arguments.
+// SENIOR ARCHITECT NOTE: Assertion<T = any> matches vitest's own
+// declaration at @vitest/expect/dist/index.d.ts:635. Mismatched type
+// parameters fail TS2428 "All declarations of 'Assertion' must have
+// identical type parameters". `T = any` is the upstream signature.
+declare module 'vitest' {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/no-explicit-any
+  interface Assertion<T = any> extends AxeMatchers {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  interface AsymmetricMatchersContaining extends AxeMatchers {}
+}
 
 // Phase 4.B — RTL cleanup. SENIOR ARCHITECT NOTE: dynamic-import @testing-
 // library/react inside afterEach so pure-node tests don't pay the import
@@ -91,11 +109,10 @@ if (typeof window !== 'undefined') {
   }
 }
 
-// Re-export so future setup additions can use the matcher in custom
-// helpers without re-importing. SENIOR ARCHITECT NOTE: vitest-axe ships
-// toHaveNoViolations as a type-only declaration (it's a matcher signature,
-// not a value), so `export type` is required under isolatedModules.
-export type { toHaveNoViolations }
+// SENIOR ARCHITECT NOTE: matcher types are augmented above via
+// `declare module 'vitest'`. No re-export needed — Phase 4.D test
+// files use `toHaveNoViolations` via expect chaining (no direct
+// import), and the augmentation makes tsc aware of the matcher.
 
 // SENIOR ARCHITECT NOTE: vi.stubEnv (not direct process.env assignment) so
 // restoreMocks: true (already in vitest.config) automatically restores between tests.
