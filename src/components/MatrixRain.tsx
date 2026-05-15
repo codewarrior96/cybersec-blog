@@ -37,5 +37,9 @@ export default function MatrixRain() {
     return () => { clearInterval(id); window.removeEventListener('resize', resize); };
   }, []);
 
-  return <canvas ref={ref} className="absolute inset-0 w-full h-full" />;
+  // R-UI-08 closure (Wave 2A): canvas is purely decorative animation.
+  // aria-hidden="true" prevents screen readers from announcing "canvas"
+  // with no context. Mentor decision per Phase 4.A Z.7 lineage: this
+  // surface is "decorative" not "informative".
+  return <canvas ref={ref} className="absolute inset-0 w-full h-full" aria-hidden="true" />;
 }

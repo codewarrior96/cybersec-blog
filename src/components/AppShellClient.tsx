@@ -3,12 +3,12 @@
 import React, { useCallback, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuthSession, logoutAuth } from '@/lib/auth-client'
-import OperatorSidebar from '@/components/OperatorSidebar'
 import Footer from '@/components/Footer'
 import SearchModal from '@/components/SearchModal'
 import PageTransition from '@/components/PageTransition'
 import NavigationBar from '@/components/NavigationBar'
 import { getRouteTheme } from '@/lib/route-theme'
+import type { PostMeta } from '@/lib/posts'
 
 export default function AppShellClient({
   children,
@@ -17,7 +17,12 @@ export default function AppShellClient({
 }: {
   children: React.ReactNode
   initialAuth: boolean
-  posts: any[]
+  // R-UI-11 closure (Wave 2A): explicit PostMeta[] replaces former
+  // `any[]`. SearchModal's prop is `PostMeta[]` — caller pipeline now
+  // type-checked end-to-end. SENIOR ARCHITECT NOTE: typing here surfaces
+  // PostMeta shape drift to the callers at compile time, closing the
+  // type-system gap documented in R-UI-11.
+  posts: PostMeta[]
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -70,7 +75,6 @@ export default function AppShellClient({
 
   return (
     <>
-      <OperatorSidebar initialAuth={isAuthed} />
       <div data-route-theme={routeTheme} className="route-shell transition-all duration-300 flex flex-col flex-1 app-shell">
         {showOperatorShell && (
           <NavigationBar

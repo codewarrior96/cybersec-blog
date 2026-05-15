@@ -1036,7 +1036,12 @@ const GlobalMapPanel = React.memo(({ mapIncidents, mapFilter, selectedSignal, on
           <div className="absolute inset-0 opacity-55 map-starfield" />
         </div>
 
-        <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${globeGeometry.width} ${globeGeometry.height}`} preserveAspectRatio="xMidYMid meet" aria-label="3D threat globe">
+        {/* R-UI-08 closure (Wave 2A): SVG is the informative globe panel.
+            role="img" anchors it as an image for AT; aria-label updated
+            to the mentor-locked descriptive text (vs. prior "3D threat
+            globe" which was technically correct but less informative
+            about the *purpose* — telemetry of attacks in real time). */}
+        <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${globeGeometry.width} ${globeGeometry.height}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label="Real-time global attack telemetry map">
           <defs>
             <radialGradient id="globeOceanGradient" cx="34%" cy="22%" r="86%">
               <stop offset="0%" stopColor="#8dffea" stopOpacity="0.9" />

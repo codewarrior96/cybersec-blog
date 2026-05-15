@@ -41,15 +41,28 @@ function timeStr(iso: string) {
   }
 }
 
-function getIncidentIcon(label: string) {
+// R-UI-04 closure (Wave 2A): emoji-as-icon WCAG 4.1.2 violation fix.
+// Function now returns { emoji, ariaLabel } so the call site can wrap
+// in <span role="img" aria-label=...>{emoji}</span>. Screen readers
+// announce the Turkish descriptive label instead of the Unicode
+// codepoint name (which varies per UA and is sometimes meaningless
+// for non-literate-emoji incident types like 🛰).
+// SENIOR ARCHITECT NOTE: returning { emoji, ariaLabel } (vs. JSX
+// fragment) keeps the function pure — the visualization wrap is at
+// the consumer site where the surrounding <span className=...> lives.
+// REJECTED ALTERNATIVE: return ReactNode with the wrap baked in.
+// Rejected — couples the data function to React/JSX, harder to test
+// in isolation, and the per-icon size/styling at the call site would
+// need a second prop just to compose around.
+function getIncidentIcon(label: string): { emoji: string; ariaLabel: string } {
   const value = label.toLowerCase()
-  if (value.includes('ransom')) return '💀'
-  if (value.includes('sql')) return '🔓'
-  if (value.includes('auth')) return '🔑'
-  if (value.includes('flood')) return '⚡'
-  if (value.includes('exfil')) return '📤'
-  if (value.includes('c2')) return '🛰'
-  return '⚠'
+  if (value.includes('ransom')) return { emoji: '💀', ariaLabel: 'Ransomware saldırısı' }
+  if (value.includes('sql')) return { emoji: '🔓', ariaLabel: 'SQL enjeksiyonu' }
+  if (value.includes('auth')) return { emoji: '🔑', ariaLabel: 'Kimlik doğrulama atlatma' }
+  if (value.includes('flood')) return { emoji: '⚡', ariaLabel: 'Yoğun trafik saldırısı' }
+  if (value.includes('exfil')) return { emoji: '📤', ariaLabel: 'Veri sızdırma' }
+  if (value.includes('c2')) return { emoji: '🛰', ariaLabel: 'Komuta-kontrol bağlantısı' }
+  return { emoji: '⚠', ariaLabel: 'Kritik tehdit' }
 }
 
 function getIncidentDescription(label: string) {
@@ -238,7 +251,19 @@ export default function CriticalAlertPanel({
                 <div className="pl-4 pr-3 py-3 space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-lg leading-none">{getIncidentIcon(incident.label)}</span>
+                      {(() => {
+                        // R-UI-04 closure (Wave 2A): emoji wrapped in
+                        // role="img" + aria-label for screen-reader fidelity.
+                        // Sighted aesthetic preserved; AT users hear the
+                        // Turkish descriptive label instead of the
+                        // Unicode codepoint name.
+                        const { emoji, ariaLabel } = getIncidentIcon(incident.label)
+                        return (
+                          <span className="text-lg leading-none" role="img" aria-label={ariaLabel}>
+                            {emoji}
+                          </span>
+                        )
+                      })()}
                       <span className="font-black text-xs tracking-wider" style={{ color }}>
                         {incident.label.toUpperCase()}
                       </span>
