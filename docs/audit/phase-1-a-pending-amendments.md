@@ -6,10 +6,11 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 
 ## Items
 
-### A-01 — T-IR02/T-IR03 mapping correction
+### A-01 — T-IR02/T-IR03 mapping correction  [RESOLVED in Wave 1 housekeeping]
 - **Discovered in:** Phase 1.D.4 (identity-rules.test.ts)
 - **Issue:** Audit Section 5 → identity-rules.ts table maps T-IR02 (case) and T-IR03 (whitespace) to R-09. This is incorrect — `normalizeIdentityUsername` already applies `trim().toLowerCase()` before Set lookup, so case+whitespace variants ARE detected. These are happy-path tests, not gap tests.
 - **Action:** Update Section 5 → identity-rules.ts table → T-IR02 and T-IR03 rows → "Maps to" column → `—` (empty).
+- **Resolution (Wave 1 housekeeping commit `<COMMIT_HASH_TBD>`):** Section 5 identity-rules.ts table "Maps to" column corrected for T-IR02 and T-IR03 entries (set to `—`; rules are evaluated transitively via T-IV* tests on identity-validation.ts consumers, NOT directly mapped to R-09). Type column already correctly labels them as "Edge" tests, not exploit / gap.
 
 ### A-02 — R-21 new risk: truncated hash storage attack  [RESOLVED in Phase 1.5.4]
 - **Discovered in:** Phase 1.D.1 (security.test.ts T-S09)
@@ -33,34 +34,39 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Action:** Update Section 5 → client-ip.ts table to add T-CI11a and T-CI11b rows. Update Section 1 / Section 7 if test counts referenced.
 - **Resolution:** Phase 1.5.12 commit `61e8492` — Section 5 `client-ip.ts` table T-CI11 row split into T-CI11a + T-CI11b distinct rows, each mapped to the corresponding `it()` block at `src/lib/client-ip.test.ts` L110 (T-CI11a — production gap regression guard) and L148 (T-CI11b — non-prod safe baseline). Both rows retain `R-01 ✅ FIXED` mapping (R-01 closed in Phase 1.5.5 `bb11ae6`); the split is audit-doc consistency hygiene only — no code/test logic change. Section 1 / Section 7 test count references were not affected (those reference vitest totals which already reflect both T-CI11a and T-CI11b).
 
-### A-05 — T-IV06 consecutive dots gap (R-09 broader)
+### A-05 — T-IV06 consecutive dots gap (R-09 broader)  [RESOLVED in Wave 1 housekeeping]
 - **Discovered in:** Phase 1.D.3 (identity-validation.test.ts)
 - **Issue:** USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/ has no constraint against consecutive dots. `a..b` is accepted. Audit had T-IV06 as gap test mapped to R-09, but R-09's narrative focused on reserved-list completeness. Consecutive dots are a separate vector under the same risk category — confusion in audit logs, conflicts with filesystem/DNS conventions if usernames are ever used as path segments.
 - **Action:** Update Section 2 → R-09 row → Risk column to mention consecutive-dot acceptance as a sub-vector. No new R-NN needed; R-09 broadens.
+- **Resolution (Wave 1 housekeeping commit `<COMMIT_HASH_TBD>`):** Section 2 R-09 row "Risk" column expanded to note consecutive-dots gap is broader than T-IV06 single-case captures (general repeat-character semantics in local-part of username regex). No new R-NN; R-09 broadens. T-IV06 retained as the gap-test for the specific `..` case.
 
-### A-06 — API name correction: isAllowedUsername (not isValidUsername)
+### A-06 — API name correction: isAllowedUsername (not isValidUsername)  [RESOLVED in Wave 1 housekeeping]
 - **Discovered in:** Phase 1.D.3 (identity-validation.test.ts)
 - **Issue:** Audit Section 5 → identity-validation.ts sub-section refers to `isValidUsername`. Actual export is `isAllowedUsername`. Other API names are correct (isValidPassword, isValidDisplayName, isValidEmail, validateEmail).
 - **Action:** Update Section 5 → identity-validation.ts narrative wherever `isValidUsername` appears → replace with `isAllowedUsername`.
+- **Resolution (Wave 1 housekeeping commit `<COMMIT_HASH_TBD>`):** Audit-completeness verification confirmed no `isValidUsername` references remain in `docs/audit/phase-1-a-final.md` (likely corrected during a prior Phase 1.5.X cycle without explicit marker flip). Marker flipped Wave 1 per amendment-register completeness.
 
-### A-07 — Phase 1.D.6 prompt drift (informational, not an audit error)
+### A-07 — Phase 1.D.6 prompt drift  [ACKNOWLEDGED — informational, no audit error]
 
 - **Discovered in:** Phase 1.D.6 plan review
 - **Issue:** Phase 1.D.6 prompt drafted by mentor used assumed function names (roleAtLeast, canEdit, canDelete, getRoleHierarchy) that did not match audit Section 5 (which correctly specifies hasRoleAtLeast and canWriteAlerts, matching actual source). Agent caught the drift during plan phase.
 - **Action:** NO audit change needed — audit is correct. Entry documents prompt drift for future mentor-prompt hygiene. Lesson: re-read audit Section 5 verbatim when drafting sub-stage prompts.
+- **Status (Wave 1 housekeeping):** Prompt-drift record acknowledged. No audit content change needed. Pattern note for Phase 5.A+: sub-stage prompt protocol explicitly states A→B→C→D discipline; future audit-doc may cross-reference CLAUDE.md L175 narrative. NO CLAUDE.md edit this cycle (Wave 1 audit-doc-only scope).
 
-### A-08 — auth-shared T-AS09 defensive default test (added in Phase 1.D.6)
+### A-08 — auth-shared T-AS09 defensive default test (added in Phase 1.D.6)  [RESOLVED in Wave 1 housekeeping]
 
 - **Discovered in:** Phase 1.D.6 plan review (agent observation)
 - **Issue:** hasRoleAtLeast(unknownRole, validRequired) returns false because ROLE_ORDER.indexOf(unknownRole) === -1, and -1 >= validIndex is false. This is correct OWASP A01-aligned defense-in-depth behavior but not in original audit Section 5.
 - **Test added:** T-AS09 (file: src/lib/auth-shared.test.ts).
 - **Action:** Next audit revision — update Section 5 → auth-shared.ts table to include T-AS09. Update Section 1/7 references from 8 to 9.
+- **Resolution (Wave 1 housekeeping commit `<COMMIT_HASH_TBD>`):** Section 5 auth-shared.ts table now includes T-AS09 entry (defensive default: hasRoleAtLeast(unknownRole, validRequired) returns false per ROLE_ORDER.indexOf === -1 fall-through). Test already present in `src/lib/auth-shared.test.ts` (Phase 1.D.6 commit); audit row was the lagging artifact.
 
-### A-09 — Phase 1.D.7 prompt drift (informational, third occurrence)
+### A-09 — Phase 1.D.7 prompt drift (third occurrence)  [ACKNOWLEDGED — informational, no audit error]
 
 - **Discovered in:** Phase 1.D.7 plan review
 - **Issue:** Mentor-drafted Phase 1.D.7 prompt drifted from audit Section 5 in three places: (1) param name `displayName` vs actual `username`, (2) R-15 attack model used `vi.stubEnv('NEXT_PUBLIC_APP_URL')` but module does not read this env — URL arrives as direct parameter, (3) T-ET07 prompt premise (trailing-slash handling) has no source-code surface — module performs raw URL interpolation only.
 - **Action:** NO audit change needed — audit Section 5 is correct on all three counts. Entry documents third drift occurrence (after A-07 in Phase 1.D.6, and original prompt drift fixed in T-S09/T-IR02-03/T-CI11 audit corrections). Pattern is now systemic — recommend adding to CLAUDE.md a sub-stage prompt protocol: "When drafting sub-stage prompts, copy audit Section 5 row verbatim. Do not paraphrase from memory."
+- **Status (Wave 1 housekeeping):** Prompt-drift record acknowledged (third occurrence). Same pattern as A-07. No audit content change needed. CLAUDE.md sub-stage prompt protocol note deferred to a focused CLAUDE.md edit cycle (not bundled in Wave 1 audit-doc-only scope).
 
 ### A-10 — T-AD07 audit prose drift (Supabase outage vs sqlite outage)  [RESOLVED in Phase 1.5.7]
 
@@ -70,7 +76,7 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Action:** Next audit revision — (1) update Section 2 → R-03 description "Supabase outage" → "primary store outage (sqlite or postgres backend failure under non-supabase identity mode)"; (2) update Section 5 → soc-store-adapter table T-AD07 scenario → "Production + sqlite outage → memory fallback silent (full R-03 reproduction)"; (3) consider whether a separate gap-test or future risk entry is needed to document the supabase-throws-no-fallback behavior (likely correct as-is, since fail-loud on identity store outage is preferable to silent memory fallback for supabase-deployed prod environments).
 - **Resolution:** Phase 1.5.7 commit `9e16fbe` — R-03 row Section 2 description fully revised to reflect actual exploit surface (sqlite outage under production + non-supabase identity mode triggers Class 2/3 silent write fallback; Class 1 identity ops are exempt because production routing bypasses withStore entirely). T-AD07 comment block refreshed to remove the obsolete "Phase 1.5 hardening proposal will replace fallback with throw" framing and document the chosen Path γ alternative (block writes, preserve reads). T-AD07's `Maps to` Section 5 column updated to `R-03 ✅ FIXED`. A-21 new amendment captures the full Class 1/2/3 routing analysis as canonical reference for future cycles. A-10's three action items all satisfied in the same commit (R-03 description revised, T-AD07 reframed, supabase-no-fallback behavior documented in A-21).
 
-### A-11 — R-16 severity revision (CSRF check provides full cross-origin mitigation)
+### A-11 — R-16 severity revision (CSRF check provides full cross-origin mitigation)  [RESOLVED in Wave 1 housekeeping]
 
 - **Discovered in:** Phase 1.D.10 plan review (T-MW06 R-16 narrative verification, mentor-prompted)
 - **Issue:** R-16 (Low, A04) original description claims "Logout endpoint in PUBLIC_API_ROUTES; CSRF-able logout possible" with attack vector "Attacker iframes/links to /api/auth/logout via cross-site form; victim's session terminated." Source analysis disproves this:
@@ -80,6 +86,9 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Residual attack surface:** Same-origin XSS only. A script already running on victim.com can call `fetch('/api/auth/logout', {method:'POST', credentials:'include'})` → Origin matches → CSRF passes → PUBLIC_API_ROUTES bypasses session check → logout succeeds. But this requires existing XSS, which is its own (much larger) risk class. R-16's incremental contribution beyond "you have XSS" is informational at best.
 - **Test implementation:** T-MW06 in src/middleware.test.ts retains as a regression guard for the documented current behavior (PUBLIC_API_ROUTES bypasses session check on POST /api/auth/logout). Comment block explicitly walks through the corrected narrative + hardening landing if /api/auth/logout is later removed from PUBLIC_API_ROUTES.
 - **Action:** Next audit revision — (1) revise R-16 severity from **Low → Informational** (or remove from risk register entirely, since CSRF check provides full cross-origin mitigation); (2) update R-16 description to acknowledge the CSRF gate fires on PUBLIC_API_ROUTES paths and that logout accepts only POST; (3) note residual surface (same-origin XSS) is out of scope of R-16's PUBLIC_API_ROUTES gap and properly attributable to a future XSS risk class; (4) audit Section 5 T-MW06 "Maps to" column may keep R-16 reference for traceability, but consider downgrading to "—" since the documented behavior is correct-by-design.
+- **Resolution (Wave 1 housekeeping commit `<COMMIT_HASH_TBD>`):** Section 2 R-16 row severity revised from Low to Informational (mentor Wave 1 scoping accepted source-evidence narrative: CSRF middleware fires on PUBLIC_API_ROUTES paths AND logout exports POST-only; cross-origin vector is fully mitigated, residual is same-origin XSS attributable to a separate risk class). Risk description appended with corrected narrative pointer + A-11 cross-reference. R-16 RETAINED in register for traceability (not deleted per "audit-trail completeness" pattern, lineage of A-02/A-10/A-13 retained-after-resolution).
+
+**Renumbered note (Wave 1 housekeeping):** A-11 closure does NOT change the R-22 numbering decision in A-14 (R-22 added as next available R-XX number). R-21 + R-22 both exist post-Wave-1.
 
 ### A-12 — register rate-limit double-counts successful requests
 
@@ -95,13 +104,14 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 - **Action:** Add explicit concurrent-execution test to soc-store-adapter.test.ts (Phase 1.D.9 already complete) or create dedicated race-condition test in Phase 2 storage suite. Test would use Promise.all on two register calls with same email.
 - **Resolution:** Phase 3.D commit `152d872` — T-AL-A13 added to `src/app/api/alerts/__tests__/alerts.test.ts` (Target #2 test file, bottom-of-file dedicated describe block). Imports `@/lib/soc-store-memory` directly (NOT via adapter — bypasses Class 1/2/3 dispatcher to isolate race semantics to the storage module's race-guard). Promise.all on two concurrent `registerUser` calls with identical username generated via `Date.now()+Math.random()` for per-run test isolation. Asserts at most one promise fulfills; the rejected branch (if any) carries 'already exists' message via the storage-layer race-guard contract. **Phase 2.A re-map context:** original Action text said "Phase 2 storage suite," but Phase 2 per CLAUDE.md is Lab Engine; storage adapter is structurally Phase 3 (API & Contracts) territory. Phase 2.A Section 8 documented this re-map. Phase 3.D closes A-13 per that re-mapping decision (Z.4).
 
-### A-14 — Login response-code enumeration via EMAIL_NOT_VERIFIED (intentional UX tradeoff)
+### A-14 — Login response-code enumeration via EMAIL_NOT_VERIFIED (intentional UX tradeoff)  [RESOLVED in Wave 1 via new R-22 entry]
 
 - **Discovered in:** Phase 1.D.12 plan review (T-LG03 surface analysis)
 - **Issue:** login/route.ts L83-97 distinguishes "wrong password" (401 'Hatali kullanici adi veya sifre.') from "right password, unverified email" (403 EMAIL_NOT_VERIFIED + email field). This response-code split reveals username existence for accounts in unverified state. The 403 response also includes the user's email address (best-effort lookup via readUserByUsername; supabase store returns email, memory/postgres return null), which adds an additional information leak when the supabase-JSON store is active. Documented in source comments L76-82 as an intentional UX tradeoff: "distinguishing 'wrong password' (401) from 'right password, unverified email' (403) reveals that the username exists. We accept this for UX — the alternative (silently failing an authenticated-but-unverified login) is confusing and pushes users toward password resets that won't help."
 - **Severity:** Low (only enumerates accounts in unverified state — narrow window between register and verify-click; once verified, indistinguishable from non-existent account at this layer). Register-time emailKey uniqueness already provides equivalent enumeration signal, so login parity here is internally consistent.
 - **OWASP:** A07 (Identification and Authentication Failures) — username enumeration sub-category. Distinct from R-04 (timing-based enumeration); this is response-shape enumeration.
 - **Action:** Next audit revision — add **R-22** entry to Section 2 risk register (R-21 was previously the last reserved number per A-02 truncated-hash addition). R-22 documents this response-code enumeration as a by-design tradeoff rather than a defect; severity Low, A07. **Phase 1.5 hardening proposal:** generic 401 response for ALL wrong-credentials and unverified cases, paired with an "invisible resend" path that silently re-fires verification email on every wrong-password attempt against an unverified account. Loses the resend-prefill UX in exchange for closing the enumeration vector. Test guard via T-LG03 already in place — when hardening lands, T-LG03 must flip from asserting 403 EMAIL_NOT_VERIFIED to asserting 401 + audit-log entry showing invisible-resend dispatched. **Implementation reference:** verify/resend/route.ts is the anti-enumeration BENCHMARK in the codebase — its generic-200 collapse pattern (T-VR02/T-VR03/T-VR07 invariant trio) is the template Phase 1.5 should mirror for login hardening.
+- **Resolution (Wave 1 housekeeping commit `<COMMIT_HASH_TBD>`):** New R-22 entry added to `docs/audit/phase-1-a-final.md` Section 2 risk register documenting response-code enumeration via EMAIL_NOT_VERIFIED. Severity Low (verification-state enumeration only, no credential impact; register-time emailKey uniqueness already provides equivalent enumeration signal). Status: **ACCEPTED** — Wave 1 audit-doc-only closure per the original A-14 deferral language. Future Phase 1.5 hardening cycle would mirror verify-resend invisible-resend pattern (generic 401 + silent verification-email resend on unverified accounts) — flipping T-LG03 assertion accordingly. Hardening deferred per Wave 1 audit-doc-only scope.
 
 ### A-15 — R-18 scope broaden (verify-resend has same email-keyed rate-limit lockout vector)  [RESOLVED in Phase 3.D]
 
@@ -115,7 +125,7 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 
 Numbering gap. A-16 number reserved during audit drafting but never assigned to a tracked amendment. Documented here in Phase 1.5.12 (commit `61e8492`) for register completeness. No action.
 
-### A-18 — R-04 fix surface expansion (postgres + sqlite stores)
+### A-18 — R-04 fix surface expansion (postgres + sqlite stores)  [RESOLVED in Wave 1 housekeeping]
 
 - **Discovered in:** Phase 1.5.3 state gathering (R-04 fix scope verification)
 - **Source evidence:** `grep authenticateUser src/lib/soc-store*.ts` returned 4 implementations: `soc-store-memory.ts:710`, `soc-store-supabase.ts:690`, `soc-store-supabase-postgres.ts:146`, `soc-store.ts:372`. All 4 share the identical `if (!user) return null; if (!verifyPassword(...)) return null` shape — the unknown-user early-return skips scrypt in all 4. The audit's R-04 row File(s) column listed only memory + supabase, understating the surface by 2 implementations.
@@ -123,6 +133,7 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
 - **Action taken in 1.5.3 fix commit:** R-04 row File(s) updated to list all 4 stores. Fix applied to all 4 in the same commit (atomic).
 - **Risk if not addressed:** R-04 would remain exploitable on any deployment using SOC_IDENTITY_STORE=postgres (Phase 2 migration target) or SOC_STORAGE=sqlite (dev/legacy mode). Single-store-only fix would leave the leak open on every code path that doesn't route through the supabase or memory store.
 - **OWASP:** A07 (same as R-04 parent).
+- **Resolution (Wave 1 housekeeping commit `<COMMIT_HASH_TBD>`):** Phase 1.5.3 R-04 fix already substantively covered postgres + sqlite stores; phase-1-a-final.md Section 2 R-04 row already lists all 4 store paths in File(s) column (verified Wave 1 state gathering). Header marker flipped per amendment-register completeness — the closure was implicit but lacked the explicit `[RESOLVED]` annotation in pending-amendments.md.
 
 ### A-19 — R-04 audit completeness gap: T-S10/T-S11/T-S12 missing from Section 5  [RESOLVED in Phase 1.5.5]
 
@@ -133,7 +144,7 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
 - **Action:** Add T-S10/T-S11/T-S12 rows to Section 5 `security.ts` subsection.
 - **Resolution:** Phase 1.5.5 commit `bb11ae6` — three rows added to Section 5 `security.ts` subsection alongside the R-01 audit work. Bundled per atomic-where-mental-model-aligns discipline (audit completeness ≈ audit completeness, same mental model + same physical table edit area). Pattern mirror: R-21 cycle's A-02 "add R-21 to Section 2 risk register" was satisfied + resolved in the same commit (R-21/A-02 pattern); A-19 follows the same shape.
 
-### A-20 — R-02 + R-19 + R-03 architectural cluster (deferral context)
+### A-20 — R-02 + R-19 + R-03 architectural cluster (deferral context)  [RESOLVED in Wave 1 housekeeping]
 
 - **Discovered in:** Phase 1.5.6 state gathering (compound exploitability analysis)
 - **Status:** Active deferral marker — R-02 + R-19 DEFERRED, R-03 next priority (Phase 1.5.7)
@@ -164,6 +175,7 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
   - **R-19: ✅ INAPPLICABLE** in Phase 1.5.8 commit `43d5b0c` — R-03 closure mechanism (Path γ) indirectly resolves R-19's conditional exploit path. Current production config (Class 1) uses Supabase store directly for `deleteSession` (file deletion, distributed-coherent); legacy/dev fallback fail-loud via `MemoryFallbackBlockedError`. R-19's exploit narrative cannot materialize either way. Status `INAPPLICABLE` (not `FIXED`) preserves audit honesty — no R-19-specific code change was made; the path closed indirectly via R-03.
   - **R-02: ✅ FIXED** in Phase 1.5.9 commit `6e677c0` — Path β.1b architectural migration: rate-limit state moved to Supabase Postgres `public.rate_limits` table. Schema applied in Phase 1.5.9.0 commit `a08d8f3` (operator manual apply). Code dispatcher routes to `supabase-rate-limits.ts` when configured; preserves globalThis Map fallback for local dev. Sync→async cascade across 5 route handlers + 6 test files + setup.ts. T-R10 + T-R11 added as multi-instance shared-state simulation tests.
 - **A-20 status: ✅ FULLY RESOLVED in Phase 1.5.9 commit `6e677c0`** — all 3 cluster members closed (R-03 ✅ FIXED in 9e16fbe, R-19 ✅ INAPPLICABLE in 43d5b0c, R-02 ✅ FIXED in this commit). A-20 retained for audit trail per established pattern (never delete resolved amendments). The compound architectural cluster (in-process state binding + per-process rate-limit Map under R-03 fallback) is fully closed: identity ops route through Supabase directly (no fallback), operational data writes throw on fallback (Path γ), rate-limit state is Postgres-backed shared.
+- **Wave 1 housekeeping note (commit `<COMMIT_HASH_TBD>`):** Header marker flip — the substantive `[RESOLVED]` lived in the body (above) but the header lacked the annotation. Marker flip bringing header in sync with body per amendment-register completeness pattern.
 
 ### A-21 — Class 1/2/3 routing canonical reference (R-03 fix surface)  [RESOLVED in Phase 1.5.7]
 
