@@ -22,8 +22,14 @@
 //      EmailUrlValidationError catch
 //   4. A-17 (Phase 1.5.15) — instrumentation.register() boot validator +
 //      getMemorySecret() lazy getter throw
-//   5. R-API-05 (this commit, Phase 3.D) — input sanitization (here) +
+//   5. R-API-05 (Phase 3.D revision) — input sanitization (here) +
 //      output escape (existing React/MDX defaults)
+//   6. R-API-13 (Wave 2B) — profile bio + headline input sanitization
+//      reuses `sanitizeReportContent` (signature identical: string→string,
+//      same DANGEROUS_PATTERNS set covers both surfaces); profile
+//      render path inherits React/MDX safe-text Layer 2 defaults.
+//      Cross-reference: `src/app/api/profile/me/route.ts` PUT handler
+//      sanitizes bio + headline before adapter call.
 //
 // SENIOR ARCHITECT NOTE: regex-based, server-safe (no DOM dep). DOMPurify
 // would be a heavier dep + requires jsdom for server-side use. The threat

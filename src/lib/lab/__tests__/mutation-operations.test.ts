@@ -5,7 +5,8 @@
 //   - R-LAB-04 (Medium) — Protected-prefix enforcement (PROTECTED_PREFIXES
 //     denies mutations under /etc /usr /var /proc /sys /root /boot)
 //   - R-LAB-06 (Medium) — applyChmodMode parser (numeric + symbolic + `=`
-//     operator POSIX deviation, locked via T-MO-CHMOD-EQ-GAP per Z.4)
+//     operator POSIX semantics, FIXED in Wave 2B; T-MO-CHMOD-EQ-GAP
+//     flipped to T-MO-CHMOD-EQ01/02/03 regression guards)
 //
 // SENIOR ARCHITECT NOTE: each test starts with a fresh
 // `createMutableFs(ROOT)` so cross-test state isolation is guaranteed —
@@ -342,42 +343,32 @@ describe('applyMutation — Phase 2.D Target #3 (R-LAB-04 protected-prefix, R-LA
     })
   })
 
-  // ─── R-LAB-06 chmod = operator gap-test ─────────────────────────────────────
+  // ─── R-LAB-06 chmod = operator (Wave 2B closure: POSIX-correct) ─────────────
 
-  describe('R-LAB-06 chmod = operator POSIX deviation (gap-test)', () => {
-    it('T-MO-CHMOD-EQ-GAP — chmod g=r currently behaves as g+r (POSIX deviation locked as regression guard)', () => {
-      // SENIOR ARCHITECT NOTE: R-LAB-06 (Phase 2.A audit Section 2):
-      // `applyChmodMode` in mutation/operations.ts shares the `=` operator
-      // code path with `+` (the `if (op === '+' || op === '=')` branch at
-      // L78). POSIX semantics for `=` is "set scope to exactly these bits,
-      // clear ALL unmentioned bits in the scope." The current implementation
-      // only ADDS the named bits — does NOT clear unmentioned bits.
+  describe('R-LAB-06 chmod = operator POSIX semantics (regression guard)', () => {
+    it('T-MO-CHMOD-EQ01 — chmod g=r clears unmentioned group bits (POSIX-correct)', () => {
+      // SENIOR ARCHITECT NOTE: Wave 2B closure (R-LAB-06):
+      // `applyChmodMode` now implements POSIX-correct `=` semantics —
+      // when the operator is `=`, ALL bits in the targeted scope are
+      // cleared before the named bits are applied. Previously, `=`
+      // shared the `+` code path and only ADDED the named bits, leaving
+      // unmentioned bits intact.
       //
-      // Example: starting perms 'rwx' for group; `g=r` SHOULD result in
-      // 'r--' for group; current implementation leaves it as 'rwx' (the
-      // `+r` op finds `r` already there, no change; `w` and `x` are NOT
-      // cleared).
+      // POSIX example (now passing): starting `'-rwxrwx---'` for
+      // `/home/operator/equals-op.txt`, `g=r` clears group w+x first,
+      // then sets group r → final perms `'-rwxr-----'`.
       //
-      // GAP-TEST PATTERN (Phase 1 R-21 lineage): this test asserts the
-      // CURRENT (deviant) behavior so any change to chmod = operator
-      // semantics will fail this test visibly. The deviation status
-      // remains intentional, not accidental.
-      //
-      // FUTURE R-LAB-06 CLOSURE CYCLE:
-      //   1. Implement POSIX-correct `=` semantics in applyChmodMode (the
-      //      `op === '='` case clears the entire triplet for the named
-      //      scope before applying the new bits)
-      //   2. Replace this test with T-MO-CHMOD-EQ01 asserting POSIX
-      //      behavior:
-      //        applyMutation(fs, { kind: 'chmod', path: ..., perms: 'g=r' })
-      //        expect node.perms.slice(4,7) === 'r--'  // group is exactly r
-      //   3. Update R-LAB-06 row in audit doc Section 2 with FIXED status
-      //
-      // Until then: this test stays green by locking the deviant behavior.
+      // GAP-TEST LIFECYCLE TRANSITION (R-21 pattern):
+      //   - Phase 2.D: T-MO-CHMOD-EQ-GAP locked deviant behavior
+      //     ('-rwxrwx---' expected) as a regression guard pending fix
+      //   - Wave 2B: applyChmodMode patched + test renamed to
+      //     T-MO-CHMOD-EQ01 + assertion flipped to POSIX-correct
+      //     ('-rwxr-----' expected). First gap-test → regression
+      //     guard transition in the project's pattern catalog.
 
       const fs = freshFs()
       applyMutation(fs, { kind: 'touch', path: '/home/operator/equals-op.txt' })
-      // Start at chmod 770 so group has rwx → makes the deviation observable
+      // Start at chmod 770 so group has rwx → makes the closure observable
       applyMutation(fs, {
         kind: 'chmod',
         path: '/home/operator/equals-op.txt',
@@ -387,7 +378,7 @@ describe('applyMutation — Phase 2.D Target #3 (R-LAB-04 protected-prefix, R-LA
       let node = fileAt(fs, '/home/operator/equals-op.txt')
       expect(node?.perms).toBe('-rwxrwx---')
 
-      // Apply g=r (POSIX: should clear w+x from group, leaving 'r--')
+      // Apply g=r (POSIX: clears w+x from group, leaves 'r--')
       const result = applyMutation(fs, {
         kind: 'chmod',
         path: '/home/operator/equals-op.txt',
@@ -396,13 +387,56 @@ describe('applyMutation — Phase 2.D Target #3 (R-LAB-04 protected-prefix, R-LA
       expect(result.success).toBe(true)
       node = fileAt(fs, '/home/operator/equals-op.txt')
 
-      // CURRENT (deviant) behavior: group keeps rwx because = behaves as +
-      // POSIX (future fix) would set group to r--
-      // This assertion locks the CURRENT behavior:
-      expect(node?.perms).toBe('-rwxrwx---')
+      // POSIX-correct: group is exactly 'r--' (w and x cleared)
+      expect(node?.perms).toBe('-rwxr-----')
+    })
 
-      // The "should be" assertion (commented out — would fail today):
-      // expect(node?.perms).toBe('-rwxr-----')  // POSIX semantics
+    it('T-MO-CHMOD-EQ02 — chmod u=rw clears unmentioned user x bit', () => {
+      // Companion test: distinct scope (u instead of g) and distinct bit
+      // pattern (rw instead of r). Locks the contract that the clear-
+      // before-set logic applies uniformly across all 3 triplets.
+      const fs = freshFs()
+      applyMutation(fs, { kind: 'touch', path: '/home/operator/equals-u.txt' })
+      applyMutation(fs, {
+        kind: 'chmod',
+        path: '/home/operator/equals-u.txt',
+        perms: '755',
+      })
+      let node = fileAt(fs, '/home/operator/equals-u.txt')
+      expect(node?.perms).toBe('-rwxr-xr-x')
+
+      const result = applyMutation(fs, {
+        kind: 'chmod',
+        path: '/home/operator/equals-u.txt',
+        perms: 'u=rw',
+      })
+      expect(result.success).toBe(true)
+      node = fileAt(fs, '/home/operator/equals-u.txt')
+      // user is exactly 'rw-' (x cleared); group/other untouched
+      expect(node?.perms).toBe('-rw-r-xr-x')
+    })
+
+    it('T-MO-CHMOD-EQ03 — chmod a=r clears all triplets to r-only', () => {
+      // Edge case: scope 'a' (all). Every triplet should clear+set.
+      const fs = freshFs()
+      applyMutation(fs, { kind: 'touch', path: '/home/operator/equals-a.txt' })
+      applyMutation(fs, {
+        kind: 'chmod',
+        path: '/home/operator/equals-a.txt',
+        perms: '777',
+      })
+      let node = fileAt(fs, '/home/operator/equals-a.txt')
+      expect(node?.perms).toBe('-rwxrwxrwx')
+
+      const result = applyMutation(fs, {
+        kind: 'chmod',
+        path: '/home/operator/equals-a.txt',
+        perms: 'a=r',
+      })
+      expect(result.success).toBe(true)
+      node = fileAt(fs, '/home/operator/equals-a.txt')
+      // All triplets exactly 'r--'
+      expect(node?.perms).toBe('-r--r--r--')
     })
   })
 

@@ -72,6 +72,29 @@ function applyChmodMode(currentPerms: string, mode: string): string | null {
     if (scope.includes('a') || scope.includes('g')) targetTriplets.add(1)
     if (scope.includes('a') || scope.includes('o')) targetTriplets.add(2)
     const chars = currentPerms.split('')
+
+    // R-LAB-06 closure (Wave 2B): POSIX `=` operator clears ALL bits
+    // in the targeted scope(s) before applying the named bits. Prior
+    // implementation shared the `+` code path with `=`, so `g=r` on
+    // 'rwxrwxrwx' would not change group (r was already set; w and x
+    // not cleared). POSIX-correct: `g=r` on 'rwxrwxrwx' → 'rwxr--rwx'
+    // (group set to exactly 'r--'). T-MO-CHMOD-EQ01 regression guard
+    // (formerly T-MO-CHMOD-EQ-GAP) verifies the new contract.
+    // SENIOR ARCHITECT NOTE: clear-then-set ordering matters. If we
+    // applied bits FIRST and cleared SECOND, we'd erase what we just
+    // set. Clear first, set second.
+    if (op === '=') {
+      // SENIOR ARCHITECT NOTE: Array.from() iteration (not `for...of`) to
+      // avoid TS2802 downlevelIteration requirement on Set under the
+      // project's current compiler target. Same correctness, narrower
+      // toolchain assumptions.
+      Array.from(targetTriplets).forEach((tripletIdx) => {
+        chars[tripletIdx * 3 + 1] = '-'
+        chars[tripletIdx * 3 + 2] = '-'
+        chars[tripletIdx * 3 + 3] = '-'
+      })
+    }
+
     for (let i = 0; i < bits.length; i++) {
       const bit = bits[i] as 'r' | 'w' | 'x'
       positions[bit].forEach((pos, idx) => {

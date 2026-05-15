@@ -1828,17 +1828,33 @@ function cmdPython(args: string[], ctx: CommandContext): string[] {
 }
 
 function cmdSubmit(args: string[]): string[] {
+  // R-LAB-11 closure (Wave 2B): terminal `submit` command no longer
+  // issues a green "FLAG ACCEPTED" banner. The panel submission path
+  // (validateChallengeWithMode in validation/adapter.ts) is the
+  // canonical evaluation surface — it emits `flag_submitted` evidence
+  // primitives and drives reveal-detector contract evaluation. Terminal
+  // submit previously bypassed the contract by hitting only
+  // `VALID_FLAGS.has` (audit Phase 2.A R-LAB-11): a user could type
+  // `submit FLAG{...}` and see green without solving the challenge.
+  // Wave 2B response: terminal submit now returns an informational
+  // redirect, preserving the command for muscle memory but routing
+  // users to the panel for actual evaluation.
+  // SENIOR ARCHITECT NOTE: cmdSubmit has no access to engine state
+  // (evidence log, contract state) — adding state-aware guards would
+  // require signature refactor + call-site change at line 316. The
+  // simpler surgical fix is to remove the deceptive green banner
+  // entirely; the panel is already the canonical path per Phase 2.D
+  // T-CTFR/T-RD tests. R-LAB-01 (flag strings in client bundle)
+  // remains accepted-by-policy per Phase 2.D Z.1 portfolio-demo
+  // context; this closure addresses the SECONDARY symptom (false-
+  // positive feedback), not the root cause.
   const flag = args[0]
   if (!flag) return ['\x1b[31mUsage: submit FLAG{...}\x1b[0m']
-  if (VALID_FLAGS.has(flag)) {
-    return [
-      '\x1b[1;32m╔═══════════════════════════════╗\x1b[0m',
-      '\x1b[1;32m║  ✓  FLAG ACCEPTED!           ║\x1b[0m',
-      `\x1b[32m║  ${flag.padEnd(29)}║\x1b[0m`,
-      '\x1b[1;32m╚═══════════════════════════════╝\x1b[0m',
-    ]
-  }
-  return ['\x1b[31m✗ Invalid flag. Try again.\x1b[0m']
+  return [
+    '\x1b[33m[i] Bayrak gönderme paneli üzerinden değerlendirilir.\x1b[0m',
+    '\x1b[90m    Sağdaki CTF panelinde "Flag Submit" alanına yapıştırın.\x1b[0m',
+    '\x1b[90m    Kontrat değerlendirmesi yalnızca panel akışında çalışır.\x1b[0m',
+  ]
 }
 
 // ─── Security Tools (Simulated) ──────────────────────────────────────────────

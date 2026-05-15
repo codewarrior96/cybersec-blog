@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireRole, requireSession } from '@/lib/api-auth'
+import { requireRole } from '@/lib/api-auth'
 import { getRequestMetadata } from '@/lib/auth-server'
 import { getReservedUsernameError, isReservedUsername } from '@/lib/identity-rules'
 import {
@@ -20,8 +20,24 @@ export const dynamic = 'force-dynamic'
 const ROLES: UserRole[] = ['admin', 'analyst', 'viewer']
 
 export async function GET(request: NextRequest) {
-  const guard = await requireSession(request)
+  // R-API-06 closure (Wave 2B): GET previously required only an
+  // authenticated session — any viewer-role user could enumerate all
+  // admins + analysts via `listAssignableUsers`. Phase 3.A audit Section 2
+  // flagged this as principle-of-least-privilege gap (Medium). Gate
+  // now requires analyst+ (matches the alerts-write minimum role; viewer
+  // accounts cannot enumerate). POST already uses requireRole('admin'),
+  // so this brings GET in line with the route's authorization posture.
+  // SENIOR ARCHITECT NOTE: 'analyst' (not 'admin') because the assignee-
+  // picker UI feature legitimately needs analyst-level read access to
+  // produce assignments; admin-only would block analyst workflows.
+  // REJECTED ALTERNATIVE: per-row filter (return only same-team users).
+  // Rejected — no team concept exists today; analyst-gate is the cleanest
+  // closure within current data model.
+  const guard = await requireRole(request, 'analyst')
   if (guard.response) return guard.response
+  if (!guard.session) {
+    return NextResponse.json({ error: 'Oturum gerekli.' }, { status: 401 })
+  }
 
   const users = await listAssignableUsers()
   return NextResponse.json({ users })
