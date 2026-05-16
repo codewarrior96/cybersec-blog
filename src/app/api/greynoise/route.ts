@@ -1,4 +1,11 @@
-import { NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
+import { checkRateLimit, recordFailure } from '@/lib/rate-limiter'
+import { getClientIp } from '@/lib/client-ip'
+
+// R-API-09 closure (Wave 5B): external-route rate limit. Same shape
+// as /api/cves + /api/cybernews — 60 req/min/IP.
+const RATE_LIMIT_BUCKET = 'api:external:greynoise'
+const RATE_LIMIT_OPTIONS = { bucket: RATE_LIMIT_BUCKET, max: 60, windowMs: 60_000 }
 
 interface GreyNoiseCountry {
   name: string
@@ -61,7 +68,18 @@ const MOCK: GreyNoisePayload = {
   ],
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // R-API-09 rate-limit gate
+  const clientIp = getClientIp(request)
+  const limited = await checkRateLimit(clientIp, RATE_LIMIT_OPTIONS)
+  if (limited.limited) {
+    return NextResponse.json(
+      { error: 'Cok fazla istek. Lutfen daha sonra tekrar deneyin.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((limited.resetAt - Date.now()) / 1000)) } },
+    )
+  }
+  await recordFailure(clientIp, RATE_LIMIT_OPTIONS)
+
   const apiKey = process.env.GREYNOISE_API_KEY
 
   if (!apiKey) {

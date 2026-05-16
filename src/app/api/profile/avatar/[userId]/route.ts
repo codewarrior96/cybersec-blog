@@ -45,7 +45,15 @@ export async function GET(
 
   try {
     if (isSupabaseAppStateEnabled()) {
-      const signedUrl = await createSignedObjectUrl(avatarMeta.assetPath, 60)
+      // R-API-10 closure (Wave 5B): signed-URL TTL tightened from 60s
+      // to 15s. Phase 3.A audit flagged the 60s window as too long for
+      // a leaked URL (clipboard share / screenshot of URL bar). 15s
+      // still accommodates network jitter + browser navigation but
+      // makes off-platform reuse window narrow enough to be operationally
+      // negligible.
+      // REJECTED ALTERNATIVE: 5s. Rejected — too aggressive for slow
+      // mobile networks; legitimate clients would race the TTL.
+      const signedUrl = await createSignedObjectUrl(avatarMeta.assetPath, 15)
       if (!signedUrl) {
         return NextResponse.json({ error: 'Profil fotografisi bulunamadi.' }, { status: 404 })
       }

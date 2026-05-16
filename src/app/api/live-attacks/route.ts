@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSession } from '@/lib/api-auth'
 import { listAlerts } from '@/lib/soc-store-adapter'
+import {
+  normalizeToCanonicalSeverity,
+  type CanonicalSeverity,
+} from '@/lib/severity-taxonomy'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -14,6 +18,12 @@ interface AttackEvent {
   targetPort: number
   type: string
   severity: 'critical' | 'high' | 'low'
+  // R-API-12 closure (Wave 5B): canonical 5-level severity for
+  // cross-surface analytics. Additive — existing clients ignore
+  // the field; new clients can prefer it over `severity` for
+  // taxonomy-agnostic logic (e.g. mixing alerts with report rows
+  // in a single dashboard widget).
+  canonicalSeverity: CanonicalSeverity
 }
 
 function priorityToSeverity(priority: 'P1' | 'P2' | 'P3' | 'P4'): AttackEvent['severity'] {
@@ -55,6 +65,7 @@ export async function GET(request: NextRequest) {
   }
 
   const createdAt = latest.createdAt
+  const severity = priorityToSeverity(latest.priority)
   const event: AttackEvent = {
     id: latest.id,
     time: new Date(createdAt).toLocaleTimeString('tr-TR', {
@@ -67,7 +78,8 @@ export async function GET(request: NextRequest) {
     sourceCountry: latest.sourceCountry ?? 'Unknown',
     targetPort: parsePortFromDescription(latest.description),
     type: latest.attackType ?? latest.title,
-    severity: priorityToSeverity(latest.priority),
+    severity,
+    canonicalSeverity: normalizeToCanonicalSeverity(severity),
   }
 
   return NextResponse.json(event, {

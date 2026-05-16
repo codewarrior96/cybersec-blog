@@ -3,6 +3,10 @@ import { requireSession } from '@/lib/api-auth'
 import { getRequestMetadata } from '@/lib/auth-server'
 import { sanitizeReportContent } from '@/lib/sanitize'
 import { archiveReport, createReport, listReports } from '@/lib/soc-store-adapter'
+import {
+  canonicalToReportSeverity,
+  parseCanonicalSeverity,
+} from '@/lib/severity-taxonomy'
 import type { ReportStatus } from '@/lib/soc-types'
 
 interface PostBody {
@@ -17,7 +21,6 @@ interface PatchBody {
   action?: unknown
 }
 
-const ALLOWED_SEVERITIES = new Set(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
 const MAX_TITLE_LENGTH = 200
 const MAX_CONTENT_LENGTH = 50_000
 const MAX_TAGS = 20
@@ -32,10 +35,20 @@ function parseReportStatus(value: string | null): ReportStatus | 'all' {
   return 'active'
 }
 
+/**
+ * R-API-12 closure (Wave 5B): input goes through the canonical
+ * 5-level normalizer then back-maps to the reports UPPERCASE
+ * 4-level taxonomy. Canonical 'info' input is rejected here
+ * because reports has no 'INFO' bucket \u2014 preserving the prior
+ * contract that unknown / info-equivalent strings \u2192 null
+ * (so the caller returns 400 rather than silently coercing to
+ * LOW).
+ */
 function parseSeverity(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const upper = value.toUpperCase()
-  return ALLOWED_SEVERITIES.has(upper) ? upper : null
+  const canonical = parseCanonicalSeverity(value)
+  if (!canonical) return null
+  if (canonical === 'info') return null
+  return canonicalToReportSeverity(canonical)
 }
 
 function parsePositiveInt(value: unknown): number | null {

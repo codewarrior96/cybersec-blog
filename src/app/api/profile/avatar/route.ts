@@ -43,8 +43,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Profil fotografisi guncellenemedi.' }, { status: 404 })
     }
 
+    // R-API-11 closure (Wave 5B): best-effort orphan cleanup. Previously,
+    // if `deleteStoredAsset` on the OLD avatar threw (Supabase Storage
+    // outage, transient network failure), the new-avatar upload was
+    // rolled back via the catch block at L51-57, even though the user's
+    // CURRENT avatar record had already been successfully updated.
+    // Wave 5B fix: cleanup failure is logged but does NOT propagate —
+    // the user gets a 200 response with the new avatar, and the old
+    // asset becomes an orphan to be swept by a future cron (Phase 6).
     if (currentProfile?.profile.avatarPath) {
-      await deleteStoredAsset(currentProfile.profile.avatarPath)
+      try {
+        await deleteStoredAsset(currentProfile.profile.avatarPath)
+      } catch (cleanupError) {
+        // Log but don't rethrow — orphan-sweep cycle handles cleanup.
+        console.warn(
+          '[profile/avatar] previous-asset cleanup failed (orphan logged for sweep):',
+          { userId: guard.session.user.id, oldAssetPath: currentProfile.profile.avatarPath, error: cleanupError instanceof Error ? cleanupError.message : 'unknown' },
+        )
+      }
     }
 
     return NextResponse.json({ profile: updated })

@@ -1,4 +1,6 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, recordFailure } from '@/lib/rate-limiter';
+import { getClientIp } from '@/lib/client-ip';
 
 export interface CVEItem {
   id: string;
@@ -68,7 +70,29 @@ function formatNVDDate(date: Date): string {
 
 const WINDOW_DAYS = 30;
 
-export async function GET() {
+// R-API-09 closure (Wave 5B): external-route rate limit. NVD anonymous
+// rate limit is 5 req/30s; client-side bucket of 60 req/min/IP prevents
+// a single visitor from exhausting upstream budget faster than legitimate
+// traffic could. Same shape applied to greynoise + cybernews routes.
+const RATE_LIMIT_BUCKET = 'api:external:cves';
+const RATE_LIMIT_OPTIONS = { bucket: RATE_LIMIT_BUCKET, max: 60, windowMs: 60_000 };
+
+export async function GET(request: NextRequest) {
+  // Rate-limit gate FIRST — short-circuit before any expensive upstream
+  // call. getClientIp respects TRUST_PROXY_HEADERS (R-01 closure).
+  const clientIp = getClientIp(request);
+  const limited = await checkRateLimit(clientIp, RATE_LIMIT_OPTIONS);
+  if (limited.limited) {
+    return NextResponse.json(
+      { error: 'Cok fazla istek. Lutfen daha sonra tekrar deneyin.' },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil((limited.resetAt - Date.now()) / 1000)) } },
+    );
+  }
+  // Record this attempt toward the budget BEFORE the upstream call. Even
+  // if NVD returns 5xx, the rate-limit accounting reflects what the user
+  // asked for (matches auth-route convention).
+  await recordFailure(clientIp, RATE_LIMIT_OPTIONS);
+
   const endDate = new Date();
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - WINDOW_DAYS);
