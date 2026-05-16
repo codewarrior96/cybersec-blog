@@ -267,6 +267,14 @@ function toPortfolioCertificationRecord(row: {
     sortOrder: Number(row.sort_order ?? 0),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    // R-API-14 closure (Wave 5C): sqlite fallback path does not carry
+    // an `archived_at` column (no schema migration in Wave 5C scope per
+    // Z.10 + Z.11 capstone-mode constraint). Synthesize `null` so the
+    // record-type contract is satisfied. DELETE handler will reject
+    // sqlite-mode records (null → NOT_ARCHIVED) — acceptable
+    // degradation; production path is Supabase Storage JSON, which
+    // implements the field fully.
+    archivedAt: null,
   }
 }
 
@@ -297,6 +305,9 @@ function toPortfolioEducationRecord(row: {
     sortOrder: Number(row.sort_order ?? 0),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    // R-API-14 closure (Wave 5C): see toPortfolioCertificationRecord
+    // header above — sqlite fallback path synthesizes null.
+    archivedAt: null,
   }
 }
 
@@ -2103,6 +2114,31 @@ export async function updatePortfolioCertification(
   return updated
 }
 
+/**
+ * R-API-14 closure (Wave 5C): archive stage for certifications in
+ * sqlite fallback mode. The user_certifications table lacks an
+ * `archived_at` column (Wave 5C does not ship a schema migration per
+ * Z.10 + Z.11). This implementation simulates the archive state in
+ * memory by returning a record with `archivedAt` set to the current
+ * timestamp; the row in the database is unchanged. DELETE in sqlite
+ * still rejects (archivedAt synthesized as null by the mapper), so
+ * sqlite mode is effectively delete-blocked. This is an acceptable
+ * fallback degradation; production runs Supabase Storage JSON, which
+ * fully implements the archive lifecycle.
+ */
+export async function archivePortfolioCertification(
+  certificationId: number,
+  userId: number,
+  _actor: SessionUser,
+  _metadata: RequestMetadata,
+): Promise<PortfolioCertificationRecord | null> {
+  const existing = await getPortfolioCertificationById(certificationId)
+  if (!existing || existing.userId !== userId) return null
+  // Sqlite fallback: synthesize archive state in memory only.
+  // No-op write — production path (Supabase Storage JSON) persists.
+  return { ...existing, archivedAt: toIsoNow() }
+}
+
 export async function deletePortfolioCertification(
   certificationId: number,
   userId: number,
@@ -2111,6 +2147,14 @@ export async function deletePortfolioCertification(
 ): Promise<PortfolioCertificationRecord | null> {
   const existing = await getPortfolioCertificationById(certificationId)
   if (!existing || existing.userId !== userId) return null
+
+  // R-API-14 closure (Wave 5C): sqlite mapper always synthesizes
+  // archivedAt: null (no DB column). Sqlite-mode DELETE is effectively
+  // blocked. Documented degradation — production uses Supabase Storage
+  // JSON which carries the field properly.
+  if (existing.archivedAt === null) {
+    throw new Error('NOT_ARCHIVED')
+  }
 
   const db = await getDb()
   await db.run('DELETE FROM user_certifications WHERE id = ? AND user_id = ?', certificationId, userId)
@@ -2297,6 +2341,47 @@ export async function updatePortfolioEducation(
   return record
 }
 
+/**
+ * R-API-14 closure (Wave 5C): archive stage for education in sqlite
+ * fallback mode. See archivePortfolioCertification above for the
+ * sqlite-mode rationale + production-path note.
+ */
+export async function archivePortfolioEducation(
+  educationId: number,
+  userId: number,
+  _actor: SessionUser,
+  _metadata: RequestMetadata,
+): Promise<PortfolioEducationRecord | null> {
+  const db = await getDb()
+  const existing = await db.get<{
+    id: number
+    user_id: number
+    institution: string
+    program: string
+    degree: string
+    start_date: string
+    end_date: string
+    status: EducationStatus
+    description: string
+    sort_order: number
+    created_at: string
+    updated_at: string
+  }>(
+    `
+      SELECT
+        id, user_id, institution, program, degree, start_date, end_date,
+        status, description, sort_order, created_at, updated_at
+      FROM user_education
+      WHERE id = ? AND user_id = ?
+      LIMIT 1
+    `,
+    educationId,
+    userId,
+  )
+  if (!existing) return null
+  return { ...toPortfolioEducationRecord(existing), archivedAt: toIsoNow() }
+}
+
 export async function deletePortfolioEducation(
   educationId: number,
   userId: number,
@@ -2331,9 +2416,15 @@ export async function deletePortfolioEducation(
   )
   if (!existing) return null
 
-  await db.run('DELETE FROM user_education WHERE id = ? AND user_id = ?', educationId, userId)
-
   const removed = toPortfolioEducationRecord(existing)
+
+  // R-API-14 closure (Wave 5C): sqlite fallback synthesizes
+  // archivedAt: null. Sqlite-mode DELETE is effectively blocked.
+  if (removed.archivedAt === null) {
+    throw new Error('NOT_ARCHIVED')
+  }
+
+  await db.run('DELETE FROM user_education WHERE id = ? AND user_id = ?', educationId, userId)
 
   await writeAuditLog({
     actorUserId: actor.id,

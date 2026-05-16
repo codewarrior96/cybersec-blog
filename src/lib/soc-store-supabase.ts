@@ -615,11 +615,38 @@ async function ensureProfileSeedDataForUser(user: StoredUser): Promise<StoredPro
   return profile
 }
 
+/**
+ * R-API-14 closure (Wave 5C): backward-compat normalizer for the
+ * archivedAt field. Records persisted before the schema extension
+ * lack the field; coerce missing → null so downstream code can rely
+ * on the field being present.
+ *
+ * SENIOR ARCHITECT NOTE: Supabase Storage JSON is schema-less by
+ * design — no migration step rewrites historical records. The
+ * normalizer is the canonical read-side default; new writes (via
+ * create / archive / update) include archivedAt explicitly.
+ */
+function normalizeCertificationRecord(
+  raw: PortfolioCertificationRecord | null,
+): PortfolioCertificationRecord | null {
+  if (!raw) return null
+  return { ...raw, archivedAt: raw.archivedAt ?? null }
+}
+
+function normalizeEducationRecord(
+  raw: PortfolioEducationRecord | null,
+): PortfolioEducationRecord | null {
+  if (!raw) return null
+  return { ...raw, archivedAt: raw.archivedAt ?? null }
+}
+
 async function listPortfolioCertificationsByUserId(userId: number): Promise<PortfolioCertificationRecord[]> {
   const paths = await listObjectPaths(certificationPrefix(userId))
   const rows = (
     await Promise.all(paths.filter((item) => item.endsWith('.json')).map((item) => readJsonObject<PortfolioCertificationRecord>(item)))
-  ).filter((item): item is PortfolioCertificationRecord => Boolean(item))
+  )
+    .filter((item): item is PortfolioCertificationRecord => Boolean(item))
+    .map((item) => normalizeCertificationRecord(item) as PortfolioCertificationRecord)
 
   return rows.sort((a, b) => a.sortOrder - b.sortOrder || b.id - a.id)
 }
@@ -628,13 +655,16 @@ async function listPortfolioEducationByUserId(userId: number): Promise<Portfolio
   const paths = await listObjectPaths(educationPrefix(userId))
   const rows = (
     await Promise.all(paths.filter((item) => item.endsWith('.json')).map((item) => readJsonObject<PortfolioEducationRecord>(item)))
-  ).filter((item): item is PortfolioEducationRecord => Boolean(item))
+  )
+    .filter((item): item is PortfolioEducationRecord => Boolean(item))
+    .map((item) => normalizeEducationRecord(item) as PortfolioEducationRecord)
 
   return rows.sort((a, b) => a.sortOrder - b.sortOrder || b.id - a.id)
 }
 
 async function getEducationRecordById(userId: number, educationId: number) {
-  return readJsonObject<PortfolioEducationRecord>(educationPath(userId, educationId))
+  const raw = await readJsonObject<PortfolioEducationRecord>(educationPath(userId, educationId))
+  return normalizeEducationRecord(raw)
 }
 
 export async function getPortfolioAvatarForUser(userId: number): Promise<{
@@ -911,7 +941,10 @@ export async function getPortfolioCertificationById(
 ): Promise<PortfolioCertificationRecord | null> {
   const indexEntry = await readJsonObject<CertificationIndexEntry>(certificationIndexPath(certificationId))
   if (!indexEntry) return null
-  return readJsonObject<PortfolioCertificationRecord>(certificationPath(indexEntry.userId, certificationId))
+  const raw = await readJsonObject<PortfolioCertificationRecord>(
+    certificationPath(indexEntry.userId, certificationId),
+  )
+  return normalizeCertificationRecord(raw)
 }
 
 export async function updatePortfolioProfile(
@@ -1028,6 +1061,7 @@ export async function createPortfolioCertification(
     sortOrder: input.sortOrder ?? current.length,
     createdAt: now,
     updatedAt: now,
+    archivedAt: null,
   }
 
   await uploadJsonObject(certificationPath(userId, certification.id), certification)
@@ -1091,6 +1125,45 @@ export async function updatePortfolioCertification(
   return updated
 }
 
+/**
+ * R-API-14 closure (Wave 5C): archive stage for certifications in
+ * Supabase Storage JSON mode. Mirrors `archivePortfolioCertification`
+ * in soc-store-memory.ts. Idempotent on already-archived records.
+ */
+export async function archivePortfolioCertification(
+  certificationId: number,
+  userId: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioCertificationRecord | null> {
+  const existing = await getPortfolioCertificationById(certificationId)
+  if (!existing || existing.userId !== userId) return null
+
+  if (existing.archivedAt !== null) {
+    return existing
+  }
+
+  const now = toIsoNow()
+  const archived: PortfolioCertificationRecord = {
+    ...existing,
+    archivedAt: now,
+    updatedAt: now,
+  }
+
+  await uploadJsonObject(certificationPath(userId, certificationId), archived)
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.certification.archive',
+    entityType: 'profile_certification',
+    entityId: certificationId,
+    details: { userId, title: archived.title },
+    metadata,
+  })
+
+  return archived
+}
+
 export async function deletePortfolioCertification(
   certificationId: number,
   userId: number,
@@ -1099,6 +1172,13 @@ export async function deletePortfolioCertification(
 ): Promise<PortfolioCertificationRecord | null> {
   const existing = await getPortfolioCertificationById(certificationId)
   if (!existing || existing.userId !== userId) return null
+
+  // R-API-14 closure (Wave 5C): two-stage delete — non-archived
+  // records must be archived first via PATCH ?action=archive. Caller
+  // (route) maps NOT_ARCHIVED → 409. Mirrors deleteReport contract.
+  if (existing.archivedAt === null) {
+    throw new Error('NOT_ARCHIVED')
+  }
 
   await Promise.all([
     deleteObject(certificationPath(userId, certificationId)),
@@ -1142,6 +1222,7 @@ export async function createPortfolioEducation(
     sortOrder: input.sortOrder ?? current.length,
     createdAt: now,
     updatedAt: now,
+    archivedAt: null,
   }
 
   await uploadJsonObject(educationPath(userId, education.id), education)
@@ -1195,6 +1276,44 @@ export async function updatePortfolioEducation(
   return updated
 }
 
+/**
+ * R-API-14 closure (Wave 5C): archive stage for education in
+ * Supabase Storage JSON mode. Mirrors archivePortfolioCertification.
+ */
+export async function archivePortfolioEducation(
+  educationId: number,
+  userId: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioEducationRecord | null> {
+  const existing = await getEducationRecordById(userId, educationId)
+  if (!existing) return null
+
+  if (existing.archivedAt !== null) {
+    return existing
+  }
+
+  const now = toIsoNow()
+  const archived: PortfolioEducationRecord = {
+    ...existing,
+    archivedAt: now,
+    updatedAt: now,
+  }
+
+  await uploadJsonObject(educationPath(userId, educationId), archived)
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'profile.education.archive',
+    entityType: 'profile_education',
+    entityId: educationId,
+    details: { userId, institution: archived.institution, program: archived.program },
+    metadata,
+  })
+
+  return archived
+}
+
 export async function deletePortfolioEducation(
   educationId: number,
   userId: number,
@@ -1203,6 +1322,11 @@ export async function deletePortfolioEducation(
 ): Promise<PortfolioEducationRecord | null> {
   const existing = await getEducationRecordById(userId, educationId)
   if (!existing) return null
+
+  // R-API-14 closure (Wave 5C): two-stage delete.
+  if (existing.archivedAt === null) {
+    throw new Error('NOT_ARCHIVED')
+  }
 
   await deleteObject(educationPath(userId, educationId))
 

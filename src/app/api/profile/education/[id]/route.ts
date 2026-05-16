@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireSession } from '@/lib/api-auth'
 import { getRequestMetadata } from '@/lib/auth-server'
 import {
+  archivePortfolioEducation,
   deletePortfolioEducation,
   getPortfolioProfile,
   updatePortfolioEducation,
@@ -36,6 +37,22 @@ export async function PATCH(
   const existing = profile?.education.find((item) => item.id === educationId)
   if (!existing) {
     return NextResponse.json({ error: 'Egitim kaydi bulunamadi.' }, { status: 404 })
+  }
+
+  // R-API-14 closure (Wave 5C): archive dispatch via ?action=archive.
+  // Mirrors the certifications [id] route.
+  const { searchParams } = new URL(request.url)
+  if (searchParams.get('action') === 'archive') {
+    const archived = await archivePortfolioEducation(
+      educationId,
+      guard.session.user.id,
+      guard.session.user,
+      getRequestMetadata(request),
+    )
+    if (!archived) {
+      return NextResponse.json({ error: 'Egitim kaydi bulunamadi.' }, { status: 404 })
+    }
+    return NextResponse.json({ education: archived })
   }
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
@@ -76,16 +93,27 @@ export async function DELETE(
     return NextResponse.json({ error: 'Gecersiz egitim kimligi.' }, { status: 400 })
   }
 
-  const education = await deletePortfolioEducation(
-    educationId,
-    guard.session.user.id,
-    guard.session.user,
-    getRequestMetadata(request),
-  )
+  try {
+    const education = await deletePortfolioEducation(
+      educationId,
+      guard.session.user.id,
+      guard.session.user,
+      getRequestMetadata(request),
+    )
 
-  if (!education) {
-    return NextResponse.json({ error: 'Egitim kaydi bulunamadi.' }, { status: 404 })
+    if (!education) {
+      return NextResponse.json({ error: 'Egitim kaydi bulunamadi.' }, { status: 404 })
+    }
+
+    return NextResponse.json({ education })
+  } catch (error) {
+    // R-API-14 closure (Wave 5C): NOT_ARCHIVED → 409 Conflict.
+    if (error instanceof Error && error.message === 'NOT_ARCHIVED') {
+      return NextResponse.json(
+        { error: 'Egitim kaydi once arsivlenmeli. Lutfen PATCH ?action=archive ile arsivleyin.' },
+        { status: 409 },
+      )
+    }
+    throw error
   }
-
-  return NextResponse.json({ education })
 }

@@ -30,12 +30,21 @@ interface RegisterBody {
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Match login parity: same 10/5-min window keyed off the client IP.
-// Threat model for register differs from login (account-flood + scrypt
-// DoS rather than credential brute-force), so this counts EVERY attempt
-// (incl. success) — login only counts failures. Both share the same
-// in-memory limiter; H3 (Vercel multi-instance distribution) is a
-// separate stage.
+// A-12 closure (Wave 5C): register rate-limit now matches login's
+// "failures-only" pattern. Threat model for register is account-flood
+// + scrypt DoS — a successful registration is by definition a real
+// account creation event and should not punish legitimate users who
+// happen to retry after a typo. Previously the route called
+// recordFailure unconditionally BEFORE validation, so 10 honest
+// retries would lock out a legitimate user for 5 minutes.
+//
+// SENIOR ARCHITECT NOTE: limit (10) + window (5 min) unchanged —
+// only the trigger point shifts (every attempt → failed-attempts-
+// only). Login uses the same shape; register now matches.
+// REJECTED ALTERNATIVE: split into two buckets (success-loose +
+// failure-strict). Rejected — mentor default (a) chose the simpler
+// failures-only pattern; two-bucket scheme adds operational surface
+// for negligible UX benefit.
 const REGISTER_RATE_LIMIT = {
   bucket: 'auth.register',
   max: 10,
@@ -83,9 +92,13 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Count every register POST toward the bucket — short-circuits before
-  // password hashing so scrypt CPU is never invoked on a throttled IP.
-  await recordFailure(ip, REGISTER_RATE_LIMIT)
+  // A-12 closure (Wave 5C): record-failure is now called at each
+  // validation/error branch (not unconditionally up-front). A successful
+  // registration bypasses the counter so honest typos + retries don't
+  // exhaust the bucket. The recordFailure call is INSIDE each failure
+  // branch via the `failRegister` helper below — single chokepoint
+  // so the audit trail (rate-limit signal) stays consistent across
+  // failure types.
 
   const body = (await request.json().catch(() => ({}))) as RegisterBody
   const username = typeof body.username === 'string' ? body.username.trim() : ''
@@ -94,35 +107,43 @@ export async function POST(request: NextRequest) {
   const password = typeof body.password === 'string' ? body.password : ''
   const confirmPassword = typeof body.confirmPassword === 'string' ? body.confirmPassword : ''
 
+  // A-12 helper: every failure path goes through this so the
+  // bucket-increment side-effect happens exactly once per failed
+  // attempt, regardless of failure type.
+  const failRegister = async (message: string, status: number) => {
+    await recordFailure(ip, REGISTER_RATE_LIMIT)
+    return NextResponse.json({ error: message }, { status })
+  }
+
   if (!username || !displayName || !emailRaw || !password || !confirmPassword) {
-    return NextResponse.json({ error: 'Tum kayit alanlari zorunlu.' }, { status: 400 })
+    return failRegister('Tum kayit alanlari zorunlu.', 400)
   }
 
   if (!isAllowedUsername(username)) {
-    return NextResponse.json({ error: getUsernameFormatError() }, { status: 400 })
+    return failRegister(getUsernameFormatError(), 400)
   }
 
   if (isReservedUsername(username)) {
-    return NextResponse.json({ error: getReservedUsernameError() }, { status: 400 })
+    return failRegister(getReservedUsernameError(), 400)
   }
 
   if (!isValidDisplayName(displayName)) {
-    return NextResponse.json({ error: getDisplayNameError() }, { status: 400 })
+    return failRegister(getDisplayNameError(), 400)
   }
 
   const emailResult = validateEmail(emailRaw)
   if (!emailResult.ok) {
-    return NextResponse.json({ error: getEmailFormatError() }, { status: 400 })
+    return failRegister(getEmailFormatError(), 400)
   }
   const email = emailResult.value
   const emailKey = email // already trimmed+lowercased by validateEmail
 
   if (!isValidPassword(password)) {
-    return NextResponse.json({ error: getPasswordError() }, { status: 400 })
+    return failRegister(getPasswordError(), 400)
   }
 
   if (password !== confirmPassword) {
-    return NextResponse.json({ error: 'Sifreler birbiriyle eslesmiyor.' }, { status: 400 })
+    return failRegister('Sifreler birbiriyle eslesmiyor.', 400)
   }
 
   // Email-uniqueness pre-check. Storage layer has its own concurrent-race
@@ -130,7 +151,7 @@ export async function POST(request: NextRequest) {
   // user-facing fast path.
   const emailTaken = await readUserByEmailKey(emailKey)
   if (emailTaken?.isActive) {
-    return NextResponse.json({ error: 'Bu email adresi zaten kullaniliyor.' }, { status: 409 })
+    return failRegister('Bu email adresi zaten kullaniliyor.', 409)
   }
 
   const metadata = getRequestMetadata(request)
@@ -189,18 +210,21 @@ export async function POST(request: NextRequest) {
       ...(warning ? { warning } : {}),
     })
   } catch (error) {
+    // A-12 closure (Wave 5C): registerUser threw — count this as a
+    // failed attempt against the rate-limit bucket. Same chokepoint
+    // semantics as the synchronous failure branches above.
     const message = error instanceof Error ? error.message : 'Kayit basarisiz oldu.'
     if (message === 'User already exists') {
-      return NextResponse.json({ error: 'Bu kullanici adi zaten kullaniliyor.' }, { status: 409 })
+      return failRegister('Bu kullanici adi zaten kullaniliyor.', 409)
     }
     if (message === 'Email already exists') {
-      return NextResponse.json({ error: 'Bu email adresi zaten kullaniliyor.' }, { status: 409 })
+      return failRegister('Bu email adresi zaten kullaniliyor.', 409)
     }
     if (message === 'Reserved username') {
-      return NextResponse.json({ error: getReservedUsernameError() }, { status: 400 })
+      return failRegister(getReservedUsernameError(), 400)
     }
 
     console.error('[auth/register] Registration failed:', error)
-    return NextResponse.json({ error: 'Kayit servisi su anda kullanilamiyor.' }, { status: 503 })
+    return failRegister('Kayit servisi su anda kullanilamiyor.', 503)
   }
 }

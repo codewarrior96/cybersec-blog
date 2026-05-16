@@ -537,6 +537,22 @@ export async function deletePortfolioCertification(
   )
 }
 
+// R-API-14 closure (Wave 5C): archive-stage dispatcher mirrors the
+// delete dispatcher — Supabase JSON branch + memory/sqlite fallback
+// branch with the same isWrite + memoryFallback semantics.
+export async function archivePortfolioCertification(
+  ...args: Parameters<StoreModule['archivePortfolioCertification']>
+) {
+  if (useSupabaseJsonDomains) {
+    return supabaseStore.archivePortfolioCertification(...args)
+  }
+  return withStore(
+    'archivePortfolioCertification',
+    (store) => store.archivePortfolioCertification(...args),
+    { allowMemoryFallback: allowCriticalMemoryFallback, isWrite: true },
+  )
+}
+
 export async function createPortfolioEducation(
   ...args: Parameters<StoreModule['createPortfolioEducation']>
 ) {
@@ -572,6 +588,20 @@ export async function deletePortfolioEducation(
   return withStore(
     'deletePortfolioEducation',
     (store) => store.deletePortfolioEducation(...args),
+    { allowMemoryFallback: allowCriticalMemoryFallback, isWrite: true },
+  )
+}
+
+// R-API-14 closure (Wave 5C): archive-stage dispatcher for education.
+export async function archivePortfolioEducation(
+  ...args: Parameters<StoreModule['archivePortfolioEducation']>
+) {
+  if (useSupabaseJsonDomains) {
+    return supabaseStore.archivePortfolioEducation(...args)
+  }
+  return withStore(
+    'archivePortfolioEducation',
+    (store) => store.archivePortfolioEducation(...args),
     { allowMemoryFallback: allowCriticalMemoryFallback, isWrite: true },
   )
 }

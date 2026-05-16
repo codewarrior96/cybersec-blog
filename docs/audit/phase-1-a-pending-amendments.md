@@ -90,12 +90,13 @@ Pending audit revisions discovered during Phase 1.D test writing. To be applied 
 
 **Renumbered note (Wave 1 housekeeping):** A-11 closure does NOT change the R-22 numbering decision in A-14 (R-22 added as next available R-XX number). R-21 + R-22 both exist post-Wave-1.
 
-### A-12 — register rate-limit double-counts successful requests
+### A-12 — register rate-limit double-counts successful requests  [RESOLVED in Wave 5C]
 
 - **Discovered in:** Phase 1.D.11 plan review (T-RG09 surface analysis)
 - **Issue:** register/route.ts L71-73 calls recordFailure on EVERY request that passes the rate-limit check (success + validation-fail + storage-success). This is a "force record" pattern that does not differentiate. Result: 10 successful registrations from same IP exhausts the bucket, blocking legitimate retries. Likely intentional (defense against enumeration), but should be documented.
 - **Severity:** Low (intentional defense, side effect is rate-limit accuracy)
 - **Action:** Document in audit Section 2 as informational, OR confirm with maintainers that the design intent is "any contact from this IP counts." If the latter, add note to R-02 (rate-limiter accuracy) discussing this design choice.
+- **Resolution (Wave 5C commit `<COMMIT_HASH_TBD>`):** Register rate-limit refactored to mentor default (a) — only FAILED attempts increment the counter; successful registrations bypass. Implementation pattern: introduce a local `failRegister(message, status)` helper inside POST handler that wraps the previous `NextResponse.json + recordFailure` pair into a single chokepoint. All synchronous validation branches (missing fields, format errors, reserved username, password mismatch, email-taken) and the outer `catch` (User already exists / Email already exists / Reserved / 503) now invoke `failRegister`. The unconditional `recordFailure` at the top of the route is removed entirely. The previous comment block at L33-38 ("counts EVERY attempt incl. success — login only counts failures") is updated to reflect the new failures-only contract + A-12 closure citation. Limit (10) + window (5 min) unchanged — only the trigger semantics shift. T-AR01-03 (3 tests in `src/app/api/auth/register/route.test.ts`) verify: T-AR01 validation failure increments counter; T-AR02 success does NOT increment; T-AR03 over-limit returns 429 without invoking recordFailure or any downstream work. T-RG01 happy-path assertion flipped from `toHaveBeenCalledOnce` to `not.toHaveBeenCalled` as A-12 regression guard (explicit comment). Mentor preference matched: simpler pattern over two-bucket split (rejected alternative documented in code comment).
 
 ### A-13 — R-05 TOCTOU lacks direct concurrent-execution test  [RESOLVED in Phase 3.D]
 

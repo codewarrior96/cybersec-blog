@@ -95,7 +95,14 @@ describe('register/route POST', () => {
 
       // Verify dispatch chain executed in order:
       expect(checkRateLimit).toHaveBeenCalledOnce()
-      expect(recordFailure).toHaveBeenCalledOnce()
+      // A-12 closure (Wave 5C): successful registration NO LONGER
+      // increments the rate-limit bucket. recordFailure is reserved
+      // for failed attempts (validation error, duplicate, etc.). This
+      // assertion flipped from `toHaveBeenCalledOnce` to
+      // `not.toHaveBeenCalled` — a regression here means someone
+      // re-introduced the "count every attempt" pattern that A-12
+      // closed in Wave 5C.
+      expect(recordFailure).not.toHaveBeenCalled()
       expect(readUserByEmailKey).toHaveBeenCalledOnce()
       expect(hashPassword).toHaveBeenCalledOnce()
       expect(registerUser).toHaveBeenCalledOnce()
@@ -375,6 +382,55 @@ describe('register/route POST', () => {
       expect(errorSpy).toHaveBeenCalled()
 
       errorSpy.mockRestore()
+    })
+  })
+
+  // ─── A-12 closure (Wave 5C): rate-limit accuracy ──────────────────────────
+
+  describe('A-12 — failed-attempts-only rate limit', () => {
+    it('T-AR01 — validation failure increments rate-limit counter (recordFailure called)', async () => {
+      // Missing fields → 400. Per A-12 closure, this MUST call recordFailure
+      // so the bucket reflects the failed attempt.
+      const response = await POST(makePostRequest({ username: 'partial' }))
+
+      expect(response.status).toBe(400)
+      expect(recordFailure).toHaveBeenCalledOnce()
+      expect(recordFailure).toHaveBeenCalledWith(
+        '127.0.0.1',
+        expect.objectContaining({ bucket: 'auth.register' }),
+      )
+    })
+
+    it('T-AR02 — successful registration does NOT increment counter', async () => {
+      // Happy-path mock defaults from beforeEach. The route should complete
+      // with 200 and recordFailure must NOT fire — A-12 closure's central
+      // contract. This is the inverse of the T-RG01 flipped assertion,
+      // explicitly framed as A-12 regression guard.
+      const response = await POST(makePostRequest(validBody))
+
+      expect(response.status).toBe(200)
+      expect(recordFailure).not.toHaveBeenCalled()
+    })
+
+    it('T-AR03 — over-limit returns 429 without invoking recordFailure', async () => {
+      // checkRateLimit reports the bucket is exhausted → route short-circuits
+      // with 429 + Retry-After header. recordFailure must NOT fire (no point
+      // burning budget against a request we already rejected).
+      vi.mocked(checkRateLimit).mockResolvedValueOnce({
+        limited: true,
+        remaining: 0,
+        resetAt: Date.now() + 30_000,
+      })
+
+      const response = await POST(makePostRequest(validBody))
+
+      expect(response.status).toBe(429)
+      expect(response.headers.get('Retry-After')).toBeTruthy()
+      expect(recordFailure).not.toHaveBeenCalled()
+      // No downstream work attempted (no scrypt, no email send)
+      expect(hashPassword).not.toHaveBeenCalled()
+      expect(registerUser).not.toHaveBeenCalled()
+      expect(sendVerificationEmail).not.toHaveBeenCalled()
     })
   })
 })

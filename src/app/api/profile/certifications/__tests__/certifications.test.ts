@@ -28,6 +28,9 @@ vi.mock('@/lib/soc-store-adapter', () => ({
   getPortfolioCertificationById: vi.fn(),
   updatePortfolioCertification: vi.fn(),
   deletePortfolioCertification: vi.fn(),
+  // R-API-14 closure (Wave 5C): archive-stage mock added to the
+  // adapter surface for T-CA01-04.
+  archivePortfolioCertification: vi.fn(),
 }))
 vi.mock('@/lib/portfolio-assets', () => ({
   saveCertificationAsset: vi.fn(),
@@ -50,6 +53,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireSession } from '@/lib/api-auth'
 import { getRequestMetadata } from '@/lib/auth-server'
 import {
+  archivePortfolioCertification,
   getPortfolioCertificationById,
   updatePortfolioCertification,
   deletePortfolioCertification,
@@ -124,6 +128,9 @@ const ownerCertification = {
   sortOrder: 0,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
+  // R-API-14 closure (Wave 5C): archivedAt field added to the record
+  // shape. Defaults to null in fixture (active state — not yet archived).
+  archivedAt: null as string | null,
 }
 
 beforeEach(() => {
@@ -464,6 +471,94 @@ describe('certifications + assets — Phase 3.D Target #1 (R-API-01 IDOR)', () =
       expect(res.status).toBe(404)
       // Compensating cleanup fired for the orphan asset
       expect(deleteStoredAsset).toHaveBeenCalledWith(newAsset.assetPath)
+    })
+  })
+
+  // ─── R-API-14 archive stage (T-CA01-04, Wave 5C) ────────────────────────────
+
+  describe('PATCH ?action=archive + DELETE two-stage (R-API-14)', () => {
+    it('T-CA01 — PATCH ?action=archive sets archivedAt and returns 200', async () => {
+      vi.mocked(requireSession).mockResolvedValueOnce({ session: OWNER_SESSION as never, response: null })
+      vi.mocked(getPortfolioCertificationById).mockResolvedValueOnce(ownerCertification)
+
+      const archivedAt = '2026-05-16T12:00:00.000Z'
+      vi.mocked(archivePortfolioCertification).mockResolvedValueOnce({
+        ...ownerCertification,
+        archivedAt,
+        updatedAt: archivedAt,
+      })
+
+      const res = await PATCH(
+        makeRequest('/api/profile/certifications/42?action=archive', { method: 'PATCH' }),
+        { params: { id: '42' } },
+      )
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.certification.archivedAt).toBe(archivedAt)
+      // The standard-update adapter was NOT invoked — archive path
+      // short-circuits before the form-body branch.
+      expect(updatePortfolioCertification).not.toHaveBeenCalled()
+      // The archive adapter was called once with the expected args
+      expect(archivePortfolioCertification).toHaveBeenCalledWith(
+        42,
+        OWNER_SESSION.user.id,
+        OWNER_SESSION.user,
+        expect.any(Object),
+      )
+    })
+
+    it('T-CA02 — DELETE on non-archived cert returns 409 NOT_ARCHIVED', async () => {
+      vi.mocked(requireSession).mockResolvedValueOnce({ session: OWNER_SESSION as never, response: null })
+      // Adapter throws when archivedAt is null (two-stage gate)
+      vi.mocked(deletePortfolioCertification).mockRejectedValueOnce(new Error('NOT_ARCHIVED'))
+
+      const res = await DELETE(
+        makeRequest('/api/profile/certifications/42', { method: 'DELETE' }),
+        { params: { id: '42' } },
+      )
+
+      expect(res.status).toBe(409)
+      const body = await res.json()
+      expect(body.error).toMatch(/once arsivlenmeli/)
+      // No asset cleanup attempted (the throw short-circuits the route)
+      expect(deleteStoredAsset).not.toHaveBeenCalled()
+    })
+
+    it('T-CA03 — DELETE on archived cert succeeds (200) and purges asset', async () => {
+      vi.mocked(requireSession).mockResolvedValueOnce({ session: OWNER_SESSION as never, response: null })
+      const archivedCert = {
+        ...ownerCertification,
+        archivedAt: '2026-05-16T12:00:00.000Z',
+      }
+      vi.mocked(deletePortfolioCertification).mockResolvedValueOnce(archivedCert)
+
+      const res = await DELETE(
+        makeRequest('/api/profile/certifications/42', { method: 'DELETE' }),
+        { params: { id: '42' } },
+      )
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.certification.id).toBe(42)
+      // Asset purge fired with the archived cert's asset path
+      expect(deleteStoredAsset).toHaveBeenCalledWith(archivedCert.assetPath)
+    })
+
+    it('T-CA04 — PATCH ?action=archive on non-existent cert returns 404', async () => {
+      vi.mocked(requireSession).mockResolvedValueOnce({ session: OWNER_SESSION as never, response: null })
+      vi.mocked(getPortfolioCertificationById).mockResolvedValueOnce(ownerCertification)
+      // archive adapter returns null when the record is not found
+      // for the given userId (defense-in-depth IDOR check beyond the
+      // pre-archive existence lookup).
+      vi.mocked(archivePortfolioCertification).mockResolvedValueOnce(null)
+
+      const res = await PATCH(
+        makeRequest('/api/profile/certifications/42?action=archive', { method: 'PATCH' }),
+        { params: { id: '42' } },
+      )
+
+      expect(res.status).toBe(404)
     })
   })
 })

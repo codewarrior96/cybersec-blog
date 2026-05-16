@@ -131,6 +131,8 @@ interface InternalCertification {
   sortOrder: number
   createdAt: string
   updatedAt: string
+  // R-API-14 closure (Wave 5C): two-stage archive→delete state.
+  archivedAt: string | null
 }
 
 interface InternalEducation {
@@ -146,6 +148,8 @@ interface InternalEducation {
   sortOrder: number
   createdAt: string
   updatedAt: string
+  // R-API-14 closure (Wave 5C): two-stage archive→delete state.
+  archivedAt: string | null
 }
 
 interface InternalAlertNote {
@@ -311,6 +315,7 @@ function createSeededState(): StoreState {
         sortOrder: item.sortOrder,
         createdAt: now,
         updatedAt: now,
+        archivedAt: null,
       })
     })
 
@@ -328,6 +333,7 @@ function createSeededState(): StoreState {
         sortOrder: item.sortOrder,
         createdAt: now,
         updatedAt: now,
+        archivedAt: null,
       })
     })
   })
@@ -405,6 +411,7 @@ function toCertificationRecord(item: InternalCertification): PortfolioCertificat
     sortOrder: item.sortOrder,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
+    archivedAt: item.archivedAt,
   }
 }
 
@@ -422,6 +429,7 @@ function toEducationRecord(item: InternalEducation): PortfolioEducationRecord {
     sortOrder: item.sortOrder,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
+    archivedAt: item.archivedAt,
   }
 }
 
@@ -1709,6 +1717,7 @@ export async function createPortfolioCertification(
     sortOrder: input.sortOrder ?? store.certifications.filter((cert) => cert.userId === userId).length,
     createdAt: now,
     updatedAt: now,
+    archivedAt: null,
   }
   store.certifications.push(item)
 
@@ -1761,6 +1770,54 @@ export async function updatePortfolioCertification(
   return toCertificationRecord(item)
 }
 
+/**
+ * R-API-14 closure (Wave 5C): archive stage for certifications. Mirrors
+ * `archiveReport` (L1305). Sets `archivedAt` if not already archived;
+ * idempotent on already-archived records (returns the existing record
+ * unchanged). DELETE rejects records with `archivedAt === null` —
+ * two-stage safety against accidental one-click deletion of long-held
+ * portfolio data.
+ *
+ * SENIOR ARCHITECT NOTE: ownership gate is the existing `userId` filter
+ * (record not found for non-owner). No separate FORBIDDEN throw needed
+ * — IDOR closure pattern matches updatePortfolioCertification's
+ * existing-record-lookup-with-userId discipline (R-API-01).
+ *
+ * REJECTED ALTERNATIVE: status='archived' enum value mirroring
+ * reports' status flag. Rejected — cert/edu already use status enums
+ * for domain meaning (active/planned/expired vs. completed/active/
+ * planned/paused). Adding 'archived' would conflict with those
+ * domain enums. archivedAt timestamp alone carries the archive
+ * state cleanly.
+ */
+export async function archivePortfolioCertification(
+  certificationId: number,
+  userId: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioCertificationRecord | null> {
+  const item = getStore().certifications.find(
+    (entry) => entry.id === certificationId && entry.userId === userId,
+  )
+  if (!item) return null
+
+  if (item.archivedAt === null) {
+    item.archivedAt = toIsoNow()
+    item.updatedAt = item.archivedAt
+
+    await writeAuditLog({
+      actorUserId: actor.id,
+      action: 'profile.certification.archive',
+      entityType: 'profile_certification',
+      entityId: certificationId,
+      details: { userId, title: item.title },
+      metadata,
+    })
+  }
+
+  return toCertificationRecord(item)
+}
+
 export async function deletePortfolioCertification(
   certificationId: number,
   userId: number,
@@ -1771,18 +1828,28 @@ export async function deletePortfolioCertification(
   const index = store.certifications.findIndex((item) => item.id === certificationId && item.userId === userId)
   if (index < 0) return null
 
-  const [removed] = store.certifications.splice(index, 1)
+  const item = store.certifications[index]
+
+  // R-API-14 closure (Wave 5C): two-stage delete — non-archived records
+  // must be archived first via PATCH ?action=archive. Caller (route)
+  // maps NOT_ARCHIVED → 409. Mirrors deleteReport's NOT_ARCHIVED
+  // contract (soc-store-memory.ts:1371).
+  if (item.archivedAt === null) {
+    throw new Error('NOT_ARCHIVED')
+  }
+
+  store.certifications.splice(index, 1)
 
   await writeAuditLog({
     actorUserId: actor.id,
     action: 'profile.certification.delete',
     entityType: 'profile_certification',
     entityId: certificationId,
-    details: { userId, title: removed.title, assetPath: removed.assetPath },
+    details: { userId, title: item.title, assetPath: item.assetPath },
     metadata,
   })
 
-  return toCertificationRecord(removed)
+  return toCertificationRecord(item)
 }
 
 export async function createPortfolioEducation(
@@ -1809,6 +1876,7 @@ export async function createPortfolioEducation(
     sortOrder: input.sortOrder ?? store.education.filter((entry) => entry.userId === userId).length,
     createdAt: now,
     updatedAt: now,
+    archivedAt: null,
   }
   store.education.push(item)
 
@@ -1856,6 +1924,39 @@ export async function updatePortfolioEducation(
   return toEducationRecord(item)
 }
 
+/**
+ * R-API-14 closure (Wave 5C): archive stage for education. Mirrors
+ * archivePortfolioCertification above. See that function's header
+ * for the rationale + IDOR ownership discipline.
+ */
+export async function archivePortfolioEducation(
+  educationId: number,
+  userId: number,
+  actor: SessionUser,
+  metadata: RequestMetadata,
+): Promise<PortfolioEducationRecord | null> {
+  const item = getStore().education.find(
+    (entry) => entry.id === educationId && entry.userId === userId,
+  )
+  if (!item) return null
+
+  if (item.archivedAt === null) {
+    item.archivedAt = toIsoNow()
+    item.updatedAt = item.archivedAt
+
+    await writeAuditLog({
+      actorUserId: actor.id,
+      action: 'profile.education.archive',
+      entityType: 'profile_education',
+      entityId: educationId,
+      details: { userId, institution: item.institution, program: item.program },
+      metadata,
+    })
+  }
+
+  return toEducationRecord(item)
+}
+
 export async function deletePortfolioEducation(
   educationId: number,
   userId: number,
@@ -1866,18 +1967,26 @@ export async function deletePortfolioEducation(
   const index = store.education.findIndex((entry) => entry.id === educationId && entry.userId === userId)
   if (index < 0) return null
 
-  const [removed] = store.education.splice(index, 1)
+  const item = store.education[index]
+
+  // R-API-14 closure (Wave 5C): two-stage delete — non-archived records
+  // must be archived first via PATCH ?action=archive.
+  if (item.archivedAt === null) {
+    throw new Error('NOT_ARCHIVED')
+  }
+
+  store.education.splice(index, 1)
 
   await writeAuditLog({
     actorUserId: actor.id,
     action: 'profile.education.delete',
     entityType: 'profile_education',
-    entityId: removed.id,
-    details: { userId, institution: removed.institution, program: removed.program },
+    entityId: item.id,
+    details: { userId, institution: item.institution, program: item.program },
     metadata,
   })
 
-  return toEducationRecord(removed)
+  return toEducationRecord(item)
 }
 
 export async function createUser(input: {

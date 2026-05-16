@@ -33,6 +33,11 @@ export interface PortfolioCertificationRecord {
   sortOrder: number
   createdAt: string
   updatedAt: string
+  // R-API-14 closure (Wave 5C): two-stage archive→delete state. null while
+  // the cert is "active"; ISO timestamp once archived. DELETE rejects
+  // records with archivedAt === null (must archive first). Mirrors the
+  // ReportRecord.archivedAt contract in soc-store-memory.ts L685.
+  archivedAt: string | null
 }
 
 export interface PortfolioEducationRecord {
@@ -48,6 +53,8 @@ export interface PortfolioEducationRecord {
   sortOrder: number
   createdAt: string
   updatedAt: string
+  // R-API-14 closure (Wave 5C): see PortfolioCertificationRecord.archivedAt.
+  archivedAt: string | null
 }
 
 export interface PortfolioProfileRecord {
