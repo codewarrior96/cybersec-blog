@@ -486,6 +486,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
       />
 
       {/* 3. Original Hacker Image with cinematic entrance and blend */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- decorative hero image, intentional <img> for CSS cinematic transitions; Image optimization unnecessary for a single-load decorative asset */}
       <img
         className="hero-image"
         src="/hacker.jpg"
@@ -570,6 +571,7 @@ export default function EmbeddedLogin({ redirectTo = '/home', autoRedirectIfAuth
             style={{
             }}
           />
+          {/* eslint-disable-next-line @next/next/no-img-element -- decorative skull brand asset, intentional <img> alongside ring overlay div */}
           <img
             className="skull-image"
             src="/skull.jpg"

@@ -58,7 +58,7 @@ export default async function BlogPage({
           <span className="text-slate-300 ml-2">ls -la ./posts/</span>
         </p>
         <h1 className="text-3xl font-bold text-slate-100 font-mono">
-          <span className="text-green-400">// </span>
+          <span className="text-green-400">{'// '}</span>
           {q ? `"${q}" araması` : 'Tüm Yazılar'}
         </h1>
         <p className="text-slate-500 mt-1 text-sm font-mono">

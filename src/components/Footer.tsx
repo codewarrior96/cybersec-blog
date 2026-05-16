@@ -53,7 +53,7 @@ export default function Footer() {
             <div>
               <div className="font-mono text-green-400 font-bold text-sm mb-2">~/cybersec</div>
               <p className="font-mono text-slate-600 text-xs leading-relaxed">
-                <span className="text-slate-700">// </span>
+                <span className="text-slate-700">{'// '}</span>
                 güvenli kal, meraklı kal
               </p>
               <p className="font-mono text-slate-700 text-xs mt-2">
@@ -64,7 +64,7 @@ export default function Footer() {
             {/* Links */}
             <div>
               <div className="font-mono text-green-400/60 text-xs uppercase tracking-widest mb-3">
-                // Linkler
+                {'// Linkler'}
               </div>
               <ul className="space-y-1.5">
                 {[
@@ -88,13 +88,13 @@ export default function Footer() {
             {/* Contact + Social */}
             <div>
               <div className="font-mono text-green-400/60 text-xs uppercase tracking-widest mb-3">
-                // İletişim
+                {'// İletişim'}
               </div>
               <a
-                href="mailto:hello@cybersec.blog"
+                href="mailto:hello@siberlab.dev"
                 className="font-mono text-xs text-slate-500 hover:text-green-400 transition-colors block mb-4"
               >
-                <span className="text-green-400/30">›</span> hello@cybersec.blog
+                <span className="text-green-400/30">›</span> hello@siberlab.dev
               </a>
               <div className="flex gap-3">
                 {socialLinks.map((s) => (

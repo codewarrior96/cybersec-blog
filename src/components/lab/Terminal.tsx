@@ -188,6 +188,7 @@ export default function Terminal({
       ws.close()
       wsRef.current = null
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setLines is a useState setter (stable identity per React contract); excluding deliberately to keep the websocket effect bound only to resolvedWsUrl
   }, [resolvedWsUrl])
 
   useEffect(() => {
@@ -286,6 +287,7 @@ export default function Terminal({
       output,
       timestamp: Date.now(),
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setInput is a useState setter (stable per React contract); ESLint's heuristic flags it as unnecessary but it documents the intent of the callback's reset behavior
   }, [evidenceLog, unlockedLevels, alreadyRevealed, startedAt, handleEvidenceEvent, history, onCommandExecuted, onFlagSubmit, setCwd, setHistory, setInput, setLines])
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {

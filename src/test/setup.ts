@@ -27,9 +27,7 @@ expect.extend(axeMatchers)
 // parameters fail TS2428 "All declarations of 'Assertion' must have
 // identical type parameters". `T = any` is the upstream signature.
 declare module 'vitest' {
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/no-explicit-any
   interface Assertion<T = any> extends AxeMatchers {}
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   interface AsymmetricMatchersContaining extends AxeMatchers {}
 }
 

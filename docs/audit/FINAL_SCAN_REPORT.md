@@ -10,22 +10,24 @@ Single-cycle deliverable: simulate what an external AI code auditor (Claude / GP
 
 ## Executive summary
 
-| Metric | Value |
-|---|---|
-| Total findings (F1..F15) | **15** |
-| **DOCUMENTED** (already in audit docs) | **6** |
-| **ACTION** (real issue, closure path proposed) | **2** |
-| **NOTE** (false positive / pattern observation) | **7** |
+| Metric | Value (initial) | Value (post-Wave-8 closure) |
+|---|---|---|
+| Total findings (F1..F15) | 15 | **15** |
+| **DOCUMENTED** (already in audit docs) | 6 | 6 |
+| **ACTION** (real issue, closure path proposed) | 2 | **0** |
+| **CLOSED** (ACTION shipped via Wave 8) | — | **2** (F1 + F7) |
+| **NOTE** (false positive / pattern observation) | 7 | 7 |
 
 **Highlights**
 - Static analysis is clean: TypeScript zero errors, build succeeds, Vitest 530/530 preserved.
-- One genuine ACTION item: production hostname inconsistency (`cybersec-blog.com` / `cybersec.blog` stale references survive alongside the canonical `siberlab.dev`). Effort: S (small text-only fix across 4 files).
-- One ACTION-class infrastructure item: ESLint is not configured. `next lint` prompts to install interactively; CI does not enforce lint. Effort: S (one config file + npm script).
+- **Wave 8 closure (commit `<COMMIT_HASH_TBD>`):** Both ACTION findings shipped.
+  - **F1 ESLint:** `.eslintrc.json` + `npm run lint` script + dev-only deps (`eslint@^8.57.1` + `eslint-config-next@^14.2.35`, both Next 14-pinned). Lint baseline established at **0 errors, 0 warnings** after closing the 14-finding initial run (7 mechanical-fix errors + 7 per-line bypass-with-justification warnings).
+  - **F7 Hostname:** all 4 stale-domain references migrated to canonical `siberlab.dev`. `grep -rn "cybersec-blog\.com\|cybersec\.blog" src/` returns 0 matches.
 - Remaining findings are either already-documented (npm audit deferrals, Yol A skips, gap-tests) or NOTE-class observations confirming existing discipline (single `as any` in production for a third-party type shim; 53 `console.warn`/`error` statements all carry context prefixes; zero TODO/FIXME/HACK markers).
 
-**Mentor decision points**
-- **F1 ESLint config**: add `next lint` config + npm script in optional Wave 8? Or accept the existing TypeScript strict-mode discipline as sufficient?
-- **F7 Hostname inconsistency**: trivial text fix across 4 files; ship in Wave 8 or document as known issue?
+**Mentor decision points (resolved)**
+- **F1 ESLint config:** ✅ SHIPPED in Wave 8 (commit `<COMMIT_HASH_TBD>`). Option A locked: mechanical error fixes (4× JSX `{'// '}` expression wrap preserving UX, 2 obsolete `@typescript-eslint/*` disable comments removed) + per-line warning disables (5× `@next/next/no-img-element` decorative/signed-URL `<img>` sites, 2× `react-hooks/exhaustive-deps` stable-setter sites). See A-22 amendment for full closure narrative.
+- **F7 Hostname inconsistency:** ✅ SHIPPED in Wave 8 (commit `<COMMIT_HASH_TBD>`). 4-file text replacement. See A-23 amendment.
 
 ---
 
@@ -446,13 +448,13 @@ If the external auditor surfaces findings not captured in F1..F15, the optional 
 
 | ID | Layer | Finding | Classification | Effort | Closure path | Mentor decision |
 |---|---|---|---|---|---|---|
-| **F1** | 1 | No ESLint config; `next lint` interactive | **ACTION** | S | Add `.eslintrc.json` (next/core-web-vitals preset) + `"lint"` npm script + GitHub Action gate | **TBD** |
-| **F2** | 1 | 7 npm audit vulns remaining | DOCUMENTED | — | Phase 6 `npm audit --force` major-bump cycle | None |
+| **F1** | 1 | No ESLint config; `next lint` interactive | ✅ **CLOSED** (Wave 8 `<COMMIT_HASH_TBD>`) | S | `.eslintrc.json` (next/core-web-vitals) + `"lint": "next lint"` script + dev-only deps eslint@^8.57.1 + eslint-config-next@^14.2.35 (Next 14-pinned); lint baseline 0E/0W after 14-finding mechanical closure | **SHIPPED** Wave 8 (see A-22) |
+| **F2** | 1 | 10 npm audit vulns (was 7; +3 from eslint dev-tree transitives) | DOCUMENTED | — | Phase 6 `npm audit --force` major-bump cycle. Production bundle UNAFFECTED — all dev-only deps. | None |
 | **F3** | 2 | 1 production `as any` (rehype-pretty-code shim) | NOTE | — | Third-party type-shim pattern; documented inline | None |
 | **F4** | 2 | 1 test `as any` (client-ip.test.ts) | NOTE | — | Test minimal-mock pattern, justified inline | None |
 | **F5** | 2 | 150 test `as never` (Vitest mocks) | NOTE | — | Vitest mock-typing convention | None |
 | **F6** | 2 | 53 production `console.warn/error` | NOTE | — | All context-prefixed, intentional (Pattern Catalog § 8) | None |
-| **F7** | 2 | **Production hostname inconsistency** (4 files) | **ACTION** | S | Replace `cybersec-blog.com` / `cybersec.blog` → `siberlab.dev` in robots.ts, sitemap.ts, cybernews route User-Agent, Footer mailto | **TBD** |
+| **F7** | 2 | **Production hostname inconsistency** (4 files) | ✅ **CLOSED** (Wave 8 `<COMMIT_HASH_TBD>`) | S | Migrated to `siberlab.dev` in robots.ts (sitemap URL), sitemap.ts (BASE_URL), cybernews route (User-Agent), Footer.tsx (mailto + visible text). Post-fix grep returns 0 stale references. | **SHIPPED** Wave 8 (see A-23) |
 | **F8** | 2 | 0 TODO/FIXME/HACK markers in source | NOTE | — | Clean discipline (deferrals tracked in audit docs) | None |
 | **F9** | 2 | 6 type/lint bypass comments, all justified | NOTE | — | Each carries inline rationale | None |
 | **F10** | 3 | All 13 cross-reference links resolve | NOTE | — | (Confirms Wave 7 doc quality) | None |
@@ -462,18 +464,19 @@ If the external auditor surfaces findings not captured in F1..F15, the optional 
 | **F14** | 5 | 8 active gap-tests in `src/lib/lab/` | DOCUMENTED | — | Wave 3 R-LAB closures + R-21 gap-test pattern; Phase 6 / future flip path documented per row | None |
 | **F15** | 5 | 448 `vi.mock` calls, module-boundary discipline | NOTE | — | Phase 1.D convention; consistent across test surface | None |
 
-**Totals:** 15 findings · 2 ACTION (F1, F7) · 6 DOCUMENTED · 7 NOTE.
+**Totals (initial):** 15 findings · 2 ACTION (F1, F7) · 6 DOCUMENTED · 7 NOTE.
+**Totals (post-Wave-8):** 15 findings · **0 ACTION (F1 + F7 CLOSED)** · 6 DOCUMENTED · 7 NOTE.
 
 ---
 
 ## Mentor decision matrix
 
-**Optional Wave 8 candidates (ACTION findings):**
+**Wave 8 ACTION findings — both SHIPPED (commit `<COMMIT_HASH_TBD>`):**
 
-| Finding | Closure scope | Effort | Risk | Recommendation |
+| Finding | Closure scope | Effort | Risk | Outcome |
 |---|---|---|---|---|
-| **F7 Production hostname** | 4-file text replace (robots.ts, sitemap.ts, cybernews route User-Agent, Footer) | S | Low | **Ship in Wave 8** — trivial fix, sitemap/robots crawler hygiene matters for SEO discoverability. |
-| **F1 ESLint config** | New `.eslintrc.json` + `"lint"` script + optional CI gate | S | Low | **Optional Wave 8** — adds value (catch future drift) but TS strict mode + existing test discipline + zero TODO markers indicate code quality is already high. Could defer to Phase 6 if Wave 8 budget tight. |
+| **F7 Production hostname** | 4-file text replace (robots.ts, sitemap.ts, cybernews route User-Agent, Footer mailto + visible text) | S | Low | ✅ **SHIPPED Wave 8** — sitemap/robots crawler hygiene restored. See A-23 amendment. |
+| **F1 ESLint config** | New `.eslintrc.json` + `"lint": "next lint"` script + dev-only deps (eslint@^8.57.1 + eslint-config-next@^14.2.35 pinned for Next 14 CLI compat) + 14-finding mechanical baseline closure (7 errors fixed via JSX-expression wrap + obsolete-disable removal; 7 warnings via per-line `eslint-disable-next-line` with inline rationale) → 0E/0W clean baseline. | S | Low | ✅ **SHIPPED Wave 8** — devDeps only, production bundle unaffected; A-22 amendment documents the Wave 8 mentor-error-correction lineage (4th + 5th instances in the catalog). |
 
 **Defer to Phase 6 (already-DEFERRED findings):**
 
@@ -485,21 +488,22 @@ If the external auditor surfaces findings not captured in F1..F15, the optional 
 
 ---
 
-## Recommendations
+## Recommendations — outcome
 
-### If mentor approves Wave 8
+**Wave 8 SHIPPED** (commit `<COMMIT_HASH_TBD>`). The "If mentor approves Wave 8" path below was chosen; F1 + F7 both closed.
 
-Scope F1 + F7 as a single doc+config cycle:
-- F7 fix: 4-file `sed`-style replace (or 4 small edits).
-- F1 fix: install `eslint-config-next` (already part of `next` dep tree, no new install needed), add `.eslintrc.json` with `{"extends": "next/core-web-vitals"}`, add `"lint": "next lint"` npm script.
-- Tests: ensure `npm run lint` passes (use `--max-warnings 0` flag in CI).
-- Audit doc: F7 noted in `phase-1-a-final.md` Section 8 alongside npm audit narrative; F1 noted as new ACTION resolution in `pending-amendments.md` (would be A-22).
+### Wave 8 closure narrative (post-hoc)
 
-Estimated cycle size: ~100-200 LOC across config + 4 source files + 1 audit doc note. 2-commit pattern preserved (Wave 8 fix + Wave 8.1 cleanup if `<COMMIT_HASH_TBD>` placeholders introduced).
+The original recommendation estimated ~100-200 LOC. Actual delta:
+- **Source / config changes:** ~16 lines across 7 files (4 hostname text-replaces in `robots.ts`/`sitemap.ts`/`cybernews/route.ts`/`Footer.tsx` + 4 JSX-expression wraps in `blog/page.tsx`/`Footer.tsx` + 3 obsolete disable-comment removals in `test/setup.ts` + 5 per-line `<img>` disables in `EmbeddedLogin.tsx`/`PortfolioWorkspace.tsx` + 2 per-line hooks disables in `Terminal.tsx` + 3 lines for `.eslintrc.json` + 1 line `package.json` script).
+- **Dev-tree install:** `package-lock.json` grew ~6,000 lines from 274 new dev-only packages (eslint + eslint-config-next + their transitives). Production bundle UNAFFECTED.
+- **Audit doc updates:** A-22 + A-23 amendment entries (~80 lines) + FINAL_SCAN_REPORT.md exec summary / findings table / mentor decision matrix updates.
 
-### If mentor defers and ships current state
+The recommendation's stated assumption that `eslint-config-next` was bundled in Next 14 turned out to be inaccurate — this was caught and resolved as Wave 8 mentor-error correction lineage instance 4 (operator-approved dev-only deps install). Lineage instance 5 occurred when the literal "// → {/* */}" plan would have erased visible UX decoration; A1 JSX-expression wrap interpretation was confirmed instead. Both lineage instances documented in A-22 amendment.
 
-The Wave 7 documentation already proactively discloses every limitation an auditor would catch. F1 and F7 are honest disclosures, not blockers — submit with this report appended as the final audit-trail artifact, and external auditor findings (Layer 8) can be addressed in operator-prioritized order post-submit.
+### Layer 8 still available
+
+External AI auditor pass (Layer 8) remains an operator-executed manual step. With Wave 8 ACTION findings closed, an external auditor pass against the current state should surface fewer findings — useful as a sanity check before final teslim.
 
 ---
 

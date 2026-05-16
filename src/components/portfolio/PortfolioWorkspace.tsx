@@ -116,6 +116,7 @@ function shouldKeepLocalProfile(current: PortfolioProfileRecord, incoming: Portf
 function CertificationPreview({ item }: { item: PortfolioCertificationRecord }) {
   const url = item.assetPath ? `/api/profile/certifications/assets/${item.id}` : ''
   if (item.assetPath && item.assetMimeType?.startsWith('image/')) {
+    // eslint-disable-next-line @next/next/no-img-element -- certification asset URL is dynamic + signed (15s TTL R-API-10); next/Image's static optimization not applicable
     return <img src={url} alt={item.title} className="h-full w-full object-cover" />
   }
   if (item.assetPath && item.assetMimeType === 'application/pdf') {
@@ -813,6 +814,7 @@ export default function PortfolioWorkspace({
               <div className="flex items-center gap-4">
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[22px] border border-emerald-400/20 bg-emerald-400/8">
                   {avatarSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- avatar served from signed Supabase Storage URL (15s TTL R-API-10); next/Image static-optimization not applicable to dynamic signed URLs
                     <img
                       src={avatarSrc}
                       alt={data.user.displayName}
@@ -902,6 +904,7 @@ export default function PortfolioWorkspace({
                     <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center">
                       <div className="h-24 w-24 shrink-0 overflow-hidden rounded-[28px] border border-emerald-400/18 bg-emerald-400/8">
                         {avatarSrc ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- signed-URL avatar, same rationale as L816
                           <img
                             src={avatarSrc}
                             alt={data.user.displayName}
@@ -983,6 +986,7 @@ export default function PortfolioWorkspace({
                 <div className="flex items-start gap-4">
                   <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[24px] border border-emerald-400/18 bg-emerald-400/8">
                     {avatarSrc ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- signed-URL avatar, same rationale as L816
                       <img
                         src={avatarSrc}
                         alt={data.user.displayName}

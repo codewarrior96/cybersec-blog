@@ -244,7 +244,7 @@ function parseFeed(xml: string, source: string): FeedItem[] {
 async function fetchFeed(feed: FeedSource): Promise<FeedItem[]> {
   const res = await fetch(feed.url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; CyberSecBlog/2.0; +https://cybersec.blog)',
+      'User-Agent': 'Mozilla/5.0 (compatible; siberlab/2.0; +https://siberlab.dev)',
       'Accept':     'application/rss+xml, application/xml, text/xml, */*',
     },
     signal: AbortSignal.timeout(FETCH_TIMEOUT),
