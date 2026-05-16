@@ -20,14 +20,14 @@ Single-cycle deliverable: simulate what an external AI code auditor (Claude / GP
 
 **Highlights**
 - Static analysis is clean: TypeScript zero errors, build succeeds, Vitest 530/530 preserved.
-- **Wave 8 closure (commit `<COMMIT_HASH_TBD>`):** Both ACTION findings shipped.
+- **Wave 8 closure (commit `9d0eca4`):** Both ACTION findings shipped.
   - **F1 ESLint:** `.eslintrc.json` + `npm run lint` script + dev-only deps (`eslint@^8.57.1` + `eslint-config-next@^14.2.35`, both Next 14-pinned). Lint baseline established at **0 errors, 0 warnings** after closing the 14-finding initial run (7 mechanical-fix errors + 7 per-line bypass-with-justification warnings).
   - **F7 Hostname:** all 4 stale-domain references migrated to canonical `siberlab.dev`. `grep -rn "cybersec-blog\.com\|cybersec\.blog" src/` returns 0 matches.
 - Remaining findings are either already-documented (npm audit deferrals, Yol A skips, gap-tests) or NOTE-class observations confirming existing discipline (single `as any` in production for a third-party type shim; 53 `console.warn`/`error` statements all carry context prefixes; zero TODO/FIXME/HACK markers).
 
 **Mentor decision points (resolved)**
-- **F1 ESLint config:** ✅ SHIPPED in Wave 8 (commit `<COMMIT_HASH_TBD>`). Option A locked: mechanical error fixes (4× JSX `{'// '}` expression wrap preserving UX, 2 obsolete `@typescript-eslint/*` disable comments removed) + per-line warning disables (5× `@next/next/no-img-element` decorative/signed-URL `<img>` sites, 2× `react-hooks/exhaustive-deps` stable-setter sites). See A-22 amendment for full closure narrative.
-- **F7 Hostname inconsistency:** ✅ SHIPPED in Wave 8 (commit `<COMMIT_HASH_TBD>`). 4-file text replacement. See A-23 amendment.
+- **F1 ESLint config:** ✅ SHIPPED in Wave 8 (commit `9d0eca4`). Option A locked: mechanical error fixes (4× JSX `{'// '}` expression wrap preserving UX, 2 obsolete `@typescript-eslint/*` disable comments removed) + per-line warning disables (5× `@next/next/no-img-element` decorative/signed-URL `<img>` sites, 2× `react-hooks/exhaustive-deps` stable-setter sites). See A-22 amendment for full closure narrative.
+- **F7 Hostname inconsistency:** ✅ SHIPPED in Wave 8 (commit `9d0eca4`). 4-file text replacement. See A-23 amendment.
 
 ---
 
@@ -448,13 +448,13 @@ If the external auditor surfaces findings not captured in F1..F15, the optional 
 
 | ID | Layer | Finding | Classification | Effort | Closure path | Mentor decision |
 |---|---|---|---|---|---|---|
-| **F1** | 1 | No ESLint config; `next lint` interactive | ✅ **CLOSED** (Wave 8 `<COMMIT_HASH_TBD>`) | S | `.eslintrc.json` (next/core-web-vitals) + `"lint": "next lint"` script + dev-only deps eslint@^8.57.1 + eslint-config-next@^14.2.35 (Next 14-pinned); lint baseline 0E/0W after 14-finding mechanical closure | **SHIPPED** Wave 8 (see A-22) |
+| **F1** | 1 | No ESLint config; `next lint` interactive | ✅ **CLOSED** (Wave 8 `9d0eca4`) | S | `.eslintrc.json` (next/core-web-vitals) + `"lint": "next lint"` script + dev-only deps eslint@^8.57.1 + eslint-config-next@^14.2.35 (Next 14-pinned); lint baseline 0E/0W after 14-finding mechanical closure | **SHIPPED** Wave 8 (see A-22) |
 | **F2** | 1 | 10 npm audit vulns (was 7; +3 from eslint dev-tree transitives) | DOCUMENTED | — | Phase 6 `npm audit --force` major-bump cycle. Production bundle UNAFFECTED — all dev-only deps. | None |
 | **F3** | 2 | 1 production `as any` (rehype-pretty-code shim) | NOTE | — | Third-party type-shim pattern; documented inline | None |
 | **F4** | 2 | 1 test `as any` (client-ip.test.ts) | NOTE | — | Test minimal-mock pattern, justified inline | None |
 | **F5** | 2 | 150 test `as never` (Vitest mocks) | NOTE | — | Vitest mock-typing convention | None |
 | **F6** | 2 | 53 production `console.warn/error` | NOTE | — | All context-prefixed, intentional (Pattern Catalog § 8) | None |
-| **F7** | 2 | **Production hostname inconsistency** (4 files) | ✅ **CLOSED** (Wave 8 `<COMMIT_HASH_TBD>`) | S | Migrated to `siberlab.dev` in robots.ts (sitemap URL), sitemap.ts (BASE_URL), cybernews route (User-Agent), Footer.tsx (mailto + visible text). Post-fix grep returns 0 stale references. | **SHIPPED** Wave 8 (see A-23) |
+| **F7** | 2 | **Production hostname inconsistency** (4 files) | ✅ **CLOSED** (Wave 8 `9d0eca4`) | S | Migrated to `siberlab.dev` in robots.ts (sitemap URL), sitemap.ts (BASE_URL), cybernews route (User-Agent), Footer.tsx (mailto + visible text). Post-fix grep returns 0 stale references. | **SHIPPED** Wave 8 (see A-23) |
 | **F8** | 2 | 0 TODO/FIXME/HACK markers in source | NOTE | — | Clean discipline (deferrals tracked in audit docs) | None |
 | **F9** | 2 | 6 type/lint bypass comments, all justified | NOTE | — | Each carries inline rationale | None |
 | **F10** | 3 | All 13 cross-reference links resolve | NOTE | — | (Confirms Wave 7 doc quality) | None |
@@ -471,7 +471,7 @@ If the external auditor surfaces findings not captured in F1..F15, the optional 
 
 ## Mentor decision matrix
 
-**Wave 8 ACTION findings — both SHIPPED (commit `<COMMIT_HASH_TBD>`):**
+**Wave 8 ACTION findings — both SHIPPED (commit `9d0eca4`):**
 
 | Finding | Closure scope | Effort | Risk | Outcome |
 |---|---|---|---|---|
@@ -490,7 +490,7 @@ If the external auditor surfaces findings not captured in F1..F15, the optional 
 
 ## Recommendations — outcome
 
-**Wave 8 SHIPPED** (commit `<COMMIT_HASH_TBD>`). The "If mentor approves Wave 8" path below was chosen; F1 + F7 both closed.
+**Wave 8 SHIPPED** (commit `9d0eca4`). The "If mentor approves Wave 8" path below was chosen; F1 + F7 both closed.
 
 ### Wave 8 closure narrative (post-hoc)
 

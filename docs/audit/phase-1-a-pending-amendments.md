@@ -215,7 +215,7 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
 - **Issue:** Project had no `.eslintrc*`, no `eslint.config.js`, no `npm run lint` script. `next lint` entered interactive install prompt on first invocation; CI did not enforce lint. The Final Tarama scan classified this as ACTION-S (small effort, infrastructure debt).
 - **Mentor-error correction lineage instance 4 (Wave 8):** the Wave 8 mega-prompt's stated precondition "eslint-config-next available via existing next dep tree, no new install" was inaccurate against repo state. Next 14.2.35 does NOT bundle `eslint` or `eslint-config-next` as dependencies — they have to be added explicitly. State gathering surfaced the discrepancy + STOP report issued to operator. Operator Option B locked: approve dev-only deps install. This is the 4th instance of the mentor-error correction protocol (Pattern Catalog § 4) — lineage 1: Phase 1.5.14.1 a1fa2b5 push status assumption; lineage 2: Phase 3.D Z.10 platform-backbone production state assumption; lineage 3: Wave 7 R-XX risk count assumption (caught pre-doc-publication via cross-check grep); lineage 4: this cycle.
 - **Mentor-error correction lineage instance 5 (Wave 8 cont'd):** during Group A1 execution, initial reading of the user plan was "literal `//` → `{/* */}`" — would have erased 4 visible decorative slashes from rendered blog heading + Footer tagline + 2 Footer section labels (siberhacker aesthetic per CLAUDE.md L77-78). STOP report issued; operator confirmed A1 JSX-expression wrap interpretation `{'// '}` which preserves UX while satisfying `react/jsx-no-comment-textnodes` rule. 5th lineage instance in cycle pattern.
-- **Resolution (Wave 8 commit `<COMMIT_HASH_TBD>`):** RESOLVED. Steps:
+- **Resolution (Wave 8 commit `9d0eca4`):** RESOLVED. Steps:
   - `npm install --save-dev eslint@^8.57.1 eslint-config-next@^14.2.35` — version pinning required: initial install pulled `eslint@9.x` + `eslint-config-next@16.x` which broke against Next 14.2.35's legacy `next lint` CLI options. Pinned to v8/v14 line.
   - `.eslintrc.json` created at repo root: `{ "extends": "next/core-web-vitals" }`.
   - `package.json` scripts: added `"lint": "next lint"`.
@@ -232,7 +232,7 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
   - `src/app/sitemap.ts:4` — `const BASE_URL = 'https://cybersec-blog.com'` (all sitemap entries used stale base)
   - `src/app/api/cybernews/route.ts:247` — outbound `User-Agent` header referenced `+https://cybersec.blog` (visible to upstream RSS feed providers' analytics only)
   - `src/components/Footer.tsx:94,97` — mailto link + visible text `hello@cybersec.blog` (broken contact path for site visitors)
-- **Resolution (Wave 8 commit `<COMMIT_HASH_TBD>`):** RESOLVED via 4-file text replacement. Each occurrence migrated to `siberlab.dev`:
+- **Resolution (Wave 8 commit `9d0eca4`):** RESOLVED via 4-file text replacement. Each occurrence migrated to `siberlab.dev`:
   - `robots.ts:6`: sitemap URL → `https://siberlab.dev/sitemap.xml`
   - `sitemap.ts:4`: BASE_URL → `'https://siberlab.dev'`
   - `cybernews/route.ts:247`: User-Agent string updated to `'Mozilla/5.0 (compatible; siberlab/2.0; +https://siberlab.dev)'`
