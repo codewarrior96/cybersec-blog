@@ -194,7 +194,12 @@ export default function NavigationBar({
         <div className="nb2-mobile-tools">
           <button
             type="button"
-            className="nb2-menu-btn"
+            // R-UI-06 closure (Wave 5A): WCAG 2.5.5 Target Size — at
+            // minimum 44×44 CSS pixels for mobile touch targets. The
+            // hamburger button stays visually compact via internal
+            // padding; min-h/min-w Tailwind utilities enforce the
+            // accessibility floor without changing the visible glyph.
+            className="nb2-menu-btn min-h-[44px] min-w-[44px]"
             onClick={() => setDrawerOpen((value) => !value)}
             aria-label={drawerOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={drawerOpen}
@@ -229,7 +234,7 @@ export default function NavigationBar({
                   <span id={titleId} className="nb2-brand-title">BREACH TERMINAL</span>
                 </div>
               </div>
-              <button type="button" className="nb2-close" onClick={() => setDrawerOpen(false)} aria-label="Close menu">
+              <button type="button" className="nb2-close min-h-[44px] min-w-[44px]" onClick={() => setDrawerOpen(false)} aria-label="Close menu">
                 X
               </button>
             </div>
@@ -242,7 +247,9 @@ export default function NavigationBar({
                     key={link.href}
                     href={link.href}
                     prefetch
-                    className={`nb2-drawer-link ${active ? 'is-active' : ''}`}
+                    // R-UI-06 closure (Wave 5A): drawer link touch
+                    // targets meet WCAG 2.5.5 minimum 44px height.
+                    className={`nb2-drawer-link min-h-[44px] ${active ? 'is-active' : ''}`}
                     aria-current={active ? 'page' : undefined}
                   >
                     <svg className="nb2-caret" width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">

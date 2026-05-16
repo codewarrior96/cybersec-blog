@@ -2109,6 +2109,13 @@ export default function DashboardLayout() {
 
   return (
     <div className="relative flex min-h-[calc(100dvh-64px)] flex-col bg-[#000102] font-sans text-slate-300 selection:bg-emerald-900/60 selection:text-emerald-50 md:min-h-[calc(100vh-64px)]">
+      {/* R-UI-05 closure (Wave 5A): screen-reader-only h1 anchors the
+          heading hierarchy. Frame's <h2> per-panel headings cascade
+          below this h1 (axe heading-order rule pass: no h2 without h1).
+          Visually hidden via sr-only — preserves cybersecurity hacker
+          aesthetic (no rendered text at top of dashboard) while
+          providing AT users with semantic context. */}
+      <h1 className="sr-only">SOC Sentinel Dashboard</h1>
       {criticalOverlayActive && (
         <CriticalOverlayFx cycle={criticalOverlayCycle} />
       )}

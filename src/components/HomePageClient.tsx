@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import EmbeddedLogin from '@/components/EmbeddedLogin'
 import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton'
+import { SectionErrorBoundary } from '@/components/SectionErrorBoundary'
 import { useAuthStatus } from '@/lib/auth-client'
 
 const DashboardLayout = dynamic(() => import('@/components/dashboard/DashboardLayout'), {
@@ -100,6 +101,21 @@ export default function HomePageClient({ initialAuth }: HomePageClientProps) {
   }
 
   if (authStatus) {
+    // R-UI-10 closure (Wave 5A): per-section ErrorBoundary wrapping.
+    // The legacy single top-level ErrorBoundary class (defined L24-41
+    // in this file pre-Wave-5A) is preserved as the OUTER guard for
+    // catastrophic mount failures. The NEW inner SectionErrorBoundary
+    // isolates DashboardLayout-specific failures so a future per-
+    // panel sub-failure (TelemetryStream, GlobalMap, CriticalAlert,
+    // AttackReportModal) can be wrapped at finer granularity without
+    // re-architecting HomePageClient. For now we wrap the
+    // DashboardLayout as a single section; finer-grained wrapping
+    // is a future-cycle decision once specific panel failures surface
+    // in production observability.
+    // SENIOR ARCHITECT NOTE: nesting boundaries (outer + inner) is
+    // intentional — React Error Boundaries don't catch errors thrown
+    // IN their own fallback render path. Outer ErrorBoundary is the
+    // belt; SectionErrorBoundary is the suspenders.
     return (
       <ErrorBoundary
         fallback={
@@ -108,7 +124,9 @@ export default function HomePageClient({ initialAuth }: HomePageClientProps) {
           </div>
         }
       >
-        {dashboardReady ? <DashboardLayout /> : <DashboardSkeleton />}
+        <SectionErrorBoundary section="SOC Dashboard">
+          {dashboardReady ? <DashboardLayout /> : <DashboardSkeleton />}
+        </SectionErrorBoundary>
       </ErrorBoundary>
     )
   }

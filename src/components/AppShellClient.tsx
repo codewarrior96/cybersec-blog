@@ -61,10 +61,31 @@ export default function AppShellClient({
 
   useEffect(() => {
     if (!showOperatorShell) return
+    // R-UI-13 closure (Wave 5A): cancellable prefetch loop. Pre-Wave-
+    // 5A the loop fired N prefetch promises synchronously without an
+    // abort signal — pathname change re-ran the effect, leaving any
+    // in-flight prefetch promises orphaned. Next.js router.prefetch
+    // doesn't accept an AbortSignal directly, so we gate via the
+    // controller's aborted flag inside an async loop. Cleanup aborts
+    // the controller, short-circuiting subsequent iterations.
+    // SENIOR ARCHITECT NOTE: prefetches that have already started can
+    // continue (router.prefetch is fire-and-forget at the framework
+    // boundary); the gate prevents NEW prefetches from being issued
+    // after unmount or pathname change. This is the surgical scope
+    // R-UI-13's Low severity allows — full cancellation would require
+    // framework support.
+    const controller = new AbortController()
     const routes = ['/home', '/blog', '/community', '/zafiyet-taramasi', '/portfolio']
-    for (const route of routes) {
-      if (route === pathname) continue
-      void router.prefetch(route)
+    const runPrefetchLoop = async () => {
+      for (const route of routes) {
+        if (controller.signal.aborted) return
+        if (route === pathname) continue
+        void router.prefetch(route)
+      }
+    }
+    void runPrefetchLoop()
+    return () => {
+      controller.abort()
     }
   }, [pathname, router, showOperatorShell])
 

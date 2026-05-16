@@ -15,7 +15,7 @@
 //   - createPortal target is document.body (not arbitrary)
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, act } from '@testing-library/react'
+import { render, act, fireEvent } from '@testing-library/react'
 import ToastContainer, { type Toast } from '@/components/dashboard/Toast'
 
 describe('Toast — Wave 3 R-UI-14 closure (portal mount gating)', () => {
@@ -70,6 +70,81 @@ describe('Toast — Wave 3 R-UI-14 closure (portal mount gating)', () => {
       vi.advanceTimersByTime(4300)
     })
     expect(onDismiss).toHaveBeenCalledWith('auto-dismiss')
+    unmount()
+    vi.useRealTimers()
+  })
+
+  // ─── Wave 5A R-UI-07 closure: hover/focus pause ─────────────────────────────
+
+  it('T-TP-HOVER — mouseenter on toast pauses dismiss timer (does NOT call onDismiss after duration)', () => {
+    // R-UI-07 closure: hovering the toast pauses the dismiss countdown.
+    // The user (mouse-operator OR screen-reader-active operator who's
+    // hovering for slower reading) keeps the toast visible while
+    // attending. After leaving, the timer resumes.
+    vi.useFakeTimers()
+    const onDismiss = vi.fn()
+    const toasts: Toast[] = [
+      { id: 'hover-paused', kind: 'investigate', incidentId: 'INC-H' },
+    ]
+    const { container, unmount } = render(<ToastContainer toasts={toasts} onDismiss={onDismiss} />)
+    const toastEl = container.ownerDocument.body.querySelector('[role="status"]')!
+    // Hover the toast — pauses timer
+    fireEvent.mouseEnter(toastEl)
+    // Advance well beyond TOAST_DURATION_MS+TOAST_FADE_MS — should NOT
+    // dismiss because hover-pause kept the timer cleared.
+    act(() => {
+      vi.advanceTimersByTime(6_000)
+    })
+    expect(onDismiss).not.toHaveBeenCalled()
+    unmount()
+    vi.useRealTimers()
+  })
+
+  it('T-TP-FOCUS — focus on toast pauses dismiss timer (keyboard user pause path)', () => {
+    // R-UI-07 closure: keyboard users who tab onto a toast (e.g., via
+    // screen-reader virtual cursor or explicit Tab) pause the timer
+    // via the focus path. Mirrors T-TP-HOVER for the non-mouse case.
+    vi.useFakeTimers()
+    const onDismiss = vi.fn()
+    const toasts: Toast[] = [
+      { id: 'focus-paused', kind: 'contain', incidentId: 'INC-F' },
+    ]
+    const { container, unmount } = render(<ToastContainer toasts={toasts} onDismiss={onDismiss} />)
+    const toastEl = container.ownerDocument.body.querySelector('[role="status"]')!
+    fireEvent.focus(toastEl)
+    act(() => {
+      vi.advanceTimersByTime(6_000)
+    })
+    expect(onDismiss).not.toHaveBeenCalled()
+    unmount()
+    vi.useRealTimers()
+  })
+
+  it('T-TP-RESUME — mouseleave after pause resumes dismiss timer (mouseenter → mouseleave → eventual dismiss)', () => {
+    // R-UI-07 closure: leaving the toast restarts the timer with full
+    // TOAST_DURATION_MS budget. Locks the contract: pause is not
+    // permanent; the toast does eventually dismiss after the user
+    // stops attending.
+    vi.useFakeTimers()
+    const onDismiss = vi.fn()
+    const toasts: Toast[] = [
+      { id: 'resume-test', kind: 'promote', incidentId: 'INC-R' },
+    ]
+    const { container, unmount } = render(<ToastContainer toasts={toasts} onDismiss={onDismiss} />)
+    const toastEl = container.ownerDocument.body.querySelector('[role="status"]')!
+    // Hover (pause)
+    fireEvent.mouseEnter(toastEl)
+    act(() => {
+      vi.advanceTimersByTime(2_000) // 2s pause window
+    })
+    expect(onDismiss).not.toHaveBeenCalled()
+    // Leave (resume)
+    fireEvent.mouseLeave(toastEl)
+    // Now advance past the full timer budget — resumed timer should fire
+    act(() => {
+      vi.advanceTimersByTime(4_300)
+    })
+    expect(onDismiss).toHaveBeenCalledWith('resume-test')
     unmount()
     vi.useRealTimers()
   })

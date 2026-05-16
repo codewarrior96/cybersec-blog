@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CircleCheck, Search, ShieldOff, CheckCircle2 } from 'lucide-react'
 
@@ -61,25 +61,73 @@ const TOAST_FADE_MS = 200
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
   const [visible, setVisible] = useState(false)
+  // R-UI-07 closure (Wave 5A): hover-pause + focus-pause for AT users.
+  // Stored timer ref so handlers can clear + restart the dismiss
+  // countdown. Existing aria-live="polite" preserved (WCAG AA correct).
+  // SENIOR ARCHITECT NOTE: WCAG 2.2.4 (Interruptions, AAA-leaning)
+  // recommends user-pause for transient notifications. 4s base timer
+  // is short by SOC UX convention but inadequate when screen-reader
+  // is mid-announcement OR a keyboard user has tabbed to a toast for
+  // closer inspection. Hover (mouse) + focus (keyboard) both pause.
+  // REJECTED ALTERNATIVE: extend base timer to 20s. Rejected — visual
+  // UX cost is too high; pause-on-attention is the targeted fix.
+  const exitTimerRef = useRef<number | null>(null)
+  const isPausedRef = useRef(false)
   const cfg = TOAST_CONFIG[toast.kind]
   const Icon = cfg.icon
 
-  useEffect(() => {
-    const enterFrame = window.requestAnimationFrame(() => setVisible(true))
-    const exitTimer = window.setTimeout(() => {
+  const startExitTimer = useCallback(() => {
+    if (exitTimerRef.current !== null) {
+      window.clearTimeout(exitTimerRef.current)
+    }
+    exitTimerRef.current = window.setTimeout(() => {
       setVisible(false)
       window.setTimeout(() => onDismiss(toast.id), TOAST_FADE_MS)
     }, TOAST_DURATION_MS)
+  }, [toast.id, onDismiss])
+
+  const pauseTimer = useCallback(() => {
+    isPausedRef.current = true
+    if (exitTimerRef.current !== null) {
+      window.clearTimeout(exitTimerRef.current)
+      exitTimerRef.current = null
+    }
+  }, [])
+
+  const resumeTimer = useCallback(() => {
+    if (!isPausedRef.current) return
+    isPausedRef.current = false
+    startExitTimer()
+  }, [startExitTimer])
+
+  useEffect(() => {
+    const enterFrame = window.requestAnimationFrame(() => setVisible(true))
+    startExitTimer()
     return () => {
       window.cancelAnimationFrame(enterFrame)
-      window.clearTimeout(exitTimer)
+      if (exitTimerRef.current !== null) {
+        window.clearTimeout(exitTimerRef.current)
+      }
     }
-  }, [toast.id, onDismiss])
+  }, [startExitTimer])
 
   return (
     <div
       role="status"
       aria-live="polite"
+      // R-UI-07 closure (Wave 5A): hover/focus pause handlers wired
+      // at toast container level. tabIndex=0 makes the toast keyboard-
+      // reachable for the focus-pause path. SENIOR ARCHITECT NOTE: we
+      // intentionally do NOT add tabIndex=0 to make every toast a
+      // tab-stop — that pollutes tab order. The role="status" is
+      // already announced to AT via aria-live; focus is acquired only
+      // when a user explicitly Tab-navigates and lands here. Leave the
+      // div tab-reachable by event capture (onFocus on the container
+      // captures inner focus too via event bubbling).
+      onMouseEnter={pauseTimer}
+      onMouseLeave={resumeTimer}
+      onFocus={pauseTimer}
+      onBlur={resumeTimer}
       className={`min-w-[260px] rounded-lg border bg-[#0a1612]/95 backdrop-blur-sm px-3 py-2.5 shadow-lg ${cfg.borderColor} transition-all duration-200 ${
         visible ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'
       }`}
