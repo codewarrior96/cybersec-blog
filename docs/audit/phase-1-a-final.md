@@ -429,7 +429,7 @@ Phase 1.C creates Resend MSW handler variants. Phase 1.D writes test cases per S
 
 Recorded as a standing reference. `npm audit` baseline at Wave 6 entry: **11 vulnerabilities (4 moderate, 7 high)**. Wave 6 applied `npm audit fix` (patch-level only — `--force` deliberately not run per yasaklar, since it would install `next@16.2.6` and `react-simple-maps@1.0.0` as breaking semver-major bumps).
 
-**Delta after Wave 6 commit `<COMMIT_HASH_TBD>`:** 11 → 7 vulnerabilities. Resolved 4 (3 moderate + 1 high) via non-breaking transitive bumps:
+**Delta after Wave 6 commit `fd88d15`:** 11 → 7 vulnerabilities. Resolved 4 (3 moderate + 1 high) via non-breaking transitive bumps:
 
 - `brace-expansion` (moderate, ReDoS / process-hang) — patched in-place via transitive bump.
 - `ip-address` (moderate, XSS via `Address6` HTML-emitting methods) — patched in-place.
