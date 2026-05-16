@@ -108,16 +108,15 @@ describe('CriticalAlertPanel — Wave 2A R-UI-04 closure (emoji-as-icon a11y)', 
     // SENIOR ARCHITECT NOTE: axe is scoped to rules R-UI-04 owns —
     // image-alt + aria-allowed-attr + aria-valid-attr-value +
     // role-img-alt — verifying the emoji wrap closure works as
-    // intended for AT consumers. A broader axe sweep on this panel
-    // surfaces an UNRELATED button-name violation (dismiss buttons
-    // missing aria-label) discovered during Wave 2A test writing.
-    // That finding is OUT OF WAVE 2A SCOPE per the mega-prompt
-    // yasaklar — documented in T-CAP-A11-GAP below + final report.
-    // Per R-21 pattern: lock current state with a gap-test; future
-    // cycle adds the new R-UI-NN risk + fix.
-    // REJECTED ALTERNATIVE: run axe broad with `disableOtherRules` =
-    // false — produces false-failure on the button-name vector that
-    // R-UI-04 doesn't own. Scoping is honest, not masking.
+    // intended for AT consumers.
+    //
+    // Wave 6 update: `button-name` rule is now ENABLED — the
+    // out-of-scope discovery from Wave 2A (X close button missing
+    // aria-label) was closed in Wave 6 (see T-CAP-A11-DISMISS below
+    // for the dedicated regression guard). Keeping `button-name`
+    // enabled here serves as a secondary check: if any future
+    // refactor reintroduces a button without an accessible name,
+    // this scope-clean smoke fires.
     const onReport = vi.fn()
     const onDismiss = vi.fn()
     const onClose = vi.fn()
@@ -138,10 +137,10 @@ describe('CriticalAlertPanel — Wave 2A R-UI-04 closure (emoji-as-icon a11y)', 
         'aria-valid-attr-value': { enabled: true },
         'aria-valid-attr': { enabled: true },
         'role-img-alt': { enabled: true },
-        // Out of Wave 2A scope (documented in T-CAP-A11-GAP):
-        'button-name': { enabled: false },
+        // Wave 6: re-enabled after T-CAP-A11-DISMISS closure.
+        'button-name': { enabled: true },
         // Out of scope: every other rule disabled to keep this a
-        // PRECISE R-UI-04 contract assertion.
+        // PRECISE R-UI-04 + button-name contract assertion.
         region: { enabled: false },
         'landmark-one-main': { enabled: false },
         'page-has-heading-one': { enabled: false },
@@ -151,22 +150,28 @@ describe('CriticalAlertPanel — Wave 2A R-UI-04 closure (emoji-as-icon a11y)', 
     expect(results).toHaveNoViolations()
   })
 
-  it('T-CAP-A11-GAP — button-name violation locked (out-of-scope discovery, R-21 pattern)', async () => {
-    // Wave 2A discovered an UNRELATED a11y violation during R-UI-04
-    // test writing: dismiss/close buttons inside CriticalAlertPanel
-    // have no aria-label. axe surfaces this as a "button-name" rule
-    // violation ("Buttons must have discernible text"). This gap-test
-    // locks the current state (R-21 pattern — Phase 1 lineage):
-    //   - Asserts the violation EXISTS today
-    //   - Flips to red if a future cycle (Wave 2B+ or housekeeping)
-    //     fixes the button-name issue, prompting deletion of this
-    //     gap-test and addition of a regression-guard test
-    //   - Honesty: we don't pretend the violation isn't there
-    // SENIOR ARCHITECT NOTE: this is the same pattern as T-MO-CHMOD-
-    // EQ-GAP from Phase 2.D (locks deviant chmod = behavior pending
-    // future POSIX-compliant fix). Future R-UI-NN entry can be added
-    // to Phase 4.A audit doc in a future audit cycle; Wave 2A keeps
-    // audit-doc edits scoped to the 4 named risks.
+  it('T-CAP-A11-DISMISS — dismiss button-name violation RESOLVED (was gap-test T-CAP-A11-GAP, Wave 6 flip)', async () => {
+    // Wave 6 closure: this test was T-CAP-A11-GAP in Wave 2A, where it
+    // asserted that a `button-name` violation EXISTED today (R-21 gap-test
+    // pattern — Phase 1 lineage). The violation was: the X close button in
+    // the panel header had no accessible name (icon-only, no aria-label).
+    //
+    // Wave 6 added `aria-label="Kritik uyarı panelini kapat"` to that
+    // button + `aria-hidden="true"` on the inner <X /> icon. This test
+    // is FLIPPED: the assertion now verifies that NO button-name
+    // violation exists.
+    //
+    // SENIOR ARCHITECT NOTE: 2nd gap-test → regression-guard lifecycle
+    // transition in the project's pattern catalog (1st: Wave 2B
+    // T-MO-CHMOD-EQ-GAP → T-MO-CHMOD-EQ01). Renamed from T-CAP-A11-GAP
+    // to T-CAP-A11-DISMISS so the audit-trail lineage stays grep-able
+    // (search for "T-CAP-A11" finds both the broad smoke + this
+    // dedicated dismiss guard).
+    //
+    // REJECTED ALTERNATIVE: delete this test, rely on T-CAP-A11 (broad
+    // smoke) alone. Rejected — a dedicated regression-guard test makes
+    // the closure intent self-documenting + preserves the historical
+    // pattern lineage. Both tests cost ~30ms in CI, negligible.
     const onReport = vi.fn()
     const onDismiss = vi.fn()
     const onClose = vi.fn()
@@ -181,18 +186,17 @@ describe('CriticalAlertPanel — Wave 2A R-UI-04 closure (emoji-as-icon a11y)', 
     )
     const results = await axe(container, {
       rules: {
-        // Only check button-name; locks current violation state
+        // Only check button-name; this is the dedicated regression guard
         'button-name': { enabled: true },
-        // Disable all other rules to keep the gap-test precise
+        // Disable all other rules to keep the assertion precise
         region: { enabled: false },
         'landmark-one-main': { enabled: false },
         'page-has-heading-one': { enabled: false },
         'color-contrast': { enabled: false },
       },
     })
-    // Current state: violation present. Future fix: flip to
-    // `expect(results.violations).toHaveLength(0)` after closure.
-    expect(results.violations.length).toBeGreaterThan(0)
-    expect(results.violations.some((v) => v.id === 'button-name')).toBe(true)
+    // Wave 6: assertion FLIPPED — violation must be GONE now.
+    expect(results).toHaveNoViolations()
+    expect(results.violations.some((v) => v.id === 'button-name')).toBe(false)
   })
 })

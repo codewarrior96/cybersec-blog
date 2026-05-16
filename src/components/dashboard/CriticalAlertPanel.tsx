@@ -207,9 +207,17 @@ export default function CriticalAlertPanel({
             )}
             <button
               onClick={onClose}
+              aria-label="Kritik uyarı panelini kapat"
               className="text-slate-400 hover:text-red-400 transition-colors p-1"
             >
-              <X className="w-4 h-4" />
+              {/* T-CAP-A11 closure (Wave 6): the icon is decorative; the
+                  accessible name lives on the parent button via aria-label.
+                  Wave 2A's T-CAP-A11-GAP locked the missing-name state as
+                  a regression guard; Wave 6 flips it to T-CAP-A11
+                  regression-guard (2nd gap-test → regression-guard
+                  lifecycle transition in the pattern catalog; 1st was
+                  Wave 2B T-MO-CHMOD-EQ-GAP → EQ01). */}
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         </div>
