@@ -1,0 +1,68 @@
+# E2E (Playwright) — Wave 4A (Phase 5.B per Z.7).
+#
+# Initial state: gated to workflow_dispatch ONLY. Auto-trigger on
+# main push activates AFTER Wave 4B test cases land + first green
+# run is observed (operator flips the gate by removing the
+# `if: github.event_name == 'workflow_dispatch'` clause).
+#
+# Z.10 — production baseline: tests run against siberlab.dev. No
+# Vercel preview URL handling (URLs are non-deterministic per PR).
+#
+# Secret required (operator manual setup):
+#   - Settings → Secrets and variables → Actions
+#   - Add `TEST_USER_PASSWORD` with a strong password meeting
+#     identity-validation.ts rules (≥8 chars, mixed case, digit,
+#     symbol). Used by makeEphemeralUser() fallback.
+
+name: E2E (Playwright)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Initial gate per Wave 4A: workflow ships but only runs on manual
+    # dispatch until Wave 4B test cases are merged. Operator removes
+    # this conditional after Wave 4B green run to enable auto-trigger
+    # on main push.
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+
+    env:
+      PLAYWRIGHT_BASE_URL: https://siberlab.dev
+      TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+      # CI=true is implicit on GitHub Actions; Playwright config reads
+      # it to gate retries / serial workers / github reporter.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install Chromium browser
+        # --with-deps installs system libraries Chromium needs on Ubuntu
+        # (libgtk-3, libnss3, etc.). Sudo-able on GitHub-hosted runners.
+        run: npx playwright install chromium --with-deps
+
+      - name: Run Playwright tests
+        run: npx playwright test
+
+      - name: Upload failure report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

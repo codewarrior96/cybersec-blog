@@ -35,3 +35,11 @@ docs/personal/
 
 # Test coverage output
 coverage/
+
+# Playwright E2E (Wave 4A)
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/e2e/_storage/*.json
+.env.test.local

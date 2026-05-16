@@ -1,0 +1,11 @@
+# e2e/_storage/ — Playwright storageState files (gitignored)
+#
+# This directory persists across runs but its contents (*.json) are
+# gitignored per .gitignore Wave 4A entry. The .gitkeep marker keeps
+# the directory itself in version control so test setup can write
+# storageState files here without needing to mkdir.
+#
+# Z.6 — hybrid storageState pattern:
+#   - operator.json — shared logged-in state for happy-path tests
+#     (J-2 Lab solve, J-3 portfolio CRUD)
+#   - Negative-path tests fresh-login per test (no shared state)
