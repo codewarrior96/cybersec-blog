@@ -56,13 +56,16 @@ export async function registerAndLogin(
   const ephemeralUser = user ?? makeEphemeralUser()
   await mockResend(page)
 
-  // 1) Register
-  // Selectors are placeholder — Wave 4B confirms against actual form.
+  // 1) Register — Wave 4B selectors confirmed against EmbeddedRegister.tsx.
+  // Form has NO <label> elements; selectors use placeholder text
+  // (Turkish) which matches the production siberlab.dev render.
   await page.goto('/register')
-  await page.getByLabel(/e-?mail|e-?posta/i).fill(ephemeralUser.email)
-  await page.getByLabel(/username|kullanıcı adı/i).fill(ephemeralUser.username)
-  await page.getByLabel(/password|parola|şifre/i).first().fill(ephemeralUser.password)
-  await page.getByRole('button', { name: /kayıt|register|sign up/i }).click()
+  await page.getByPlaceholder('ornek_kullanici').fill(ephemeralUser.username)
+  await page.getByPlaceholder('Profilinizde görünecek ad').fill(ephemeralUser.displayName)
+  await page.getByPlaceholder('ornek@email.com').fill(ephemeralUser.email)
+  await page.getByPlaceholder('En az 8 karakter').fill(ephemeralUser.password)
+  await page.getByPlaceholder('Şifrenizi tekrar giriniz').fill(ephemeralUser.password)
+  await page.getByRole('button', { name: /hesap oluştur/i }).click()
 
   // 2) Wait briefly for async dispatch to Resend (client-side intercept
   // captures the payload). Real wait time depends on Vercel cold-start;
@@ -90,11 +93,13 @@ export async function registerAndLogin(
     })
   }
 
-  // 5) Login
+  // 5) Login — selectors confirmed against EmbeddedLogin.tsx.
+  // Username field uses Turkish placeholder; password autocompletes
+  // via type="password" + autoComplete="current-password" attribute.
   await page.goto('/login')
-  await page.getByLabel(/username|kullanıcı adı/i).fill(ephemeralUser.username)
-  await page.getByLabel(/password|parola|şifre/i).fill(ephemeralUser.password)
-  await page.getByRole('button', { name: /giriş|login|sign in/i }).click()
+  await page.getByPlaceholder('Kullanıcı adınızı giriniz').fill(ephemeralUser.username)
+  await page.getByPlaceholder('Şifrenizi giriniz').fill(ephemeralUser.password)
+  await page.getByRole('button', { name: /^giriş yap$/i }).click()
 
   return { user: ephemeralUser, verificationLink }
 }
