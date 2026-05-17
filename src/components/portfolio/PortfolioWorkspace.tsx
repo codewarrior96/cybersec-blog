@@ -932,13 +932,15 @@ export default function PortfolioWorkspace({
     <div className="route-page-frame py-6 md:py-8">
       <section className="route-hero">
         <div className="border-b px-5 py-8 md:px-8 md:py-10" style={{ borderColor: 'rgb(var(--route-accent-rgb) / 0.12)' }}>
-          {/* Wave 14.D (Z.17): label promoted from route-kicker to h1.
-              Prior h1 + subtitle were redundant with this label (operator
-              UX). Capstone-grade siberhacker aesthetic: mono font + ALL
-              CAPS + widened tracking + neon green palette
-              (--route-accent-rgb) + glow. */}
+          {/* Wave 14.D (Z.17) + Wave 14.E layout repair: label promoted
+              from route-kicker to h1. Prior h1 + subtitle were redundant
+              with this label. Capstone-grade siberhacker aesthetic: mono
+              font + ALL CAPS + widened tracking + neon green palette
+              (--route-accent-rgb) + glow. Wave 14.E adds an accent
+              underline + explicit display:block min-width:0 so the h1
+              cannot collapse under any pathological viewport conditions. */}
           <h1
-            className="font-mono text-2xl font-bold uppercase leading-tight md:text-4xl"
+            className="block w-full font-mono text-2xl font-bold uppercase leading-tight md:text-4xl"
             style={{
               color: 'rgb(var(--route-accent-rgb))',
               letterSpacing: '0.24em',
@@ -947,6 +949,14 @@ export default function PortfolioWorkspace({
           >
             Portfolio Control Surface
           </h1>
+          <div
+            aria-hidden="true"
+            className="mt-3 h-px w-24 md:w-32"
+            style={{
+              background: 'linear-gradient(90deg, rgb(var(--route-accent-rgb)) 0%, rgb(var(--route-accent-rgb) / 0) 100%)',
+              boxShadow: '0 0 12px rgb(var(--route-accent-rgb) / 0.6)',
+            }}
+          />
         </div>
 
         <div className="border-b px-5 py-4 md:px-8" style={{ borderColor: 'rgb(var(--route-accent-rgb) / 0.12)' }}>
@@ -1000,8 +1010,15 @@ export default function PortfolioWorkspace({
           )}
 
           {tab === 'profile' && (
+            // Wave 14.E layout repair: min-w-0 on grid items prevents
+            // CSS Grid's default min-width:auto from expanding either
+            // column past its allocated fraction when an interior
+            // element (notably the bio paragraph with a long unbroken
+            // string) has a wide min-content. Without min-w-0, grid
+            // honors min-content and steals width from the sibling
+            // column → sol kolon collapsed to ~250px in production.
             <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="rounded-[28px] border border-white/8 bg-black/30 p-5 md:p-6">
+              <div className="min-w-0 rounded-[28px] border border-white/8 bg-black/30 p-5 md:p-6">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="md:col-span-2 rounded-[24px] border border-white/8 bg-black/20 p-4">
                     <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-emerald-300/55">
@@ -1125,7 +1142,11 @@ export default function PortfolioWorkspace({
                 </div>
                 {canEdit && <button type="button" onClick={() => void saveProfile()} disabled={saving} className={`mt-4 ${primaryButtonClass}`}>{saving ? 'Kaydediliyor' : 'Profili Kaydet'}</button>}
               </div>
-              <div className="rounded-[28px] border border-white/8 bg-black/20 p-6">
+              {/* Wave 14.E: min-w-0 on right grid item (preview) — pairs
+                  with left-item min-w-0 above so neither column can
+                  expand past its fractional track when bio long-string
+                  content tries to dictate min-width. */}
+              <div className="min-w-0 rounded-[28px] border border-white/8 bg-black/20 p-6">
                 <div className="flex items-start gap-4">
                   <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[24px] border border-emerald-400/18 bg-emerald-400/8">
                     {avatarSrc ? (
@@ -1171,7 +1192,15 @@ export default function PortfolioWorkspace({
                     </div>
                   </div>
                 )}
-                <p className="mt-5 whitespace-pre-wrap break-words text-sm leading-7 text-slate-300/85">{profileForm.bio || 'Biyografi burada gorunur.'}</p>
+                {/* Wave 14.E: [overflow-wrap:anywhere] is the more
+                    aggressive cousin of `break-words` — it affects
+                    min-content calculation (unlike break-word/break-words)
+                    so the parent grid item's min-w-0 actually engages
+                    when the bio is a long unbroken string. Belt-and-
+                    suspenders pair: min-w-0 on the grid item + this rule
+                    on the text node. Tailwind 3 arbitrary value, no
+                    new dep. */}
+                <p className="mt-5 whitespace-pre-wrap [overflow-wrap:anywhere] text-sm leading-7 text-slate-300/85">{profileForm.bio || 'Biyografi burada gorunur.'}</p>
 
                 <div className="mt-6 grid gap-4 xl:grid-cols-2">
                   <div className="rounded-[22px] border border-emerald-400/14 bg-emerald-400/[0.04] p-4">
