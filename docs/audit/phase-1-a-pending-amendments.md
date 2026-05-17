@@ -456,13 +456,13 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
 
 ### A-29 — UI polish: bio overflow + preview username removal + header refactor (Wave 14 Faz 14.D)
 
-- **Status:** RESOLVED in Wave 14.D commit `<COMMIT_HASH_TBD>`
+- **Status:** RESOLVED in Wave 14.D commit `18674c5`
 - **Origin:** Wave 14.C post-deploy operator smoke. Three independent UI issues surfaced after the system-wide `display_name` removal:
   1. Bio textarea accepted unbounded input; long unbroken paste-strings overflowed horizontally → broke right-column preview layout.
   2. Right preview card showed a redundant 3rd line (`<p>{data.user.username}</p>` below heading + location) — leftover from Wave 14.C's `@username` prefix removal at the same site.
   3. Page header carried `route-kicker` label ("Portfolio Control Surface") + h1 ("Profil merkezi") + subtitle paragraph — operator UX review: label was the actual descriptive heading, the h1 + subtitle were redundant noise.
 
-**Closure (Wave 14.D commit `<COMMIT_HASH_TBD>`):**
+**Closure (Wave 14.D commit `18674c5`):**
 
 - **Bio overflow:** `src/components/portfolio/PortfolioWorkspace.tsx:1067-1093` — textarea wrapped in `md:col-span-2` container with `maxLength={BIO_MAX_LENGTH}` (500), `whitespace-pre-wrap break-words resize-y` classes (preserves line breaks, wraps long unbroken strings, vertical-only resize). Below it: live character counter `<p id="bio-counter" aria-live="polite">{length} / 500</p>` with tri-state color (muted slate → amber at ≥ 450 → rose at ≥ 500). `onChange` defensively `.slice(0, BIO_MAX_LENGTH)` so even paste-input above the limit is silently clamped. Preview at L1148 also gets `whitespace-pre-wrap break-words`.
 - **Validator mirror:** `src/lib/portfolio-validation.ts:30-34,93-96` — `BIO_MAX_LEN = 500` constant + new check inside `validateProfilePayload`: `if (payload.bio.length > BIO_MAX_LEN) return 'Biyografi en fazla 500 karakter olabilir.'`. Direct API callers (curl / Postman / future SDK) cannot bypass the UI cap.
