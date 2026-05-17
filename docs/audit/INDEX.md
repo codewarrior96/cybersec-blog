@@ -49,17 +49,18 @@ Audit-driven closure executed across 9 fix-commit waves (each paired with a `.1`
 For AI code auditors approaching this repo cold:
 
 1. **This INDEX** — orientation.
-2. **[`/README.md`](../../README.md)** — project overview + closure summary tables.
-3. **[`/docs/SCOPE_DECISIONS.md`](../SCOPE_DECISIONS.md)** — Z.1..Z.13 mentor decisions, including Z.10 (production-vs-blueprint discipline) which is the most-cited convention.
-4. **[`/docs/PATTERN_CATALOG.md`](../PATTERN_CATALOG.md)** — 18 named engineering patterns with file/cycle references.
-5. **Phase audits in order (1 → 5):**
+2. **[`/README.md`](../../README.md)** — Türkçe project overview (hoca / human reviewer first-read): production demo link + brief Faz 1–5 summary + scope decisions overview. Lightweight orientation.
+3. **[`/docs/AUDIT_README.md`](../AUDIT_README.md)** — canonical English audit-grade README (AI auditor first-read): full closure summary tables, intentional scope decisions, pattern catalog highlights, test architecture, wave closure cadence, Phase 6 roadmap. Moved here in Wave 9 from root README.md (hybrid restructure).
+4. **[`/docs/SCOPE_DECISIONS.md`](../SCOPE_DECISIONS.md)** — Z.1..Z.13 mentor decisions, including Z.10 (production-vs-blueprint discipline) which is the most-cited convention.
+5. **[`/docs/PATTERN_CATALOG.md`](../PATTERN_CATALOG.md)** — 18 named engineering patterns with file/cycle references.
+6. **Phase audits in order (1 → 5):**
    - `phase-1-a-final.md` is the longest (~460 lines) — covers Phase 1.5 hardening narrative inline per R-XX row. § 8 is the Wave 6 npm audit appendix.
    - `phase-2-a-lab-engine-audit.md` — Lab Engine (pure-logic client-side).
    - `phase-3-a-api-contracts-audit.md` — API contracts, includes Z.10 narrative for R-API-03 reclassification.
    - `phase-4-a-ui-a11y-audit.md` — UI + accessibility, includes Wave 6 update block on R-UI-04 (T-CAP-A11 closure).
    - `phase-5-a-e2e-journeys-audit.md` — E2E journeys, includes Yol A Z.13 closure narrative.
-6. **`phase-1-a-pending-amendments.md`** — amendment ledger (21 entries). Read after the phase audits; many entries cross-reference specific phase rows.
-7. **[`/CLAUDE.md`](../../CLAUDE.md)** — project conventions, including the Testing & Phase Discipline Protocol that governed every cycle.
+7. **`phase-1-a-pending-amendments.md`** — amendment ledger (A-01..A-23 entries; Wave 8 closure added A-22 ESLint + A-23 hostname). Read after the phase audits; many entries cross-reference specific phase rows.
+8. **[`/CLAUDE.md`](../../CLAUDE.md)** — project conventions, including the Testing & Phase Discipline Protocol that governed every cycle.
 
 ---
 

@@ -97,9 +97,13 @@ When Wave 5A/5B/5C entered, mentor defaults were locked for medium-severity item
 
 ---
 
-## Wave 7 (this cycle) — operator confirmation
+## Wave 7 — operator confirmation
 
-- **AI auditor first-read positioning**: this Z-reference, the [`PATTERN_CATALOG.md`](./PATTERN_CATALOG.md), the [`docs/audit/INDEX.md`](./audit/INDEX.md), and the rewritten [`README.md`](../README.md) collectively form the AI auditor onboarding surface. No code/test changes.
+- **AI auditor first-read positioning**: this Z-reference, the [`PATTERN_CATALOG.md`](./PATTERN_CATALOG.md), the [`docs/audit/INDEX.md`](./audit/INDEX.md), and the rewritten capstone-grade English README collectively form the AI auditor onboarding surface. (Wave 9 update: the English README was moved from root to [`docs/AUDIT_README.md`](./AUDIT_README.md) as part of the hybrid restructure; the new root [`README.md`](../README.md) carries a hoca-friendly Türkçe project overview. Both files together form the dual onboarding surface — Türkçe for human reviewers, English for AI auditors.)
+
+## Wave 9 (this cycle) — operator confirmation
+
+- **README hybrid restructure (Yön C)**: root README.md → Türkçe capstone-friendly (hoca + human reviewer first-read with prominent production demo link + Faz 1–5 summary + scope decisions overview); docs/AUDIT_README.md → English capstone-grade audit detail preserved verbatim from Wave 7 (AI auditor first-read). Cross-references in this file + INDEX.md updated; FINAL_SCAN_REPORT.md historical references intentionally preserved (per yasaklar "no content edits"). No code/test changes.
 
 ---
 
