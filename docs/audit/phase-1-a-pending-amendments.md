@@ -240,6 +240,30 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
 - **Verification:** post-fix grep `grep -rn "cybersec-blog\.com\|cybersec\.blog" src/` returns 0 source matches. `npm run build` regenerates `sitemap.xml` + `robots.txt` with the canonical hostname. No tests assert old hostname (verified during state gathering).
 - **Pattern catalog impact:** zero. Standard hostname-migration mechanical fix.
 
+### A-24 — Profile edit persistence: Next.js Router Cache stale on soft-nav return  [RESOLVED in Wave 10]
+
+- **Discovered in:** Wave 9 operator manual smoke (post-push of `06a4f34` README hybrid restructure). Operator reported: profile sayfasında değişiklik yapılıyor (örn. skill ekleme, bio güncelleme), "Kaydet" diyorum, ✓ kaydedildi gibi görünüyor; başka sekmeye geçip `/portfolio`'ya geri döndüğümde **eski değerler görünüyor**, bir an sonra **anlık olarak yeni değerlere flip ediyor**.
+- **Symptom analysis:** server-side save SUCCESS (Supabase Storage JSON has new value); initial page render uses STALE data (old value); client-side fetch then overrides STALE → FRESH (visible flicker). UX bug, not data-loss bug.
+- **Root cause:** Next.js App Router client-side **Router Cache** stores rendered route segments. `/portfolio` Server Component declares `dynamic = 'force-dynamic'` + `revalidate = 0` (which bypasses server-side Full Route Cache + Data Cache) but does NOT affect the client Router Cache. After a save, server data is fresh but soft-nav return to `/portfolio` reuses the cached segment with the original (now stale) `initialProfile` prop. The `useEffect([editable])` auto-sync at `PortfolioWorkspace.tsx:406` refetches `/api/profile/me` (with `cache: 'no-store'`) → `setData(fresh)` → visible stale → fresh flicker.
+- **Scope decision:** operator mentor option W10-B (holistic) over W10-A (operator-reported surface only). Same Router Cache bug pattern affects ALL 7 save handlers in `PortfolioWorkspace.tsx`; mechanical fix per handler is 1 line. W10-B respects "minimal root-cause fix" yasakları (every site shares one pattern, fix is mechanical).
+- **Resolution (Wave 10 commit `<COMMIT_HASH_TBD>`):** RESOLVED. Steps:
+  - `src/components/portfolio/PortfolioWorkspace.tsx`:
+    - New import: `import { useRouter } from 'next/navigation'` (L4)
+    - New hook in component body: `const router = useRouter()` (L262) with 9-line explanatory comment block referencing this A-24 entry
+    - `router.refresh()` call appended to success path of all 7 save handlers:
+      * `saveProfile()` (L520) — profile bio/headline/specialties/tools (operator-reported surface)
+      * `uploadAvatar()` (L552) — avatar upload
+      * `removeAvatar()` (L584) — avatar removal
+      * `saveCertification()` (L613) — cert create/update
+      * `deleteCertification()` (L638) — cert delete
+      * `saveEducation()` (L708) — edu create/update
+      * `deleteEducation()` (L732) — edu delete
+  - `router.refresh()` invalidates Router Cache for the current route + triggers Server Component data refetch on next render — the surgical primitive matching the bug's exact mechanism.
+- **Regression test:** T-PE-PERSIST in `src/components/portfolio/__tests__/PortfolioWorkspace.test.tsx` (NEW file, 1 test). Mocks `useRouter` + `getAuthSession` + global `fetch`; renders `PortfolioWorkspace` with `editable={true}`; waits for auto-sync GET; clicks "Profili Kaydet" button; asserts `router.refresh()` was called after PUT success. Call-site contract guard (jsdom does NOT simulate Next.js Router Cache; only Playwright/manual smoke can verify the actual stale→fresh elimination). Single test covers the family of 7 handlers by code-review-adjacency (uniform pattern in single file under single hook).
+- **Operator post-push verification REQUIRED:** `/portfolio` profile edit → save → switch tab → return → fresh value immediately (no flicker).
+- **Wave 5C archive UI note:** the cert/edu `archivePortfolioCertification` + `archivePortfolioEducation` adapter methods + PATCH `?action=archive` routes shipped in Wave 5C (commit `7f925ac`), but `PortfolioWorkspace.tsx` has NO archive UI handler yet (search returned zero matches for `archive` in the component). When archive UI ships, the corresponding handler must also call `router.refresh()` post-success.
+- **Pattern catalog impact:** zero new patterns. Pattern Catalog § 4 (mentor-error correction protocol) instance count does NOT increment — Wave 10 mega-prompt explicitly framed the 3 ranked root-cause hypotheses as "agent must verify" (UNCONFIRMED), and agent state-gathering confirmed Router Cache as root cause; this is correct state-gathering protocol functioning, not a mentor-error correction.
+
 ## Total test count revision
 
 Audit Section 7 mentions ~140 cases. Actual planned count is now 141+ (will grow with further discoveries during Phase 1.D.6-D.20).

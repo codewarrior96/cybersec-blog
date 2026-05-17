@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getAuthSession } from '@/lib/auth-client'
 import DangerZone from '@/components/portfolio/DangerZone'
@@ -249,6 +250,17 @@ export default function PortfolioWorkspace({
   initialTab?: TabId
   editable: boolean
 }) {
+  // A-24 closure (Wave 10): Next.js App Router client-side Router Cache
+  // holds rendered route segments on soft-nav return. /portfolio page is
+  // force-dynamic + revalidate=0 (bypasses server-side Full Route Cache +
+  // Data Cache) but does NOT affect client Router Cache. After a save,
+  // server data is fresh but soft-nav return reuses the cached segment
+  // with stale `initialProfile` prop → useEffect refetches → visible
+  // flicker stale → fresh. router.refresh() called after every save
+  // handler success invalidates Router Cache for the current route +
+  // triggers Server Component data refetch on next render.
+  const router = useRouter()
+
   const [tab, setTab] = useState<TabId>(initialTab)
   const [data, setData] = useState(initialProfile)
   const [canEdit, setCanEdit] = useState(editable)
@@ -532,6 +544,7 @@ export default function PortfolioWorkspace({
         },
       }))
       setMessage('Profil guncellendi.')
+      router.refresh()
     } finally { setSaving(false) }
   }
 
@@ -559,6 +572,7 @@ export default function PortfolioWorkspace({
       const payload = (await response.json()) as { profile: PortfolioProfileRecord }
       setData(payload.profile)
       setMessage('Profil fotografisi guncellendi.')
+      router.refresh()
     } finally {
       setAvatarUploading(false)
       if (avatarFileRef.current) {
@@ -588,6 +602,7 @@ export default function PortfolioWorkspace({
       const payload = (await response.json()) as { profile: PortfolioProfileRecord }
       setData(payload.profile)
       setMessage('Profil fotografisi kaldirildi.')
+      router.refresh()
     } finally {
       setAvatarUploading(false)
       if (avatarFileRef.current) {
@@ -618,6 +633,7 @@ export default function PortfolioWorkspace({
       }))
       setCertId(payload.certification.id); setLastSelectedCertId(payload.certification.id); setCertFile(null); setRemoveCertAsset(false); setCertComposerMode(null); setMessage(isNew ? 'Sertifika eklendi.' : 'Sertifika guncellendi.')
       if (fileRef.current) fileRef.current.value = ''
+      router.refresh()
     } finally { setSaving(false) }
   }
 
@@ -634,6 +650,7 @@ export default function PortfolioWorkspace({
       setLastSelectedCertId(typeof nextSelectedId === 'number' ? nextSelectedId : null)
       setCertComposerMode(null)
       setMessage('Sertifika kaldirildi.')
+      router.refresh()
     } finally { setSaving(false) }
   }
 
@@ -712,6 +729,7 @@ export default function PortfolioWorkspace({
       setLastSelectedEduId(payload.education.id)
       setEduComposerMode(null)
       setMessage(isNew ? 'Egitim eklendi.' : 'Egitim guncellendi.')
+      router.refresh()
     } finally { setSaving(false) }
   }
 
@@ -728,6 +746,7 @@ export default function PortfolioWorkspace({
       setLastSelectedEduId(typeof nextSelectedId === 'number' ? nextSelectedId : null)
       setEduComposerMode(null)
       setMessage('Egitim kaldirildi.')
+      router.refresh()
     } finally { setSaving(false) }
   }
 
