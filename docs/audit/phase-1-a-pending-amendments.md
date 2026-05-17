@@ -394,7 +394,7 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
 
 ### A-28 — display_name system-wide removal (Wave 14 Faz 14.C)
 
-- **Status:** RESOLVED in Wave 14.C commit `<COMMIT_HASH_TBD>`
+- **Status:** RESOLVED in Wave 14.C commit `b54cf8c`
 - **Origin:** Wave 14.A Bug 4 investigation (commit `d98f76b`) — operator-observed "Zerooooo" displayName residue in production data. Investigation confirmed no API path can update displayName post-registration (historical artifact). Operator UX review escalated to: remove displayName concept entirely; username serves as primary identity (GitHub / Twitter / Discord pattern).
 
 **Scope (44 files, ~-296 net LOC):**
