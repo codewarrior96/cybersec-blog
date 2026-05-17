@@ -86,10 +86,10 @@ export const PLATFORM_DOMAINS: Record<DomainKey, DomainDefinition> = {
     key: 'red_team',
     label: 'Red Team',
     shortLabel: 'Red',
-    description: 'Adversary simulation, exploit zinciri ve saldiri pratiði odakli operasyon alani.',
+    description: 'Adversary simulation, exploit zinciri ve saldiri pratiï¿½i odakli operasyon alani.',
     accent: '#ff5f56',
     surface: 'ember-red',
-    defaultRoute: '/community',
+    defaultRoute: '/academy',
     capabilities: [
       'community.access',
       'training.access',

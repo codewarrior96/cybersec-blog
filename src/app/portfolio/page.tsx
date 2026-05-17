@@ -65,7 +65,9 @@ export default async function PortfolioPage({
   // rendered a read-only "visitor" view for anon users via a helper
   // that has been removed in this same change. That visitor view
   // created an asymmetric attack surface vs sibling protected
-  // routes (/community, /zafiyet-taramasi) which now hard-redirect.
+  // routes (/academy, /zafiyet-taramasi) which now hard-redirect.
+  // (A-26 Wave 12: /academy was formerly /community; same gate, new
+  // path. See src/app/academy/layout.tsx.)
   // Hard redirect here closes the asymmetry and removes a dead-mode
   // code path that was never the product's actual UX intent.
   if (!session) {

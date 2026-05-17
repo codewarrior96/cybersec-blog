@@ -324,6 +324,41 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
   - Validation: invalid username (e.g. `user@name` in any of 5 platforms) → save returns 400 with platform-specific error message in Turkish.
   - Personal field: paste full `https://...` URL → renders verbatim; paste plain text → 400 error.
 
+### A-26 — Navigation rename: /community → /academy (label + route + redirect)  [RESOLVED in Wave 12]
+
+- **Status:** RESOLVED in Wave 12 commit `<COMMIT_HASH_TBD>`
+- **Symptom:** the "COMMUNITY" navigation label semantically mismatched with actual page content. The page hosts the Lab Engine + Curriculum + Tools + CTF Missions — a training/education surface, NOT a community forum / chat / posts surface. Operator UI review surfaced the naming dissonance during Wave 11.
+- **Discovery:** Wave 11 operator UI review (post-Wave-11 socialLinks deploy).
+- **Operator decision (locked):** full rename — label `[COMMUNITY]` → `[ACADEMY]`, route `/community` → `/academy`, 308 backward-compat redirect (sub-path wildcard included). Tab/sub-feature labels INSIDE the page (`[] Curriculum`, `{} Tools`, `## CTF Missions`) preserved — only the parent label + URL segment changed.
+- **Closure (Wave 12 commit `<COMMIT_HASH_TBD>`):**
+  - Directory rename: `src/app/community/` → `src/app/academy/` via `git mv` (both `layout.tsx` + `page.tsx` detected as renames `R`, history preserved). Page content (2146 LOC `'use client'` component with Lab Engine / Terminal / CTF flag UX) UNCHANGED — only the parent directory path moved.
+  - **Wave 4B BUG-006 auth gate PRESERVED at the new path** (`src/app/academy/layout.tsx`). Same `cookies()` + `getServerSessionFromCookies()` + `redirect('/login')` pattern that closed BUG-006 in Wave 4B; R-E2E-02 PARTIAL closure narrative carries forward unchanged. Layout metadata title flipped `'Community'` → `'Academy'`; export name `CommunityLayout` → `AcademyLayout`. Comment block updated to reflect the rename with explicit Wave 12 cross-reference.
+  - Navigation label: `src/components/NavigationBar.tsx` L15 — `{ label: 'COMMUNITY', href: '/community' }` → `{ label: 'ACADEMY', href: '/academy' }`. Brackets in the nav rendering (siberhacker visual brand per CLAUDE.md L77-78) preserved by virtue of being applied at the rendering layer, not in the label string.
+  - Prefetch route array: `src/components/AppShellClient.tsx` L78 — `/community` → `/academy` (Wave 5A AbortController prefetch loop targets the new path).
+  - Theme system: `src/lib/route-theme.ts` — `RouteTheme` type literal `'community'` → `'academy'`; path check + return value migrated consistently. Zero external consumers of the theme literal at rename time (grep returned only this file as a producer + consumer), so the type-level rename is safe.
+  - Default route mapping: `src/lib/platform-domains.ts` L92 — `red_team` team config `defaultRoute: '/community'` → `'/academy'`.
+  - Source code comment narrative (NOT audit doc): `src/app/portfolio/page.tsx` L68 BUG-006 comment narrative updated to reference `/academy` with inline Wave 12 cross-reference; preserves the audit-trail discovery context.
+  - **Backward-compat redirect:** `next.config.mjs` `redirects()` async function added with two 308 permanent rules:
+    1. Exact `/community` → `/academy`
+    2. Sub-path wildcard `/community/:path*` → `/academy/:path*`
+    Pre-Wave-12 deep links (search-engine indexed pages, bookmarks, historical audit doc narrative cross-references) keep working without manual user intervention. Auth gate still enforced at the destination by `src/app/academy/layout.tsx`.
+  - E2E test update: `e2e/journey-lab-l1-solve.spec.ts` T-E2-01 assertion updated to `await page.goto('/academy')` (canonical new path); top docstring + skip-test inline narratives updated to reference `/academy` with explicit Wave 12 cross-reference (Wave 4B discovery context preserved). `e2e/journey-portfolio-cert-crud.spec.ts` cross-reference comment updated to mention "/academy layout, formerly /community per A-26 Wave 12 rename".
+- **Migration safety:**
+  - Wave 4B R-E2E-02 PARTIAL closure status semantically unchanged — auth gate moved with the layout, same redirect target (`/login`), same Yol A Z.13 verified-user dependency for skipped tests.
+  - Audit doc historical narrative references to `/community` (in `phase-1-a-final.md`, `phase-2-a-lab-engine-audit.md`, `phase-4-a-ui-a11y-audit.md`, `phase-5-a-e2e-journeys-audit.md`, `FINAL_SCAN_REPORT.md`, `AUDIT_README.md`, `data-flow-map-and-migration-plan.md`) **left untouched per policy** — they document Wave 4B discovery, the route's pre-Wave-12 production state, and the audit-trail of the BUG-006 closure narrative. Future readers reach the current path via either the 308 redirect or the Wave 12 cross-reference in `src/app/academy/layout.tsx`.
+  - Production smoke (operator post-push):
+    - `siberlab.dev/community` → 308 redirect to `siberlab.dev/academy`
+    - `siberlab.dev/academy` → unauthenticated user redirected to `/login` (BUG-006 gate)
+    - Authed user `/academy` → Lab Engine renders with Curriculum / Tools / CTF Missions intact
+    - Navigation bar shows `[ACADEMY]` (not `[COMMUNITY]`)
+- **Test impact:**
+  - Vitest 541 PRESERVED (route rename is invisible to existing test suite; no Vitest test asserted `/community` URL).
+  - E2E suite: 9 active + 9 documented skip — same count post-rename; T-E2-01 assertion swapped from `/community` to `/academy` (BUG-006 gate logic unchanged, only target URL).
+  - Lint 0E/0W PRESERVED.
+  - TypeScript zero errors (after stale `.next/types/app/community/*` build artifacts cleaned — gitignored, regenerated by `npm run build`).
+  - Production build: `/academy` route present (70.2 kB, dynamic, ƒ); `/community` NOT in static route list (only the redirect rule).
+- **Pattern catalog impact:** **zero new patterns**. Mechanical rename + redirect, no new security or architectural pattern. Pattern Catalog instance counts unchanged.
+
 ## Total test count revision
 
 Audit Section 7 mentions ~140 cases. Actual planned count is now 141+ (will grow with further discoveries during Phase 1.D.6-D.20).

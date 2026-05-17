@@ -101,9 +101,13 @@ When Wave 5A/5B/5C entered, mentor defaults were locked for medium-severity item
 
 - **AI auditor first-read positioning**: this Z-reference, the [`PATTERN_CATALOG.md`](./PATTERN_CATALOG.md), the [`docs/audit/INDEX.md`](./audit/INDEX.md), and the rewritten capstone-grade English README collectively form the AI auditor onboarding surface. (Wave 9 update: the English README was moved from root to [`docs/AUDIT_README.md`](./AUDIT_README.md) as part of the hybrid restructure; the new root [`README.md`](../README.md) carries a hoca-friendly Türkçe project overview. Both files together form the dual onboarding surface — Türkçe for human reviewers, English for AI auditors.)
 
-## Wave 9 (this cycle) — operator confirmation
+## Wave 9 — operator confirmation
 
 - **README hybrid restructure (Yön C)**: root README.md → Türkçe capstone-friendly (hoca + human reviewer first-read with prominent production demo link + Faz 1–5 summary + scope decisions overview); docs/AUDIT_README.md → English capstone-grade audit detail preserved verbatim from Wave 7 (AI auditor first-read). Cross-references in this file + INDEX.md updated; FINAL_SCAN_REPORT.md historical references intentionally preserved (per yasaklar "no content edits"). No code/test changes.
+
+## Wave 12 — Navigation rename
+
+- **Z.14** — `/community` → `/academy` route + label rename (A-26 closure). Reason: "COMMUNITY" label semantically mismatched with page content (Lab Engine + Curriculum + Tools + CTF Missions = training/education surface, NOT community forum). Operator decision (Wave 11 UI review post-deploy): full rename — directory `src/app/community/` → `src/app/academy/` via `git mv` (history preserved); navigation label `[COMMUNITY]` → `[ACADEMY]` (brackets preserved at render layer per siberhacker brand); 308 permanent redirect (with sub-path wildcard) in `next.config.mjs` for backward-compat. Wave 4B BUG-006 server-side auth gate (`cookies()` + session check + `redirect('/login')`) preserved at the new path (`src/app/academy/layout.tsx`); R-E2E-02 PARTIAL closure narrative semantically unchanged. Inner tab/sub-feature labels (`[] Curriculum`, `{} Tools`, `## CTF Missions`) explicitly preserved — only the parent route + label changed. Audit doc historical narrative references to `/community` left untouched (Wave 4B discovery context); Wave 12 cross-references added in source comments (`src/app/academy/layout.tsx`, `src/app/portfolio/page.tsx`, `e2e/journey-*.spec.ts`) for future readers.
 
 ---
 

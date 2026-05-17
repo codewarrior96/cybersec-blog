@@ -75,7 +75,7 @@ export default function AppShellClient({
     // R-UI-13's Low severity allows — full cancellation would require
     // framework support.
     const controller = new AbortController()
-    const routes = ['/home', '/blog', '/community', '/zafiyet-taramasi', '/portfolio']
+    const routes = ['/home', '/blog', '/academy', '/zafiyet-taramasi', '/portfolio']
     const runPrefetchLoop = async () => {
       for (const route of routes) {
         if (controller.signal.aborted) return

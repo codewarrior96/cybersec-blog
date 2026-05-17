@@ -1,17 +1,26 @@
 // Wave 4B Phase 5.D — J-2 Lab L1 happy-path solve (R-E2E-02 PARTIAL closure)
 //
+// A-26 closure (Wave 12): the route formerly known as /community was
+// renamed to /academy. The BUG-006 server-side auth gate moved with
+// the directory rename (now at src/app/academy/layout.tsx) — gate
+// semantics + R-E2E-02 PARTIAL closure narrative unchanged, only the
+// URL segment moved. T-E2-01 below asserts against the canonical new
+// path; pre-Wave-12 /community URLs continue to redirect via the 308
+// rule in next.config.mjs (test coverage of that redirect chain is
+// implicit — Playwright follows redirects by default).
+//
 // State gathering discovery (during Wave 4B execution):
-// /community IS server-side auth-gated. The gate lives in
-// `src/app/community/layout.tsx` (BUG-006 closure) — `cookies()` +
-// `getServerSessionFromCookies()` + `redirect('/login')` for anonymous
-// users. My initial state gathering inspected only `page.tsx` and
-// missed the layout.tsx server component. Production behavior matches
-// /portfolio: hard redirect at the framework boundary.
+// /academy (formerly /community) IS server-side auth-gated. The gate
+// lives in `src/app/academy/layout.tsx` (BUG-006 closure) — `cookies()`
+// + `getServerSessionFromCookies()` + `redirect('/login')` for
+// anonymous users. My initial state gathering inspected only `page.tsx`
+// and missed the layout.tsx server component. Production behavior
+// matches /portfolio: hard redirect at the framework boundary.
 //
 // Yol A consequence (Phase 5.A Z.12): ephemeral user CAN register but
 // CANNOT verify email (no Resend sandbox / no pre-verified credentials
 // / no SERVICE_ROLE_KEY). Unverified user cannot log in. No session →
-// /community redirect. Lab E2E surface BLOCKED for anonymous ephemeral
+// /academy redirect. Lab E2E surface BLOCKED for anonymous ephemeral
 // users. → R-E2E-02 PARTIAL CLOSURE: anon-redirect contract tested;
 // Lab solve full path skipped pending Phase 6 operational decision.
 //
@@ -27,11 +36,13 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('J-2 Lab L1 solve — R-E2E-02 PARTIAL closure', () => {
-  test('T-E2-01 — anonymous /community redirects to /login (BUG-006 layout gate)', async ({ page }) => {
-    // Anon visitor on /community triggers the server-side redirect in
-    // src/app/community/layout.tsx. Playwright's goto follows redirects
-    // by default, so the final URL is /login.
-    await page.goto('/community')
+  test('T-E2-01 — anonymous /academy redirects to /login (BUG-006 layout gate, A-26 path rename)', async ({ page }) => {
+    // Wave 4B BUG-006 gate, Wave 12 A-26 path rename.
+    // Anon visitor on /academy triggers the server-side redirect in
+    // src/app/academy/layout.tsx (formerly src/app/community/layout.tsx).
+    // Playwright's goto follows redirects by default, so the final URL
+    // is /login.
+    await page.goto('/academy')
     expect(page.url()).toContain('/login')
     // Confirm /login renders (not 5xx)
     await expect(page.getByPlaceholder('Kullanıcı adınızı giriniz')).toBeVisible({
@@ -42,7 +53,7 @@ test.describe('J-2 Lab L1 solve — R-E2E-02 PARTIAL closure', () => {
   // eslint-disable-next-line playwright/no-skipped-test
   test.skip('T-E2-02 — Terminal mounts via dynamic-import (SKIPPED: Yol A — auth-gated; pre-verified user pending Phase 6)', async () => {
     // BLOCKED: ephemeral unverified user cannot log in (403
-    // EMAIL_NOT_VERIFIED) → no session → /community layout redirects
+    // EMAIL_NOT_VERIFIED) → no session → /academy layout redirects
     // before Terminal can mount. Restoration paths in Wave 5 / Phase 6:
     //   (a) Pre-verified test user with known credentials in CI secrets
     //   (b) Test-mode env override that bypasses email verification

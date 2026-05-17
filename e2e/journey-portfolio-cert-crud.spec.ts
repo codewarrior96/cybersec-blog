@@ -2,7 +2,8 @@
 //
 // /portfolio is server-side gated via `redirect('/login')` in
 // `src/app/portfolio/page.tsx` (BUG-006 closure family — same pattern
-// as /community layout). Anonymous users cannot reach the workspace.
+// as /academy layout, formerly /community per A-26 Wave 12 rename).
+// Anonymous users cannot reach the workspace.
 //
 // Yol A constraint (Phase 5.A Z.12): ephemeral user cannot verify
 // email → cannot log in → cannot reach /portfolio. R-E2E-03 PARTIAL
