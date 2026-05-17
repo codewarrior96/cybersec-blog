@@ -2,7 +2,7 @@
 
 Bu doküman capstone teslim sonrası cycle'lar için ertelenen feature + iyileştirme listesini izler. Her item için effort estimate, priority ve capstone audit context'ine lineage referansı korunur.
 
-Faz 13.C (Wave 13 commit `<COMMIT_HASH_TBD>`) ile birlikte ilk versiyon shipped. Sınav sonrası Phase 7 cycle başlangıcında bu doc revize edilecek; prioritization güncel context'e göre yeniden yapılacak.
+Faz 13.C (Wave 13 commit `ed086c2`) ile birlikte ilk versiyon shipped. Sınav sonrası Phase 7 cycle başlangıcında bu doc revize edilecek; prioritization güncel context'e göre yeniden yapılacak.
 
 ---
 

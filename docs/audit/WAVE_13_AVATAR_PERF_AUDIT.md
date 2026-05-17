@@ -482,7 +482,7 @@ Total: 6 requests, ~3.6s wall time, ~250 KB transfer
 
 ---
 
-## Mentor decision matrix — Faz 13.B (RESOLVED, applied in Faz 13.C commit `<COMMIT_HASH_TBD>`)
+## Mentor decision matrix — Faz 13.B (RESOLVED, applied in Faz 13.C commit `ed086c2`)
 
 | Decision | Outcome | Rationale |
 |---|---|---|
