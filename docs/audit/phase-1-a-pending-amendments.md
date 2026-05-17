@@ -246,7 +246,7 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
 - **Symptom analysis:** server-side save SUCCESS (Supabase Storage JSON has new value); initial page render uses STALE data (old value); client-side fetch then overrides STALE → FRESH (visible flicker). UX bug, not data-loss bug.
 - **Root cause:** Next.js App Router client-side **Router Cache** stores rendered route segments. `/portfolio` Server Component declares `dynamic = 'force-dynamic'` + `revalidate = 0` (which bypasses server-side Full Route Cache + Data Cache) but does NOT affect the client Router Cache. After a save, server data is fresh but soft-nav return to `/portfolio` reuses the cached segment with the original (now stale) `initialProfile` prop. The `useEffect([editable])` auto-sync at `PortfolioWorkspace.tsx:406` refetches `/api/profile/me` (with `cache: 'no-store'`) → `setData(fresh)` → visible stale → fresh flicker.
 - **Scope decision:** operator mentor option W10-B (holistic) over W10-A (operator-reported surface only). Same Router Cache bug pattern affects ALL 7 save handlers in `PortfolioWorkspace.tsx`; mechanical fix per handler is 1 line. W10-B respects "minimal root-cause fix" yasakları (every site shares one pattern, fix is mechanical).
-- **Resolution (Wave 10 commit `<COMMIT_HASH_TBD>`):** RESOLVED. Steps:
+- **Resolution (Wave 10 commit `13a3c2c`):** RESOLVED. Steps:
   - `src/components/portfolio/PortfolioWorkspace.tsx`:
     - New import: `import { useRouter } from 'next/navigation'` (L4)
     - New hook in component body: `const router = useRouter()` (L262) with 9-line explanatory comment block referencing this A-24 entry
