@@ -392,6 +392,68 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
   - **F-AV-06 next/Image migration** → backlog item #11
   - **F-AV-04 / Path D server-side signed URL pool** → backlog item #12
 
+### A-28 — display_name system-wide removal (Wave 14 Faz 14.C)
+
+- **Status:** RESOLVED in Wave 14.C commit `<COMMIT_HASH_TBD>`
+- **Origin:** Wave 14.A Bug 4 investigation (commit `d98f76b`) — operator-observed "Zerooooo" displayName residue in production data. Investigation confirmed no API path can update displayName post-registration (historical artifact). Operator UX review escalated to: remove displayName concept entirely; username serves as primary identity (GitHub / Twitter / Discord pattern).
+
+**Scope (44 files, ~-296 net LOC):**
+
+- **UI:**
+  - `src/components/EmbeddedRegister.tsx` — "Görünen ad" form field + `displayName` state + payload key removed; 5 fields → 4 fields (username, email, password, confirm).
+  - `src/components/portfolio/PortfolioWorkspace.tsx` — 7 displayName reads → username, 2 `@username` prefixes → plain `username` (Q2-A), mini profile card (route-panel top-right duplicate) removed entirely.
+- **API routes (5):** `register`, `users`, `verify`, `forgot`, `verify/resend` — payload + validation + write + email-call source migrated to `username`.
+- **Storage adapters (4):** `soc-store-memory`, `soc-store-supabase` (production JSON), `soc-store` (SQLite legacy), `soc-store-supabase-postgres` (blueprint adapter, never deployed) — all `StoredUser` types + write paths + SQL `display_name` column references cleaned.
+- **Types:** `SessionUser` (`soc-types.ts`), `registerWithPassword` payload (`auth-client.ts`), all `Pick<SessionUser, ...>` consumers, `getPortfolioSeedForUser` signature.
+- **Validation:** `DISPLAY_NAME_MIN/MAX_LENGTH` constants + `DISPLAY_NAME_DENYLIST_RE` regex + `isValidDisplayName` function + `getDisplayNameError` helper + R-13/R-14 lineage comment blocks — all removed (Q3-A total cleanup).
+- **Email templates:** `safeName` source remained `params.username` (semantically already correct); R-14 Layer 2 lineage comment narrative pivoted to username substrate.
+- **Tests:**
+  - `identity-validation.test.ts` — 6 dedicated cases T-IV14 through T-IV19 removed alongside the underlying code (Q6-A test drift accepted).
+  - `email-templates.test.ts` — T-ET06 R-14 narrative pivoted to username substrate.
+  - 22 fixture files — `displayName: 'X',` lines dropped from `SessionUser` test objects.
+- **DB schema:**
+  - `supabase/platform-backbone-v1.sql` — `display_name text not null,` line removed from `identity.users` blueprint (never deployed; Z.10 honesty).
+  - `src/lib/db.ts` — `display_name TEXT NOT NULL,` removed from SQLite `CREATE TABLE` + all `INSERT INTO users` + `SELECT` paths.
+  - `supabase/wave-14-c-drop-display-name.sql` — NEW idempotent migration file staged for future Postgres deploy (`drop column if exists display_name`).
+- **Seed:** `portfolio-profile.ts:getPortfolioSeedForUser` headline/bio template literals migrated to `${user.username}` (Q4-A).
+- **E2E:** `e2e/_fixtures/users.ts` + `_fixtures/auth.ts` + `journey-auth-bootstrap.spec.ts` — `displayName` fixture field + form-fill calls removed.
+- **Scripts:** `scripts/backfill-identity-postgres.mjs:132` — `display_name: user.displayName` line removed (Q5-A).
+
+**Email body change (Q1-A):** `"Merhaba {displayName},"` → `"Merhaba {username},"` in verification + password-reset emails (`renderVerificationEmail`, `renderPasswordResetEmail`).
+
+**JSON Storage strategy (Q2-A):** Silent-ignore (Wave 11 website-field precedent). The Supabase Storage user JSON files may still contain a `displayName` key from pre-Wave-14.C writes; read path now ignores it, write path no longer emits it. **NO migration script** for production data.
+
+**Validation cleanup (Q3-A):** Total removal. R-13 (HTML-injection denylist) + R-14 (CRLF denylist) lineage preserved in audit doc history (`phase-1-a-final.md` + `email-templates.test.ts:T-ET06`). Username regex (`^[a-zA-Z0-9_.-]{3,32}$`) is a strict superset of displayName's attack-surface defense (no `<>&"\r\n` permitted by character class).
+
+**Seed text (Q4-A):** `headline: "${username} / Profil"` + `bio: "${username} icin..."`. New users see username-based seed copy until they edit their own bio.
+
+**Backfill script (Q5-A):** `display_name:` line removed from `toUserPayload`. Script remains dead (Postgres never deployed); cleaning the dead code per Q3-A spirit.
+
+**Test baseline (Q6-A):** 545 → 539. T-IV14 through T-IV19 (6 displayName-specific tests) removed alongside `isValidDisplayName`. Username coverage preserved via existing T-IV01 through T-IV13.
+
+**LOC delta:** Pre-flight scope discovery estimated `~-135 net`. Actual `~-296 net` (78 insertions, 374 deletions, 44 files). Overrun attributable to:
+  - 6 displayName-specific test cases averaged ~12 LOC each (~70 LOC removed; estimate was ~60).
+  - `soc-store.ts` SQL column references repeated across multiple SELECT/INSERT statements (~30-40 LOC vs. estimated ~25).
+  - Mini profile card removal in `PortfolioWorkspace.tsx` was ~30 LOC (estimate noted "20-30 LOC depending on wrapper" — landed at upper bound).
+  - R-14 Layer 2 narrative comment blocks (~20 LOC) removed instead of preserved per Q3-A spirit.
+  Operator notified in Wave 14.C final report. All 6 Q-decisions remained intact; over-removal is scope-aligned, not scope creep.
+
+**Migration safety:**
+  - Production runs `SOC_IDENTITY_STORE=supabase` (JSON Storage). JSON tolerate-on-read means zero production data migration required.
+  - SQLite legacy (`SOC_STORAGE=sqlite`): schema edit + adapter cleanup. Current production doesn't touch this path; dev-only mode.
+  - Postgres blueprint: schema edit (`platform-backbone-v1.sql` L13 removed) + NEW migration file (`wave-14-c-drop-display-name.sql`) staged for future deploy. Z.10 honest: blueprint never applied to production.
+
+**Wave 11 lineage:** This is the 2nd "field removal" cycle following Wave 11 website-field pattern (A-25 closure). Establishes operator-approved deprecation protocol: stop write, tolerate read, document deferral. Cross-reference: Wave 11 commit `03f3884`.
+
+**Pattern catalog impact:** **zero new patterns.** Mechanical refactor + UX simplification. Pattern Catalog instance counts unchanged.
+
+**Production smoke target (Faz 14.D operator-manual, post-push):**
+  - `/register` form: 4 fields visible (no "Görünen ad" input).
+  - `/portfolio` UI: mini profile card top-right gone; large profile card heading shows headline only (no displayName-derived heading); username displayed plain (no `@` prefix).
+  - Verification email (resend): "Merhaba {username}," in body.
+  - Avatar SSR (Wave 13.C) still resolves; saving profile still triggers `router.refresh()` (Wave 10) → fresh Server Component render.
+  - "Zerooooo" residue: invisible after refresh (silent-ignore on JSON read; UI displays username).
+
 ## Total test count revision
 
 Audit Section 7 mentions ~140 cases. Actual planned count is now 141+ (will grow with further discoveries during Phase 1.D.6-D.20).

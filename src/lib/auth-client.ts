@@ -124,7 +124,6 @@ export async function loginWithPassword(
 
 export async function registerWithPassword(input: {
   username: string
-  displayName: string
   email: string
   password: string
   confirmPassword: string

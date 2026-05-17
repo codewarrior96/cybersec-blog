@@ -926,41 +926,9 @@ export default function PortfolioWorkspace({
       <section className="route-hero">
         <div className="border-b px-5 py-6 md:px-8" style={{ borderColor: 'rgb(var(--route-accent-rgb) / 0.12)' }}>
           <p className="route-kicker">Portfolio Control Surface</p>
-          <div className="mt-4 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h1 className="route-title text-3xl md:text-5xl">Profil merkezi</h1>
-              <p className="route-copy mt-3 max-w-3xl text-sm">Profil, sertifika ve egitimlerini burada tek merkezden yonetebilirsin.</p>
-            </div>
-            <div className="route-panel min-w-0 p-4 md:min-w-[360px]">
-              <div className="flex items-center gap-4">
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[22px] border border-emerald-400/20 bg-emerald-400/8">
-                  {avatarSrc ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- avatar served from signed Supabase Storage URL (15s TTL R-API-10); next/Image static-optimization not applicable to dynamic signed URLs
-                    <img
-                      src={avatarSrc}
-                      alt={data.user.displayName}
-                      className="h-full w-full object-cover"
-                      onError={() => setAvatarLoadFailed(true)}
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center font-mono text-lg tracking-[0.18em] text-emerald-200/85">
-                      {getInitials(data.user.displayName)}
-                    </div>
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-base font-semibold text-slate-100">{data.user.displayName}</p>
-                  <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.24em] text-emerald-300/60">
-                    @{data.user.username}
-                  </p>
-                  <p className="mt-2 truncate text-xs text-slate-400">
-                    {profileForm.headline || data.profile.headline || 'Operator profile active'}
-                  </p>
-                </div>
-
-              </div>
-            </div>
+          <div className="mt-4">
+            <h1 className="route-title text-3xl md:text-5xl">Profil merkezi</h1>
+            <p className="route-copy mt-3 max-w-3xl text-sm">Profil, sertifika ve egitimlerini burada tek merkezden yonetebilirsin.</p>
           </div>
         </div>
 
@@ -1028,13 +996,13 @@ export default function PortfolioWorkspace({
                           // eslint-disable-next-line @next/next/no-img-element -- signed-URL avatar, same rationale as L816
                           <img
                             src={avatarSrc}
-                            alt={data.user.displayName}
+                            alt={data.user.username}
                             className="h-full w-full object-cover"
                             onError={() => setAvatarLoadFailed(true)}
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center font-mono text-2xl tracking-[0.2em] text-emerald-200/85">
-                            {getInitials(data.user.displayName)}
+                            {getInitials(data.user.username)}
                           </div>
                         )}
                       </div>
@@ -1117,13 +1085,13 @@ export default function PortfolioWorkspace({
                       // eslint-disable-next-line @next/next/no-img-element -- signed-URL avatar, same rationale as L816
                       <img
                         src={avatarSrc}
-                        alt={data.user.displayName}
+                        alt={data.user.username}
                         className="h-full w-full object-cover"
                         onError={() => setAvatarLoadFailed(true)}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center font-mono text-2xl tracking-[0.2em] text-emerald-200/85">
-                        {getInitials(data.user.displayName)}
+                        {getInitials(data.user.username)}
                       </div>
                     )}
                   </div>
@@ -1131,7 +1099,7 @@ export default function PortfolioWorkspace({
                     <h2 className="text-2xl font-semibold text-slate-100">{profileForm.headline || 'Profil basligi'}</h2>
                     <p className="mt-2 text-sm text-slate-400">{profileForm.location || 'Lokasyon bilgisi'}</p>
                     <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.24em] text-emerald-300/55">
-                      @{data.user.username}
+                      {data.user.username}
                     </p>
                   </div>
                 </div>

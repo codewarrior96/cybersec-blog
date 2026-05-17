@@ -67,7 +67,6 @@ const validBody = {
 const verifiedUser = {
   id: 1,
   username: 'testuser',
-  displayName: 'Test User',
   role: 'viewer' as const,
   emailVerified: true,
 }
@@ -75,7 +74,6 @@ const verifiedUser = {
 const unverifiedUser = {
   id: 2,
   username: 'unverified',
-  displayName: 'Unverified User',
   role: 'viewer' as const,
   emailVerified: false,
 }

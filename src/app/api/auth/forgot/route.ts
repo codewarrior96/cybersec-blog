@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
     const sendResult = await sendPasswordResetEmail({
       to: updated.email,
       resetUrl,
-      username: updated.displayName || updated.username,
+      username: updated.username,
     })
 
     if (!sendResult.ok) {

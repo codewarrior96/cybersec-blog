@@ -11,7 +11,6 @@ export type ReportStatus = 'active' | 'archived'
 export interface SessionUser {
   id: number
   username: string
-  displayName: string
   role: UserRole
   /**
    * Email verification status. Surfaced in the session payload so edge

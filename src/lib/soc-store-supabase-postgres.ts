@@ -13,7 +13,6 @@ interface PostgresIdentityUserRow {
   id: number
   username: string
   username_key: string
-  display_name: string
   role: UserRole
   password_hash: string
   status: 'active' | 'disabled' | 'archived'
@@ -64,11 +63,10 @@ function getRequiredClient() {
   return client
 }
 
-function toSessionUser(user: Pick<PostgresIdentityUserRow, 'id' | 'username' | 'display_name' | 'role'>): SessionUser {
+function toSessionUser(user: Pick<PostgresIdentityUserRow, 'id' | 'username' | 'role'>): SessionUser {
   return {
     id: user.id,
     username: user.username,
-    displayName: user.display_name,
     role: user.role,
     // Postgres mode doesn't persist email columns yet (Phase 2 mirror is
     // type-only, awaiting SQL migration). Default to false until the
@@ -84,7 +82,6 @@ async function syncIdentityShadowUser(user: PostgresIdentityUserRow) {
     await ensureIdentityShadowUser({
       id: user.id,
       username: user.username,
-      displayName: user.display_name,
       role: user.role,
       passwordHash: user.password_hash,
       isActive: user.status === 'active',
@@ -101,7 +98,7 @@ async function readActiveUserByUsername(username: string): Promise<PostgresIdent
   const { data, error } = await client
     .schema('identity')
     .from('users')
-    .select('id, username, username_key, display_name, role, password_hash, status, primary_domain_key, created_at, updated_at')
+    .select('id, username, username_key, role, password_hash, status, primary_domain_key, created_at, updated_at')
     .eq('username_key', normalizeUsernameKey(username))
     .eq('status', 'active')
     .maybeSingle<PostgresIdentityUserRow>()
@@ -118,7 +115,7 @@ async function readActiveUserById(userId: number): Promise<PostgresIdentityUserR
   const { data, error } = await client
     .schema('identity')
     .from('users')
-    .select('id, username, username_key, display_name, role, password_hash, status, primary_domain_key, created_at, updated_at')
+    .select('id, username, username_key, role, password_hash, status, primary_domain_key, created_at, updated_at')
     .eq('id', userId)
     .eq('status', 'active')
     .maybeSingle<PostgresIdentityUserRow>()
@@ -314,21 +311,20 @@ export async function listAssignableUsers(): Promise<UserWorkload[]> {
   const { data, error } = await client
     .schema('identity')
     .from('users')
-    .select('id, username, display_name, role')
+    .select('id, username, role')
     .eq('status', 'active')
 
   if (error) {
     throw new Error(`postgres list users failed: ${error.message}`)
   }
 
-  const rows = (data ?? []) as Array<Pick<PostgresIdentityUserRow, 'id' | 'username' | 'display_name' | 'role'>>
+  const rows = (data ?? []) as Array<Pick<PostgresIdentityUserRow, 'id' | 'username' | 'role'>>
   const roleRank = (role: UserRole) => (role === 'admin' ? 1 : role === 'analyst' ? 2 : 3)
 
   return rows
     .map((user) => ({
       id: user.id,
       username: user.username,
-      displayName: user.display_name,
       role: user.role,
       activeWorkload: 0,
     }))
@@ -340,7 +336,6 @@ export async function listAssignableUsers(): Promise<UserWorkload[]> {
 
 async function insertIdentityUser(input: {
   username: string
-  displayName: string
   role: UserRole
   passwordHash: string
 }) {
@@ -349,7 +344,6 @@ async function insertIdentityUser(input: {
   const payload = {
     username: input.username,
     username_key: normalizeUsernameKey(input.username),
-    display_name: input.displayName,
     role: input.role,
     password_hash: input.passwordHash,
     status: 'active',
@@ -362,7 +356,7 @@ async function insertIdentityUser(input: {
     .schema('identity')
     .from('users')
     .insert(payload)
-    .select('id, username, username_key, display_name, role, password_hash, status, primary_domain_key, created_at, updated_at')
+    .select('id, username, username_key, role, password_hash, status, primary_domain_key, created_at, updated_at')
     .single<PostgresIdentityUserRow>()
 
   if (error) {
@@ -377,7 +371,6 @@ async function insertIdentityUser(input: {
 
 export async function registerUser(input: {
   username: string
-  displayName: string
   role: UserRole
   passwordHash: string
   metadata: RequestMetadata
@@ -421,7 +414,6 @@ export async function registerUser(input: {
 
 export async function createUser(input: {
   username: string
-  displayName: string
   role: UserRole
   passwordHash: string
   actor: SessionUser

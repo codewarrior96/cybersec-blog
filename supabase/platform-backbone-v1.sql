@@ -10,7 +10,6 @@ create table if not exists identity.users (
   id bigserial primary key,
   username text not null unique,
   username_key text not null unique,
-  display_name text not null,
   role text not null default 'viewer' check (role in ('admin', 'analyst', 'viewer')),
   password_hash text not null,
   status text not null default 'active' check (status in ('active', 'disabled', 'archived')),

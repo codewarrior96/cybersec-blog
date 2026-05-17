@@ -113,13 +113,13 @@ const DEFAULT_EMPTY_PROFILE: PortfolioProfileSeed = {
   education: [],
 }
 
-export function getPortfolioSeedForUser(user: Pick<SessionUser, 'username' | 'displayName'>): PortfolioProfileSeed {
+export function getPortfolioSeedForUser(user: Pick<SessionUser, 'username'>): PortfolioProfileSeed {
   return {
     ...DEFAULT_EMPTY_PROFILE,
     profile: {
       ...DEFAULT_EMPTY_PROFILE.profile,
-      headline: `${user.displayName} / Profil`,
-      bio: `${user.displayName} icin olusturulmus duzenlenebilir profil alani. Sertifikalarini, egitimlerini ve profesyonel bilgisini bu alan uzerinden yonetebilirsin.`,
+      headline: `${user.username} / Profil`,
+      bio: `${user.username} icin olusturulmus duzenlenebilir profil alani. Sertifikalarini, egitimlerini ve profesyonel bilgisini bu alan uzerinden yonetebilirsin.`,
     },
   }
 }

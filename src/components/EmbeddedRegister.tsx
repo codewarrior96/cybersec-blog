@@ -22,7 +22,6 @@ export default function EmbeddedRegister({
   const router = useRouter()
   const [visible, setVisible] = useState(false)
   const [username, setUsername] = useState('')
-  const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -59,7 +58,6 @@ export default function EmbeddedRegister({
     try {
       const result = await registerWithPassword({
         username: username.trim(),
-        displayName: displayName.trim(),
         email: email.trim(),
         password,
         confirmPassword,
@@ -152,19 +150,6 @@ export default function EmbeddedRegister({
                   spellCheck={false}
                   enterKeyHint="next"
                   placeholder="ornek_kullanici"
-                  className="w-full rounded-2xl border border-emerald-400/20 bg-black/55 px-4 py-3 text-sm text-emerald-100 outline-none transition focus:border-emerald-300/60 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.3em] text-emerald-300/60">
-                  Görünen ad
-                </span>
-                <input
-                  value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value)}
-                  onKeyDown={(event) => event.key === 'Enter' && void handleRegister()}
-                  placeholder="Profilinizde görünecek ad"
                   className="w-full rounded-2xl border border-emerald-400/20 bg-black/55 px-4 py-3 text-sm text-emerald-100 outline-none transition focus:border-emerald-300/60 focus:shadow-[0_0_0_4px_rgba(16,185,129,0.12)]"
                 />
               </label>

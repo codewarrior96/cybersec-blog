@@ -12,7 +12,6 @@ const DB_PATH = path.join(DB_DIR, 'soc.db')
 
 interface SeedUser {
   username: string
-  displayName: string
   role: UserRole
   password: string
 }
@@ -42,7 +41,6 @@ async function initializeSchema(db: SqliteDb) {
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL UNIQUE,
-      display_name TEXT NOT NULL,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL CHECK (role IN ('admin', 'analyst', 'viewer')),
       is_active INTEGER NOT NULL DEFAULT 1,
@@ -239,11 +237,10 @@ async function seedUsers(db: SqliteDb) {
   for (const user of SEED_USERS) {
     await db.run(
       `
-        INSERT INTO users (username, display_name, password_hash, role, is_active, created_at, updated_at)
-        VALUES (?, ?, ?, ?, 1, ?, ?)
+        INSERT INTO users (username, password_hash, role, is_active, created_at, updated_at)
+        VALUES (?, ?, ?, 1, ?, ?)
       `,
       user.username,
-      user.displayName,
       hashPassword(user.password),
       user.role,
       now,
@@ -271,9 +268,8 @@ async function seedProfileData(db: SqliteDb) {
   const users = await db.all<{
     id: number
     username: string
-    display_name: string
   }[]>(`
-    SELECT id, username, display_name
+    SELECT id, username
     FROM users
     WHERE is_active = 1
   `)
@@ -288,7 +284,6 @@ async function seedProfileData(db: SqliteDb) {
     const now = new Date().toISOString()
     const seed = getPortfolioSeedForUser({
       username: user.username,
-      displayName: user.display_name,
     })
 
     // A-25 (Wave 11): website column retained in DDL for backward compat;

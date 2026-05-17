@@ -27,7 +27,6 @@ const PAST_ISO = new Date(Date.now() - 60 * 60 * 1000).toISOString() // -1h
 const validUser = {
   id: 1,
   username: 'u1',
-  displayName: 'User One',
   email: 'u1@example.com',
   emailVerified: false,
   role: 'viewer' as const,
@@ -38,7 +37,6 @@ const validUser = {
 const verifiedUser = {
   id: 1,
   username: 'u1',
-  displayName: 'User One',
   email: 'u1@example.com',
   emailVerified: true,
   role: 'viewer' as const,
@@ -55,8 +53,8 @@ describe('verify/route GET', () => {
     //       echo the token back — would leak it to anyone who intercepts
     //       the response, e.g. shared browser, proxy log, screen recording)
     //
-    // Source L52-62 explicitly enumerates the user fields returned (id,
-    // username, displayName, email, emailVerified, role) — emailVerifyToken
+    // Source explicitly enumerates the user fields returned (id,
+    // username, email, emailVerified, role) — emailVerifyToken
     // intentionally absent. Regression target: a refactor that does
     // `body.user = updated` (spread the whole record) would silently leak
     // the token. The explicit field enumeration check guards against that.

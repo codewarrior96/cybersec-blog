@@ -50,7 +50,7 @@ function makeRequest(url: string, init: RequestInit = {}): NextRequest {
 }
 
 const OWNER_SESSION = {
-  user: { id: 1, username: 'owner', displayName: 'Owner', role: 'viewer' as const, emailVerified: true },
+  user: { id: 1, username: 'owner', role: 'viewer' as const, emailVerified: true },
   token: 't-owner',
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
 }

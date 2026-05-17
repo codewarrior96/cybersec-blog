@@ -40,7 +40,7 @@ const validUser = {
   id: 1,
   email: 'u@example.com',
   emailKey: 'u@example.com',
-  displayName: 'User One',
+  username: 'user1',
   isActive: true,
   emailVerified: false,
 }
@@ -48,7 +48,7 @@ const validUser = {
 const updatedUser = {
   id: 1,
   email: 'u@example.com',
-  displayName: 'User One',
+  username: 'user1',
 }
 
 const GENERIC_OK = 'Eger email kayitliysa, yeni dogrulama bagi gonderildi.'

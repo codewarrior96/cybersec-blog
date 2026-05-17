@@ -66,31 +66,32 @@ describe('email-templates', () => {
       expect(result.html).toContain(escaped)
     })
 
-    it('T-ET06: username with CRLF stripped to space in plain text body (R-14 FIXED in 5d2f6cc)', () => {
-      // FIX EVIDENCE: Phase 1.5.10 R-14 Layer 2 — email-templates.ts now
-      // applies stripCrlf() (.replace(/[\r\n]+/g, ' ')) to displayName
-      // BEFORE interpolation. Even if the validator-layer R-14 fix
-      // (DISPLAY_NAME_DENYLIST_RE) is bypassed by an admin tool, legacy
-      // data, or future surface, the template-layer scrub still strips
-      // CR/LF before the rendered output.
+    it('T-ET06: username with CRLF stripped to space in plain text body (R-14 lineage)', () => {
+      // FIX EVIDENCE: Phase 1.5.10 R-14 Layer 2 (Wave 14.C lineage):
+      // email-templates.ts applies stripCrlf() (.replace(/[\r\n]+/g, ' '))
+      // to username BEFORE interpolation. Even if a future code path
+      // bypasses the username regex validator (admin tool, legacy data,
+      // future surface), the template-layer scrub still strips CR/LF
+      // before the rendered output.
       //
       // Defense-in-depth duality:
-      //   Layer 1 (validator, identity-validation.ts T-IV18/T-IV19):
-      //     rejects \r\n at registration entry. Validator-layer gate.
+      //   Layer 1 (validator, identity-validation.ts USERNAME_RE):
+      //     rejects \r\n at registration entry via the alphanumeric+_.-
+      //     character class. Validator-layer gate.
       //   Layer 2 (template, this test): defensive scrub on render.
       //     Bypass-resilience for code paths that skip the validator.
       //
       // Both required (R-13 pattern lineage). Validator alone leaves
       // pre-existing or admin-injected CRLF data exposed; template
       // alone could be skipped by a refactor that interpolates the raw
-      // displayName field directly.
+      // username field directly.
       //
       // SENIOR ARCHITECT NOTE: stripCrlf collapses runs of CR/LF into a
       // single space. "Foo\r\nBar" → "Foo Bar" (visually contiguous
       // name preserved). "Foo\n\r\nBar" → "Foo Bar" (multi-char
       // sequences collapsed to one space, no double-spaces leaked).
       //
-      // REJECTED ALTERNATIVE: drop the displayName entirely if it
+      // REJECTED ALTERNATIVE: drop the username entirely if it
       // contains CR/LF. Rejected because the template falls back to
       // 'Operator' only when username is empty — silent-drop would
       // surprise legitimate users whose name accidentally contained

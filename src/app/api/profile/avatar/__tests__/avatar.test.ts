@@ -63,7 +63,7 @@ import { POST } from '../route'
 import { GET as GET_BY_USER } from '../[userId]/route'
 
 const OWNER_SESSION = {
-  user: { id: 1, username: 'owner', displayName: 'Owner', role: 'viewer' as const, emailVerified: true },
+  user: { id: 1, username: 'owner', role: 'viewer' as const, emailVerified: true },
   token: 't-owner',
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
 }
@@ -159,7 +159,6 @@ describe('api/profile/avatar — R-API-10 + R-API-11 + A-27 closures', () => {
     vi.mocked(getPortfolioProfile).mockResolvedValueOnce({
       profile: {
         userId: 1,
-        displayName: 'Owner',
         bio: '',
         role: 'viewer',
         avatarPath: 'avatars/user-1/old-avatar.png',
@@ -178,7 +177,6 @@ describe('api/profile/avatar — R-API-10 + R-API-11 + A-27 closures', () => {
     vi.mocked(updatePortfolioAvatar).mockResolvedValueOnce({
       profile: {
         userId: 1,
-        displayName: 'Owner',
         bio: '',
         role: 'viewer',
         avatarPath: 'avatars/user-1/new-avatar.png',
@@ -222,7 +220,6 @@ describe('api/profile/avatar — R-API-10 + R-API-11 + A-27 closures', () => {
     vi.mocked(getPortfolioProfile).mockResolvedValueOnce({
       profile: {
         userId: 1,
-        displayName: 'Owner',
         bio: '',
         role: 'viewer',
         avatarPath: 'avatars/user-1/old-avatar.png',
@@ -241,7 +238,6 @@ describe('api/profile/avatar — R-API-10 + R-API-11 + A-27 closures', () => {
     vi.mocked(updatePortfolioAvatar).mockResolvedValueOnce({
       profile: {
         userId: 1,
-        displayName: 'Owner',
         bio: '',
         role: 'viewer',
         avatarPath: 'avatars/user-1/new-avatar.png',

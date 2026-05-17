@@ -123,6 +123,27 @@ Faz 13.C (Wave 13 commit `ed086c2`) ile birlikte ilk versiyon shipped. Sınav so
 - **Effort:** ~80-100 LOC (pool data structure + concurrent-mint guard via Promise dedup + expiry sweep + edge-case regression tests).
 - **Priority:** **Conditional** — sadece production traffic high olursa (capstone demo + early Phase 7 traffic için over-engineered).
 
+### 13. Bug 2 — 14× `GET /api/profile/me` storm verification
+
+- **Origin:** Wave 14.A investigation (commit `d98f76b`). Mechanical evidence: only 3 fetch sites in PortfolioWorkspace.tsx; 1 useEffect with `[editable]` dep fires once on mount. 14× cardinality is order-of-magnitude anomaly — likely measurement confusion (avatar fetches counted as profile/me) OR dev-mode Strict + HMR amplification.
+- **Resolution path:** Production HAR capture protocol — operator opens DevTools Network panel (hard reload, no throttle, no HMR), filters exactly on `/api/profile/me` substring, confirms cardinality. If true 14× → instrument server-side route with request-id + Referer logging. If miscount → close.
+- **Effort:** ~5 dakika HAR capture (operator) + ~30 dakika analysis + optional ~20 LOC instrumentation.
+- **Priority:** **Low** (likely measurement artifact per Wave 14.A HIGH-confidence hypothesis).
+
+### 14. Bug 5 — "Beni Hatırla" reproducibility check
+
+- **Origin:** Wave 14.A investigation (commit `d98f76b`). Code wired correctly at all 4 layers (EmbeddedLogin checkbox → loginWithPassword → API route → cookie maxAge). HIGH-confidence root: modern browser "continue where you left off" feature persists session cookies across browser restart even when maxAge is omitted (intent: session cookie); operator perceives session persists regardless of checkbox state.
+- **Resolution path:** Operator-side DevTools verification (60-second test). Open `/login`, check checkbox → submit → DevTools → Application → Cookies → `soc_session` row → confirm `Expires / Max-Age` column shows ~30-day date. Repeat unchecked → confirm "Session". If both behaviors observed correctly → close as UX/browser-feature artifact. If broken → add reproduction protocol and diagnose.
+- **Effort:** ~1 dakika operator verification. Fix path (if needed) covered in Wave 14.A Section 5 Phase A/B (~5-15 min).
+- **Priority:** **Low** (likely browser-feature interference per Wave 14.A HIGH-confidence hypothesis).
+
+### 15. Bug 3 — Avatar 400 TTL aging fix
+
+- **Origin:** Wave 14.A investigation (commit `d98f76b`). HIGH-confidence root: Wave 13.C SSR-resolved `initialAvatarUrl` prop ages past 30s Supabase signed-URL TTL in BFCache (back-forward cache) / tab-parking / slow-hydration scenarios. Real regression introduced by Wave 13.C trading client-fetch volume for prop-aging surface.
+- **Resolution path:** Phase A (fastest, 1 LOC) — extend TTL from 30s to 90s in `src/app/portfolio/page.tsx:95`. Security envelope still tight (Wave 5B R-API-10 pattern intact). Phase B (robust, ~15 LOC) — add `<img onError>` fallback chain (SSR URL → legacy `/api/profile/avatar/[userId]` mint-fresh path). Phase C (most robust, ~40-60 LOC) — drop static prop, client-side fetch a new `/api/profile/avatar/url` endpoint on mount.
+- **Effort:** Phase A = 5 dakika. Phase B = 30-45 dakika. Phase C = 2-3 saat.
+- **Priority:** **Medium** — real Wave 13.C regression with UX impact (tab-parked users see broken avatar). Address before exam if time permits.
+
 ---
 
 ## Lineage notes

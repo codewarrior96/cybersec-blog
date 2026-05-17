@@ -32,13 +32,13 @@ function makeRequest(): NextRequest {
 }
 
 const ANALYST_SESSION = {
-  user: { id: 7, username: 'analyst1', displayName: 'Analyst', role: 'analyst' as const, emailVerified: true },
+  user: { id: 7, username: 'analyst1', role: 'analyst' as const, emailVerified: true },
   token: 't-analyst',
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
 }
 
 const ADMIN_SESSION = {
-  user: { id: 1, username: 'admin', displayName: 'Admin', role: 'admin' as const, emailVerified: true },
+  user: { id: 1, username: 'admin', role: 'admin' as const, emailVerified: true },
   token: 't-admin',
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
 }
@@ -61,8 +61,8 @@ describe('/api/users GET — Wave 2B R-API-06 closure (requireRole analyst gate)
       response: null,
     })
     vi.mocked(listAssignableUsers).mockResolvedValueOnce([
-      { id: 1, username: 'admin', displayName: 'Admin', role: 'admin', emailVerified: true } as never,
-      { id: 7, username: 'analyst1', displayName: 'Analyst', role: 'analyst', emailVerified: true } as never,
+      { id: 1, username: 'admin', role: 'admin', emailVerified: true } as never,
+      { id: 7, username: 'analyst1', role: 'analyst', emailVerified: true } as never,
     ])
 
     const res = await GET(makeRequest())

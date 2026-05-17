@@ -25,7 +25,6 @@ const SLA_TARGET_MINUTES: Record<AlertPriority, number> = {
 
 const DEMO_USERS: Array<{
   username: string
-  displayName: string
   role: UserRole
   password: string
 }> = []
@@ -91,7 +90,6 @@ export function __resetSecretCacheForTests(): void {
 interface InternalUser {
   id: number
   username: string
-  displayName: string
   role: UserRole
   passwordHash: string
   isActive: boolean
@@ -264,7 +262,6 @@ function createSeededState(): StoreState {
   const users: InternalUser[] = DEMO_USERS.map((user, index) => ({
     id: index + 1,
     username: user.username,
-    displayName: user.displayName,
     role: user.role,
     passwordHash: hashPassword(user.password),
     isActive: true,
@@ -281,7 +278,6 @@ function createSeededState(): StoreState {
   users.forEach((user) => {
     const seed = getPortfolioSeedForUser({
       username: user.username,
-      displayName: user.displayName,
     })
 
     profiles.push({
@@ -379,7 +375,6 @@ function toSessionUser(user: InternalUser): SessionUser {
   return {
     id: user.id,
     username: user.username,
-    displayName: user.displayName,
     role: user.role,
     // Memory store doesn't persist email; stays unverified for fallback
     // sessions. Production uses supabase store which surfaces real value.
@@ -444,7 +439,6 @@ function ensureProfileForUser(user: InternalUser): InternalProfile {
   const now = toIsoNow()
   const seed = getPortfolioSeedForUser({
     username: user.username,
-    displayName: user.displayName,
   })
 
   const created: InternalProfile = {
@@ -649,7 +643,6 @@ export interface AttackEventInput {
 export interface UserWorkload {
   id: number
   username: string
-  displayName: string
   role: UserRole
   activeWorkload: number
 }
@@ -827,7 +820,6 @@ export async function listAssignableUsers(): Promise<UserWorkload[]> {
     .map((user) => ({
       id: user.id,
       username: user.username,
-      displayName: user.displayName,
       role: user.role,
       activeWorkload: store.alerts.filter((alert) => alert.assigneeUserId === user.id && alert.status !== 'resolved').length,
     }))
@@ -1541,7 +1533,6 @@ export async function deleteUserCascade(
 
 export async function registerUser(input: {
   username: string
-  displayName: string
   role: UserRole
   passwordHash: string
   metadata: RequestMetadata
@@ -1568,7 +1559,6 @@ export async function registerUser(input: {
   const user: InternalUser = {
     id: store.counters.userId++,
     username: input.username,
-    displayName: input.displayName,
     role: input.role,
     passwordHash: input.passwordHash,
     isActive: true,
@@ -1994,7 +1984,6 @@ export async function deletePortfolioEducation(
 
 export async function createUser(input: {
   username: string
-  displayName: string
   role: UserRole
   passwordHash: string
   actor: SessionUser
@@ -2014,7 +2003,6 @@ export async function createUser(input: {
   const user: InternalUser = {
     id: store.counters.userId++,
     username: input.username,
-    displayName: input.displayName,
     role: input.role,
     passwordHash: input.passwordHash,
     isActive: true,

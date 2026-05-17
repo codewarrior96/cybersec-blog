@@ -61,7 +61,6 @@ export async function registerAndLogin(
   // (Turkish) which matches the production siberlab.dev render.
   await page.goto('/register')
   await page.getByPlaceholder('ornek_kullanici').fill(ephemeralUser.username)
-  await page.getByPlaceholder('Profilinizde görünecek ad').fill(ephemeralUser.displayName)
   await page.getByPlaceholder('ornek@email.com').fill(ephemeralUser.email)
   await page.getByPlaceholder('En az 8 karakter').fill(ephemeralUser.password)
   await page.getByPlaceholder('Şifrenizi tekrar giriniz').fill(ephemeralUser.password)

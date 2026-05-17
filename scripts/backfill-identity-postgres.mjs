@@ -129,7 +129,6 @@ function toUserPayload(user) {
     id: user.id,
     username: user.username,
     username_key: user.usernameKey ?? String(user.username).trim().toLowerCase(),
-    display_name: user.displayName,
     role: user.role,
     password_hash: user.passwordHash,
     status: user.isActive ? 'active' : 'disabled',

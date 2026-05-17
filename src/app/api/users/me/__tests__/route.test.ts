@@ -54,7 +54,7 @@ function makeRequest(body?: unknown): NextRequest {
 }
 
 const SESSION = {
-  user: { id: 7, username: 'operator1', displayName: 'Operator', role: 'analyst' as const, emailVerified: true },
+  user: { id: 7, username: 'operator1', role: 'analyst' as const, emailVerified: true },
   token: 't-op',
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
 }
@@ -64,7 +64,6 @@ const STORED_USER = {
   username: 'operator1',
   email: 'op@example.com',
   emailKey: 'op@example.com',
-  displayName: 'Operator',
   role: 'analyst' as const,
   passwordHash: 'salt:hash',
   emailVerified: true,

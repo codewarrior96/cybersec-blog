@@ -52,7 +52,6 @@ const PAST_ISO = new Date(Date.now() - 60 * 60 * 1000).toISOString() // -1h
 const validUser = {
   id: 1,
   username: 'u1',
-  displayName: 'U1',
   email: 'u@example.com',
   role: 'viewer' as const,
   passwordResetToken: 'token-xyz',

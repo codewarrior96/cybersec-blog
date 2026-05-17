@@ -32,7 +32,6 @@ interface StoredUser {
   id: number
   username: string
   usernameKey: string
-  displayName: string
   role: UserRole
   passwordHash: string
   isActive: boolean
@@ -122,7 +121,6 @@ function toSessionUser(user: StoredUser): SessionUser {
   return {
     id: user.id,
     username: user.username,
-    displayName: user.displayName,
     role: user.role,
     emailVerified: user.emailVerified,
   }
@@ -545,7 +543,6 @@ async function writeUser(user: StoredUser) {
 export async function ensureIdentityShadowUser(input: {
   id: number
   username: string
-  displayName: string
   role: UserRole
   passwordHash: string
   isActive: boolean
@@ -567,7 +564,6 @@ export async function ensureIdentityShadowUser(input: {
     id: input.id,
     username: input.username,
     usernameKey: normalizeUsernameKey(input.username),
-    displayName: input.displayName,
     role: input.role,
     passwordHash: input.passwordHash,
     isActive: input.isActive,
@@ -599,7 +595,6 @@ async function ensureProfileSeedDataForUser(user: StoredUser): Promise<StoredPro
 
   const seed = getPortfolioSeedForUser({
     username: user.username,
-    displayName: user.displayName,
   })
   const now = toIsoNow()
   const profile: StoredProfile = {
@@ -787,7 +782,6 @@ export async function getSessionByToken(token: string): Promise<SessionRecord | 
 
 export async function registerUser(input: {
   username: string
-  displayName: string
   role: UserRole
   passwordHash: string
   metadata: RequestMetadata
@@ -826,7 +820,6 @@ export async function registerUser(input: {
     id: makeId(),
     username: input.username,
     usernameKey: normalizeUsernameKey(input.username),
-    displayName: input.displayName,
     role: input.role,
     passwordHash: input.passwordHash,
     isActive: true,
@@ -858,7 +851,6 @@ export async function registerUser(input: {
 
 export async function createUser(input: {
   username: string
-  displayName: string
   role: UserRole
   passwordHash: string
   actor: SessionUser
@@ -878,7 +870,6 @@ export async function createUser(input: {
     id: makeId(),
     username: input.username,
     usernameKey: normalizeUsernameKey(input.username),
-    displayName: input.displayName,
     role: input.role,
     passwordHash: input.passwordHash,
     isActive: true,

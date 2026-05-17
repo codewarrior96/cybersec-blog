@@ -54,7 +54,6 @@ export async function GET(request: NextRequest) {
       user: {
         id: updated.id,
         username: updated.username,
-        displayName: updated.displayName,
         email: updated.email,
         emailVerified: updated.emailVerified,
         role: updated.role,

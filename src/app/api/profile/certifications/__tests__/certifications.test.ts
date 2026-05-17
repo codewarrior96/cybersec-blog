@@ -93,13 +93,13 @@ function makeFormData(fields: Record<string, string | File> = {}): FormData {
 }
 
 const OWNER_SESSION = {
-  user: { id: 1, username: 'owner', displayName: 'Owner', role: 'viewer' as const, emailVerified: true },
+  user: { id: 1, username: 'owner', role: 'viewer' as const, emailVerified: true },
   token: 't-owner',
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
 }
 
 const OTHER_SESSION = {
-  user: { id: 99, username: 'other', displayName: 'Other', role: 'viewer' as const, emailVerified: true },
+  user: { id: 99, username: 'other', role: 'viewer' as const, emailVerified: true },
   token: 't-other',
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
 }

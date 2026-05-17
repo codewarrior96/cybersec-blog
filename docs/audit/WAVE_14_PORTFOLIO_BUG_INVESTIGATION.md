@@ -647,15 +647,15 @@ This pattern is consistent with smoke-testing fatigue + dev-mode amplification: 
 
 ---
 
-## 7. Mentor decision matrix (empty — fill at Faz 14.B kickoff)
+## 7. Mentor decision matrix (filled — locked at Faz 14.B kickoff)
 
 | Bug | Recommendation | Mentor decision | Rationale |
 |-----|---------------|----------------|-----------|
-| 1 | Phase A instrumentation + Phase B guard rail | _(pending)_ | _(pending)_ |
-| 2 | Phase A measurement reconciliation first | _(pending)_ | _(pending)_ |
-| 3 | Phase A TTL extension (30s → 90s) — fastest fix | _(pending)_ | _(pending)_ |
-| 4 | Phase A: add display-name update feature | _(pending)_ | _(pending)_ |
-| 5 | Phase C empirical verification first; Phase A default-state fix if confirmed UX gap | _(pending)_ | _(pending)_ |
+| 1 | Phase A instrumentation + Phase B guard rail | **ELIMINATED** — operator misperception confirmed | Mechanical evidence: `saveProfile()` has a single caller (button onClick L1111); no auto-PUT path exists. Toast persistence (no auto-dismiss until tab change) explains the observation. No fix needed; if operator wants the toast to clear automatically, schedule as separate UX cycle. |
+| 2 | Phase A measurement reconciliation first | **DEFERRED** → POST_CAPSTONE_BACKLOG #13 | HAR data needed before fix scope can be locked. Likely measurement artifact (avatar miscount or dev-mode HMR/Strict amplification). 5-minute operator-side test will resolve. |
+| 3 | Phase A TTL extension (30s → 90s) — fastest fix | **DEFERRED** → POST_CAPSTONE_BACKLOG #15 (separate cycle) | Real Wave 13.C regression with UX impact, but Wave 14.C scope locked to `display_name` removal only. Address before exam if time permits via Phase A/B/C menu. |
+| 4 | Phase A: add display-name update feature | **CLOSED by Wave 14.C** | Operator chose to remove `display_name` system-wide instead of adding an update feature. Single-identity (username) model eliminates the "Zerooooo" data-residue surface entirely. See A-28 + Z.16. |
+| 5 | Phase C empirical verification first; Phase A default-state fix if confirmed UX gap | **DEFERRED** → POST_CAPSTONE_BACKLOG #14 | Reproduction protocol needed (60-second operator-side DevTools cookie inspection). Code wired correctly at all 4 layers; likely browser "continue where you left off" feature confusion. Fix path (default-checked OR explicit hint text) available if confirmed UX gap. |
 
 **Mentor questions to resolve before Faz 14.B begins:**
 

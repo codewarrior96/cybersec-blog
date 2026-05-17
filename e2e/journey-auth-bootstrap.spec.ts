@@ -45,7 +45,6 @@ test.describe('J-1 Auth bootstrap — R-E2E-01 PARTIAL closure', () => {
     const user = makeEphemeralUser()
     await page.goto('/register')
     await page.getByPlaceholder('ornek_kullanici').fill(user.username)
-    await page.getByPlaceholder('Profilinizde görünecek ad').fill(user.displayName)
     await page.getByPlaceholder('ornek@email.com').fill(user.email)
     await page.getByPlaceholder('En az 8 karakter').fill(user.password)
     await page.getByPlaceholder('Şifrenizi tekrar giriniz').fill(user.password)
@@ -82,7 +81,6 @@ test.describe('J-1 Auth bootstrap — R-E2E-01 PARTIAL closure', () => {
     // First register (succeeds)
     await page.goto('/register')
     await page.getByPlaceholder('ornek_kullanici').fill(user.username)
-    await page.getByPlaceholder('Profilinizde görünecek ad').fill(user.displayName)
     await page.getByPlaceholder('ornek@email.com').fill(user.email)
     await page.getByPlaceholder('En az 8 karakter').fill(user.password)
     await page.getByPlaceholder('Şifrenizi tekrar giriniz').fill(user.password)
@@ -92,7 +90,6 @@ test.describe('J-1 Auth bootstrap — R-E2E-01 PARTIAL closure', () => {
     // Second register with SAME credentials — duplicate detection path
     await page.goto('/register')
     await page.getByPlaceholder('ornek_kullanici').fill(user.username)
-    await page.getByPlaceholder('Profilinizde görünecek ad').fill(user.displayName)
     await page.getByPlaceholder('ornek@email.com').fill(user.email)
     await page.getByPlaceholder('En az 8 karakter').fill(user.password)
     await page.getByPlaceholder('Şifrenizi tekrar giriniz').fill(user.password)

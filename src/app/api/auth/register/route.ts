@@ -6,12 +6,10 @@ import { getClientIp } from '@/lib/client-ip'
 import { sendVerificationEmail } from '@/lib/email'
 import { getReservedUsernameError, isReservedUsername } from '@/lib/identity-rules'
 import {
-  getDisplayNameError,
   getEmailFormatError,
   getPasswordError,
   getUsernameFormatError,
   isAllowedUsername,
-  isValidDisplayName,
   isValidPassword,
   validateEmail,
 } from '@/lib/identity-validation'
@@ -21,7 +19,6 @@ import { readUserByEmailKey, registerUser } from '@/lib/soc-store-adapter'
 
 interface RegisterBody {
   username?: unknown
-  displayName?: unknown
   email?: unknown
   password?: unknown
   confirmPassword?: unknown
@@ -102,7 +99,6 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json().catch(() => ({}))) as RegisterBody
   const username = typeof body.username === 'string' ? body.username.trim() : ''
-  const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : ''
   const emailRaw = typeof body.email === 'string' ? body.email : ''
   const password = typeof body.password === 'string' ? body.password : ''
   const confirmPassword = typeof body.confirmPassword === 'string' ? body.confirmPassword : ''
@@ -115,7 +111,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status })
   }
 
-  if (!username || !displayName || !emailRaw || !password || !confirmPassword) {
+  if (!username || !emailRaw || !password || !confirmPassword) {
     return failRegister('Tum kayit alanlari zorunlu.', 400)
   }
 
@@ -125,10 +121,6 @@ export async function POST(request: NextRequest) {
 
   if (isReservedUsername(username)) {
     return failRegister(getReservedUsernameError(), 400)
-  }
-
-  if (!isValidDisplayName(displayName)) {
-    return failRegister(getDisplayNameError(), 400)
   }
 
   const emailResult = validateEmail(emailRaw)
@@ -161,7 +153,6 @@ export async function POST(request: NextRequest) {
   try {
     const user = await registerUser({
       username,
-      displayName,
       role: 'viewer',
       passwordHash: hashPassword(password),
       metadata,
@@ -195,7 +186,7 @@ export async function POST(request: NextRequest) {
     const emailResultSend = await sendVerificationEmail({
       to: email,
       verifyUrl,
-      username: user.displayName,
+      username: user.username,
     })
 
     let warning: string | undefined

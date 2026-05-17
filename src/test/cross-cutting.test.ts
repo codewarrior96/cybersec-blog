@@ -48,7 +48,6 @@ const FUTURE_ISO = new Date(Date.now() + 60 * 60 * 1000).toISOString()
 const validResetUser = {
   id: 1,
   username: 'u1',
-  displayName: 'U1',
   email: 'u@example.com',
   role: 'viewer' as const,
   passwordResetToken: 'token-xyz',
@@ -175,7 +174,6 @@ describe('Cross-cutting / regression-guard tests', () => {
             {
               id: 1,
               username: 'test',
-              displayName: 'Test User',
               role: 'viewer',
               emailVerified: true,
             },
@@ -224,7 +222,6 @@ describe('Cross-cutting / regression-guard tests', () => {
           {
             id: 1,
             username: 'test',
-            displayName: 'Test User',
             role: 'viewer',
             emailVerified: true,
           },
@@ -239,7 +236,6 @@ describe('Cross-cutting / regression-guard tests', () => {
           {
             id: 1,
             username: 'test',
-            displayName: 'Test User',
             role: 'viewer',
             emailVerified: true,
           },
@@ -263,7 +259,6 @@ describe('Cross-cutting / regression-guard tests', () => {
           {
             id: 1,
             username: 'test',
-            displayName: 'Test User',
             role: 'viewer',
             emailVerified: true,
           },

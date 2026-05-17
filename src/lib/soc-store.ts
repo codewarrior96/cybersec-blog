@@ -103,7 +103,6 @@ export interface AttackEventInput {
 export interface UserWorkload {
   id: number
   username: string
-  displayName: string
   role: UserRole
   activeWorkload: number
 }
@@ -212,13 +211,11 @@ function parseStringList(jsonValue: string): string[] {
 function toSessionUserFromRow(row: {
   id: number
   username: string
-  display_name: string
   role: UserRole
 }): SessionUser {
   return {
     id: row.id,
     username: row.username,
-    displayName: row.display_name,
     role: row.role,
     // SQLite store predates email; defaults to false. Used in dev
     // SOC_STORAGE=sqlite mode only — production runs supabase JSON.
@@ -386,13 +383,12 @@ export async function authenticateUser(username: string, password: string): Prom
   const row = await db.get<{
     id: number
     username: string
-    display_name: string
     role: UserRole
     password_hash: string
     is_active: number
   }>(
     `
-      SELECT id, username, display_name, role, password_hash, is_active
+      SELECT id, username, role, password_hash, is_active
       FROM users
       WHERE lower(username) = ?
       LIMIT 1
@@ -412,7 +408,6 @@ export async function authenticateUser(username: string, password: string): Prom
   return {
     id: row.id,
     username: row.username,
-    displayName: row.display_name,
     role: row.role,
     // SQLite mode predates email; defaults to false.
     emailVerified: false,
@@ -422,18 +417,16 @@ export async function authenticateUser(username: string, password: string): Prom
 async function getActiveUserById(userId: number): Promise<{
   id: number
   username: string
-  display_name: string
   role: UserRole
 } | null> {
   const db = await getDb()
   const row = await db.get<{
     id: number
     username: string
-    display_name: string
     role: UserRole
   }>(
     `
-      SELECT id, username, display_name, role
+      SELECT id, username, role
       FROM users
       WHERE id = ? AND is_active = 1
       LIMIT 1
@@ -447,7 +440,6 @@ async function getActiveUserById(userId: number): Promise<{
 async function getActiveUserByUsername(username: string): Promise<{
   id: number
   username: string
-  display_name: string
   role: UserRole
 } | null> {
   const db = await getDb()
@@ -455,11 +447,10 @@ async function getActiveUserByUsername(username: string): Promise<{
   const row = await db.get<{
     id: number
     username: string
-    display_name: string
     role: UserRole
   }>(
     `
-      SELECT id, username, display_name, role
+      SELECT id, username, role
       FROM users
       WHERE lower(username) = ? AND is_active = 1
       LIMIT 1
@@ -473,7 +464,6 @@ async function getActiveUserByUsername(username: string): Promise<{
 async function ensurePortfolioSeedDataForUser(user: {
   id: number
   username: string
-  display_name: string
 }): Promise<void> {
   const db = await getDb()
   const existingProfile = await db.get<{ user_id: number }>(
@@ -485,7 +475,6 @@ async function ensurePortfolioSeedDataForUser(user: {
   const now = toIsoNow()
   const seed = getPortfolioSeedForUser({
     username: user.username,
-    displayName: user.display_name,
   })
 
   await db.run('BEGIN')
@@ -679,7 +668,6 @@ export async function getSessionByToken(token: string): Promise<SessionRecord | 
     expires_at: string
     id: number
     username: string
-    display_name: string
     role: UserRole
   }>(
     `
@@ -688,7 +676,6 @@ export async function getSessionByToken(token: string): Promise<SessionRecord | 
         s.expires_at,
         u.id,
         u.username,
-        u.display_name,
         u.role
       FROM sessions s
       INNER JOIN users u ON u.id = s.user_id
@@ -711,7 +698,6 @@ export async function getSessionByToken(token: string): Promise<SessionRecord | 
     user: {
       id: row.id,
       username: row.username,
-      displayName: row.display_name,
       role: row.role,
       // SQLite mode predates email; defaults to false.
       emailVerified: false,
@@ -724,7 +710,6 @@ export async function listAssignableUsers(): Promise<UserWorkload[]> {
   const rows = await db.all<{
     id: number
     username: string
-    display_name: string
     role: UserRole
     active_workload: number
   }[]>(
@@ -732,7 +717,6 @@ export async function listAssignableUsers(): Promise<UserWorkload[]> {
       SELECT
         u.id,
         u.username,
-        u.display_name,
         u.role,
         COUNT(a.id) AS active_workload
       FROM users u
@@ -755,7 +739,6 @@ export async function listAssignableUsers(): Promise<UserWorkload[]> {
   return rows.map((row) => ({
     id: row.id,
     username: row.username,
-    displayName: row.display_name,
     role: row.role,
     activeWorkload: Number(row.active_workload ?? 0),
   }))
@@ -776,11 +759,9 @@ interface AlertJoinedRow {
   resolved_at: string | null
   assignee_id: number | null
   assignee_username: string | null
-  assignee_display_name: string | null
   assignee_role: UserRole | null
   creator_id: number | null
   creator_username: string | null
-  creator_display_name: string | null
   creator_role: UserRole | null
   note_count: number
 }
@@ -800,22 +781,20 @@ function toAlertRecord(row: AlertJoinedRow): AlertRecord {
     updatedAt: row.updated_at,
     resolvedAt: row.resolved_at,
     assignee:
-      row.assignee_id == null || row.assignee_username == null || row.assignee_display_name == null || row.assignee_role == null
+      row.assignee_id == null || row.assignee_username == null || row.assignee_role == null
         ? null
         : {
             id: row.assignee_id,
             username: row.assignee_username,
-            displayName: row.assignee_display_name,
             role: row.assignee_role,
             emailVerified: false,
           },
     createdBy:
-      row.creator_id == null || row.creator_username == null || row.creator_display_name == null || row.creator_role == null
+      row.creator_id == null || row.creator_username == null || row.creator_role == null
         ? null
         : {
             id: row.creator_id,
             username: row.creator_username,
-            displayName: row.creator_display_name,
             role: row.creator_role,
             emailVerified: false,
           },
@@ -843,11 +822,9 @@ async function getAlertById(alertId: number): Promise<AlertRecord | null> {
         a.resolved_at,
         assignee.id AS assignee_id,
         assignee.username AS assignee_username,
-        assignee.display_name AS assignee_display_name,
         assignee.role AS assignee_role,
         creator.id AS creator_id,
         creator.username AS creator_username,
-        creator.display_name AS creator_display_name,
         creator.role AS creator_role,
         (
           SELECT COUNT(*)
@@ -925,11 +902,9 @@ export async function listAlerts(filters: ListAlertsFilters): Promise<AlertListR
           a.resolved_at,
           assignee.id AS assignee_id,
           assignee.username AS assignee_username,
-          assignee.display_name AS assignee_display_name,
           assignee.role AS assignee_role,
           creator.id AS creator_id,
           creator.username AS creator_username,
-          creator.display_name AS creator_display_name,
           creator.role AS creator_role,
           (
             SELECT COUNT(*)
@@ -1343,7 +1318,6 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
     db.all<{
       id: number
       username: string
-      display_name: string
       role: UserRole
       active_workload: number
     }[]>(
@@ -1351,7 +1325,6 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
         SELECT
           u.id,
           u.username,
-          u.display_name,
           u.role,
           COUNT(a.id) AS active_workload
         FROM users u
@@ -1380,11 +1353,9 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
           a.resolved_at,
           assignee.id AS assignee_id,
           assignee.username AS assignee_username,
-          assignee.display_name AS assignee_display_name,
           assignee.role AS assignee_role,
           creator.id AS creator_id,
           creator.username AS creator_username,
-          creator.display_name AS creator_display_name,
           creator.role AS creator_role,
           (
             SELECT COUNT(*)
@@ -1510,7 +1481,6 @@ export async function getLiveMetrics(): Promise<LiveMetrics> {
   const assignment = assignmentRows.map((row) => ({
     id: row.id,
     username: row.username,
-    displayName: row.display_name,
     role: row.role,
     activeWorkload: Number(row.active_workload ?? 0),
   }))
@@ -1773,7 +1743,6 @@ export async function archiveReport(id: number, actor: SessionUser, metadata: Re
 
 export async function registerUser(input: {
   username: string
-  displayName: string
   role: UserRole
   passwordHash: string
   metadata: RequestMetadata
@@ -1790,11 +1759,10 @@ export async function registerUser(input: {
   const now = toIsoNow()
   const result = await db.run(
     `
-      INSERT INTO users (username, display_name, password_hash, role, is_active, created_at, updated_at)
-      VALUES (?, ?, ?, ?, 1, ?, ?)
+      INSERT INTO users (username, password_hash, role, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, 1, ?, ?)
     `,
     input.username,
-    input.displayName,
     input.passwordHash,
     input.role,
     now,
@@ -1804,7 +1772,6 @@ export async function registerUser(input: {
   const user = {
     id: Number(result.lastID),
     username: input.username,
-    display_name: input.displayName,
     role: input.role,
   }
 
@@ -2451,7 +2418,6 @@ export async function deletePortfolioEducation(
 
 export async function createUser(input: {
   username: string
-  displayName: string
   role: UserRole
   passwordHash: string
   actor: SessionUser
@@ -2469,11 +2435,10 @@ export async function createUser(input: {
 
   const result = await db.run(
     `
-      INSERT INTO users (username, display_name, password_hash, role, is_active, created_at, updated_at)
-      VALUES (?, ?, ?, ?, 1, ?, ?)
+      INSERT INTO users (username, password_hash, role, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, 1, ?, ?)
     `,
     input.username,
-    input.displayName,
     input.passwordHash,
     input.role,
     now,
@@ -2483,7 +2448,6 @@ export async function createUser(input: {
   await ensurePortfolioSeedDataForUser({
     id: Number(result.lastID),
     username: input.username,
-    display_name: input.displayName,
   })
 
   await writeAuditLog({

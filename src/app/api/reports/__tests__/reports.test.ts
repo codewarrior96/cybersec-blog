@@ -59,13 +59,13 @@ function makeRequest(url: string, method: string, body?: unknown): NextRequest {
 }
 
 const ANALYST_SESSION = {
-  user: { id: 7, username: 'analyst', displayName: 'Analyst', role: 'analyst' as const, emailVerified: true },
+  user: { id: 7, username: 'analyst', role: 'analyst' as const, emailVerified: true },
   token: 't-analyst',
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
 }
 
 const VIEWER_SESSION = {
-  user: { id: 9, username: 'viewer', displayName: 'Viewer', role: 'viewer' as const, emailVerified: true },
+  user: { id: 9, username: 'viewer', role: 'viewer' as const, emailVerified: true },
   token: 't-viewer',
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
 }

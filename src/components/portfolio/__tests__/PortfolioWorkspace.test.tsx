@@ -48,7 +48,6 @@ import type { PortfolioProfileRecord } from '@/lib/portfolio-profile'
 const SESSION_USER = {
   id: 1,
   username: 'operator',
-  displayName: 'Operator',
   role: 'viewer' as const,
   emailVerified: true,
 }
@@ -315,7 +314,7 @@ describe('PortfolioWorkspace — A-24 Router Cache invalidation (Wave 10)', () =
     // 3 render sites (header thumbnail + edit form preview + read-side
     // card) all share the same src, so the browser dedupes natively —
     // no /api/profile/avatar/[userId] fetch is required.
-    const avatarImgs = screen.getAllByRole('img', { name: /Operator/ })
+    const avatarImgs = screen.getAllByRole('img', { name: /operator/ })
     expect(avatarImgs.length).toBeGreaterThanOrEqual(1)
     for (const img of avatarImgs) {
       expect(img.getAttribute('src')).toBe(ssrSignedUrl)
@@ -369,7 +368,7 @@ describe('PortfolioWorkspace — A-24 Router Cache invalidation (Wave 10)', () =
     // pattern. With Cache-Control: private, max-age=20 on that route's
     // 307 response (Faz 13.C Phase B), the 3 sites still dedupe at the
     // browser HTTP cache layer within the 20s window.
-    const avatarImgs = screen.getAllByRole('img', { name: /Operator/ })
+    const avatarImgs = screen.getAllByRole('img', { name: /operator/ })
     expect(avatarImgs.length).toBeGreaterThanOrEqual(1)
     for (const img of avatarImgs) {
       const src = img.getAttribute('src') ?? ''

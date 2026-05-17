@@ -31,7 +31,6 @@ function makeSession(role: UserRole): SessionRecord {
     user: {
       id: 1,
       username: 'tester',
-      displayName: 'Tester',
       role,
       emailVerified: true,
     },

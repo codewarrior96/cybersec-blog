@@ -47,7 +47,6 @@ const mockSession = {
   user: {
     id: 1,
     username: 'user1',
-    displayName: 'User One',
     role: 'viewer' as const,
     emailVerified: true,
   },

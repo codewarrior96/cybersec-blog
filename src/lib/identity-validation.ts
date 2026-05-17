@@ -1,7 +1,5 @@
 export const USERNAME_MIN_LENGTH = 3
 export const USERNAME_MAX_LENGTH = 32
-export const DISPLAY_NAME_MIN_LENGTH = 2
-export const DISPLAY_NAME_MAX_LENGTH = 120
 export const PASSWORD_MIN_LENGTH = 8
 export const PASSWORD_MAX_LENGTH = 256
 export const EMAIL_MAX_LENGTH = 254 // RFC 5321 path-length cap
@@ -13,29 +11,6 @@ const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/
 // authoritative validity check is whether the verification email arrives.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
-// R-13 hardening (Phase 1.5.2): denylist HTML-injection-relevant characters.
-// Apostrophe (') intentionally allowed — legitimate name pattern (O'Brien);
-// HTML escape at template layer handles it safely.
-//
-// R-14 hardening (Phase 1.5.10 5d2f6cc): CR/LF (\r\n) now blocked.
-// displayName flows downstream into email-templates.ts plain-text body
-// (`Merhaba ${safeName},` template literal). CR/LF in displayName would
-// fracture the rendered email across multiple lines — phishing-assist
-// where attacker injects fake siberlab footer/instructions interleaved
-// with legitimate copy ("Mehmet\r\n\r\n[siberlab] Hesabın askıya alındı:
-// evil.com" → plain-text reader sees fabricated footer as if part of
-// legitimate template body). Blocked at validator entry; template-layer
-// defensive cleanup (R-14 Layer 2 in email-templates.ts) provides
-// bypass-resilient defense-in-depth.
-//
-// SENIOR ARCHITECT NOTE: regex enforces validator-entry rejection. The
-// pragmatic name domain (Turkish/English/multi-script personal names)
-// has no legitimate use case for embedded CR/LF — these are control
-// characters, not part of any natural-name script. R-13 family closure:
-// validator now covers HTML-injection (R-13) + CRLF-injection (R-14)
-// surface in one regex.
-const DISPLAY_NAME_DENYLIST_RE = /[<>&"\r\n]/
-
 export function isAllowedUsername(username: string): boolean {
   return USERNAME_RE.test(username)
 }
@@ -44,26 +19,12 @@ export function getUsernameFormatError(): string {
   return 'Kullanici adi 3-32 karakter olmali ve sadece harf, rakam, nokta, tire veya alt cizgi icermeli.'
 }
 
-export function getDisplayNameError(): string {
-  return `Gorunen ad ${DISPLAY_NAME_MIN_LENGTH}-${DISPLAY_NAME_MAX_LENGTH} karakter arasi olmali ve <, >, &, ", satır sonu (CR/LF) karakterlerini icermemeli.`
-}
-
 export function getPasswordError(): string {
   return `Sifre ${PASSWORD_MIN_LENGTH}-${PASSWORD_MAX_LENGTH} karakter arasi olmali.`
 }
 
 export function getEmailFormatError(): string {
   return 'Gecerli bir email adresi girin.'
-}
-
-export function isValidDisplayName(value: string): boolean {
-  if (value.length < DISPLAY_NAME_MIN_LENGTH || value.length > DISPLAY_NAME_MAX_LENGTH) {
-    return false
-  }
-  if (DISPLAY_NAME_DENYLIST_RE.test(value)) {
-    return false
-  }
-  return true
 }
 
 export function isValidPassword(value: string): boolean {

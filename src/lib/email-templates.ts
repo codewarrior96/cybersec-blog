@@ -105,19 +105,17 @@ function assertSafeUrl(url: string, context: 'verifyUrl' | 'resetUrl'): URL {
   return parsed
 }
 
-// R-14 hardening (Phase 1.5.10 5d2f6cc): defensive CRLF cleanup
-// on displayName references in email body interpolation. Layer 2 of the
-// validator + template defense-in-depth pair (Layer 1 in
-// identity-validation.ts DISPLAY_NAME_DENYLIST_RE now blocks \r\n).
-//
-// Bypass-resilience: if a future code path stores a displayName that
-// bypasses the validator (e.g., direct DB write, admin tool, legacy data),
-// this template-layer scrub still strips CR/LF before interpolation. Pair
-// with R-13 escapeHtml: validator-then-template double-layer.
+// R-14 lineage (Phase 1.5.10 5d2f6cc + Wave 14.C): defensive CRLF cleanup
+// on username references in email body interpolation. Username regex
+// (`^[a-zA-Z0-9_.-]{3,32}$`) already excludes CR/LF at the validator
+// layer, so this is a bypass-resilient second layer — if a future code
+// path stores a username that bypasses the validator (direct DB write,
+// admin tool, legacy data), this template-layer scrub still strips CR/LF
+// before interpolation. Pair with R-13 escapeHtml: validator-then-template
+// double-layer.
 //
 // SENIOR ARCHITECT NOTE: replace(/[\r\n]+/g, ' ') collapses one-or-more
 // CR/LF sequences into a single space. This preserves visual continuity
-// of the displayName (no double-spaces from "Foo\r\n\nBar" → "Foo Bar")
 // while ensuring no line break survives into the rendered output.
 function stripCrlf(input: string): string {
   return input.replace(/[\r\n]+/g, ' ')
@@ -191,10 +189,9 @@ export function renderVerificationEmail(
   // malformed. Caller (route handler) catches + skips email send.
   assertSafeUrl(params.verifyUrl, 'verifyUrl')
 
-  // R-14 Layer 2 (Phase 1.5.10): defensive CRLF cleanup on displayName.
-  // Validator (identity-validation.ts) already rejects \r\n at registration
-  // time, but template-layer scrub protects bypass paths (admin tools,
-  // legacy data, future surfaces).
+  // R-14 Layer 2 (Wave 14.C lineage): defensive CRLF cleanup on username.
+  // Username regex already rejects CR/LF, but template-layer scrub
+  // protects bypass paths (direct DB write, admin tool, legacy data).
   const safeName = stripCrlf(params.username || 'Operator')
   const subject = 'siberlab — Email adresini doğrula'
   const preheader = 'Hesabını aktive etmek için email adresini doğrula.'
@@ -244,7 +241,7 @@ export function renderPasswordResetEmail(
   // R-15 (Phase 1.5.10): URL substrate validation. Throws on bad URL.
   assertSafeUrl(params.resetUrl, 'resetUrl')
 
-  // R-14 Layer 2 (Phase 1.5.10): defensive CRLF cleanup on displayName.
+  // R-14 Layer 2 (Wave 14.C lineage): defensive CRLF cleanup on username.
   const safeName = stripCrlf(params.username || 'Operator')
   const subject = 'siberlab — Şifre sıfırlama'
   const preheader = 'Şifre sıfırlama bağlantın hazır. 1 saat geçerli.'

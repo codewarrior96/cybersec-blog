@@ -25,7 +25,6 @@ export type EphemeralUser = {
   email: string
   password: string
   username: string
-  displayName: string
   timestamp: number
 }
 
@@ -43,7 +42,6 @@ export function makeEphemeralUser(prefix = 'e2e'): EphemeralUser {
     // (per src/lib/identity-validation.ts). The random suffix is
     // base36 alphanumeric — naturally compliant.
     username: `e2e_${random}`,
-    displayName: `E2E User ${random}`,
     timestamp,
   }
 }

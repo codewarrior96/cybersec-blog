@@ -53,7 +53,7 @@ function makePatchRequest(id: string, body: unknown): NextRequest {
 }
 
 const ANALYST_SESSION = {
-  user: { id: 7, username: 'analyst1', displayName: 'Analyst One', role: 'analyst' as const, emailVerified: true },
+  user: { id: 7, username: 'analyst1', role: 'analyst' as const, emailVerified: true },
   token: 't-analyst',
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
 }
@@ -335,14 +335,12 @@ describe('A-13 closure — soc-store-memory registerUser concurrent race (R-05 T
     const promises = [
       memoryStore.registerUser({
         username,
-        displayName: 'Test User',
         role: 'viewer',
         passwordHash,
         metadata: { ipAddress: '127.0.0.1', userAgent: 'test' },
       }),
       memoryStore.registerUser({
         username,
-        displayName: 'Test User 2',
         role: 'viewer',
         passwordHash,
         metadata: { ipAddress: '127.0.0.2', userAgent: 'test' },

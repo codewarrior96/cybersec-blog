@@ -19,7 +19,6 @@ export const revalidate = 0
 function buildProfileFromSeed(user: SessionUser): PortfolioProfileRecord {
   const seed = getPortfolioSeedForUser({
     username: user.username,
-    displayName: user.displayName,
   })
 
   return {

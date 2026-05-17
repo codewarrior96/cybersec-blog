@@ -52,7 +52,6 @@ function makePostRequest(body: unknown): NextRequest {
 
 const validBody = {
   username: 'newuser',
-  displayName: 'New User',
   email: 'new@example.com',
   password: 'password123',
   confirmPassword: 'password123',
@@ -73,7 +72,6 @@ beforeEach(() => {
   vi.mocked(registerUser).mockResolvedValue({
     id: 1,
     username: 'newuser',
-    displayName: 'New User',
     role: 'viewer',
     emailVerified: false,
   } as never)

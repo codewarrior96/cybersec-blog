@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     const sendResult = await sendVerificationEmail({
       to: updated.email,
       verifyUrl,
-      username: updated.displayName,
+      username: updated.username,
     })
 
     if (!sendResult.ok) {

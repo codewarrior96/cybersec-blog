@@ -39,7 +39,6 @@ const validUser = {
   email: 'u@example.com',
   emailKey: 'u@example.com',
   username: 'user1',
-  displayName: 'User One',
   isActive: true,
   emailVerified: true, // forgot REQUIRES emailVerified=true (opposite of verify-resend)
 }
@@ -48,7 +47,6 @@ const updatedUser = {
   id: 1,
   email: 'u@example.com',
   username: 'user1',
-  displayName: 'User One',
 }
 
 const GENERIC_OK = 'Eğer bu email kayıtlıysa, şifre sıfırlama bağlantısı gönderildi.'
