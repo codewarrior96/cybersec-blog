@@ -66,11 +66,26 @@ async function readError(response: Response, fallback: string) {
   return payload.error ?? fallback
 }
 
-function normalizeWebsiteUrl(value: string) {
-  const trimmed = value.trim()
-  if (!trimmed) return ''
-  if (/^https?:\/\//i.test(trimmed)) return trimmed
-  return `https://${trimmed}`
+/**
+ * A-25 closure (Wave 11): platform URL builders. 5 platforms store
+ * username-only; this helper constructs the canonical full URL at
+ * display time. `personal` stores the full URL already (no platform
+ * host) — caller decides whether to render it directly.
+ */
+function buildPlatformUrl(platform: 'github' | 'linkedin' | 'tryhackme' | 'hackthebox' | 'twitter', username: string): string {
+  const handle = encodeURIComponent(username.trim())
+  switch (platform) {
+    case 'github':
+      return `https://github.com/${handle}`
+    case 'linkedin':
+      return `https://www.linkedin.com/in/${handle}`
+    case 'tryhackme':
+      return `https://tryhackme.com/p/${handle}`
+    case 'hackthebox':
+      return `https://app.hackthebox.com/profile/${handle}`
+    case 'twitter':
+      return `https://x.com/${handle}`
+  }
 }
 
 function buildAvatarSrc(userId: number, username: string, avatarPath: string | null | undefined) {
@@ -269,7 +284,16 @@ export default function PortfolioWorkspace({
     headline: initialProfile.profile.headline,
     bio: initialProfile.profile.bio,
     location: initialProfile.profile.location,
-    website: initialProfile.profile.website,
+    // A-25 closure (Wave 11): 6 opsiyonel social platform handles
+    // replaces former single `website` text field. Storage convention:
+    // username-only for github/linkedin/tryhackme/hackthebox/twitter
+    // (display layer builds full URL); full URL for personal.
+    socialGithub: initialProfile.profile.socialLinks?.github ?? '',
+    socialLinkedin: initialProfile.profile.socialLinks?.linkedin ?? '',
+    socialTryhackme: initialProfile.profile.socialLinks?.tryhackme ?? '',
+    socialHackthebox: initialProfile.profile.socialLinks?.hackthebox ?? '',
+    socialTwitter: initialProfile.profile.socialLinks?.twitter ?? '',
+    socialPersonal: initialProfile.profile.socialLinks?.personal ?? '',
     specialties: listToText(initialProfile.profile.specialties),
     tools: listToText(initialProfile.profile.tools),
   })
@@ -309,7 +333,33 @@ export default function PortfolioWorkspace({
     () => (avatarLoadFailed ? '' : buildAvatarSrc(data.user.id, data.user.username, data.profile.avatarPath)),
     [avatarLoadFailed, data.profile.avatarPath, data.user.id, data.user.username],
   )
-  const websiteUrl = useMemo(() => normalizeWebsiteUrl(profileForm.website), [profileForm.website])
+  // A-25 closure (Wave 11): pre-computed social link entries for the
+  // read-only display surface. Each entry carries the platform label,
+  // the stored value (username or URL), and the rendered href (full
+  // URL constructed at display time for 5 platforms; personal passed
+  // through verbatim). Empty values are filtered out by the renderer.
+  const socialLinkEntries = useMemo(() => {
+    const entries: Array<{ key: string; label: string; value: string; href: string }> = []
+    if (profileForm.socialGithub.trim()) {
+      entries.push({ key: 'github', label: 'GitHub', value: profileForm.socialGithub.trim(), href: buildPlatformUrl('github', profileForm.socialGithub) })
+    }
+    if (profileForm.socialLinkedin.trim()) {
+      entries.push({ key: 'linkedin', label: 'LinkedIn', value: profileForm.socialLinkedin.trim(), href: buildPlatformUrl('linkedin', profileForm.socialLinkedin) })
+    }
+    if (profileForm.socialTryhackme.trim()) {
+      entries.push({ key: 'tryhackme', label: 'TryHackMe', value: profileForm.socialTryhackme.trim(), href: buildPlatformUrl('tryhackme', profileForm.socialTryhackme) })
+    }
+    if (profileForm.socialHackthebox.trim()) {
+      entries.push({ key: 'hackthebox', label: 'HackTheBox', value: profileForm.socialHackthebox.trim(), href: buildPlatformUrl('hackthebox', profileForm.socialHackthebox) })
+    }
+    if (profileForm.socialTwitter.trim()) {
+      entries.push({ key: 'twitter', label: 'X / Twitter', value: profileForm.socialTwitter.trim(), href: buildPlatformUrl('twitter', profileForm.socialTwitter) })
+    }
+    if (profileForm.socialPersonal.trim()) {
+      entries.push({ key: 'personal', label: 'Kişisel Site', value: profileForm.socialPersonal.trim(), href: profileForm.socialPersonal.trim() })
+    }
+    return entries
+  }, [profileForm.socialGithub, profileForm.socialLinkedin, profileForm.socialTryhackme, profileForm.socialHackthebox, profileForm.socialTwitter, profileForm.socialPersonal])
   const specialtiesList = useMemo(() => textToList(profileForm.specialties), [profileForm.specialties])
   const toolsList = useMemo(() => textToList(profileForm.tools), [profileForm.tools])
   const isCertComposerOpen = certComposerMode !== null
@@ -362,7 +412,12 @@ export default function PortfolioWorkspace({
       headline: data.profile.headline,
       bio: data.profile.bio,
       location: data.profile.location,
-      website: data.profile.website,
+      socialGithub: data.profile.socialLinks?.github ?? '',
+      socialLinkedin: data.profile.socialLinks?.linkedin ?? '',
+      socialTryhackme: data.profile.socialLinks?.tryhackme ?? '',
+      socialHackthebox: data.profile.socialLinks?.hackthebox ?? '',
+      socialTwitter: data.profile.socialLinks?.twitter ?? '',
+      socialPersonal: data.profile.socialLinks?.personal ?? '',
       specialties: listToText(data.profile.specialties),
       tools: listToText(data.profile.tools),
     })
@@ -521,14 +576,27 @@ export default function PortfolioWorkspace({
     if (!canEdit || saving) return
     setSaving(true); setError(null); setMessage(null)
     try {
+      // A-25 (Wave 11): assemble socialLinks object from 6 flat form
+      // fields; PUT contract expects nested socialLinks (matches
+      // SocialLinks type + portfolio-validation.ts parseSocialLinks).
       const response = await fetch('/api/profile/me', {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...profileForm,
+          headline: profileForm.headline,
+          bio: profileForm.bio,
+          location: profileForm.location,
           specialties: textToList(profileForm.specialties),
           tools: textToList(profileForm.tools),
+          socialLinks: {
+            github: profileForm.socialGithub,
+            linkedin: profileForm.socialLinkedin,
+            tryhackme: profileForm.socialTryhackme,
+            hackthebox: profileForm.socialHackthebox,
+            twitter: profileForm.socialTwitter,
+            personal: profileForm.socialPersonal,
+          },
         }),
       })
       if (!response.ok) return setError(await readError(response, 'Profil kaydedilemedi.'))
@@ -971,9 +1039,16 @@ export default function PortfolioWorkspace({
                   </div>
 
                   <input value={profileForm.headline} onChange={(event) => setProfileForm((v) => ({ ...v, headline: event.target.value }))} disabled={!canEdit} className={`${fieldClass} md:col-span-2`} placeholder="Profil basligi" />
-                  <input value={profileForm.location} onChange={(event) => setProfileForm((v) => ({ ...v, location: event.target.value }))} disabled={!canEdit} className={fieldClass} placeholder="Lokasyon" />
-                  <input value={profileForm.website} onChange={(event) => setProfileForm((v) => ({ ...v, website: event.target.value }))} disabled={!canEdit} className={fieldClass} placeholder="Website" />
+                  <input value={profileForm.location} onChange={(event) => setProfileForm((v) => ({ ...v, location: event.target.value }))} disabled={!canEdit} className={`${fieldClass} md:col-span-2`} placeholder="Lokasyon" />
                   <textarea value={profileForm.bio} onChange={(event) => setProfileForm((v) => ({ ...v, bio: event.target.value }))} disabled={!canEdit} rows={5} className={`${fieldClass} md:col-span-2`} placeholder="Biyografi" />
+                  {/* A-25 closure (Wave 11): 6 social link inputs (Pattern A — sabit alan).
+                      5 platforms store username only (github.com/<username> etc); personal stores full URL. */}
+                  <input value={profileForm.socialGithub} onChange={(event) => setProfileForm((v) => ({ ...v, socialGithub: event.target.value }))} disabled={!canEdit} className={fieldClass} placeholder="GitHub kullanıcı adı (örn: codewarrior96)" aria-label="GitHub kullanıcı adı" />
+                  <input value={profileForm.socialLinkedin} onChange={(event) => setProfileForm((v) => ({ ...v, socialLinkedin: event.target.value }))} disabled={!canEdit} className={fieldClass} placeholder="LinkedIn kullanıcı adı (linkedin.com/in/<...>)" aria-label="LinkedIn kullanıcı adı" />
+                  <input value={profileForm.socialTryhackme} onChange={(event) => setProfileForm((v) => ({ ...v, socialTryhackme: event.target.value }))} disabled={!canEdit} className={fieldClass} placeholder="TryHackMe kullanıcı adı" aria-label="TryHackMe kullanıcı adı" />
+                  <input value={profileForm.socialHackthebox} onChange={(event) => setProfileForm((v) => ({ ...v, socialHackthebox: event.target.value }))} disabled={!canEdit} className={fieldClass} placeholder="HackTheBox kullanıcı adı" aria-label="HackTheBox kullanıcı adı" />
+                  <input value={profileForm.socialTwitter} onChange={(event) => setProfileForm((v) => ({ ...v, socialTwitter: event.target.value }))} disabled={!canEdit} className={fieldClass} placeholder="X / Twitter kullanıcı adı" aria-label="X / Twitter kullanıcı adı" />
+                  <input value={profileForm.socialPersonal} onChange={(event) => setProfileForm((v) => ({ ...v, socialPersonal: event.target.value }))} disabled={!canEdit} className={fieldClass} placeholder="Kişisel website tam URL (https://...)" aria-label="Kişisel website URL" />
                   <div className="md:col-span-2 grid gap-4 xl:grid-cols-2">
                     <TokenBoardEditor
                       label="Uzmanlik panosu"
@@ -1026,19 +1101,28 @@ export default function PortfolioWorkspace({
                     </p>
                   </div>
                 </div>
-                {websiteUrl && (
+                {/* A-25 closure (Wave 11): social link strip — replaces former single website card.
+                    Empty entries are filtered by socialLinkEntries memo; whole block hidden when all empty. */}
+                {socialLinkEntries.length > 0 && (
                   <div className="mt-5 rounded-[22px] border border-emerald-400/14 bg-emerald-400/[0.05] p-4">
                     <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-emerald-300/55">
-                      Website
+                      Sosyal Bağlantılar
                     </p>
-                    <a
-                      href={websiteUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-3 inline-flex max-w-full items-center rounded-2xl border border-emerald-300/20 bg-black/25 px-4 py-3 text-sm text-emerald-100 transition hover:border-emerald-300/35 hover:bg-emerald-400/[0.08]"
-                    >
-                      <span className="truncate">{profileForm.website.trim()}</span>
-                    </a>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {socialLinkEntries.map((entry) => (
+                        <a
+                          key={entry.key}
+                          href={entry.href}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/20 bg-black/25 px-3 py-2 text-xs text-emerald-100 transition hover:border-emerald-300/35 hover:bg-emerald-400/[0.08]"
+                          aria-label={`${entry.label}: ${entry.value}`}
+                        >
+                          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-300/65">{entry.label}</span>
+                          <span className="max-w-[160px] truncate">{entry.value}</span>
+                        </a>
+                      ))}
+                    </div>
                   </div>
                 )}
                 <p className="mt-5 text-sm leading-7 text-slate-300/85">{profileForm.bio || 'Biyografi burada gorunur.'}</p>

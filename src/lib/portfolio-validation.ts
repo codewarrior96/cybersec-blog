@@ -2,6 +2,7 @@ import type {
   CertificationStatus,
   EducationStatus,
   PortfolioProfileFields,
+  SocialLinks,
 } from '@/lib/portfolio-profile'
 import type {
   PortfolioCertificationInput,
@@ -12,8 +13,48 @@ import type {
 const CERTIFICATION_STATUSES: CertificationStatus[] = ['verified', 'active', 'planned', 'expired']
 const EDUCATION_STATUSES: EducationStatus[] = ['completed', 'active', 'planned', 'paused']
 
+// A-25 closure (Wave 11): per-platform username regex. Conservative
+// alphanumeric + underscore + hyphen + dot for handles up to 39 chars
+// (GitHub max). Permissive enough for LinkedIn / TryHackMe / HackTheBox
+// / X-Twitter usernames; strict enough to reject HTML / URL / whitespace
+// injection. Empty values are SKIPPED by validateSocialLinks (all
+// platform fields opsiyonel).
+const SOCIAL_USERNAME_RE = /^[a-zA-Z0-9._-]{1,39}$/
+
+// A-25: personal field stores a full URL (no canonical platform host).
+// Accept http:// or https:// only — assertSafeUrl-style scheme allowlist
+// applied inline (no import dependency on email-templates module). Cap
+// at 200 chars to bound payload size.
+const PERSONAL_URL_MAX_LEN = 200
+
+function isValidPersonalUrl(value: string): boolean {
+  if (value.length > PERSONAL_URL_MAX_LEN) return false
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 function asString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function parseSocialLinks(value: unknown): SocialLinks {
+  if (!value || typeof value !== 'object') return {}
+  const source = value as Record<string, unknown>
+  const next: SocialLinks = {}
+  for (const key of ['github', 'linkedin', 'tryhackme', 'hackthebox', 'twitter', 'personal'] as const) {
+    const raw = source[key]
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim()
+      if (trimmed) {
+        next[key] = trimmed
+      }
+    }
+  }
+  return next
 }
 
 export function normalizeListInput(value: unknown): string[] {
@@ -40,7 +81,7 @@ export function parseProfilePayload(body: Record<string, unknown>): PortfolioPro
     headline: asString(body.headline),
     bio: asString(body.bio),
     location: asString(body.location),
-    website: asString(body.website),
+    socialLinks: parseSocialLinks(body.socialLinks),
     specialties: normalizeListInput(body.specialties),
     tools: normalizeListInput(body.tools),
   }
@@ -49,6 +90,27 @@ export function parseProfilePayload(body: Record<string, unknown>): PortfolioPro
 export function validateProfilePayload(payload: PortfolioProfileFields): string | null {
   if (!payload.headline) return 'Profil basligi zorunlu.'
   if (!payload.bio) return 'Profil ozeti zorunlu.'
+  // A-25 closure (Wave 11): per-platform social link validation. Skip
+  // empty fields (all opsiyonel). 5 platforms validate against
+  // SOCIAL_USERNAME_RE (alphanumeric + . _ - up to 39 chars). `personal`
+  // validates as http(s) URL up to 200 chars.
+  const links = payload.socialLinks ?? {}
+  const platformChecks: Array<['github' | 'linkedin' | 'tryhackme' | 'hackthebox' | 'twitter', string]> = [
+    ['github', 'GitHub'],
+    ['linkedin', 'LinkedIn'],
+    ['tryhackme', 'TryHackMe'],
+    ['hackthebox', 'HackTheBox'],
+    ['twitter', 'X/Twitter'],
+  ]
+  for (const [key, label] of platformChecks) {
+    const value = links[key]
+    if (value && !SOCIAL_USERNAME_RE.test(value)) {
+      return `${label} kullanici adi gecersiz (sadece harf, rakam, nokta, alt cizgi, tire — en fazla 39 karakter).`
+    }
+  }
+  if (links.personal && !isValidPersonalUrl(links.personal)) {
+    return 'Kisisel website tam URL olmalidir (http:// veya https://, en fazla 200 karakter).'
+  }
   return null
 }
 

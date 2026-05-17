@@ -1,7 +1,7 @@
 ﻿import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
 import { isReservedUsername } from '@/lib/identity-rules'
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from '@/lib/security'
-import { dedupeStringList, getPortfolioSeedForUser } from '@/lib/portfolio-profile'
+import { dedupeStringList, getPortfolioSeedForUser, normalizeSocialLinksPatch } from '@/lib/portfolio-profile'
 import type { AlertPriority, AlertStatus, AttackSeverity, ReportStatus, SessionUser, UserRole } from '@/lib/soc-types'
 import { mapAttackTypeToTag, priorityWeight, severityToPriority } from '@/lib/soc-attack-utils'
 import type {
@@ -11,6 +11,7 @@ import type {
   PortfolioEducationRecord,
   PortfolioProfileFields,
   PortfolioProfileRecord,
+  SocialLinks,
 } from '@/lib/portfolio-profile'
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
@@ -103,7 +104,9 @@ interface InternalProfile {
   headline: string
   bio: string
   location: string
-  website: string
+  // A-25 (Wave 11): replaces former `website: string` with structured
+  // multi-platform handles. See SocialLinks in portfolio-profile.ts.
+  socialLinks: SocialLinks
   specialties: string[]
   tools: string[]
   avatarPath: string | null
@@ -286,7 +289,7 @@ function createSeededState(): StoreState {
       headline: seed.profile.headline,
       bio: seed.profile.bio,
       location: seed.profile.location,
-      website: seed.profile.website,
+      socialLinks: { ...(seed.profile.socialLinks ?? {}) },
       specialties: [...seed.profile.specialties],
       tools: [...seed.profile.tools],
       avatarPath: seed.profile.avatarPath ?? null,
@@ -449,7 +452,7 @@ function ensureProfileForUser(user: InternalUser): InternalProfile {
     headline: seed.profile.headline,
     bio: seed.profile.bio,
     location: seed.profile.location,
-    website: seed.profile.website,
+    socialLinks: { ...(seed.profile.socialLinks ?? {}) },
     specialties: [...seed.profile.specialties],
     tools: [...seed.profile.tools],
     avatarPath: seed.profile.avatarPath ?? null,
@@ -1600,7 +1603,7 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
       headline: profile.headline,
       bio: profile.bio,
       location: profile.location,
-      website: profile.website,
+      socialLinks: { ...profile.socialLinks },
       specialties: [...profile.specialties],
       tools: [...profile.tools],
       avatarPath: profile.avatarPath,
@@ -1640,7 +1643,7 @@ export async function updatePortfolioProfile(
   profile.headline = patch.headline.trim()
   profile.bio = patch.bio.trim()
   profile.location = patch.location.trim()
-  profile.website = patch.website.trim()
+  profile.socialLinks = normalizeSocialLinksPatch(patch.socialLinks)
   profile.specialties = dedupeStringList(patch.specialties)
   profile.tools = dedupeStringList(patch.tools)
   profile.updatedAt = now

@@ -60,7 +60,7 @@ function buildProfile(overrides?: Partial<PortfolioProfileRecord['profile']>): P
       headline: 'Initial headline',
       bio: 'Initial bio',
       location: '',
-      website: '',
+      socialLinks: {},
       specialties: [],
       tools: [],
       avatarPath: null,
@@ -146,6 +146,132 @@ describe('PortfolioWorkspace — A-24 Router Cache invalidation (Wave 10)', () =
       ([, init]) => (init as RequestInit | undefined)?.method === 'PUT',
     )
     expect(putCalls.length).toBeGreaterThanOrEqual(1)
+
+    vi.unstubAllGlobals()
+  })
+
+  // ─── A-25 closure (Wave 11) socialLinks tests ─────────────────────────────
+
+  it('T-SL-PERSIST — saveProfile PUT body contains nested socialLinks with all 6 platform fields', async () => {
+    const initialProfile = buildProfile({
+      socialLinks: { github: 'codewarrior96', personal: 'https://example.com' },
+    })
+
+    const fetchMock = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => {
+      return new Response(JSON.stringify({ profile: initialProfile }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <PortfolioWorkspace
+        initialProfile={initialProfile}
+        initialTab="profile"
+        editable
+      />,
+    )
+
+    await waitFor(() => {
+      const getCalls = fetchMock.mock.calls.filter(
+        ([, init]) => !(init as RequestInit | undefined)?.method || (init as RequestInit | undefined)?.method === 'GET',
+      )
+      expect(getCalls.length).toBeGreaterThanOrEqual(1)
+    })
+
+    const saveButton = await screen.findByRole('button', { name: /Profili Kaydet/i })
+    saveButton.click()
+
+    await waitFor(() => {
+      const putCalls = fetchMock.mock.calls.filter(
+        ([, init]) => (init as RequestInit | undefined)?.method === 'PUT',
+      )
+      expect(putCalls.length).toBeGreaterThanOrEqual(1)
+    })
+
+    // Inspect PUT body — must contain nested socialLinks with all 6 fields.
+    const putCall = fetchMock.mock.calls.find(
+      ([, init]) => (init as RequestInit | undefined)?.method === 'PUT',
+    )
+    expect(putCall).toBeTruthy()
+    const body = JSON.parse(((putCall![1] as RequestInit).body ?? '{}') as string)
+    expect(body.socialLinks).toBeDefined()
+    expect(body.socialLinks).toHaveProperty('github')
+    expect(body.socialLinks).toHaveProperty('linkedin')
+    expect(body.socialLinks).toHaveProperty('tryhackme')
+    expect(body.socialLinks).toHaveProperty('hackthebox')
+    expect(body.socialLinks).toHaveProperty('twitter')
+    expect(body.socialLinks).toHaveProperty('personal')
+    // Pre-populated values surface in the PUT
+    expect(body.socialLinks.github).toBe('codewarrior96')
+    expect(body.socialLinks.personal).toBe('https://example.com')
+    // Empty platforms send empty strings (server-side parseSocialLinks
+    // trims + drops empty keys before storage)
+    expect(body.socialLinks.twitter).toBe('')
+
+    // body.website MUST NOT exist (Wave 11 removed the field entirely)
+    expect(body).not.toHaveProperty('website')
+
+    vi.unstubAllGlobals()
+  })
+
+  it('T-SL-RENDER — display surface renders populated social links as anchor tags with constructed URLs', async () => {
+    const initialProfile = buildProfile({
+      socialLinks: {
+        github: 'codewarrior96',
+        linkedin: 'salim-aybasti',
+        tryhackme: 'zerox',
+        hackthebox: 'username',
+        twitter: 'handle',
+        personal: 'https://example.com/about',
+      },
+    })
+
+    const fetchMock = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => {
+      return new Response(JSON.stringify({ profile: initialProfile }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <PortfolioWorkspace
+        initialProfile={initialProfile}
+        initialTab="profile"
+        editable
+      />,
+    )
+
+    // All 6 platform anchors should be present with correctly constructed URLs.
+    // 5 platform handles → canonical platform host URLs; personal → verbatim.
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /GitHub.*codewarrior96/i })).toHaveAttribute(
+        'href',
+        'https://github.com/codewarrior96',
+      )
+    })
+    expect(screen.getByRole('link', { name: /LinkedIn.*salim-aybasti/i })).toHaveAttribute(
+      'href',
+      'https://www.linkedin.com/in/salim-aybasti',
+    )
+    expect(screen.getByRole('link', { name: /TryHackMe.*zerox/i })).toHaveAttribute(
+      'href',
+      'https://tryhackme.com/p/zerox',
+    )
+    expect(screen.getByRole('link', { name: /HackTheBox.*username/i })).toHaveAttribute(
+      'href',
+      'https://app.hackthebox.com/profile/username',
+    )
+    expect(screen.getByRole('link', { name: /Twitter.*handle/i })).toHaveAttribute(
+      'href',
+      'https://x.com/handle',
+    )
+    expect(screen.getByRole('link', { name: /Kişisel Site.*example/i })).toHaveAttribute(
+      'href',
+      'https://example.com/about',
+    )
 
     vi.unstubAllGlobals()
   })

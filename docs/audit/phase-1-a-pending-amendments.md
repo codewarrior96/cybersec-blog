@@ -264,6 +264,66 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
 - **Wave 5C archive UI note:** the cert/edu `archivePortfolioCertification` + `archivePortfolioEducation` adapter methods + PATCH `?action=archive` routes shipped in Wave 5C (commit `7f925ac`), but `PortfolioWorkspace.tsx` has NO archive UI handler yet (search returned zero matches for `archive` in the component). When archive UI ships, the corresponding handler must also call `router.refresh()` post-success.
 - **Pattern catalog impact:** zero new patterns. Pattern Catalog § 4 (mentor-error correction protocol) instance count does NOT increment — Wave 10 mega-prompt explicitly framed the 3 ranked root-cause hypotheses as "agent must verify" (UNCONFIRMED), and agent state-gathering confirmed Router Cache as root cause; this is correct state-gathering protocol functioning, not a mentor-error correction.
 
+### A-25 — Profile schema: single `website` → multi-platform `socialLinks` JSON  [RESOLVED in Wave 11]
+
+- **Discovered in:** Wave 9 operator manual smoke. Operator observation: single "Website" field doesn't suit the cybersec student demographic (most don't have personal websites but DO have GitHub / LinkedIn / TryHackMe / HackTheBox profiles).
+- **Scope:** Greenfield feature refactor. NOT an audit closure — operator-driven feature decision (Wave 11 mega-prompt). Pattern Catalog § 4 (mentor-error correction protocol) instance count does NOT increment; this is correct product evolution.
+- **Operator decisions locked:**
+  - **Paket B** — 6 platforms: GitHub, LinkedIn, TryHackMe, HackTheBox, X/Twitter, Personal Website.
+  - **Pattern A** — sabit 6 alan (fixed schema), all opsiyonel.
+  - **Storage convention** — username-only for 5 platforms (display layer constructs canonical full URL via `buildPlatformUrl`); full URL for personal field (no canonical host).
+  - **Migration** — eski `website` field silindi. Operator's profile is the only live user; pre-Wave-11 website value (if any) dropped silently. No active migration logic shipped (per operator decision; Phase 6 scope cleanup if real users join).
+- **Resolution (Wave 11 commit `<COMMIT_HASH_TBD>`):** RESOLVED.
+  - **Type layer** (`src/lib/portfolio-profile.ts`): new `SocialLinks` interface (6 opsiyonel fields); `PortfolioProfileFields.website` removed, replaced with `socialLinks?: SocialLinks`. New helper `normalizeSocialLinksPatch(patch)` — trims + drops empty values; shared across all 3 stores.
+  - **Adapter layer:**
+    - `src/lib/soc-store-memory.ts` — internal `InternalProfile.website` replaced with `socialLinks: SocialLinks`. All 4 sites (declaration, 2 seed inserts, read mapper, update path) consume the new field.
+    - `src/lib/soc-store-supabase.ts` — `StoredProfile.socialLinks?: SocialLinks` added (top-level optional so pre-existing JSON files without the key parse cleanly). All 3 sites updated.
+    - `src/lib/soc-store.ts` + `src/lib/db.ts` — **degraded** per Wave 5C precedent (operator confirmation: production = Supabase only; sqlite local-fallback only, not deployed). `website` column persists in DDL for backward compat with pre-existing local sqlite DBs (no destructive ALTER); INSERT/UPDATE bind `''` to it. Read mapper outputs `socialLinks: {}` empty object. Sqlite-mode users lose `socialLinks` feature silently.
+  - **Validation layer** (`src/lib/portfolio-validation.ts`):
+    - `parseSocialLinks(body)` helper — extracts 6 known platform keys, trims, drops empty + non-string + unknown keys.
+    - `validateProfilePayload` extended with per-platform check:
+      - 5 platforms (github / linkedin / tryhackme / hackthebox / twitter) validated against `SOCIAL_USERNAME_RE = /^[a-zA-Z0-9._-]{1,39}$/` (GitHub max length).
+      - `personal` validated as `http://` or `https://` URL (assertSafeUrl-style scheme allowlist), max 200 chars. Rejects `javascript:` / `data:` / non-URL strings.
+    - Empty fields skip validation (all opsiyonel).
+  - **API layer** (`src/app/api/profile/me/route.ts`): PUT contract unchanged at handler level — `parseProfilePayload` now extracts `socialLinks` from request body and `validateProfilePayload` enforces per-platform rules. Comment block updated to reflect new sanitize scope (socialLinks per-field validation replaces former website pass-through).
+  - **UI layer** (`src/components/portfolio/PortfolioWorkspace.tsx`):
+    - Form state: 6 flat fields (`socialGithub` / `socialLinkedin` / `socialTryhackme` / `socialHackthebox` / `socialTwitter` / `socialPersonal`) replacing single `website` field.
+    - `normalizeWebsiteUrl` helper removed; replaced with `buildPlatformUrl(platform, username)` returning the canonical full URL per platform.
+    - `socialLinkEntries` memo: pre-computes display-time entries (filters empty values, constructs URLs, attaches platform labels).
+    - Form input row: removed single `<input placeholder="Website">`, added 6 platform inputs with `aria-label` + `placeholder` per platform (Pattern A sabit 6 alan).
+    - Display surface: removed single `Website` card, added `Sosyal Bağlantılar` strip rendering `socialLinkEntries` as `<a target="_blank" rel="noreferrer noopener" aria-label="...">` chips. Whole block hidden when no entries populated.
+    - `saveProfile` PUT body now nests `socialLinks: { github, linkedin, tryhackme, hackthebox, twitter, personal }` (6-key object) and explicitly omits the legacy `website` field.
+    - **Wave 10 `router.refresh()`** preserved across all 7 save handlers.
+- **Tests added (10 new):**
+  - `src/lib/portfolio-validation.test.ts` (NEW file, 8 tests):
+    - **T-SL01** — `parseProfilePayload` extracts 6 socialLinks fields from JSON body.
+    - **T-SL02** — `parseSocialLinks` drops empty strings + non-string values + unknown keys.
+    - **T-SL03** — valid GitHub-style usernames accepted (boundary: 1 char, 39 chars, dots, hyphens, underscores).
+    - **T-SL04** — invalid GitHub usernames rejected (special chars, whitespace, > 39 chars).
+    - **T-SL05** — each of the other 4 username platforms (LinkedIn / TryHackMe / HackTheBox / Twitter) validated identically with platform-specific error message.
+    - **T-SL06** — `personal` URL validation: http(s) only, ≤ 200 chars; rejects non-URL, `javascript:`, `data:` schemes.
+    - **T-SL07** — empty `socialLinks` object / undefined passes validation (all opsiyonel).
+    - **T-SL08** — first invalid platform short-circuits validation (returns its specific error).
+  - `src/components/portfolio/__tests__/PortfolioWorkspace.test.tsx` (2 new tests appended to A-24 test file):
+    - **T-SL-PERSIST** — `saveProfile` PUT body contains nested `socialLinks` with all 6 platform fields; asserts `body.website` does NOT exist.
+    - **T-SL-RENDER** — display surface renders populated social links as anchor tags with correctly constructed canonical URLs per platform (verifies `buildPlatformUrl` integration).
+- **Test fixture updates (existing tests):**
+  - `src/app/api/profile/education/__tests__/education.test.ts` (2 sites) — fixture `website: ''` → `socialLinks: {}`.
+  - `src/components/portfolio/__tests__/PortfolioWorkspace.test.tsx` `buildProfile()` helper — same swap.
+  - `src/app/api/profile/me/__tests__/route.test.ts` — no fixture change needed (didn't reference website).
+- **Verification:**
+  - Vitest: **531 → 541** (+ 10 new tests).
+  - TypeScript: zero errors.
+  - Build: clean (env-free per A-17).
+  - Lint: **0E / 0W** preserved (Wave 8 closure).
+  - `grep -rn "website" src/` post-fix: zero references in production data flow; remaining occurrences are (a) DDL backward-compat column declarations in `db.ts` / `soc-store.ts` with inline rationale comments, (b) UI placeholder text "Kişisel website" (user-facing string for the personal field), (c) the documentation comment in `portfolio-profile.ts` referring to the removed former field.
+  - All Wave 1-10 patches dokunulmaz; Wave 10 `router.refresh()` in 7 save handlers preserved.
+- **Pattern catalog impact:** **zero new patterns**. This is a schema refactor + UI rewrite, NOT a security pattern. Pattern Catalog § 1 (defense-in-depth two-layer) count unchanged — the personal-URL scheme allowlist is a single-layer input gate, not paired with a render-layer second gate (React/MDX default safe-text rendering already prevents output-side injection, which is structurally the same Layer 2 as R-API-05/13 lineage — but no new pattern instance is claimed because there's no new Layer 1 file/abstraction; it's a one-off scheme check inside the validation function).
+- **Operator post-push verification REQUIRED:**
+  - `/portfolio` profile edit → fill GitHub username `codewarrior96` → save → switch tab → return → social link strip renders with `https://github.com/codewarrior96` anchor.
+  - Validation: invalid username (e.g. `user@name` in any of 5 platforms) → save returns 400 with platform-specific error message in Turkish.
+  - Personal field: paste full `https://...` URL → renders verbatim; paste plain text → 400 error.
+
 ## Total test count revision
 
 Audit Section 7 mentions ~140 cases. Actual planned count is now 141+ (will grow with further discoveries during Phase 1.D.6-D.20).

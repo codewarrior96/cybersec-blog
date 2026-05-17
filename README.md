@@ -30,7 +30,7 @@ Hedef kitle: junior security analistleri, siber güvenlik öğrencileri, eğitme
 - **`/register`** — gerçek email doğrulama akışı (Resend integration)
 - **`/login`** — scrypt-tabanlı kimlik doğrulama, rate-limit korumalı
 - **`/community`** — Lab Engine üzerinde xterm.js terminal ile L1 puzzle (cd / ls / cat / chmod)
-- **`/portfolio`** — Profil + sertifika + eğitim kayıtları (Supabase Storage JSON persistence)
+- **`/portfolio`** — Profil + sosyal bağlantılar (GitHub / LinkedIn / TryHackMe / HackTheBox / X / Kişisel Site) + sertifika + eğitim kayıtları (Supabase Storage JSON persistence)
 - **`/zafiyet-taramasi`** — CVE Radar (NIST NVD live feed) + 8 MDX güvenlik yazısı
 - **`/home`** — Sentinel Dashboard (3D global threat map, telemetry stream)
 

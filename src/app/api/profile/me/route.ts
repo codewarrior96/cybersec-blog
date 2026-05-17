@@ -41,10 +41,14 @@ export async function PUT(request: NextRequest) {
   // a fully-`<script>`-only bio sanitizes to empty string and is then
   // rejected by `validateProfilePayload` as required-field violation
   // (defense: AT-time UX feedback + render-path safety in one step).
-  // SENIOR ARCHITECT NOTE: location/website/specialties/tools are short
-  // strings without HTML-rendering intent; sanitize is currently scoped
-  // to bio + headline (the markdown-friendly long-text fields). Future
-  // R-UI render-path change that interpolates location/website/lists as
+  // SENIOR ARCHITECT NOTE: location/socialLinks/specialties/tools are
+  // short strings without HTML-rendering intent; sanitize is currently
+  // scoped to bio + headline (the markdown-friendly long-text fields).
+  // socialLinks fields specifically: 5 platform handles are validated
+  // against SOCIAL_USERNAME_RE (no special chars survive), and the
+  // `personal` URL is validated against an http(s) scheme allowlist in
+  // validateProfilePayload — both pre-storage gates. Future R-UI
+  // render-path change that interpolates location/socialLinks/lists as
   // HTML would require extending sanitize scope here.
   payload.bio = sanitizeReportContent(payload.bio)
   payload.headline = sanitizeReportContent(payload.headline)

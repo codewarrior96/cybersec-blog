@@ -490,6 +490,12 @@ async function ensurePortfolioSeedDataForUser(user: {
 
   await db.run('BEGIN')
   try {
+    // A-25 (Wave 11): the `website` column persists in DDL for backward
+    // compat with pre-existing local sqlite databases (no destructive
+    // ALTER). Wave 11 binds it to '' on every write — the column is
+    // effectively dead. Sqlite-mode does NOT carry socialLinks (degraded
+    // surface per Wave 5C precedent — production is Supabase only;
+    // sqlite users lose the social_links feature silently).
     await db.run(
       `
         INSERT INTO user_profiles (
@@ -500,7 +506,7 @@ async function ensurePortfolioSeedDataForUser(user: {
       seed.profile.headline,
       seed.profile.bio,
       seed.profile.location,
-      seed.profile.website,
+      '',
       JSON.stringify(seed.profile.specialties),
       JSON.stringify(seed.profile.tools),
       seed.profile.avatarPath ?? null,
@@ -1828,7 +1834,6 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
       headline: string
       bio: string
       location: string
-      website: string
       specialties_json: string
       tools_json: string
       avatar_path: string | null
@@ -1837,7 +1842,7 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
       updated_at: string
     }>(
       `
-        SELECT headline, bio, location, website, specialties_json, tools_json, avatar_path, avatar_name, avatar_mime_type, updated_at
+        SELECT headline, bio, location, specialties_json, tools_json, avatar_path, avatar_name, avatar_mime_type, updated_at
         FROM user_profiles
         WHERE user_id = ?
         LIMIT 1
@@ -1856,7 +1861,9 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
       headline: profileRow.headline,
       bio: profileRow.bio,
       location: profileRow.location,
-      website: profileRow.website,
+      // A-25 (Wave 11): degraded — sqlite-mode does NOT persist
+      // socialLinks (see Wave 5C precedent + comment in INSERT path).
+      socialLinks: {},
       specialties: parseStringList(profileRow.specialties_json),
       tools: parseStringList(profileRow.tools_json),
       avatarPath: profileRow.avatar_path,
@@ -1929,7 +1936,11 @@ export async function updatePortfolioProfile(
     patch.headline.trim(),
     patch.bio.trim(),
     patch.location.trim(),
-    patch.website.trim(),
+    // A-25 (Wave 11): website column kept in DDL/UPDATE for backward
+    // compat; always bound to '' (sqlite-mode degraded — no social_links
+    // persistence). Operator post-fetch sees socialLinks: {} from the
+    // GET mapper.
+    '',
     JSON.stringify(dedupeStringList(patch.specialties)),
     JSON.stringify(dedupeStringList(patch.tools)),
     now,

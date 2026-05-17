@@ -81,7 +81,7 @@ function profileWithEducation(eduOverride?: Partial<typeof ownerEducation>) {
       headline: 'H',
       bio: '',
       location: '',
-      website: '',
+      socialLinks: {},
       specialties: [],
       tools: [],
       avatarPath: null,

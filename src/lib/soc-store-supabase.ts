@@ -1,7 +1,7 @@
 ﻿import { randomUUID } from 'crypto'
 import { isReservedUsername } from '@/lib/identity-rules'
 import { DUMMY_PASSWORD_HASH, hashPassword, verifyPassword } from '@/lib/security'
-import { dedupeStringList, getPortfolioSeedForUser } from '@/lib/portfolio-profile'
+import { dedupeStringList, getPortfolioSeedForUser, normalizeSocialLinksPatch } from '@/lib/portfolio-profile'
 import {
   deleteObject,
   listObjectPaths,
@@ -23,6 +23,7 @@ import type {
   PortfolioCertificationRecord,
   PortfolioEducationRecord,
   PortfolioProfileRecord,
+  SocialLinks,
 } from '@/lib/portfolio-profile'
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
@@ -64,7 +65,12 @@ interface StoredProfile {
   headline: string
   bio: string
   location: string
-  website: string
+  // A-25 (Wave 11): replaces former `website: string`. Old website values
+  // in pre-Wave-11 Supabase Storage JSON are dropped silently when read
+  // (the JSON parse just doesn't surface them — operator decision per
+  // Wave 11 directive; only the operator's own profile is live and had
+  // no website value to migrate).
+  socialLinks?: SocialLinks
   specialties: string[]
   tools: string[]
   avatarPath: string | null
@@ -600,7 +606,7 @@ async function ensureProfileSeedDataForUser(user: StoredUser): Promise<StoredPro
     headline: seed.profile.headline,
     bio: seed.profile.bio,
     location: seed.profile.location,
-    website: seed.profile.website,
+    socialLinks: { ...(seed.profile.socialLinks ?? {}) },
     specialties: [...seed.profile.specialties],
     tools: [...seed.profile.tools],
     avatarPath: seed.profile.avatarPath ?? null,
@@ -923,7 +929,7 @@ export async function getPortfolioProfile(userId: number): Promise<PortfolioProf
       headline: profile.headline,
       bio: profile.bio,
       location: profile.location,
-      website: profile.website,
+      socialLinks: { ...(profile.socialLinks ?? {}) },
       specialties: [...profile.specialties],
       tools: [...profile.tools],
       avatarPath,
@@ -967,7 +973,7 @@ export async function updatePortfolioProfile(
     headline: patch.headline.trim(),
     bio: patch.bio.trim(),
     location: patch.location.trim(),
-    website: patch.website.trim(),
+    socialLinks: normalizeSocialLinksPatch(patch.socialLinks),
     specialties: dedupeStringList(patch.specialties),
     tools: dedupeStringList(patch.tools),
     avatarPath: current.avatarPath ?? fallbackAvatar?.assetPath ?? null,

@@ -291,6 +291,9 @@ async function seedProfileData(db: SqliteDb) {
       displayName: user.display_name,
     })
 
+    // A-25 (Wave 11): website column retained in DDL for backward compat;
+    // bound to '' (sqlite-mode degraded — no socialLinks persistence).
+    // See soc-store.ts INSERT path comment for the full rationale.
     await db.run(
       `
         INSERT INTO user_profiles (
@@ -301,7 +304,7 @@ async function seedProfileData(db: SqliteDb) {
       seed.profile.headline,
       seed.profile.bio,
       seed.profile.location,
-      seed.profile.website,
+      '',
       JSON.stringify(seed.profile.specialties),
       JSON.stringify(seed.profile.tools),
       seed.profile.avatarPath ?? null,
