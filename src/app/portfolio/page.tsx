@@ -5,6 +5,7 @@ import PortfolioWorkspace from '@/components/portfolio/PortfolioWorkspace'
 import { getServerSessionFromCookies } from '@/lib/auth-server'
 import { getPortfolioProfile } from '@/lib/soc-store-adapter'
 import { getPortfolioSeedForUser } from '@/lib/portfolio-profile'
+import { createSignedObjectUrl, isSupabaseAppStateEnabled } from '@/lib/supabase-app-state'
 import type { SessionUser } from '@/lib/soc-types'
 import type { PortfolioProfileRecord } from '@/lib/portfolio-profile'
 
@@ -77,5 +78,38 @@ export default async function PortfolioPage({
   const profile =
     (await getPortfolioProfile(session.user.id)) ??
     buildProfileFromSeed(session.user)
-  return <PortfolioWorkspace initialProfile={profile} initialTab={initialTab} editable={true} />
+
+  // A-27 closure (Wave 13 Faz 13.C): SSR-resolve avatar signed URL on the
+  // server so the 3 <img> render sites in PortfolioWorkspace all consume a
+  // single shared URL string — the browser dedupes natively, eliminating
+  // the triple-fetch storm documented in WAVE_13_AVATAR_PERF_AUDIT.md.
+  // Legacy /api/profile/avatar/[userId] fetch path preserved as fallback
+  // (graceful degradation when SSR resolve fails or in sqlite-mode).
+  // TTL = 30s per Z.15 (revised from 15s in Wave 5B R-API-10; security
+  // envelope preserved + 2× cache window for the Cache-Control + browser
+  // dedup combo to compound). Wave 10 router.refresh() on save handlers
+  // triggers Server Component re-render → fresh signed URL flows down.
+  let initialAvatarUrl: string | null = null
+  if (isSupabaseAppStateEnabled() && profile.profile.avatarPath) {
+    try {
+      initialAvatarUrl = await createSignedObjectUrl(profile.profile.avatarPath, 30)
+    } catch (err) {
+      // SENIOR ARCHITECT NOTE: signed URL failures must not break the
+      // page render. The client-side PortfolioWorkspace falls back to
+      // the legacy /api/profile/avatar/[userId] fetch path when this
+      // prop is null. Console.error tracks the failure for observability
+      // without leaking to the user.
+      console.error('[portfolio/page] SSR avatar signed URL resolve failed:', err)
+      initialAvatarUrl = null
+    }
+  }
+
+  return (
+    <PortfolioWorkspace
+      initialProfile={profile}
+      initialTab={initialTab}
+      editable={true}
+      initialAvatarUrl={initialAvatarUrl}
+    />
+  )
 }

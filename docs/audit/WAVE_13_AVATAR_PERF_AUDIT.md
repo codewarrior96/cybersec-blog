@@ -482,17 +482,17 @@ Total: 6 requests, ~3.6s wall time, ~250 KB transfer
 
 ---
 
-## Mentor decision matrix — Faz 13.B
+## Mentor decision matrix — Faz 13.B (RESOLVED, applied in Faz 13.C commit `<COMMIT_HASH_TBD>`)
 
-*(Empty — mentor + operator fill in during Faz 13.B review)*
-
-| Decision | Choice | Rationale |
+| Decision | Outcome | Rationale |
 |---|---|---|
-| Selected fix path |   |   |
-| Additional scope adjustments |   |   |
-| TTL change (if any) |   |   |
-| Faz 13.C target scope |   |   |
-| Faz 13.D smoke checklist sign-off |   |   |
+| Selected fix path | **Path B + Path A defense-in-depth** | Path B eliminates the 3-fetch storm at architectural root (move signed URL resolution to where data already lives — the Server Component). Path A `Cache-Control` adds browser-level dedup as a defense-in-depth safety net on the legacy fallback path. Path C (next/Image) + Path D (server-side pool) are diminishing-returns for capstone scope. |
+| Next/Image migration | **Deferred to POST_CAPSTONE_BACKLOG.md #11** | Migration complexity (≥30 LOC + `images.remotePatterns` whitelist + DOM-shape test fixture updates) exceeds capstone-scope budget. Wave 13.C Path B + Path A combo delivers 9× improvement; next/Image incremental gain (AVIF/WebP transforms, automatic lazy load) is bandwidth-justified, not latency-justified. Phase 7 dependency. |
+| Server-side signed URL pool (Path D) | **Deferred to POST_CAPSTONE_BACKLOG.md #12** | Production-tier optimization, not capstone signal. Vercel function isolation invalidates pool across cold starts; multi-instance scenario = N pools per N instances. ~80-100 LOC + concurrency-edge regression tests exceeds the marginal benefit envelope at capstone-demo traffic levels. Conditional on real production-traffic growth. |
+| TTL relaxation 15s → 30s | **Approved (Z.15 in SCOPE_DECISIONS.md)** | 2× cache window for the Cache-Control + browser-dedup combo. Security envelope preserved (still well below "long-lived URL" category). Wave 5B R-API-10 closure status preserved as RESOLVED — this is a TTL parameter revision, not a pattern flip. Mid-stream operator decision recorded in Z.15 audit-trail entry. |
+| `Vary: Cookie` header | **Approved** | Defense-in-depth signal for any intermediary cache (CDN tier, future edge config) that might consider keying off path alone. Operationally minor at current Vercel-managed cache layer; architecturally explicit. |
+| Wave 10 `router.refresh()` interaction | **Approved as-is** | Server Component re-resolves signed URL on every refresh pass (including post-save Wave 10 router.refresh()). Quota math: 1 Supabase API call per user save action — acceptable. Architectural simplicity > pool optimization. |
+| Faz 13.D smoke target | **≤2 requests, ~250-400ms cold; ~150ms warm** | Concrete operator-executable success criterion for production verification. DevTools Network filter "avatar" → expect 1 × 307 redirect + 1 × jpeg (was 6 = 3 × redirect + 3 × jpeg). |
 
 ---
 

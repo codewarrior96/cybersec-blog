@@ -275,4 +275,107 @@ describe('PortfolioWorkspace — A-24 Router Cache invalidation (Wave 10)', () =
 
     vi.unstubAllGlobals()
   })
+
+  // ─── A-27 closure (Wave 13 Faz 13.C) avatar SSR resolve tests ─────────────
+
+  it('T-AV-SSR-PROP — when initialAvatarUrl prop provided, all 3 <img> sites consume it directly (no /api/profile/avatar fetch)', async () => {
+    const initialProfile = buildProfile({
+      avatarPath: 'avatars/user-1/avatar.png',
+      avatarName: 'avatar.png',
+      avatarMimeType: 'image/png',
+    })
+    const ssrSignedUrl = 'https://supabase.test/storage/sign/avatars/user-1/avatar.png?token=ssr-jwt-stub'
+
+    const fetchMock = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => {
+      return new Response(JSON.stringify({ profile: initialProfile }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <PortfolioWorkspace
+        initialProfile={initialProfile}
+        initialTab="profile"
+        editable
+        initialAvatarUrl={ssrSignedUrl}
+      />,
+    )
+
+    // Wait for the component to settle (auto-sync useEffect runs once)
+    await waitFor(() => {
+      const getCalls = fetchMock.mock.calls.filter(
+        ([, init]) => !(init as RequestInit | undefined)?.method || (init as RequestInit | undefined)?.method === 'GET',
+      )
+      expect(getCalls.length).toBeGreaterThanOrEqual(1)
+    })
+
+    // All <img alt="..."> tags carry the SSR-resolved URL verbatim. The
+    // 3 render sites (header thumbnail + edit form preview + read-side
+    // card) all share the same src, so the browser dedupes natively —
+    // no /api/profile/avatar/[userId] fetch is required.
+    const avatarImgs = screen.getAllByRole('img', { name: /Operator/ })
+    expect(avatarImgs.length).toBeGreaterThanOrEqual(1)
+    for (const img of avatarImgs) {
+      expect(img.getAttribute('src')).toBe(ssrSignedUrl)
+    }
+
+    // Critical: NO fetch went to the legacy /api/profile/avatar/[userId]
+    // endpoint. Sites already have the SSR-resolved URL from props.
+    const avatarApiCalls = fetchMock.mock.calls.filter(([url]) => {
+      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url instanceof Request ? url.url : ''
+      return urlStr.includes('/api/profile/avatar/')
+    })
+    expect(avatarApiCalls.length).toBe(0)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('T-AV-SSR-FALLBACK — when initialAvatarUrl prop absent, avatarSrc falls back to legacy /api/profile/avatar/<userId> pattern', async () => {
+    const initialProfile = buildProfile({
+      avatarPath: 'avatars/user-1/avatar.png',
+      avatarName: 'avatar.png',
+      avatarMimeType: 'image/png',
+    })
+
+    const fetchMock = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => {
+      return new Response(JSON.stringify({ profile: initialProfile }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <PortfolioWorkspace
+        initialProfile={initialProfile}
+        initialTab="profile"
+        editable
+        // initialAvatarUrl intentionally NOT passed — exercises the
+        // graceful-degradation path (SSR resolve failed at server render
+        // time OR sqlite-mode where Supabase signed URLs do not exist).
+      />,
+    )
+
+    await waitFor(() => {
+      const getCalls = fetchMock.mock.calls.filter(
+        ([, init]) => !(init as RequestInit | undefined)?.method || (init as RequestInit | undefined)?.method === 'GET',
+      )
+      expect(getCalls.length).toBeGreaterThanOrEqual(1)
+    })
+
+    // All avatar <img> src values fall back to the legacy /api endpoint
+    // pattern. With Cache-Control: private, max-age=20 on that route's
+    // 307 response (Faz 13.C Phase B), the 3 sites still dedupe at the
+    // browser HTTP cache layer within the 20s window.
+    const avatarImgs = screen.getAllByRole('img', { name: /Operator/ })
+    expect(avatarImgs.length).toBeGreaterThanOrEqual(1)
+    for (const img of avatarImgs) {
+      const src = img.getAttribute('src') ?? ''
+      expect(src).toMatch(/\/api\/profile\/avatar\/1\?v=/)
+    }
+
+    vi.unstubAllGlobals()
+  })
 })

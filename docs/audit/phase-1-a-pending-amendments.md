@@ -359,6 +359,39 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
   - Production build: `/academy` route present (70.2 kB, dynamic, ƒ); `/community` NOT in static route list (only the redirect rule).
 - **Pattern catalog impact:** **zero new patterns**. Mechanical rename + redirect, no new security or architectural pattern. Pattern Catalog instance counts unchanged.
 
+### A-27 — Avatar performance: triple-fetch storm + missing Cache-Control + tight TTL  [RESOLVED in Wave 13 Faz 13.C]
+
+- **Status:** RESOLVED in Wave 13 Faz 13.C commit `<COMMIT_HASH_TBD>`
+- **Symptom:** `/portfolio` page load triggers 6 avatar-related network requests (3 × 307 redirect to signed URL + 3 × jpeg download), ~3.6s wall time, ~250 KB transfer for what is conceptually a single image. Operator-reported visual avatar lag with stale-fresh flicker. DevTools Network screenshot (Wave 13 Faz 13.A entry context) captured the 6-request flow concretely.
+- **Discovery:** Wave 11 + Wave 12 operator UI review. Wave 13 Faz 13.A audit (commit `b8e812a`, [`WAVE_13_AVATAR_PERF_AUDIT.md`](./WAVE_13_AVATAR_PERF_AUDIT.md)) provided 6-layer code-level diagnosis.
+- **Root cause (Faz 13.A F-AV-01..F-AV-03):**
+  - 3 `<img>` render sites in `PortfolioWorkspace.tsx` (L905 header thumbnail, L995 edit form preview, L1085 read-side card) each fire independent fetch via `/api/profile/avatar/[userId]` 307 endpoint.
+  - Each `/api/profile/avatar/[userId]` GET invokes `createSignedObjectUrl` which mints a UNIQUE Supabase JWT token per call → 307 destinations differ → browser cache cannot dedupe at destination layer.
+  - The 307 response carries NO `Cache-Control` header in the production Supabase path (sqlite fallback path had it; production path didn't) → browser cache cannot dedupe at source-URL layer either.
+  - `export const dynamic = 'force-dynamic'` on the route compounds by opting out of Next.js Data Cache + Route Cache; freshness constraint could be expressed via short `max-age` directly.
+- **Faz 13.B mentor decision (locked scope):** Path B (architectural fix) + Path A defense-in-depth (Cache-Control). Path C (next/Image migration) + Path D (server-side signed URL pool) deferred to POST_CAPSTONE_BACKLOG.md #11 + #12.
+- **Closure (Wave 13 Faz 13.C commit `<COMMIT_HASH_TBD>`):**
+  - **Path B — SSR signed URL resolve:** `src/app/portfolio/page.tsx` (Server Component, force-dynamic) calls `createSignedObjectUrl(avatarPath, 30)` server-side after profile load; passes resolved URL as new `initialAvatarUrl?: string | null` prop to `PortfolioWorkspace`. Component's `avatarSrc` `useMemo` consumes the prop when present; falls back to legacy `buildAvatarSrc(...)` (`/api/profile/avatar/[userId]?v=...` pattern) when null. **3 `<img>` render sites all consume the same SSR-resolved URL string** — browser dedupes natively → **single jpeg fetch per page load** (down from 3).
+  - **Path A — Cache-Control + Vary on 307:** `src/app/api/profile/avatar/[userId]/route.ts` L60 `NextResponse.redirect(signedUrl)` now sets `Cache-Control: private, max-age=20` (TTL minus 10s safety buffer) + `Vary: Cookie` (defense-in-depth signal for any intermediary cache). Even on the legacy fallback path, the 3 sites collapse to 1 effective fetch within the 20s window.
+  - **TTL revision 15s → 30s** (Z.15 in `docs/SCOPE_DECISIONS.md`): widens the cache-window arithmetic for the Cache-Control + browser-dedup combo. Wave 5B R-API-10 security narrative preserved — 30s still well within "short-lived signed URL" envelope; pattern intact, parameter relaxed. Inline source-comment cross-references A-27 + Z.15 next to the constant.
+  - **Graceful degradation:** SSR resolve failures log to `console.error` (operator observability) but do NOT fail the page render. Client falls back to legacy `/api` path. Sqlite-mode (no Supabase signed URLs) also routes through fallback.
+- **Wave 10 `router.refresh()` interaction:** Wave 10 closure (A-24, commit `13a3c2c`) added `router.refresh()` to all 7 portfolio save handlers (saveProfile / uploadAvatar / removeAvatar / saveCertification / deleteCertification / saveEducation / deleteEducation). After save success, `router.refresh()` triggers Server Component re-render → fresh `initialAvatarUrl` flows down via prop → 3 `<img>` sites update with new SSR URL. Quota math: 1 Supabase API call per user save action (acceptable per Faz 13.B mentor review).
+- **Production smoke target (Faz 13.D operator-manual, post-push):**
+  - `siberlab.dev/portfolio` DevTools Network panel filter "avatar" → **≤2 requests** (1 × 307 redirect from `/api/profile/avatar/<userId>` + 1 × jpeg from Supabase Storage) instead of 6.
+  - Cold wall time: **~250-400ms** (was ~3.6s — 9× improvement).
+  - Warm reload within 20s cache window: **~150ms** (cache hit on 307 redirect; jpeg from Supabase edge cache).
+- **Test coverage (5 new + 1 renamed assertion):**
+  - **T-AV-TTL30** (renamed from T-AV-TTL; assertion 15s → 30s per Z.15): `src/app/api/profile/avatar/__tests__/avatar.test.ts` — verifies `createSignedObjectUrl` called with TTL=30. Drift back to 15s or 60s fails.
+  - **T-AV-CACHE** (NEW): same file — verifies 307 response includes `Cache-Control: private, max-age=20`.
+  - **T-AV-VARY** (NEW): same file — verifies 307 response includes `Vary: Cookie`.
+  - **T-AV-SSR-PROP** (NEW): `src/components/portfolio/__tests__/PortfolioWorkspace.test.tsx` — verifies that when `initialAvatarUrl` prop is provided, all `<img>` `src` values consume the prop directly AND no `/api/profile/avatar/` fetch is made.
+  - **T-AV-SSR-FALLBACK** (NEW): same file — verifies that when `initialAvatarUrl` prop is absent, `<img>` `src` falls back to legacy `/api/profile/avatar/<userId>?v=...` pattern (graceful degradation).
+- **Pattern catalog impact:** ZERO new patterns. Browser-level perf optimization, not defense-in-depth security pattern. Pattern Catalog instance counts unchanged. Honest signal: capstone-grade audit cycle (Faz 13.A code-level 6-layer analysis → Faz 13.B mentor scope-locked path selection → Faz 13.C surgical implementation per locked scope → Faz 13.D operator-manual production smoke). The methodology itself is a capstone discipline signal.
+- **Mentor-error correction lineage:** NOT incremented. Faz 13.A agent confirmed audit hypotheses without mentor mega-prompt assumption miss. Faz 13.B operator confirmed scope without revision. Faz 13.C agent implemented per locked spec.
+- **Phase 6/7 deferrals (POST_CAPSTONE_BACKLOG.md):**
+  - **F-AV-06 next/Image migration** → backlog item #11
+  - **F-AV-04 / Path D server-side signed URL pool** → backlog item #12
+
 ## Total test count revision
 
 Audit Section 7 mentions ~140 cases. Actual planned count is now 141+ (will grow with further discoveries during Phase 1.D.6-D.20).

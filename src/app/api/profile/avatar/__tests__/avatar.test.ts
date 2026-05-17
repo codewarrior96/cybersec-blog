@@ -87,25 +87,68 @@ beforeEach(() => {
   vi.mocked(requireSession).mockResolvedValue({ session: OWNER_SESSION as never, response: null })
 })
 
-describe('api/profile/avatar — R-API-10 + R-API-11 closures', () => {
-  // ─── T-AV-TTL: R-API-10 signed-URL TTL is 15s, not 60s ─────────────────────
+describe('api/profile/avatar — R-API-10 + R-API-11 + A-27 closures', () => {
+  // ─── T-AV-TTL30: A-27 / Z.15 (Wave 13 Faz 13.C) — TTL revised 15s → 30s ────
 
-  it('T-AV-TTL — GET [userId] passes 15s expiry to createSignedObjectUrl (R-API-10)', async () => {
+  it('T-AV-TTL30 — GET [userId] passes 30s expiry to createSignedObjectUrl (A-27 / Z.15; was 15s per Wave 5B R-API-10)', async () => {
     vi.mocked(isSupabaseAppStateEnabled).mockReturnValue(true)
     vi.mocked(getPortfolioAvatarForUser).mockResolvedValueOnce({
       assetPath: 'avatars/user-1/avatar.png',
       assetName: 'avatar.png',
       assetMimeType: 'image/png',
     })
-    vi.mocked(createSignedObjectUrl).mockResolvedValueOnce('https://signed.test/avatar?ttl=15')
+    vi.mocked(createSignedObjectUrl).mockResolvedValueOnce('https://signed.test/avatar?ttl=30')
 
     const res = await GET_BY_USER(makeGetRequest(), { params: { userId: '1' } })
 
-    // Assert the TTL value passed to the Supabase helper — this is the
-    // R-API-10 closure invariant. Drift back to 60s would fail this test.
-    expect(createSignedObjectUrl).toHaveBeenCalledWith('avatars/user-1/avatar.png', 15)
-    // Sanity: the route redirected (302) to the signed URL
+    // Assert the TTL value passed to the Supabase helper. Wave 5B R-API-10
+    // initially set 15s; Wave 13 Faz 13.B mentor decision (Z.15) revised
+    // to 30s to widen the cache window for the Cache-Control + browser
+    // dedup combo (still well within "short-lived URL" security envelope).
+    // Drift back to 15s OR 60s would fail this test.
+    expect(createSignedObjectUrl).toHaveBeenCalledWith('avatars/user-1/avatar.png', 30)
+    // Sanity: the route redirected (307) to the signed URL
     expect(res.status).toBe(307)
+  })
+
+  // ─── T-AV-CACHE: A-27 closure — 307 response carries Cache-Control header ──
+
+  it('T-AV-CACHE — GET [userId] 307 response includes Cache-Control: private, max-age=20 (A-27 Wave 13 Faz 13.C)', async () => {
+    vi.mocked(isSupabaseAppStateEnabled).mockReturnValue(true)
+    vi.mocked(getPortfolioAvatarForUser).mockResolvedValueOnce({
+      assetPath: 'avatars/user-1/avatar.png',
+      assetName: 'avatar.png',
+      assetMimeType: 'image/png',
+    })
+    vi.mocked(createSignedObjectUrl).mockResolvedValueOnce('https://signed.test/avatar?ttl=30')
+
+    const res = await GET_BY_USER(makeGetRequest(), { params: { userId: '1' } })
+
+    // A-27 closure: Cache-Control on the 307 redirect lets the browser
+    // HTTP cache dedupe N <img> render sites that share this source URL
+    // within the 20s window. `private` keeps shared/CDN caches out.
+    // Wave 13 Faz 13.A audit F-AV-02 root finding.
+    expect(res.headers.get('Cache-Control')).toBe('private, max-age=20')
+  })
+
+  // ─── T-AV-VARY: A-27 closure — Vary: Cookie header signals key by session ──
+
+  it('T-AV-VARY — GET [userId] 307 response includes Vary: Cookie header (A-27 defense-in-depth)', async () => {
+    vi.mocked(isSupabaseAppStateEnabled).mockReturnValue(true)
+    vi.mocked(getPortfolioAvatarForUser).mockResolvedValueOnce({
+      assetPath: 'avatars/user-1/avatar.png',
+      assetName: 'avatar.png',
+      assetMimeType: 'image/png',
+    })
+    vi.mocked(createSignedObjectUrl).mockResolvedValueOnce('https://signed.test/avatar?ttl=30')
+
+    const res = await GET_BY_USER(makeGetRequest(), { params: { userId: '1' } })
+
+    // A-27 defense-in-depth: even though the signed URL is user-specific
+    // via JWT, Vary: Cookie tells any intermediary cache to key off the
+    // session cookie — operationally meaningful if a future CDN layer
+    // re-keys based on path alone.
+    expect(res.headers.get('Vary')).toBe('Cookie')
   })
 
   // ─── T-AV-ORPHAN01: R-API-11 cleanup failure does NOT propagate ────────────

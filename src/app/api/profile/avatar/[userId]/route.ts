@@ -45,19 +45,36 @@ export async function GET(
 
   try {
     if (isSupabaseAppStateEnabled()) {
-      // R-API-10 closure (Wave 5B): signed-URL TTL tightened from 60s
-      // to 15s. Phase 3.A audit flagged the 60s window as too long for
-      // a leaked URL (clipboard share / screenshot of URL bar). 15s
-      // still accommodates network jitter + browser navigation but
-      // makes off-platform reuse window narrow enough to be operationally
-      // negligible.
-      // REJECTED ALTERNATIVE: 5s. Rejected — too aggressive for slow
-      // mobile networks; legitimate clients would race the TTL.
-      const signedUrl = await createSignedObjectUrl(avatarMeta.assetPath, 15)
+      // R-API-10 closure (Wave 5B): signed-URL TTL initially tightened
+      // from 60s to 15s. Phase 3.A audit flagged the 60s window as too
+      // long for a leaked URL (clipboard share / screenshot of URL bar).
+      // REJECTED ALTERNATIVE: 5s — too aggressive for slow mobile
+      // networks; legitimate clients would race the TTL.
+      //
+      // A-27 / Z.15 (Wave 13 Faz 13.C) — TTL revised 15s → 30s. Faz 13.A
+      // audit (WAVE_13_AVATAR_PERF_AUDIT.md) surfaced a 3-fetch storm:
+      // 3 PortfolioWorkspace render sites + no Cache-Control on the 307
+      // = 3 separate Supabase signed-URL mints per page load. Path B
+      // (SSR-resolve in /portfolio/page.tsx) + Path A (Cache-Control
+      // on this 307) defense-in-depth combo handles it. The 30s TTL
+      // preserves the short-lived-URL security envelope (Wave 5B
+      // pattern intact) while doubling the cache-window arithmetic
+      // (max-age=20 below stays well under TTL).
+      const signedUrl = await createSignedObjectUrl(avatarMeta.assetPath, 30)
       if (!signedUrl) {
         return NextResponse.json({ error: 'Profil fotografisi bulunamadi.' }, { status: 404 })
       }
-      return NextResponse.redirect(signedUrl)
+      // A-27 closure (Wave 13 Faz 13.C): Cache-Control on the 307
+      // redirect lets the browser HTTP cache dedupe N <img> render
+      // sites that share this source URL within the 20s window.
+      // `private` keeps shared/CDN caches out (each user has a
+      // different cookie-derived session → different signed URL chain).
+      // `Vary: Cookie` is signal-explicit for any intermediary cache
+      // that might consider keying off path alone.
+      const response = NextResponse.redirect(signedUrl)
+      response.headers.set('Cache-Control', 'private, max-age=20')
+      response.headers.set('Vary', 'Cookie')
+      return response
     }
 
     const buffer = await readStoredAsset(avatarMeta.assetPath)

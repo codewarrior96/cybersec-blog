@@ -88,6 +88,16 @@ function buildPlatformUrl(platform: 'github' | 'linkedin' | 'tryhackme' | 'hackt
   }
 }
 
+/**
+ * A-27 closure (Wave 13 Faz 13.C): legacy /api fetch path used as
+ * graceful-degradation fallback when the SSR-resolved initialAvatarUrl
+ * prop is absent (signed URL resolve failed at server render time, or
+ * sqlite-mode where signed URLs do not exist). Wave 5B R-API-10 +
+ * Faz 13.C Z.15 revised the route's TTL behavior to 30s + Cache-Control:
+ * private, max-age=20; the 3-render-site fetch storm now collapses to
+ * 1 effective fetch per page load via browser HTTP cache dedup even on
+ * the legacy path.
+ */
 function buildAvatarSrc(userId: number, username: string, avatarPath: string | null | undefined) {
   if (avatarPath) {
     return `/api/profile/avatar/${userId}?v=${encodeURIComponent(avatarPath)}`
@@ -260,10 +270,19 @@ export default function PortfolioWorkspace({
   initialProfile,
   initialTab = 'profile',
   editable,
+  initialAvatarUrl,
 }: {
   initialProfile: PortfolioProfileRecord
   initialTab?: TabId
   editable: boolean
+  // A-27 closure (Wave 13 Faz 13.C): SSR-resolved Supabase signed URL,
+  // passed from /portfolio/page.tsx Server Component. When present, all
+  // 3 <img> render sites (header thumbnail, edit form preview, read-side
+  // card) consume this single URL string — browser dedupes natively,
+  // eliminating the triple-fetch storm. Falls back to legacy
+  // /api/profile/avatar/[userId] fetch via buildAvatarSrc when absent
+  // (graceful degradation). See WAVE_13_AVATAR_PERF_AUDIT.md + A-27.
+  initialAvatarUrl?: string | null
 }) {
   // A-24 closure (Wave 10): Next.js App Router client-side Router Cache
   // holds rendered route segments on soft-nav return. /portfolio page is
@@ -329,10 +348,25 @@ export default function PortfolioWorkspace({
     () => (typeof eduId === 'number' ? data.education.find((item) => item.id === eduId) ?? null : null),
     [data.education, eduId],
   )
-  const avatarSrc = useMemo(
-    () => (avatarLoadFailed ? '' : buildAvatarSrc(data.user.id, data.user.username, data.profile.avatarPath)),
-    [avatarLoadFailed, data.profile.avatarPath, data.user.id, data.user.username],
-  )
+  const avatarSrc = useMemo(() => {
+    if (avatarLoadFailed) return ''
+    // A-27 closure (Wave 13 Faz 13.C): prefer SSR-resolved signed URL
+    // (initialAvatarUrl prop) when available. Browser dedupes the 3
+    // <img> sites consuming the same string natively. Fall back to
+    // legacy /api/profile/avatar/[userId] fetch path when SSR resolve
+    // returned null (server-side failure or sqlite-mode); the legacy
+    // path now carries Cache-Control: private, max-age=20 which still
+    // permits browser HTTP cache dedup within the cache window.
+    // SENIOR ARCHITECT NOTE: the SSR-resolved URL is captured at
+    // server render time. After avatar upload/remove, Wave 10
+    // router.refresh() triggers Server Component re-render which
+    // propagates a fresh initialAvatarUrl. Client-side data.profile
+    // .avatarPath flips at the same React commit that the prop
+    // refreshes, so the legacy fallback only kicks in genuinely (not
+    // due to stale prop after upload).
+    if (initialAvatarUrl) return initialAvatarUrl
+    return buildAvatarSrc(data.user.id, data.user.username, data.profile.avatarPath)
+  }, [avatarLoadFailed, initialAvatarUrl, data.profile.avatarPath, data.user.id, data.user.username])
   // A-25 closure (Wave 11): pre-computed social link entries for the
   // read-only display surface. Each entry carries the platform label,
   // the stored value (username or URL), and the rendered href (full
