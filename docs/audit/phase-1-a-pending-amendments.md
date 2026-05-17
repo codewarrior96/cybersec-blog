@@ -273,7 +273,7 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
   - **Pattern A** — sabit 6 alan (fixed schema), all opsiyonel.
   - **Storage convention** — username-only for 5 platforms (display layer constructs canonical full URL via `buildPlatformUrl`); full URL for personal field (no canonical host).
   - **Migration** — eski `website` field silindi. Operator's profile is the only live user; pre-Wave-11 website value (if any) dropped silently. No active migration logic shipped (per operator decision; Phase 6 scope cleanup if real users join).
-- **Resolution (Wave 11 commit `<COMMIT_HASH_TBD>`):** RESOLVED.
+- **Resolution (Wave 11 commit `03f3884`):** RESOLVED.
   - **Type layer** (`src/lib/portfolio-profile.ts`): new `SocialLinks` interface (6 opsiyonel fields); `PortfolioProfileFields.website` removed, replaced with `socialLinks?: SocialLinks`. New helper `normalizeSocialLinksPatch(patch)` — trims + drops empty values; shared across all 3 stores.
   - **Adapter layer:**
     - `src/lib/soc-store-memory.ts` — internal `InternalProfile.website` replaced with `socialLinks: SocialLinks`. All 4 sites (declaration, 2 seed inserts, read mapper, update path) consume the new field.
