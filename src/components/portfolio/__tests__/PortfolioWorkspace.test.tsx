@@ -377,4 +377,82 @@ describe('PortfolioWorkspace — A-24 Router Cache invalidation (Wave 10)', () =
 
     vi.unstubAllGlobals()
   })
+
+  // ─── Wave 14.D (A-29) — UI polish regression guards ─────────────────────
+
+  it('T-BIO-LIMIT — bio textarea has maxLength=500 attribute (Wave 14.D A-29)', async () => {
+    // Wave 14.D regression guard: bio textarea must hard-cap at 500 chars
+    // via the native maxLength attribute. Drift back to unbounded input
+    // (e.g., maxLength removed in a future refactor) re-introduces the
+    // horizontal-overflow + paste-bomb attack surface that A-29 closed.
+    vi.mocked(useRouter).mockReturnValue({ refresh: vi.fn() } as never)
+    vi.mocked(getAuthSession).mockResolvedValue({ authenticated: true, user: SESSION_USER })
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (typeof url === 'string' && url.includes('/api/profile/me')) {
+        return new Response(JSON.stringify({ profile: buildProfile() }), { status: 200 })
+      }
+      return new Response('', { status: 404 })
+    }))
+
+    render(<PortfolioWorkspace initialProfile={buildProfile()} editable={true} />)
+
+    const bioTextarea = await screen.findByPlaceholderText('Biyografi') as HTMLTextAreaElement
+    expect(bioTextarea.maxLength).toBe(500)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('T-BIO-COUNTER — character counter displays current bio length (Wave 14.D A-29)', async () => {
+    // Counter element is keyed by id="bio-counter" + aria-describedby on
+    // the textarea. Format: "{length} / 500". Reactive: updates as user
+    // state changes. Initial state: bio="Initial bio" (11 chars).
+    vi.mocked(useRouter).mockReturnValue({ refresh: vi.fn() } as never)
+    vi.mocked(getAuthSession).mockResolvedValue({ authenticated: true, user: SESSION_USER })
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (typeof url === 'string' && url.includes('/api/profile/me')) {
+        return new Response(JSON.stringify({ profile: buildProfile() }), { status: 200 })
+      }
+      return new Response('', { status: 404 })
+    }))
+
+    render(<PortfolioWorkspace initialProfile={buildProfile()} editable={true} />)
+
+    const counter = await screen.findByText('11 / 500')
+    expect(counter).toBeTruthy()
+    expect(counter.id).toBe('bio-counter')
+
+    vi.unstubAllGlobals()
+  })
+
+  it('T-USERNAME-REMOVED — preview card omits 3rd-line plain username (Wave 14.D A-29)', async () => {
+    // Wave 14.D removed the redundant `<p>{data.user.username}</p>` line
+    // beneath heading + location in the right preview card. Regression
+    // guard: the preview card heading + location render normally, but
+    // username plain-text does NOT appear as a standalone <p>.
+    //
+    // Username MAY still appear in: avatar alt-text (a11y), getInitials
+    // placeholder, social link entries. The guard targets only the
+    // standalone preview-line removal.
+    vi.mocked(useRouter).mockReturnValue({ refresh: vi.fn() } as never)
+    vi.mocked(getAuthSession).mockResolvedValue({ authenticated: true, user: SESSION_USER })
+    vi.stubGlobal('fetch', vi.fn(async (url) => {
+      if (typeof url === 'string' && url.includes('/api/profile/me')) {
+        return new Response(JSON.stringify({ profile: buildProfile() }), { status: 200 })
+      }
+      return new Response('', { status: 404 })
+    }))
+
+    render(<PortfolioWorkspace initialProfile={buildProfile()} editable={true} />)
+
+    // Preview heading still present
+    const heading = await screen.findByRole('heading', { name: 'Initial headline' })
+    expect(heading).toBeTruthy()
+
+    // Username plain-text in a <p> element: should be absent.
+    // (Avatar <img alt> retains username for a11y — that's acceptable.)
+    const usernameParagraphs = screen.queryAllByText('operator', { selector: 'p' })
+    expect(usernameParagraphs.length).toBe(0)
+
+    vi.unstubAllGlobals()
+  })
 })

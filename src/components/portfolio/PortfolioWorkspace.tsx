@@ -44,6 +44,13 @@ const emptyEdu = {
 
 const fieldClass =
   'w-full rounded-2xl border border-white/10 bg-[#050807] px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-emerald-300/50'
+
+// Wave 14.D (A-29): bio textarea overflow protection. 500-char ceiling
+// enforced at UI + validator layer; word-wrap classes prevent horizontal
+// overflow when paste-input has long unbroken strings.
+const BIO_MAX_LENGTH = 500
+const BIO_WARNING_THRESHOLD = 450
+
 const actionButtonBaseClass = 'route-action-btn'
 const primaryButtonClass = `${actionButtonBaseClass} route-action-btn--primary`
 const secondaryButtonClass = `${actionButtonBaseClass} route-action-btn--secondary`
@@ -924,12 +931,22 @@ export default function PortfolioWorkspace({
   return (
     <div className="route-page-frame py-6 md:py-8">
       <section className="route-hero">
-        <div className="border-b px-5 py-6 md:px-8" style={{ borderColor: 'rgb(var(--route-accent-rgb) / 0.12)' }}>
-          <p className="route-kicker">Portfolio Control Surface</p>
-          <div className="mt-4">
-            <h1 className="route-title text-3xl md:text-5xl">Profil merkezi</h1>
-            <p className="route-copy mt-3 max-w-3xl text-sm">Profil, sertifika ve egitimlerini burada tek merkezden yonetebilirsin.</p>
-          </div>
+        <div className="border-b px-5 py-8 md:px-8 md:py-10" style={{ borderColor: 'rgb(var(--route-accent-rgb) / 0.12)' }}>
+          {/* Wave 14.D (Z.17): label promoted from route-kicker to h1.
+              Prior h1 + subtitle were redundant with this label (operator
+              UX). Capstone-grade siberhacker aesthetic: mono font + ALL
+              CAPS + widened tracking + neon green palette
+              (--route-accent-rgb) + glow. */}
+          <h1
+            className="font-mono text-2xl font-bold uppercase leading-tight md:text-4xl"
+            style={{
+              color: 'rgb(var(--route-accent-rgb))',
+              letterSpacing: '0.24em',
+              textShadow: '0 0 18px rgb(var(--route-accent-rgb) / 0.35), 0 0 42px rgb(var(--route-accent-rgb) / 0.18)',
+            }}
+          >
+            Portfolio Control Surface
+          </h1>
         </div>
 
         <div className="border-b px-5 py-4 md:px-8" style={{ borderColor: 'rgb(var(--route-accent-rgb) / 0.12)' }}>
@@ -1042,7 +1059,37 @@ export default function PortfolioWorkspace({
 
                   <input value={profileForm.headline} onChange={(event) => setProfileForm((v) => ({ ...v, headline: event.target.value }))} disabled={!canEdit} className={`${fieldClass} md:col-span-2`} placeholder="Profil basligi" />
                   <input value={profileForm.location} onChange={(event) => setProfileForm((v) => ({ ...v, location: event.target.value }))} disabled={!canEdit} className={`${fieldClass} md:col-span-2`} placeholder="Lokasyon" />
-                  <textarea value={profileForm.bio} onChange={(event) => setProfileForm((v) => ({ ...v, bio: event.target.value }))} disabled={!canEdit} rows={5} className={`${fieldClass} md:col-span-2`} placeholder="Biyografi" />
+                  {/* Wave 14.D (A-29): bio textarea overflow fix.
+                      - maxLength={BIO_MAX_LENGTH} enforces hard ceiling
+                      - whitespace-pre-wrap preserves line breaks
+                      - break-words wraps long unbroken strings (paste-input safe)
+                      - resize-none avoids horizontal user-resize that bypasses container
+                      - Counter below: muted → amber at 450 → rose at 500 */}
+                  <div className="md:col-span-2">
+                    <textarea
+                      value={profileForm.bio}
+                      onChange={(event) => setProfileForm((v) => ({ ...v, bio: event.target.value.slice(0, BIO_MAX_LENGTH) }))}
+                      disabled={!canEdit}
+                      rows={5}
+                      maxLength={BIO_MAX_LENGTH}
+                      className={`${fieldClass} resize-y whitespace-pre-wrap break-words`}
+                      placeholder="Biyografi"
+                      aria-describedby="bio-counter"
+                    />
+                    <p
+                      id="bio-counter"
+                      className={`mt-1 text-right font-mono text-[10px] tracking-[0.12em] ${
+                        profileForm.bio.length >= BIO_MAX_LENGTH
+                          ? 'text-rose-300'
+                          : profileForm.bio.length >= BIO_WARNING_THRESHOLD
+                            ? 'text-amber-300/80'
+                            : 'text-slate-500'
+                      }`}
+                      aria-live="polite"
+                    >
+                      {profileForm.bio.length} / {BIO_MAX_LENGTH}
+                    </p>
+                  </div>
                   {/* A-25 closure (Wave 11): 6 social link inputs (Pattern A — sabit alan).
                       5 platforms store username only (github.com/<username> etc); personal stores full URL. */}
                   <input value={profileForm.socialGithub} onChange={(event) => setProfileForm((v) => ({ ...v, socialGithub: event.target.value }))} disabled={!canEdit} className={fieldClass} placeholder="GitHub kullanıcı adı (örn: codewarrior96)" aria-label="GitHub kullanıcı adı" />
@@ -1098,9 +1145,6 @@ export default function PortfolioWorkspace({
                   <div className="min-w-0">
                     <h2 className="text-2xl font-semibold text-slate-100">{profileForm.headline || 'Profil basligi'}</h2>
                     <p className="mt-2 text-sm text-slate-400">{profileForm.location || 'Lokasyon bilgisi'}</p>
-                    <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.24em] text-emerald-300/55">
-                      {data.user.username}
-                    </p>
                   </div>
                 </div>
                 {/* A-25 closure (Wave 11): social link strip — replaces former single website card.
@@ -1127,7 +1171,7 @@ export default function PortfolioWorkspace({
                     </div>
                   </div>
                 )}
-                <p className="mt-5 text-sm leading-7 text-slate-300/85">{profileForm.bio || 'Biyografi burada gorunur.'}</p>
+                <p className="mt-5 whitespace-pre-wrap break-words text-sm leading-7 text-slate-300/85">{profileForm.bio || 'Biyografi burada gorunur.'}</p>
 
                 <div className="mt-6 grid gap-4 xl:grid-cols-2">
                   <div className="rounded-[22px] border border-emerald-400/14 bg-emerald-400/[0.04] p-4">

@@ -150,4 +150,24 @@ describe('portfolio-validation socialLinks (A-25 / Wave 11)', () => {
     expect(result).toMatch(/LinkedIn/i)
     expect(result).not.toMatch(/TryHackMe/i)
   })
+
+  // ─── Wave 14.D (A-29) — bio overflow ceiling ────────────────────────────
+
+  it('T-VAL-BIO-MAX — bio exceeding 500 chars rejected with explicit error (Wave 14.D A-29)', () => {
+    // Wave 14.D bio overflow closure: server-side mirror of the UI 500-char
+    // ceiling. Direct API callers (curl / Postman / future SDK) cannot
+    // bypass the client-side maxLength attribute. Validator returns an
+    // explicit Turkish error message naming the limit.
+    //
+    // Boundary cases:
+    //   500 chars exactly — valid (≤ ceiling)
+    //   501 chars — invalid
+    const exactly500 = 'x'.repeat(500)
+    expect(validateProfilePayload(makePayload({ bio: exactly500 }))).toBeNull()
+
+    const oversized = 'x'.repeat(501)
+    const result = validateProfilePayload(makePayload({ bio: oversized }))
+    expect(result).toMatch(/Biyografi/i)
+    expect(result).toMatch(/500/)
+  })
 })

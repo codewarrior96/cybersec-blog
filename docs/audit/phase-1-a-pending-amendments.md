@@ -454,6 +454,50 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
   - Avatar SSR (Wave 13.C) still resolves; saving profile still triggers `router.refresh()` (Wave 10) → fresh Server Component render.
   - "Zerooooo" residue: invisible after refresh (silent-ignore on JSON read; UI displays username).
 
+### A-29 — UI polish: bio overflow + preview username removal + header refactor (Wave 14 Faz 14.D)
+
+- **Status:** RESOLVED in Wave 14.D commit `<COMMIT_HASH_TBD>`
+- **Origin:** Wave 14.C post-deploy operator smoke. Three independent UI issues surfaced after the system-wide `display_name` removal:
+  1. Bio textarea accepted unbounded input; long unbroken paste-strings overflowed horizontally → broke right-column preview layout.
+  2. Right preview card showed a redundant 3rd line (`<p>{data.user.username}</p>` below heading + location) — leftover from Wave 14.C's `@username` prefix removal at the same site.
+  3. Page header carried `route-kicker` label ("Portfolio Control Surface") + h1 ("Profil merkezi") + subtitle paragraph — operator UX review: label was the actual descriptive heading, the h1 + subtitle were redundant noise.
+
+**Closure (Wave 14.D commit `<COMMIT_HASH_TBD>`):**
+
+- **Bio overflow:** `src/components/portfolio/PortfolioWorkspace.tsx:1067-1093` — textarea wrapped in `md:col-span-2` container with `maxLength={BIO_MAX_LENGTH}` (500), `whitespace-pre-wrap break-words resize-y` classes (preserves line breaks, wraps long unbroken strings, vertical-only resize). Below it: live character counter `<p id="bio-counter" aria-live="polite">{length} / 500</p>` with tri-state color (muted slate → amber at ≥ 450 → rose at ≥ 500). `onChange` defensively `.slice(0, BIO_MAX_LENGTH)` so even paste-input above the limit is silently clamped. Preview at L1148 also gets `whitespace-pre-wrap break-words`.
+- **Validator mirror:** `src/lib/portfolio-validation.ts:30-34,93-96` — `BIO_MAX_LEN = 500` constant + new check inside `validateProfilePayload`: `if (payload.bio.length > BIO_MAX_LEN) return 'Biyografi en fazla 500 karakter olabilir.'`. Direct API callers (curl / Postman / future SDK) cannot bypass the UI cap.
+- **Preview username line removal:** `src/components/portfolio/PortfolioWorkspace.tsx:1111-1113` (pre-edit) — the standalone `<p className="mt-2 font-mono ... text-emerald-300/55">{data.user.username}</p>` removed entirely. Heading + location color/styling preserved unchanged. Username still appears in avatar `alt` attributes (a11y), `getInitials` placeholders, and social-link entries — all functional, not duplicate display.
+- **Header refactor (Z.17):** `src/components/portfolio/PortfolioWorkspace.tsx:927-942` — pre-edit had three elements (`<p className="route-kicker">Portfolio Control Surface</p>` + `<h1 className="route-title">Profil merkezi</h1>` + subtitle `<p>`). Post-edit: single `<h1>` with mono font + ALL CAPS preserved + widened tracking (`letter-spacing: 0.24em`) + larger size (`text-2xl md:text-4xl`) + neon green palette via `color: rgb(var(--route-accent-rgb))` + glow `textShadow` for capstone-grade aesthetic. Container padding bumped from `py-6` to `py-8 md:py-10` for breathing room.
+
+**Tests (4 new, total 543):**
+
+- **T-BIO-LIMIT** (`src/components/portfolio/__tests__/PortfolioWorkspace.test.tsx`) — asserts `bioTextarea.maxLength === 500`.
+- **T-BIO-COUNTER** (same file) — asserts initial render shows `"11 / 500"` (bio fixture is "Initial bio" = 11 chars); counter element has `id="bio-counter"`.
+- **T-USERNAME-REMOVED** (same file) — asserts no `<p>` element renders the plain username `"operator"`; heading + avatar paths unaffected.
+- **T-VAL-BIO-MAX** (`src/lib/portfolio-validation.test.ts`) — boundary cases: exactly 500 chars valid, 501 chars returns error matching `/Biyografi/i` and `/500/`.
+
+**Test baseline:** 539 → **543** (+4).
+
+**Pattern catalog:** **zero new patterns.** UI refinement only.
+
+**Files touched (6):**
+- `src/components/portfolio/PortfolioWorkspace.tsx` (header + preview + bio textarea + preview wrap)
+- `src/lib/portfolio-validation.ts` (BIO_MAX_LEN + validator)
+- `src/components/portfolio/__tests__/PortfolioWorkspace.test.tsx` (+3 tests)
+- `src/lib/portfolio-validation.test.ts` (+1 test)
+- `docs/audit/phase-1-a-pending-amendments.md` (this A-29 entry)
+- `docs/SCOPE_DECISIONS.md` (Z.17 entry)
+
+**Lineage:** Wave 14.C system-wide `display_name` removal exposed three visual redundancies that the prior heavier layout had masked. Wave 14.D closes them surgically without schema / API / storage churn. **No new defense-in-depth pattern**, just UI polish. Capstone-teslim-ready post Faz 14.E operator smoke.
+
+**Production smoke target (Faz 14.E operator-manual, post-push):**
+  - `/portfolio` page header: single big neon-green ALL CAPS "PORTFOLIO CONTROL SURFACE" heading. No "Profil merkezi". No subtitle paragraph.
+  - Preview card (large): 2 lines visible (heading + location). No 3rd `@username` or plain username line.
+  - Bio textarea: type 500+ chars → input clamps at 500; counter shows `500 / 500` in rose color; no horizontal overflow even with long unbroken paste strings.
+  - Bio counter colors transition: muted → amber at 450 → rose at 500.
+  - Avatar (Wave 13.C SSR resolve) still loads.
+  - Save chain (Wave 10 router.refresh()) still triggers Server Component re-render.
+
 ## Total test count revision
 
 Audit Section 7 mentions ~140 cases. Actual planned count is now 141+ (will grow with further discoveries during Phase 1.D.6-D.20).

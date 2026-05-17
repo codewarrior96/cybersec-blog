@@ -27,6 +27,11 @@ const SOCIAL_USERNAME_RE = /^[a-zA-Z0-9._-]{1,39}$/
 // at 200 chars to bound payload size.
 const PERSONAL_URL_MAX_LEN = 200
 
+// Wave 14.D (A-29): bio overflow protection. UI enforces 500-char ceiling
+// via maxLength attribute; validator mirrors the cap so direct API callers
+// (curl / Postman / future SDK) cannot bypass the client-side limit.
+const BIO_MAX_LEN = 500
+
 function isValidPersonalUrl(value: string): boolean {
   if (value.length > PERSONAL_URL_MAX_LEN) return false
   try {
@@ -90,6 +95,10 @@ export function parseProfilePayload(body: Record<string, unknown>): PortfolioPro
 export function validateProfilePayload(payload: PortfolioProfileFields): string | null {
   if (!payload.headline) return 'Profil basligi zorunlu.'
   if (!payload.bio) return 'Profil ozeti zorunlu.'
+  // Wave 14.D (A-29): server-side mirror of UI 500-char ceiling.
+  if (payload.bio.length > BIO_MAX_LEN) {
+    return `Biyografi en fazla ${BIO_MAX_LEN} karakter olabilir.`
+  }
   // A-25 closure (Wave 11): per-platform social link validation. Skip
   // empty fields (all opsiyonel). 5 platforms validate against
   // SOCIAL_USERNAME_RE (alphanumeric + . _ - up to 39 chars). `personal`
