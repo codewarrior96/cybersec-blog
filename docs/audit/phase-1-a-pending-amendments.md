@@ -326,11 +326,11 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
 
 ### A-26 — Navigation rename: /community → /academy (label + route + redirect)  [RESOLVED in Wave 12]
 
-- **Status:** RESOLVED in Wave 12 commit `<COMMIT_HASH_TBD>`
+- **Status:** RESOLVED in Wave 12 commit `964d1ed`
 - **Symptom:** the "COMMUNITY" navigation label semantically mismatched with actual page content. The page hosts the Lab Engine + Curriculum + Tools + CTF Missions — a training/education surface, NOT a community forum / chat / posts surface. Operator UI review surfaced the naming dissonance during Wave 11.
 - **Discovery:** Wave 11 operator UI review (post-Wave-11 socialLinks deploy).
 - **Operator decision (locked):** full rename — label `[COMMUNITY]` → `[ACADEMY]`, route `/community` → `/academy`, 308 backward-compat redirect (sub-path wildcard included). Tab/sub-feature labels INSIDE the page (`[] Curriculum`, `{} Tools`, `## CTF Missions`) preserved — only the parent label + URL segment changed.
-- **Closure (Wave 12 commit `<COMMIT_HASH_TBD>`):**
+- **Closure (Wave 12 commit `964d1ed`):**
   - Directory rename: `src/app/community/` → `src/app/academy/` via `git mv` (both `layout.tsx` + `page.tsx` detected as renames `R`, history preserved). Page content (2146 LOC `'use client'` component with Lab Engine / Terminal / CTF flag UX) UNCHANGED — only the parent directory path moved.
   - **Wave 4B BUG-006 auth gate PRESERVED at the new path** (`src/app/academy/layout.tsx`). Same `cookies()` + `getServerSessionFromCookies()` + `redirect('/login')` pattern that closed BUG-006 in Wave 4B; R-E2E-02 PARTIAL closure narrative carries forward unchanged. Layout metadata title flipped `'Community'` → `'Academy'`; export name `CommunityLayout` → `AcademyLayout`. Comment block updated to reflect the rename with explicit Wave 12 cross-reference.
   - Navigation label: `src/components/NavigationBar.tsx` L15 — `{ label: 'COMMUNITY', href: '/community' }` → `{ label: 'ACADEMY', href: '/academy' }`. Brackets in the nav rendering (siberhacker visual brand per CLAUDE.md L77-78) preserved by virtue of being applied at the rendering layer, not in the label string.
