@@ -57,22 +57,31 @@ export async function GET(
       // = 3 separate Supabase signed-URL mints per page load. Path B
       // (SSR-resolve in /portfolio/page.tsx) + Path A (Cache-Control
       // on this 307) defense-in-depth combo handles it. The 30s TTL
-      // preserves the short-lived-URL security envelope (Wave 5B
-      // pattern intact) while doubling the cache-window arithmetic
-      // (max-age=20 below stays well under TTL).
-      const signedUrl = await createSignedObjectUrl(avatarMeta.assetPath, 30)
+      // preserved the short-lived-URL security envelope while doubling
+      // the cache-window arithmetic.
+      //
+      // A-30 / Z.18 (Wave 15.B) — TTL revised 30s → 90s, max-age 20 → 60.
+      // Wave 15.A health check confirmed the SSR path's prop-aging
+      // regression: a 30s TTL is too tight for soft-nav-return scenarios
+      // (/portfolio → /academy → /portfolio) and BFCache tab-park. The
+      // legacy fallback path (this route) is aligned to the same Z.18
+      // envelope so SSR + legacy behavior stays symmetric. max-age=60
+      // remains well under the new 90s TTL (60 < 90, no expiry race).
+      const signedUrl = await createSignedObjectUrl(avatarMeta.assetPath, 90)
       if (!signedUrl) {
         return NextResponse.json({ error: 'Profil fotografisi bulunamadi.' }, { status: 404 })
       }
-      // A-27 closure (Wave 13 Faz 13.C): Cache-Control on the 307
-      // redirect lets the browser HTTP cache dedupe N <img> render
-      // sites that share this source URL within the 20s window.
-      // `private` keeps shared/CDN caches out (each user has a
-      // different cookie-derived session → different signed URL chain).
-      // `Vary: Cookie` is signal-explicit for any intermediary cache
-      // that might consider keying off path alone.
+      // A-27 closure (Wave 13 Faz 13.C) + A-30 alignment (Wave 15.B):
+      // Cache-Control on the 307 redirect lets the browser HTTP cache
+      // dedupe N <img> render sites that share this source URL within
+      // the cache window. `private` keeps shared/CDN caches out (each
+      // user has a different cookie-derived session → different signed
+      // URL chain). `Vary: Cookie` is signal-explicit for any
+      // intermediary cache that might consider keying off path alone.
+      // max-age=60 (was 20) tracks the Z.18 TTL widening so the cache
+      // window scales with the new 90s expiry envelope.
       const response = NextResponse.redirect(signedUrl)
-      response.headers.set('Cache-Control', 'private, max-age=20')
+      response.headers.set('Cache-Control', 'private, max-age=60')
       response.headers.set('Vary', 'Cookie')
       return response
     }

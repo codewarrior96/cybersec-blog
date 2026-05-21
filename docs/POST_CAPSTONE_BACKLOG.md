@@ -137,12 +137,13 @@ Faz 13.C (Wave 13 commit `ed086c2`) ile birlikte ilk versiyon shipped. Sınav so
 - **Effort:** ~1 dakika operator verification. Fix path (if needed) covered in Wave 14.A Section 5 Phase A/B (~5-15 min).
 - **Priority:** **Low** (likely browser-feature interference per Wave 14.A HIGH-confidence hypothesis).
 
-### 15. Bug 3 — Avatar 400 TTL aging fix
+### 15. Bug 3 — Avatar 400 TTL aging fix  [RESOLVED in Wave 15.B]
 
 - **Origin:** Wave 14.A investigation (commit `d98f76b`). HIGH-confidence root: Wave 13.C SSR-resolved `initialAvatarUrl` prop ages past 30s Supabase signed-URL TTL in BFCache (back-forward cache) / tab-parking / slow-hydration scenarios. Real regression introduced by Wave 13.C trading client-fetch volume for prop-aging surface.
-- **Resolution path:** Phase A (fastest, 1 LOC) — extend TTL from 30s to 90s in `src/app/portfolio/page.tsx:95`. Security envelope still tight (Wave 5B R-API-10 pattern intact). Phase B (robust, ~15 LOC) — add `<img onError>` fallback chain (SSR URL → legacy `/api/profile/avatar/[userId]` mint-fresh path). Phase C (most robust, ~40-60 LOC) — drop static prop, client-side fetch a new `/api/profile/avatar/url` endpoint on mount.
+- **Resolution path:** Phase A (fastest, 1 LOC) — extend TTL from 30s to 90s in `src/app/portfolio/page.tsx:94`. Security envelope still tight (Wave 5B R-API-10 pattern intact). Phase B (robust, ~15 LOC) — add `<img onError>` fallback chain (SSR URL → legacy `/api/profile/avatar/[userId]` mint-fresh path). Phase C (most robust, ~40-60 LOC) — drop static prop, client-side fetch a new `/api/profile/avatar/url` endpoint on mount.
 - **Effort:** Phase A = 5 dakika. Phase B = 30-45 dakika. Phase C = 2-3 saat.
 - **Priority:** **Medium** — real Wave 13.C regression with UX impact (tab-parked users see broken avatar). Address before exam if time permits.
+- **Resolution (Wave 15.B commit `<COMMIT_HASH_TBD>`):** **Phase A shipped.** Wave 15.A health check reactivated as HIGH-priority AI-auditor-readiness blocker after operator screenshot confirmed the `/portfolio → /academy → /portfolio = "S" placeholder` symptom in production. TTL `30s → 90s` at both SSR path (`src/app/portfolio/page.tsx:104`) and legacy fallback (`src/app/api/profile/avatar/[userId]/route.ts:63`); Cache-Control `max-age=20 → 60` alignment on legacy 307 response. Tests `T-AV-TTL30 → T-AV-TTL90` rename + assertion update; `T-AV-CACHE` updated to `max-age=60`. Z.18 entry + A-30 amendment shipped in same commit pair (15.B fix + 15.B.1 cleanup). Phase B + Phase C deferred — Phase A's 3× buffer adequately covers operator reproduce path + typical BFCache tab-park (~30-60s) scenarios. Detailed scope in `docs/audit/phase-1-a-pending-amendments.md` A-30 entry.
 
 ---
 

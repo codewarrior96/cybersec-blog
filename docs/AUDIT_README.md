@@ -10,7 +10,7 @@
 
 > Capstone-grade cybersecurity portfolio + SOC learning platform. Built on Next.js 14, demonstrating audit-driven engineering discipline across security, accessibility, API contracts, and end-to-end testing.
 
-[![tests](https://img.shields.io/badge/vitest-530%20passing-brightgreen)]()
+[![tests](https://img.shields.io/badge/vitest-543%20passing-brightgreen)]()
 [![e2e](https://img.shields.io/badge/playwright-9%20active%20%2B%209%20skip-blue)]()
 [![phases](https://img.shields.io/badge/audit%20phases-5-blueviolet)]()
 [![closure](https://img.shields.io/badge/inventory%20closed-50%2F60%20(83%25)-success)]()
@@ -24,7 +24,7 @@
 ```bash
 npm install
 npm run dev         # http://localhost:3000
-npm run test        # 530 vitest tests (~5s)
+npm run test        # 543 vitest tests (~5s)
 npm run e2e         # Playwright against production
 npm run build       # next build (env-free per A-17)
 ```
@@ -113,7 +113,7 @@ Eighteen engineering patterns named, applied, or extended during the closure cyc
 
 ## Test architecture
 
-### Vitest (530 tests, 62 files)
+### Vitest (543 tests, 64 files)
 
 - **Mixed environment**: default `node` (Phase 1-3 + most lib tests, ~386 tests, fast); per-file `// @vitest-environment jsdom` opt-in for Phase 4+ component tests (axe-core + RTL + jest-dom + vitest-axe matchers).
 - **MSW**: `setupServer({ onUnhandledRequest: 'error' })` — every unmocked network call fails the test. Resend handlers in `src/test/msw/handlers/resend.ts`.
@@ -148,7 +148,7 @@ Eighteen engineering patterns named, applied, or extended during the closure cyc
 | `/home` | Sentinel Dashboard (3D globe, telemetry, alert cards) | ✓ |
 | `/blog` · `/blog/[slug]` | MDX cybersecurity tutorials (Turkish, 8 posts) | ✗ |
 | `/zafiyet-taramasi` | Sentinel reports · CVE Radar · historical breach DB | mixed |
-| `/community` | Breach Lab (curriculum, xterm.js, CTF) | ✓ |
+| `/academy` (was `/community` pre-Wave-12; 308 redirect preserved) | Breach Lab (curriculum, xterm.js, CTF) | ✓ |
 | `/portfolio` | Profile + certifications + education | ✓ |
 | `/roadmap` | Feature roadmap | ✗ |
 
@@ -178,7 +178,7 @@ Phase 1 identity migration is implemented behind the `SOC_IDENTITY_STORE=postgre
 
 ## Wave closure cadence
 
-Audit-driven closure executed across 9 waves over 2 days. Each wave is a "fix commit + .1 cleanup commit" pair (the cleanup commit resolves `<COMMIT_HASH_TBD>` placeholders that the fix commit introduces in audit docs).
+Audit-driven closure originally executed across 9 capstone waves over 2 days. Each wave is a "fix commit + .1 cleanup commit" pair (the cleanup commit resolves `<COMMIT_HASH_TBD>` placeholders that the fix commit introduces in audit docs). Wave 8+ are post-capstone-discipline cycles (operator-prioritized fixes + AI-auditor-readiness preparation): Wave 8/9 documentation hygiene, Wave 10/11/12 portfolio + routing refactors, Wave 13 avatar performance optimization, Wave 14 identity-model simplification + UI polish, Wave 15 health check + TTL closure.
 
 | Wave | Scope | Closures | Type |
 |---|---|---|---|
@@ -192,8 +192,21 @@ Audit-driven closure executed across 9 waves over 2 days. Each wave is a "fix co
 | 5B | R-API medium fixes (R-API-07/08/09/10/11/12) | 6 | Code + tests |
 | 5C | R-API-14 schema + R-LAB-08 DOC-ACCEPT + A-12 code | 3 | Code + doc |
 | 6 | T-CAP-A11 a11y + npm audit dev-tree | 2 | Code + dep |
-| 7 | Capstone documentation (this commit) | 0 (doc) | Documentation |
-| **TOTAL** | | **50 RESOLVED + 3 PARTIAL** | |
+| 7 | Capstone documentation (README + INDEX + PATTERN_CATALOG + SCOPE_DECISIONS) | 0 (doc) | Documentation |
+| 8 | F1 ESLint baseline (0E/0W) + F7 hostname inconsistency (siberlab.dev canonical) | 2 (A-22 + A-23) | Code + doc |
+| 9 | README hybrid restructure (root Türkçe + docs/AUDIT_README.md English) | 0 (doc) | Doc-only |
+| 10 | `router.refresh()` Router Cache invalidation on save handlers (A-24) | 1 | Code |
+| 11 | socialLinks 6-platform refactor; `website` field removed (A-25) | 1 | Code + tests |
+| 12 | `/community` → `/academy` rename + 308 redirect (A-26) | 1 | Code + doc |
+| 13.A | Avatar performance audit (READ-ONLY) | 0 (audit) | Doc-only |
+| 13.C | Avatar SSR-resolve + Cache-Control + TTL 15s→30s (Z.15, A-27) | 1 | Code + tests |
+| 14.A | Portfolio bug investigation 5 bugs (READ-ONLY) | 0 (audit) | Doc-only |
+| 14.C | `display_name` system-wide removal 44 files (Z.16, A-28) | 1 | Code + tests |
+| 14.D | UI polish: bio overflow + preview cleanup + header refactor (Z.17, A-29) | 1 | Code + tests |
+| 14.E | Layout regression repair: grid `min-width:0` + `overflow-wrap:anywhere` + h1 reinforcement | 1 | Code |
+| 15.A | Comprehensive health check (READ-ONLY) — 2 AI-auditor-readiness blockers identified | 0 (audit) | Doc-only |
+| 15.B | Avatar TTL 30s→90s (Z.18, A-30) + AUDIT_README doc drift cleanup — AI-auditor-readiness blockers closed | 2 | Code + doc |
+| **TOTAL** | | **53 RESOLVED + 3 PARTIAL + ongoing** | |
 
 ---
 

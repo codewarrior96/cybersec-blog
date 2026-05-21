@@ -500,6 +500,48 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
 
 **Wave 14.E layout repair (post-Wave-14.D operator smoke):** Operator-reported 4 production layout symptoms surfaced after Wave 14.D deploy: (1) sol kolon (edit form) squeezed to ~250px, social-link placeholders clipped to "codew"/"Linked"; (2) sağ kolon (preview) bio long-unbroken string overflowing viewport; (3) avatar buttons appearing to overlap the photo (consequence of #1's column squeeze); (4) operator reported h1 not visible (likely viewport scroll position misperception — h1 IS in source per `git show 18674c5`). Root cause: **CSS Grid default `min-width: auto` on grid items honors min-content of long unbroken strings, causing the bio paragraph's intrinsic min-width to expand the right column and steal width from the left column.** `break-words` (overflow-wrap: break-word) does NOT affect min-content calculation — that's why Wave 14.D's word-wrap classes alone were insufficient. Closure (Wave 14.E commit `a053e5d`): added `min-w-0` to both grid children at `PortfolioWorkspace.tsx:1011, 1135` (canonical CSS Grid fix); upgraded bio preview from `break-words` to `[overflow-wrap:anywhere]` at L1175 (Tailwind arbitrary value, no new dep — `overflow-wrap: anywhere` DOES affect min-content, providing belt-and-suspenders with `min-w-0`); added explicit `block w-full` to h1 + accent underline below for redundant visual hierarchy. No new tests (layout regressions are visual; existing 543 baseline preserved). Files touched: 1 (PortfolioWorkspace.tsx). LOC delta: +38 / -9.
 
+### A-30 — Avatar signed-URL TTL extension 30s → 90s (Wave 15.B AI auditor readiness)
+
+- **Status:** RESOLVED in Wave 15.B commit `<COMMIT_HASH_TBD>`
+- **Origin:** Wave 15.A health check (commit `912cadb`, READ-ONLY) reactivated POST_CAPSTONE_BACKLOG #15 as the highest-priority AI-auditor-readiness blocker. Operator-confirmed reproduce path: login → `/portfolio` (avatar visible) → soft-nav to `/academy` (zafiyet taraması) → back to `/portfolio` → avatar renders as "S" placeholder initials. Screenshot evidence elevated Wave 14.A HIGH-confidence hypothesis (SSR-prop aging past 30s Supabase signed-URL TTL) from MEDIUM (Wave 14.A confidence) to HIGH (production-confirmed regression).
+
+**Root cause (Wave 15.A Section A.1 verbatim):** Wave 13.C traded client-fetch volume (3 avatar fetches → 1) for prop-aging surface. `initialAvatarUrl` is captured at server-render time T₀; browser fetch happens at T₀ + Δt_total. When Δt_total exceeds the 30s TTL (soft-nav return after 30s+ on `/academy`, tab parking, BFCache restore), Supabase returns 400 → `<img onError>` fires → `avatarLoadFailed` flips → initials placeholder. The Wave 13.C 30s TTL was tuned for SSR + dedup cache-window arithmetic; it was NOT tuned for Next.js Router Cache lifetime on cross-route soft-nav.
+
+**Closure (Wave 15.B commit `<COMMIT_HASH_TBD>`):**
+
+- **SSR path (`src/app/portfolio/page.tsx:104`):** `createSignedObjectUrl(profile.profile.avatarPath, 30)` → `createSignedObjectUrl(profile.profile.avatarPath, 90)`. Inline comment block updated to document the full TTL trajectory: 15s (Wave 5B R-API-10) → 30s (Wave 13.C Z.15) → 90s (Wave 15.B Z.18 / A-30).
+- **Legacy fallback path (`src/app/api/profile/avatar/[userId]/route.ts:63`):** `createSignedObjectUrl(avatarMeta.assetPath, 30)` → `createSignedObjectUrl(avatarMeta.assetPath, 90)`. Cache-Control header `max-age=20` → `max-age=60` for envelope alignment (60s remains well under the new 90s TTL — no expiry race; the previous 20s window was sized for 30s TTL with `2 < 30/2` arithmetic, the new 60s tracks the same ratio against 90s).
+- **Inline comments at both sites updated with A-30 / Z.18 lineage cross-references.**
+
+**Tests (1 net delta, 543 → 544 preserved baseline approach):**
+
+- **T-AV-TTL30 renamed → T-AV-TTL90** (`src/app/api/profile/avatar/__tests__/avatar.test.ts`) — assertion `createSignedObjectUrl(..., 30)` → `createSignedObjectUrl(..., 90)`. Inline narrative documents the full TTL trajectory + Wave 15.A discovery context + drift-detection envelope (drift back to 15s OR 30s OR up to 60s fails this test).
+- **T-AV-CACHE updated** (same file) — assertion `Cache-Control: private, max-age=20` → `Cache-Control: private, max-age=60`. Inline narrative documents the A-27 + A-30 alignment lineage.
+- **T-AV-VARY unchanged** — `Vary: Cookie` header semantics unaffected by TTL revision.
+
+**Test baseline:** 543 → **543** (rename, not net addition; T-AV-TTL30 → T-AV-TTL90 same count).
+
+**Pattern catalog:** **zero new patterns.** TTL parameter revision under the existing R-API-10 short-lived-URL pattern. Wave 5B → Wave 13.C → Wave 15.B is a single Z-decision lineage (Z.15 → Z.18) on a fixed pattern, not a new pattern instance.
+
+**Files touched (5):**
+- `src/app/portfolio/page.tsx` (1 LOC value change + comment block update)
+- `src/app/api/profile/avatar/[userId]/route.ts` (1 LOC TTL + 1 LOC max-age + comment block updates)
+- `src/app/api/profile/avatar/__tests__/avatar.test.ts` (T-AV-TTL rename + assertion + narrative updates × 3 tests)
+- `docs/audit/phase-1-a-pending-amendments.md` (this A-30 entry)
+- `docs/SCOPE_DECISIONS.md` (Z.18 entry)
+- `docs/POST_CAPSTONE_BACKLOG.md` (item #15 status: DEFERRED → RESOLVED)
+- `docs/AUDIT_README.md` (test count drift + Wave 8-14 closure table append — bundled with Wave 15.B for AI-auditor-readiness closure)
+
+**Lineage:** Wave 13.C SSR-resolve optimization (A-27) traded fetch volume for prop-aging surface. Wave 14.A surfaced the prop-aging risk during portfolio bug investigation but deferred fix to POST_CAPSTONE_BACKLOG #15 (capstone scope locked at display_name removal that cycle). Wave 15.A reproduced the symptom in production, reactivated as HIGH priority. Wave 15.B closes both AI-auditor-readiness blockers (this A-30 + AUDIT_README cleanup) in a single commit pair.
+
+**Security envelope:** TTL trajectory 15s → 30s → 90s remains within the "short-lived URL" class per R-API-10 closure pattern. 90s leak window vs 30s leak window: pragmatic widening — a leaked URL has 3× the operational lifetime, but the asset is portfolio-class (public-visible avatar, not credential / private document). Defense-in-depth via `Cache-Control: private` (no CDN cache) + `Vary: Cookie` (intermediary cache key explicit) intact.
+
+**Production smoke target (Wave 15.B operator-manual, post-push):**
+- `/portfolio` fresh load → avatar visible.
+- `/portfolio` → `/academy` → `/portfolio` cycle (any duration up to ~90s) → avatar **PERSISTS** (no "S" placeholder).
+- `/portfolio` → tab park 1 minute → return → avatar **PERSISTS**.
+- `/portfolio` → tab park 1.5 minutes → return → may regress (90s window exceeded); acceptable per envelope.
+
 ## Total test count revision
 
 Audit Section 7 mentions ~140 cases. Actual planned count is now 141+ (will grow with further discoveries during Phase 1.D.6-D.20).

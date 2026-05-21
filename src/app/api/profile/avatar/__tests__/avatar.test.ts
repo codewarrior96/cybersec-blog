@@ -87,48 +87,52 @@ beforeEach(() => {
   vi.mocked(requireSession).mockResolvedValue({ session: OWNER_SESSION as never, response: null })
 })
 
-describe('api/profile/avatar — R-API-10 + R-API-11 + A-27 closures', () => {
-  // ─── T-AV-TTL30: A-27 / Z.15 (Wave 13 Faz 13.C) — TTL revised 15s → 30s ────
+describe('api/profile/avatar — R-API-10 + R-API-11 + A-27 + A-30 closures', () => {
+  // ─── T-AV-TTL90: A-30 / Z.18 (Wave 15.B) — TTL revised 30s → 90s ───────────
 
-  it('T-AV-TTL30 — GET [userId] passes 30s expiry to createSignedObjectUrl (A-27 / Z.15; was 15s per Wave 5B R-API-10)', async () => {
+  it('T-AV-TTL90 — GET [userId] passes 90s expiry to createSignedObjectUrl (A-30 / Z.18; was 30s per Wave 13.C Z.15, 15s per Wave 5B R-API-10)', async () => {
     vi.mocked(isSupabaseAppStateEnabled).mockReturnValue(true)
     vi.mocked(getPortfolioAvatarForUser).mockResolvedValueOnce({
       assetPath: 'avatars/user-1/avatar.png',
       assetName: 'avatar.png',
       assetMimeType: 'image/png',
     })
-    vi.mocked(createSignedObjectUrl).mockResolvedValueOnce('https://signed.test/avatar?ttl=30')
+    vi.mocked(createSignedObjectUrl).mockResolvedValueOnce('https://signed.test/avatar?ttl=90')
 
     const res = await GET_BY_USER(makeGetRequest(), { params: { userId: '1' } })
 
-    // Assert the TTL value passed to the Supabase helper. Wave 5B R-API-10
-    // initially set 15s; Wave 13 Faz 13.B mentor decision (Z.15) revised
-    // to 30s to widen the cache window for the Cache-Control + browser
-    // dedup combo (still well within "short-lived URL" security envelope).
-    // Drift back to 15s OR 60s would fail this test.
-    expect(createSignedObjectUrl).toHaveBeenCalledWith('avatars/user-1/avatar.png', 30)
+    // Assert the TTL value passed to the Supabase helper. TTL trajectory:
+    //   15s (Wave 5B R-API-10) → 30s (Wave 13.C Z.15) → 90s (Wave 15.B Z.18).
+    // Wave 15.A health check (commit 912cadb) confirmed the 30s TTL was
+    // too tight for SSR-prop + Next.js Router Cache soft-nav scenarios
+    // (/portfolio → /academy → /portfolio = "S" placeholder). 90s = 3×
+    // buffer; security envelope preserved (short-lived-URL class intact).
+    // Drift back to 15s OR 30s OR up to 60s would fail this test.
+    expect(createSignedObjectUrl).toHaveBeenCalledWith('avatars/user-1/avatar.png', 90)
     // Sanity: the route redirected (307) to the signed URL
     expect(res.status).toBe(307)
   })
 
-  // ─── T-AV-CACHE: A-27 closure — 307 response carries Cache-Control header ──
+  // ─── T-AV-CACHE: A-27 + A-30 — 307 response carries Cache-Control header ───
 
-  it('T-AV-CACHE — GET [userId] 307 response includes Cache-Control: private, max-age=20 (A-27 Wave 13 Faz 13.C)', async () => {
+  it('T-AV-CACHE — GET [userId] 307 response includes Cache-Control: private, max-age=60 (A-27 Wave 13.C + A-30 Wave 15.B alignment)', async () => {
     vi.mocked(isSupabaseAppStateEnabled).mockReturnValue(true)
     vi.mocked(getPortfolioAvatarForUser).mockResolvedValueOnce({
       assetPath: 'avatars/user-1/avatar.png',
       assetName: 'avatar.png',
       assetMimeType: 'image/png',
     })
-    vi.mocked(createSignedObjectUrl).mockResolvedValueOnce('https://signed.test/avatar?ttl=30')
+    vi.mocked(createSignedObjectUrl).mockResolvedValueOnce('https://signed.test/avatar?ttl=90')
 
     const res = await GET_BY_USER(makeGetRequest(), { params: { userId: '1' } })
 
     // A-27 closure: Cache-Control on the 307 redirect lets the browser
-    // HTTP cache dedupe N <img> render sites that share this source URL
-    // within the 20s window. `private` keeps shared/CDN caches out.
-    // Wave 13 Faz 13.A audit F-AV-02 root finding.
-    expect(res.headers.get('Cache-Control')).toBe('private, max-age=20')
+    // HTTP cache dedupe N <img> render sites that share this source URL.
+    // A-30 alignment: max-age widened 20s → 60s to track the Z.18 TTL
+    // 30s → 90s expansion (max-age remains well under TTL: 60 < 90).
+    // `private` keeps shared/CDN caches out. Wave 13.A F-AV-02 + Wave
+    // 15.A blocker 1 closure lineage.
+    expect(res.headers.get('Cache-Control')).toBe('private, max-age=60')
   })
 
   // ─── T-AV-VARY: A-27 closure — Vary: Cookie header signals key by session ──
@@ -140,7 +144,7 @@ describe('api/profile/avatar — R-API-10 + R-API-11 + A-27 closures', () => {
       assetName: 'avatar.png',
       assetMimeType: 'image/png',
     })
-    vi.mocked(createSignedObjectUrl).mockResolvedValueOnce('https://signed.test/avatar?ttl=30')
+    vi.mocked(createSignedObjectUrl).mockResolvedValueOnce('https://signed.test/avatar?ttl=90')
 
     const res = await GET_BY_USER(makeGetRequest(), { params: { userId: '1' } })
 

@@ -84,14 +84,24 @@ export default async function PortfolioPage({
   // the triple-fetch storm documented in WAVE_13_AVATAR_PERF_AUDIT.md.
   // Legacy /api/profile/avatar/[userId] fetch path preserved as fallback
   // (graceful degradation when SSR resolve fails or in sqlite-mode).
-  // TTL = 30s per Z.15 (revised from 15s in Wave 5B R-API-10; security
-  // envelope preserved + 2× cache window for the Cache-Control + browser
-  // dedup combo to compound). Wave 10 router.refresh() on save handlers
-  // triggers Server Component re-render → fresh signed URL flows down.
+  //
+  // TTL trajectory:
+  //   - 15s (Wave 5B R-API-10) — initial tightening.
+  //   - 30s (Wave 13.C Z.15) — widen for Cache-Control + browser dedup.
+  //   - 90s (Wave 15.B Z.18 / A-30) — absorb Next.js Router Cache lifetime
+  //     for cross-route soft-nav (/portfolio → /academy → /portfolio) and
+  //     BFCache tab-park scenarios. Wave 15.A health check confirmed real
+  //     regression: SSR-prop minted at T₀ ages past 30s TTL by the time
+  //     the cached segment re-renders → Supabase 400 → onError fires →
+  //     "S" placeholder. 90s = 3× buffer; security envelope preserved
+  //     (still "short-lived URL" class per R-API-10 lineage).
+  //
+  // Wave 10 router.refresh() on save handlers triggers Server Component
+  // re-render → fresh signed URL flows down.
   let initialAvatarUrl: string | null = null
   if (isSupabaseAppStateEnabled() && profile.profile.avatarPath) {
     try {
-      initialAvatarUrl = await createSignedObjectUrl(profile.profile.avatarPath, 30)
+      initialAvatarUrl = await createSignedObjectUrl(profile.profile.avatarPath, 90)
     } catch (err) {
       // SENIOR ARCHITECT NOTE: signed URL failures must not break the
       // page render. The client-side PortfolioWorkspace falls back to
