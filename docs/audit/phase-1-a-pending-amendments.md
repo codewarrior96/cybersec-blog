@@ -502,12 +502,12 @@ Numbering gap. A-16 number reserved during audit drafting but never assigned to 
 
 ### A-30 — Avatar signed-URL TTL extension 30s → 90s (Wave 15.B AI auditor readiness)
 
-- **Status:** RESOLVED in Wave 15.B commit `<COMMIT_HASH_TBD>`
+- **Status:** RESOLVED in Wave 15.B commit `14b61d6`
 - **Origin:** Wave 15.A health check (commit `912cadb`, READ-ONLY) reactivated POST_CAPSTONE_BACKLOG #15 as the highest-priority AI-auditor-readiness blocker. Operator-confirmed reproduce path: login → `/portfolio` (avatar visible) → soft-nav to `/academy` (zafiyet taraması) → back to `/portfolio` → avatar renders as "S" placeholder initials. Screenshot evidence elevated Wave 14.A HIGH-confidence hypothesis (SSR-prop aging past 30s Supabase signed-URL TTL) from MEDIUM (Wave 14.A confidence) to HIGH (production-confirmed regression).
 
 **Root cause (Wave 15.A Section A.1 verbatim):** Wave 13.C traded client-fetch volume (3 avatar fetches → 1) for prop-aging surface. `initialAvatarUrl` is captured at server-render time T₀; browser fetch happens at T₀ + Δt_total. When Δt_total exceeds the 30s TTL (soft-nav return after 30s+ on `/academy`, tab parking, BFCache restore), Supabase returns 400 → `<img onError>` fires → `avatarLoadFailed` flips → initials placeholder. The Wave 13.C 30s TTL was tuned for SSR + dedup cache-window arithmetic; it was NOT tuned for Next.js Router Cache lifetime on cross-route soft-nav.
 
-**Closure (Wave 15.B commit `<COMMIT_HASH_TBD>`):**
+**Closure (Wave 15.B commit `14b61d6`):**
 
 - **SSR path (`src/app/portfolio/page.tsx:104`):** `createSignedObjectUrl(profile.profile.avatarPath, 30)` → `createSignedObjectUrl(profile.profile.avatarPath, 90)`. Inline comment block updated to document the full TTL trajectory: 15s (Wave 5B R-API-10) → 30s (Wave 13.C Z.15) → 90s (Wave 15.B Z.18 / A-30).
 - **Legacy fallback path (`src/app/api/profile/avatar/[userId]/route.ts:63`):** `createSignedObjectUrl(avatarMeta.assetPath, 30)` → `createSignedObjectUrl(avatarMeta.assetPath, 90)`. Cache-Control header `max-age=20` → `max-age=60` for envelope alignment (60s remains well under the new 90s TTL — no expiry race; the previous 20s window was sized for 30s TTL with `2 < 30/2` arithmetic, the new 60s tracks the same ratio against 90s).
